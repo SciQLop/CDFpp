@@ -32,15 +32,43 @@ namespace cdf::io
 {
 namespace
 {
+enum class cdf_record_type:int32_t
+{
+    CDR = 1,
+    GDR = 2,
+    rVDR = 3,
+    ADR = 4,
+    AgrEDR = 5,
+    VXR = 6,
+    VVR = 7,
+    zVDR = 8,
+    AzEDR = 9,
+    CCR = 10,
+    CPR = 11,
+    SPR = 12,
+    CVVR = 13,
+    UIR = -1,
+};
 
-    bool is_cdf(std::pair<uint32_t, uint32_t>& magic_numbers)
+struct cdf_parsing_t
+{
+    bool is_compressed;
+    struct {
+        uint8_t major;
+        uint8_t minor;
+    }version;
+    std::array<char,256> copyright;
+};
+    using magic_numbers_t = std::pair<uint32_t, uint32_t>;
+
+    bool is_cdf(const magic_numbers_t& magic_numbers) noexcept
     {
         return (magic_numbers.first & 0xfff00000) == 0xCDF00000
             && (magic_numbers.second == 0xCCCC0001 || magic_numbers.second == 0x0000FFFF);
     }
 
     template <typename streamT>
-    std::pair<uint32_t, uint32_t> get_magic(streamT& stream)
+    magic_numbers_t get_magic(streamT& stream)
     {
         stream.seekg(std::ios::beg);
         char buffer[8];
@@ -60,6 +88,22 @@ namespace
         return length;
     }
 
+    bool is_compressed(const magic_numbers_t& magic_numbers) noexcept
+    {
+        return magic_numbers.second == 0xCCCC0001;
+    }
+
+    template <typename streamT>
+    bool parse_CCR(streamT& stream, cdf_parsing_t& context)
+    {
+        char buffer[312];
+        stream.seekg(8);
+        stream.read(buffer,312);
+        if(endianness::read<cdf_record_type>(buffer+8)==cdf_record_type::CDR)
+        {
+            std::copy(buffer+56,buffer+312, std::begin(context.copyright));
+        }
+    }
 }
 std::optional<CDF> load(const std::string& path)
 {
