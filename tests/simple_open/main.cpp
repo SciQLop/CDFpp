@@ -1,10 +1,14 @@
 #define CATCH_CONFIG_MAIN
-#include <iostream>
-#include <cdf.hpp>
 #include <catch.hpp>
+#include <cdf-io.hpp>
+#include <cdf.hpp>
+#include <iostream>
 
 
-TEST_CASE("Full size bitfield", "[bitfield]")
+SCENARIO("Loading a cdf file", "[CDF]")
 {
-    REQUIRE(true);
+    GIVEN("a cdf file")
+    {
+        WHEN("file doesn't exists") { REQUIRE(cdf::io::load("wrongfile.cdf") == std::nullopt); }
+    }
 }

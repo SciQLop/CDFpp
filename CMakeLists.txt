@@ -32,6 +32,14 @@ IF(IWYU)
     set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE "include-what-you-use")
 ENDIF(IWYU)
 
+include (TestBigEndian)
+TEST_BIG_ENDIAN(IS_BIG_ENDIAN)
+if(IS_BIG_ENDIAN)
+ add_compile_definitions(CDFpp_BIG_ENDIAN)
+else()
+ add_compile_definitions(CDFpp_LITTLE_ENDIAN)
+endif()
+
 enable_testing()
 
 #add_subdirectory(sw)
@@ -51,6 +59,12 @@ enable_testing()
 add_executable(simple_open tests/simple_open/main.cpp)
 target_include_directories(simple_open PRIVATE include)
 target_include_directories(simple_open PRIVATE catch2)
+add_test(test-simple_open simple_open)
+
+add_executable(endianness tests/endianness/main.cpp)
+target_include_directories(endianness PRIVATE include)
+target_include_directories(endianness PRIVATE catch2)
+add_test(test-endianness endianness)
 #add_library(MyLib ${SOURCES})
 
 

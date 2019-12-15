@@ -1,3 +1,4 @@
+#pragma once
 /*------------------------------------------------------------------------------
 -- This file is a part of the CDFpp library
 -- Copyright (C) 2019, Plasma Physics Laboratory - CNRS
@@ -20,21 +21,9 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "attribute.hpp"
+#include "cdf-file.hpp"
 #include "cdf-io.hpp"
 #include "variable.hpp"
 #include <optional>
-#include <string>
-#include <unordered_map>
 
-namespace cdf {
-struct CDF {
-  std::unordered_map<std::string, Variable> variables;
-  std::unordered_map<std::string, Attribute> attrinutes;
-  const Variable &operator[](const std::string &name) const {
-    return variables.at(name);
-  }
-};
-
-std::optional<CDF> open(const std::string &path) { return std::nullopt; }
-
-} // namespace cdf
+namespace cdf {} // namespace cdf

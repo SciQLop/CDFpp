@@ -1,3 +1,4 @@
+#pragma once
 /*------------------------------------------------------------------------------
 -- This file is a part of the CDFpp library
 -- Copyright (C) 2019, Plasma Physics Laboratory - CNRS
@@ -19,3 +20,39 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "cdf-endianness.hpp"
+#include "cdf-file.hpp"
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <optional>
+
+namespace cdf::io
+{
+namespace
+{
+    template <typename streamT>
+    bool is_cdf(streamT& stream)
+    {
+        stream.seekg(0, std::ios::beg);
+        char buffer[8];
+        stream.read(buffer, 8);
+        uint32_t magic1 = cdf::endianness::read<uint32_t>(buffer);
+        uint32_t magic2 = cdf::endianness::read<uint32_t>(buffer + 4);
+        return magic1 == 0xCDF30001 && magic2 == 0xCCCC0001;
+    }
+
+}
+std::optional<CDF> load(const std::string& path)
+{
+    if (std::filesystem::exists(path))
+    {
+        std::fstream cdf_file(path, std::ios::in | std::ios::binary);
+        if (is_cdf(cdf_file))
+        {
+            return CDF {};
+        }
+    }
+    return std::nullopt;
+}
+} // namespace cdf::io

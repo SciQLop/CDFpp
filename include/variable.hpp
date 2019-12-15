@@ -1,3 +1,4 @@
+#pragma once
 /*------------------------------------------------------------------------------
 -- This file is a part of the CDFpp library
 -- Copyright (C) 2019, Plasma Physics Laboratory - CNRS

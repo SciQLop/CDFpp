@@ -20,7 +20,17 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "attribute.hpp"
+#include "variable.hpp"
+#include <string>
+#include <unordered_map>
 
-namespace cdf {
-struct Attribute {};
+namespace cdf
+{
+struct CDF
+{
+    std::unordered_map<std::string, Variable> variables;
+    std::unordered_map<std::string, Attribute> attrinutes;
+    const Variable& operator[](const std::string& name) const { return variables.at(name); }
+};
 } // namespace cdf
