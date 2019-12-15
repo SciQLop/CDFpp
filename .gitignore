@@ -2,3 +2,4 @@ build/
 subprojects/Catch2-*
 subprojects/packagecache/
 *.kdev4
+CMakeLists.txt.user

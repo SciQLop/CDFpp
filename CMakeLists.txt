@@ -59,6 +59,8 @@ enable_testing()
 add_executable(simple_open tests/simple_open/main.cpp)
 target_include_directories(simple_open PRIVATE include)
 target_include_directories(simple_open PRIVATE catch2)
+
+target_compile_definitions(simple_open PRIVATE DATA_PATH="${CMAKE_CURRENT_LIST_DIR}/tests/resources")
 add_test(test-simple_open simple_open)
 
 add_executable(endianness tests/endianness/main.cpp)
