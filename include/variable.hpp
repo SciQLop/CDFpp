@@ -1,0 +1,3 @@
+namespace cdf {
+    struct Variable{};
+}
