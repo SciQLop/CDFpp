@@ -22,45 +22,59 @@
 ----------------------------------------------------------------------------*/
 
 #ifdef CDFpp_BIG_ENDIAN
-inline const bool is_big_endian=true;
-inline const bool is_little_endian=false;
+inline const bool is_big_endian = true;
+inline const bool is_little_endian = false;
 #else
 #ifdef CDFpp_LITTLE_ENDIAN
-inline const bool is_big_endian=false;
-inline const bool is_little_endian=true;
+inline const bool is_big_endian = false;
+inline const bool is_little_endian = true;
 #else
 #error "Can't find if platform is either big or little endian"
 #endif
 #endif
 
 #ifdef __GNUC__
-    #define bswap16 __builtin_bswap16
-    #define bswap32 __builtin_bswap32
-    #define bswap64 __builtin_bswap64
+#define bswap16 __builtin_bswap16
+#define bswap32 __builtin_bswap32
+#define bswap64 __builtin_bswap64
 #endif
+
+#include <cstdint>
 
 namespace cdf::endianness
 {
 
-namespace  {
-template<typename T>
-T byte_swap(T value)
+namespace
 {
-    if constexpr(sizeof (T)==1)
+    template <typename T>
+    T byte_swap(T value)
+    {
+        if constexpr (sizeof(T) == 1)
             return value;
-    if constexpr(sizeof (T)==2)
-            return bswap16(value);
-    if constexpr(sizeof (T)==4)
-            return bswap32(value);
-    if constexpr(sizeof (T)==8)
-            return bswap64(value);
-}
+        if constexpr (sizeof(T) == 2)
+        {
+            int16_t result = bswap16(*reinterpret_cast<int16_t*>(&value));
+            return *reinterpret_cast<T*>(&result);
+        }
+
+        if constexpr (sizeof(T) == 4)
+        {
+            int32_t result = bswap32(*reinterpret_cast<int32_t*>(&value));
+            return *reinterpret_cast<T*>(&result);
+        }
+
+        if constexpr (sizeof(T) == 8)
+        {
+            int64_t result = bswap64(*reinterpret_cast<int64_t*>(&value));
+            return *reinterpret_cast<T*>(&result);
+        }
+    }
 }
 
-template<typename T>
+template <typename T>
 T read(const char* input)
 {
-    if constexpr(is_little_endian)
+    if constexpr (is_little_endian)
     {
         return byte_swap<T>(*reinterpret_cast<const T*>(input));
     }
