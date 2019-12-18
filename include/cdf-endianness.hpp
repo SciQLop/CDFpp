@@ -40,34 +40,54 @@ inline const bool is_little_endian = true;
 #endif
 
 #include <cstdint>
+#include <type_traits>
 
 namespace cdf::endianness
 {
 
+struct big_endian_t
+{
+};
+struct little_endian_t
+{
+};
+
+template <typename endianness_t>
+inline constexpr bool is_little_endian_v = std::is_same_v<little_endian_t, endianness_t>;
+
+template <typename endianness_t>
+inline constexpr bool is_big_endian_v = std::is_same_v<big_endian_t, endianness_t>;
+
 namespace
 {
-    template <typename T>
+
+    template <std::size_t s>
+    auto uint()
+    {
+        if constexpr (s == 1)
+            return uint8_t {};
+        if constexpr (s == 2)
+            return uint16_t {};
+        if constexpr (s == 4)
+            return uint32_t {};
+        if constexpr (s == 8)
+            return uint64_t {};
+    }
+
+    template <std::size_t s>
+    using uint_t = decltype(uint<s>());
+
+    inline uint8_t bswap(uint8_t v) { return v; }
+    inline uint16_t bswap(uint16_t v) { return bswap16(v); }
+    inline uint32_t bswap(uint32_t v) { return bswap32(v); }
+    inline uint64_t bswap(uint64_t v) { return bswap64(v); }
+
+    template <typename T, std::size_t s = sizeof(T)>
     T byte_swap(T value)
     {
-        if constexpr (sizeof(T) == 1)
-            return value;
-        if constexpr (sizeof(T) == 2)
-        {
-            int16_t result = bswap16(*reinterpret_cast<int16_t*>(&value));
-            return *reinterpret_cast<T*>(&result);
-        }
-
-        if constexpr (sizeof(T) == 4)
-        {
-            int32_t result = bswap32(*reinterpret_cast<int32_t*>(&value));
-            return *reinterpret_cast<T*>(&result);
-        }
-
-        if constexpr (sizeof(T) == 8)
-        {
-            int64_t result = bswap64(*reinterpret_cast<int64_t*>(&value));
-            return *reinterpret_cast<T*>(&result);
-        }
+        using int_repr_t = uint_t<s>;
+        int_repr_t result = bswap(*reinterpret_cast<int_repr_t*>(&value));
+        return *reinterpret_cast<T*>(&result);
     }
 }
 
@@ -80,4 +100,13 @@ T read(const char* input)
     }
     return *reinterpret_cast<const T*>(input);
 }
+
+template <typename src_endianess_t, typename iterator_t>
+void read_v(const char* input, iterator_t& begin, iterator_t& end)
+{
+    using value_t = decltype(*begin);
+    auto casted_buffer = reinterpret_cast<uint_t<sizeof(value_t)>*>(input);
+    // std::transform(casted_buffer, casted_buffer + size, result, [](const auto& v) { return v; });
+}
+
 }

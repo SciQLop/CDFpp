@@ -20,10 +20,18 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include <cdf-data.hpp>
+#include <string>
 
 namespace cdf
 {
 struct Attribute
 {
+    std::string name;
+    Attribute() = default;
+    Attribute(const Attribute&) = default;
+    Attribute(Attribute&&) = default;
+
+    Attribute(const std::string& name) : name { name } {}
 };
 } // namespace cdf

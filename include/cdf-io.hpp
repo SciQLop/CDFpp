@@ -99,6 +99,21 @@ namespace
         }
     };
 
+    template <std::size_t offset_param, std::size_t len_param>
+    struct str_field_t
+    {
+        using type = std::string;
+        inline static constexpr std::size_t offset = offset_param;
+        inline static constexpr std::size_t len = len_param;
+        std::string value;
+        operator std::string() { return value; }
+        str_field_t& operator=(const std::string& v)
+        {
+            this->value = v;
+            return *this;
+        }
+    };
+
     template <std::size_t offset_param, typename T>
     struct unused_field_t
     {
@@ -111,7 +126,18 @@ namespace
     template <typename buffer_t, typename T>
     void extract_field(buffer_t buffer, T& field)
     {
-        field = endianness::read<typename T::type>(buffer + T::offset);
+        if constexpr (std::is_same_v<std::string, typename T::type>)
+        {
+            std::size_t size = 0;
+            for (; size < T::len; size++)
+            {
+                if (buffer[T::offset + size] == '\0')
+                    break;
+            }
+            field = std::string { buffer + T::offset, size };
+        }
+        else
+            field = endianness::read<typename T::type>(buffer + T::offset);
     }
 
     template <typename buffer_t, typename... Ts>
@@ -138,13 +164,19 @@ namespace
     using cdf_offset_field_t = std::conditional_t<is_v3_v<version_t>,
         field_t<after<previous_member_t>, uint64_t>, field_t<after<previous_member_t>, uint32_t>>;
 
+    template <typename version_t, typename previous_member_t, std::size_t v3size,
+        std::size_t v2size>
+    using cdf_string_field_t
+        = std::conditional_t<is_v3_v<version_t>, str_field_t<after<previous_member_t>, v3size>,
+            str_field_t<after<previous_member_t>, v2size>>;
+
     template <typename version_t, cdf_record_type record_t>
     struct cdf_DR_header
     {
         inline static constexpr bool v3 = is_v3_v<version_t>;
         inline static constexpr std::size_t offset = 0;
         inline static constexpr cdf_record_type rec_type = record_t;
-        using type= uint64_t;
+        using type = uint64_t;
         std::conditional_t<v3, field_t<0, uint64_t>, field_t<0, uint32_t>> record_size;
         field_t<after<decltype(record_size)>, cdf_record_type> record_type;
         template <typename buffert_t>
@@ -170,14 +202,18 @@ namespace
         field_t<after<decltype(rfuB)>, uint32_t> Increment;
         field_t<after<decltype(Increment)>, uint32_t> Identifier;
         unused_field_t<after<decltype(Identifier)>, uint32_t> rfuE;
+        str_field_t<after<decltype(rfuE)>, 256> copyright; // ignore format < 2.6
 
-        template <typename buffert_t>
-        bool load(buffert_t&& buffer)
+        template <typename streamT>
+        bool load(streamT&& stream)
         {
-            if (header.load(std::forward<buffert_t>(buffer)))
+            char buffer[312];
+            stream.seekg(8);
+            stream.read(buffer, 312);
+            if (header.load(buffer))
             {
-                extract_fields(std::forward<buffert_t>(buffer), GDRoffset, Version, Release, Encoding, Flags,
-                    Increment, Identifier);
+                extract_fields(buffer, GDRoffset, Version, Release, Encoding, Flags, Increment,
+                    Identifier, copyright);
                 return true;
             }
             return false;
@@ -202,14 +238,18 @@ namespace
         unused_field_t<after<decltype(UIRhead)>, uint32_t> rfuC;
         field_t<after<decltype(rfuC)>, uint32_t> LeapSecondLastUpdated;
         unused_field_t<after<decltype(LeapSecondLastUpdated)>, uint32_t> rfuE;
-
-        template <typename buffert_t>
-        bool load(buffert_t&& buffer)
+        template <typename streamT>
+        bool load(streamT&& stream, std::size_t GDRoffset)
         {
-            if (header.load(std::forward<buffert_t>(buffer)))
+            constexpr std::size_t buffer_size
+                = LeapSecondLastUpdated.offset + sizeof(LeapSecondLastUpdated.value);
+            char buffer[buffer_size];
+            stream.seekg(GDRoffset);
+            stream.read(buffer, buffer_size);
+            if (header.load(buffer))
             {
-                extract_fields(std::forward<buffert_t>(buffer), rVDRhead, zVDRhead, ADRhead, eof, NrVars,
-                    NumAttr, rMaxRec, rNumDims, NzVars, UIRhead, LeapSecondLastUpdated);
+                extract_fields(buffer, rVDRhead, zVDRhead, ADRhead, eof, NrVars, NumAttr, rMaxRec,
+                    rNumDims, NzVars, UIRhead, LeapSecondLastUpdated);
                 return true;
             }
             return false;
@@ -232,13 +272,52 @@ namespace
         field_t<after<decltype(AzEDRhead)>, uint32_t> NzEntries;
         field_t<after<decltype(NzEntries)>, uint32_t> MAXzEntries;
         unused_field_t<after<decltype(MAXzEntries)>, uint32_t> rfuE;
-        template <typename buffert_t>
-        bool load(buffert_t&& buffer)
+        cdf_string_field_t<version_t, decltype(rfuE), 256, 64> Name;
+
+
+        template <typename streamT>
+        bool load(streamT&& stream, std::size_t ADRoffset)
         {
-            if (header.load(std::forward<buffert_t>(buffer)))
+            constexpr std::size_t buffer_size = Name.offset + Name.len;
+            char buffer[buffer_size];
+            stream.seekg(ADRoffset);
+            stream.read(buffer, buffer_size);
+            if (header.load(buffer))
             {
-                extract_fields(std::forward<buffert_t>(buffer), ADRnext, AgrEDRhead, scope, num, NgrEntries,
-                    MAXgrEntries, AzEDRhead, NzEntries, MAXzEntries);
+                extract_fields(buffer, ADRnext, AgrEDRhead, scope, num, NgrEntries, MAXgrEntries,
+                    AzEDRhead, NzEntries, MAXzEntries, Name);
+                return true;
+            }
+            return false;
+        }
+    };
+
+    template <typename version_t>
+    struct cdf_AEDR_t
+    {
+        inline static constexpr bool v3 = is_v3_v<version_t>;
+        cdf_DR_header<version_t, cdf_record_type::ADR> header;
+        cdf_offset_field_t<version_t, decltype(header)> AEDRnext;
+        field_t<after<decltype(AEDRnext)>, uint32_t> AttrNum;
+        field_t<after<decltype(AttrNum)>, uint32_t> DataType;
+        field_t<after<decltype(DataType)>, uint32_t> Num;
+        field_t<after<decltype(Num)>, uint32_t> NumElements;
+        field_t<after<decltype(NumElements)>, uint32_t> NumStrings;
+        unused_field_t<after<decltype(NumStrings)>, uint32_t> rfB;
+        unused_field_t<after<decltype(NumElements)>, uint32_t> rfC;
+        unused_field_t<after<decltype(NumElements)>, uint32_t> rfD;
+        unused_field_t<after<decltype(NumElements)>, uint32_t> rfE;
+
+        template <typename streamT>
+        bool load(streamT&& stream, std::size_t ADRoffset)
+        {
+            constexpr std::size_t buffer_size = NumStrings.offset + sizeof(NumStrings.value);
+            char buffer[buffer_size];
+            stream.seekg(ADRoffset);
+            stream.read(buffer, buffer_size);
+            if (header.load(buffer))
+            {
+                extract_fields(buffer, AEDRnext, AttrNum, DataType, Num, NumElements, NumStrings);
                 return true;
             }
             return false;
@@ -307,30 +386,45 @@ namespace
     template <typename cdf_version_tag_t, typename streamT, typename context_t>
     bool parse_CDR(streamT& stream, context_t& context)
     {
-        char buffer[312];
-        stream.seekg(8);
-        stream.read(buffer, 312);
-        if(!context.cdr.load(buffer))
+        if (!context.cdr.load(stream))
             return false;
-        //std::copy(buffer + 56, buffer + 312, std::begin(context.copyright));
         return true;
     }
 
     template <typename cdf_version_tag_t, typename streamT, typename context_t>
     bool parse_GDR(streamT& stream, context_t& context)
     {
-        char buffer[84];
-        stream.seekg(context.cdr.GDRoffset.value);
-        stream.read(buffer, 84);
-        if(!context.gdr.load(buffer))
+        if (!context.gdr.load(stream, context.cdr.GDRoffset.value))
             return false;
         return true;
     }
 
-    template <typename cdf_version_tag_t, typename streamT, typename context_t>
-    bool load_attribute(streamT& stream, context_t& context, CDF& cdf)
+    template <typename cdf_version_tag_t, typename streamT>
+    bool load_attribute_data(std::size_t offset, streamT& stream)
     {
-        return true;
+        cdf_AEDR_t<cdf_version_tag_t> AEDR;
+        if (AEDR.load(stream, offset))
+        {
+        }
+        return 0;
+    }
+
+    template <typename cdf_version_tag_t, typename streamT>
+    std::size_t load_attribute(std::size_t offset, streamT& stream, CDF& cdf)
+    {
+        cdf_ADR_t<cdf_version_tag_t> ADR;
+        if (ADR.load(stream, offset))
+        {
+            cdf.attrinutes.emplace(ADR.Name, ADR.Name);
+            if (ADR.NzEntries)
+                load_attribute_data<cdf_version_tag_t>(ADR.AzEDRhead, stream);
+            else
+            {
+                load_attribute_data<cdf_version_tag_t>(ADR.AzEDRhead, stream);
+            }
+            return ADR.ADRnext;
+        }
+        return 0;
     }
 
     template <typename cdf_version_tag_t, typename streamT, typename context_t>
@@ -338,9 +432,10 @@ namespace
     {
         auto attr_count = context.gdr.NumAttr.value;
         auto next_attr = context.gdr.ADRhead.value;
-        while (attr_count-- > 0)
+        while (attr_count > 0)
         {
-            // load_attribute();
+            next_attr = load_attribute<cdf_version_tag_t>(next_attr, stream, cdf);
+            --attr_count;
         }
         return true;
     }
