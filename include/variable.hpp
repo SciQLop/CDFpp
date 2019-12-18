@@ -20,6 +20,9 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-namespace cdf {
-struct Variable {};
+namespace cdf
+{
+struct Variable
+{
+};
 } // namespace cdf

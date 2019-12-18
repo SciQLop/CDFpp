@@ -99,6 +99,30 @@ namespace
         }
     };
 
+    template <std::size_t offset_param, typename T>
+    struct unused_field_t
+    {
+        using type = T;
+        inline static constexpr std::size_t offset = offset_param;
+        inline static constexpr T value = 0;
+        operator T() { return value; }
+    };
+
+    template <typename buffer_t, typename T>
+    void extract_field(buffer_t buffer, T& field)
+    {
+        field = endianness::read<typename T::type>(buffer + T::offset);
+    }
+
+    template <typename buffer_t, typename... Ts>
+    void extract_fields(buffer_t buffer, Ts&&... fields)
+    {
+        (extract_field(buffer, std::forward<Ts>(fields)), ...);
+    }
+
+    template <typename field_type>
+    inline constexpr std::size_t after = field_type::offset + sizeof(typename field_type::type);
+
     struct v3x_tag
     {
     };
@@ -108,27 +132,127 @@ namespace
     };
 
     template <typename version_t>
+    inline constexpr bool is_v3_v = std::is_same_v<version_t, v3x_tag>;
+
+    template <typename version_t, typename previous_member_t>
+    using cdf_offset_field_t = std::conditional_t<is_v3_v<version_t>,
+        field_t<after<previous_member_t>, uint64_t>, field_t<after<previous_member_t>, uint32_t>>;
+
+    template <typename version_t, cdf_record_type record_t>
+    struct cdf_DR_header
+    {
+        inline static constexpr bool v3 = is_v3_v<version_t>;
+        inline static constexpr std::size_t offset = 0;
+        inline static constexpr cdf_record_type rec_type = record_t;
+        using type= uint64_t;
+        std::conditional_t<v3, field_t<0, uint64_t>, field_t<0, uint32_t>> record_size;
+        field_t<after<decltype(record_size)>, cdf_record_type> record_type;
+        template <typename buffert_t>
+        bool load(buffert_t&& buffer)
+        {
+            extract_fields(std::forward<buffert_t>(buffer), record_size, record_type);
+            return record_type == record_type;
+        }
+    };
+
+    template <typename version_t>
+    struct cdf_CDR_t
+    {
+        inline static constexpr bool v3 = is_v3_v<version_t>;
+        cdf_DR_header<version_t, cdf_record_type::CDR> header;
+        cdf_offset_field_t<version_t, decltype(header)> GDRoffset;
+        field_t<after<decltype(GDRoffset)>, uint32_t> Version;
+        field_t<after<decltype(Version)>, uint32_t> Release;
+        field_t<after<decltype(Release)>, cdf_encoding> Encoding;
+        field_t<after<decltype(Encoding)>, uint32_t> Flags;
+        unused_field_t<after<decltype(Flags)>, uint32_t> rfuA;
+        unused_field_t<after<decltype(rfuA)>, uint32_t> rfuB;
+        field_t<after<decltype(rfuB)>, uint32_t> Increment;
+        field_t<after<decltype(Increment)>, uint32_t> Identifier;
+        unused_field_t<after<decltype(Identifier)>, uint32_t> rfuE;
+
+        template <typename buffert_t>
+        bool load(buffert_t&& buffer)
+        {
+            if (header.load(std::forward<buffert_t>(buffer)))
+            {
+                extract_fields(std::forward<buffert_t>(buffer), GDRoffset, Version, Release, Encoding, Flags,
+                    Increment, Identifier);
+                return true;
+            }
+            return false;
+        }
+    };
+
+    template <typename version_t>
+    struct cdf_GDR_t
+    {
+        inline static constexpr bool v3 = is_v3_v<version_t>;
+        cdf_DR_header<version_t, cdf_record_type::GDR> header;
+        cdf_offset_field_t<version_t, decltype(header)> rVDRhead;
+        cdf_offset_field_t<version_t, decltype(rVDRhead)> zVDRhead;
+        cdf_offset_field_t<version_t, decltype(zVDRhead)> ADRhead;
+        cdf_offset_field_t<version_t, decltype(ADRhead)> eof;
+        field_t<after<decltype(eof)>, uint32_t> NrVars;
+        field_t<after<decltype(NrVars)>, uint32_t> NumAttr;
+        field_t<after<decltype(NumAttr)>, uint32_t> rMaxRec;
+        field_t<after<decltype(rMaxRec)>, uint32_t> rNumDims;
+        field_t<after<decltype(rNumDims)>, uint32_t> NzVars;
+        field_t<after<decltype(NzVars)>, uint32_t> UIRhead;
+        unused_field_t<after<decltype(UIRhead)>, uint32_t> rfuC;
+        field_t<after<decltype(rfuC)>, uint32_t> LeapSecondLastUpdated;
+        unused_field_t<after<decltype(LeapSecondLastUpdated)>, uint32_t> rfuE;
+
+        template <typename buffert_t>
+        bool load(buffert_t&& buffer)
+        {
+            if (header.load(std::forward<buffert_t>(buffer)))
+            {
+                extract_fields(std::forward<buffert_t>(buffer), rVDRhead, zVDRhead, ADRhead, eof, NrVars,
+                    NumAttr, rMaxRec, rNumDims, NzVars, UIRhead, LeapSecondLastUpdated);
+                return true;
+            }
+            return false;
+        }
+    };
+
+    template <typename version_t>
+    struct cdf_ADR_t
+    {
+        inline static constexpr bool v3 = is_v3_v<version_t>;
+        cdf_DR_header<version_t, cdf_record_type::ADR> header;
+        cdf_offset_field_t<version_t, decltype(header)> ADRnext;
+        cdf_offset_field_t<version_t, decltype(ADRnext)> AgrEDRhead;
+        field_t<after<decltype(AgrEDRhead)>, uint32_t> scope;
+        field_t<after<decltype(scope)>, uint32_t> num;
+        field_t<after<decltype(num)>, uint32_t> NgrEntries;
+        field_t<after<decltype(NgrEntries)>, uint32_t> MAXgrEntries;
+        unused_field_t<after<decltype(MAXgrEntries)>, uint32_t> rfuA;
+        cdf_offset_field_t<version_t, decltype(rfuA)> AzEDRhead;
+        field_t<after<decltype(AzEDRhead)>, uint32_t> NzEntries;
+        field_t<after<decltype(NzEntries)>, uint32_t> MAXzEntries;
+        unused_field_t<after<decltype(MAXzEntries)>, uint32_t> rfuE;
+        template <typename buffert_t>
+        bool load(buffert_t&& buffer)
+        {
+            if (header.load(std::forward<buffert_t>(buffer)))
+            {
+                extract_fields(std::forward<buffert_t>(buffer), ADRnext, AgrEDRhead, scope, num, NgrEntries,
+                    MAXgrEntries, AzEDRhead, NzEntries, MAXzEntries);
+                return true;
+            }
+            return false;
+        }
+    };
+
+    template <typename version_t>
     struct cdf_parsing_t
     {
-        inline static constexpr bool v3 = std::is_same_v<version_t, v3x_tag>;
+        inline static constexpr bool v3 = is_v3_v<version_t>;
         magic_numbers_t magic;
         bool is_compressed;
-        std::conditional_t<v3, field_t<28, cdf_encoding>, field_t<20, cdf_encoding>> encoding;
-        std::conditional_t<v3, field_t<12, uint64_t>, field_t<8, uint32_t>> GDR_offset;
-        std::conditional_t<v3, field_t<28, uint64_t>, field_t<16, uint32_t>> first_ADR_offset;
-        std::conditional_t<v3, field_t<12, uint64_t>, field_t<8, uint32_t>> first_rVDR_offset;
-        std::conditional_t<v3, field_t<20, uint64_t>, field_t<12, uint32_t>> first_zVDR_offset;
-        std::conditional_t<v3, field_t<36, uint64_t>, field_t<20, uint32_t>> eof;
-        std::conditional_t<v3, field_t<44, uint32_t>, field_t<24, uint32_t>> rVars_count;
-        std::conditional_t<v3, field_t<60, uint32_t>, field_t<40, uint32_t>> zVars_count;
-        std::conditional_t<v3, field_t<48, uint32_t>, field_t<28, uint32_t>> attributes_count;
-        std::vector<std::size_t> rDim_sizes;
-        struct
-        {
-            uint32_t release;
-            uint32_t increment;
-        } version;
-        std::array<char, 256> copyright;
+        cdf_CDR_t<version_t> cdr;
+        cdf_GDR_t<version_t> gdr;
     };
 
     bool is_cdf(const magic_numbers_t& magic_numbers) noexcept
@@ -152,17 +276,6 @@ namespace
         uint32_t magic1 = cdf::endianness::read<uint32_t>(buffer);
         uint32_t magic2 = cdf::endianness::read<uint32_t>(buffer + 4);
         return { magic1, magic2 };
-    }
-    template <typename buffer_t, typename T>
-    void extract_field(buffer_t buffer, T& field)
-    {
-        field = endianness::read<typename T::type>(buffer + T::offset);
-    }
-
-    template <typename buffer_t, typename... Ts>
-    void extract_fields(buffer_t buffer, Ts&&... fields)
-    {
-        (extract_field(buffer, std::forward<Ts>(fields)), ...);
     }
 
     template <typename streamT>
@@ -197,22 +310,50 @@ namespace
         char buffer[312];
         stream.seekg(8);
         stream.read(buffer, 312);
-        if (record_type<cdf_version_tag_t>(buffer) != cdf_record_type::CDR)
+        if(!context.cdr.load(buffer))
             return false;
-        extract_fields(buffer, context.encoding, context.GDR_offset);
-        std::copy(buffer + 56, buffer + 312, std::begin(context.copyright));
+        //std::copy(buffer + 56, buffer + 312, std::begin(context.copyright));
         return true;
     }
+
     template <typename cdf_version_tag_t, typename streamT, typename context_t>
     bool parse_GDR(streamT& stream, context_t& context)
     {
         char buffer[84];
-        stream.seekg(context.GDR_offset.value);
+        stream.seekg(context.cdr.GDRoffset.value);
         stream.read(buffer, 84);
-        if (record_type<cdf_version_tag_t>(buffer) != cdf_record_type::GDR)
+        if(!context.gdr.load(buffer))
             return false;
-        extract_fields(buffer, context.first_rVDR_offset, context.first_zVDR_offset,
-            context.first_ADR_offset, context.eof, context.rVars_count);
+        return true;
+    }
+
+    template <typename cdf_version_tag_t, typename streamT, typename context_t>
+    bool load_attribute(streamT& stream, context_t& context, CDF& cdf)
+    {
+        return true;
+    }
+
+    template <typename cdf_version_tag_t, typename streamT, typename context_t>
+    bool load_attributes(streamT& stream, context_t& context, CDF& cdf)
+    {
+        auto attr_count = context.gdr.NumAttr.value;
+        auto next_attr = context.gdr.ADRhead.value;
+        while (attr_count-- > 0)
+        {
+            // load_attribute();
+        }
+        return true;
+    }
+
+    template <typename cdf_version_tag_t, typename streamT, typename context_t>
+    bool load_zVars(streamT& stream, context_t& context, CDF& cdf)
+    {
+        return true;
+    }
+
+    template <typename cdf_version_tag_t, typename streamT, typename context_t>
+    bool load_rVars(streamT& stream, context_t& context, CDF& cdf)
+    {
         return true;
     }
 
@@ -227,10 +368,12 @@ namespace
             return std::nullopt;
         if (!parse_GDR<cdf_version_tag_t>(cdf_file, context))
             return std::nullopt;
+        CDF cdf;
+        if (!load_attributes<cdf_version_tag_t>(cdf_file, context, cdf))
+            return std::nullopt;
         return CDF {};
     }
-}
-
+} // namespace
 
 std::optional<CDF> load(const std::string& path)
 {

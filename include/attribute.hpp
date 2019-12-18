@@ -21,6 +21,9 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 
-namespace cdf {
-struct Attribute {};
+namespace cdf
+{
+struct Attribute
+{
+};
 } // namespace cdf

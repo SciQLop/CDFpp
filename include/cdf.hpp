@@ -26,4 +26,6 @@
 #include "variable.hpp"
 #include <optional>
 
-namespace cdf {} // namespace cdf
+namespace cdf
+{
+} // namespace cdf
