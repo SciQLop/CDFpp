@@ -8,8 +8,8 @@
 TEST_CASE("", "")
 {
     using namespace cdf::endianness;
-    REQUIRE(0x01 == read<uint8_t>("\1"));
-    REQUIRE(0x0102 == read<uint16_t>("\1\2"));
-    REQUIRE(0x01020304 == read<uint32_t>("\1\2\3\4"));
-    REQUIRE(0x0102030405060701 == read<uint64_t>("\1\2\3\4\5\6\7\1"));
+    REQUIRE(0x01 == decode<uint8_t>("\1"));
+    REQUIRE(0x0102 == decode<uint16_t>("\1\2"));
+    REQUIRE(0x01020304 == decode<uint32_t>("\1\2\3\4"));
+    REQUIRE(0x0102030405060701 == decode<uint64_t>("\1\2\3\4\5\6\7\1"));
 }

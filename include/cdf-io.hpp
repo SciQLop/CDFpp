@@ -137,7 +137,7 @@ namespace
             field = std::string { buffer + T::offset, size };
         }
         else
-            field = endianness::read<typename T::type>(buffer + T::offset);
+            field = endianness::decode<typename T::type>(buffer + T::offset);
     }
 
     template <typename buffer_t, typename... Ts>
@@ -352,8 +352,8 @@ namespace
         stream.seekg(std::ios::beg);
         char buffer[8];
         stream.read(buffer, 8);
-        uint32_t magic1 = cdf::endianness::read<uint32_t>(buffer);
-        uint32_t magic2 = cdf::endianness::read<uint32_t>(buffer + 4);
+        uint32_t magic1 = cdf::endianness::decode<uint32_t>(buffer);
+        uint32_t magic2 = cdf::endianness::decode<uint32_t>(buffer + 4);
         return { magic1, magic2 };
     }
 
@@ -378,9 +378,9 @@ namespace
     cdf_record_type record_type(buffer_t&& buffer)
     {
         if constexpr (std::is_same_v<cdf_version_tag_t, v3x_tag>)
-            return endianness::read<cdf_record_type>(buffer + 8);
+            return endianness::decode<cdf_record_type>(buffer + 8);
         else
-            return endianness::read<cdf_record_type>(buffer + 4);
+            return endianness::decode<cdf_record_type>(buffer + 4);
     }
 
     template <typename cdf_version_tag_t, typename streamT, typename context_t>

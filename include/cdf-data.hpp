@@ -121,7 +121,7 @@ auto load(const char* buffer, std::size_t buffer_size)
 {
     constexpr std::size_t size = buffer_size / sizeof(from_cdf_type_t<type>);
     std::vector<from_cdf_type_t<type>> result { size };
-    endianness::read_v<endianness_t>(buffer, std::begin(result), std::end(result));
+    endianness::decode_v<endianness_t>(buffer, buffer_size, std::begin(result));
     return result;
 }
 

@@ -39,6 +39,7 @@ inline const bool is_little_endian = true;
 #define bswap64 __builtin_bswap64
 #endif
 
+#include <algorithm>
 #include <cstdint>
 #include <type_traits>
 
@@ -51,6 +52,8 @@ struct big_endian_t
 struct little_endian_t
 {
 };
+
+using host_endianness_t = std::conditional_t<is_little_endian, little_endian_t, big_endian_t>;
 
 template <typename endianness_t>
 inline constexpr bool is_little_endian_v = std::is_same_v<little_endian_t, endianness_t>;
@@ -92,7 +95,7 @@ namespace
 }
 
 template <typename T>
-T read(const char* input)
+T decode(const char* input)
 {
     if constexpr (is_little_endian)
     {
@@ -102,11 +105,15 @@ T read(const char* input)
 }
 
 template <typename src_endianess_t, typename iterator_t>
-void read_v(const char* input, iterator_t& begin, iterator_t& end)
+void decode_v(const char* input, std::size_t size, iterator_t& begin)
 {
     using value_t = decltype(*begin);
     auto casted_buffer = reinterpret_cast<uint_t<sizeof(value_t)>*>(input);
-    // std::transform(casted_buffer, casted_buffer + size, result, [](const auto& v) { return v; });
+    if constexpr (std::is_same_v<host_endianness_t, src_endianess_t>)
+        std::copy(casted_buffer, casted_buffer + (size / sizeof(value_t)), begin);
+    else
+        std::transform(casted_buffer, casted_buffer + (size / sizeof(value_t)), begin,
+            [](const auto& v) { return byte_swap(v); });
 }
 
 }
