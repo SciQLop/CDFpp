@@ -63,22 +63,33 @@ inline constexpr bool is_big_endian_v = std::is_same_v<big_endian_t, endianness_
 
 namespace
 {
-
     template <std::size_t s>
-    auto uint()
+    struct uint;
+
+    template <>
+    struct uint<1>
     {
-        if constexpr (s == 1)
-            return uint8_t {};
-        if constexpr (s == 2)
-            return uint16_t {};
-        if constexpr (s == 4)
-            return uint32_t {};
-        if constexpr (s == 8)
-            return uint64_t {};
-    }
+        using type = uint8_t;
+    };
+    template <>
+    struct uint<2>
+    {
+        using type = uint16_t;
+    };
+    template <>
+    struct uint<4>
+    {
+        using type = uint32_t;
+    };
+    template <>
+    struct uint<8>
+    {
+        using type = uint64_t;
+    };
 
     template <std::size_t s>
-    using uint_t = decltype(uint<s>());
+    using uint_t = typename uint<s>::type;
+
 
     inline uint8_t bswap(uint8_t v) { return v; }
     inline uint16_t bswap(uint16_t v) { return bswap16(v); }
@@ -104,15 +115,17 @@ T decode(const char* input)
     return *reinterpret_cast<const T*>(input);
 }
 
-template <typename src_endianess_t, typename iterator_t>
-void decode_v(const char* input, std::size_t size, iterator_t& begin)
+template <typename src_endianess_t, typename value_t>
+void decode_v(const char* input, std::size_t size, value_t* output)
 {
-    using value_t = decltype(*begin);
-    auto casted_buffer = reinterpret_cast<uint_t<sizeof(value_t)>*>(input);
+    using casted_buffer_t = uint_t<sizeof(value_t)>*;
+    const casted_buffer_t* casted_buffer = reinterpret_cast<const casted_buffer_t*>(input);
+    casted_buffer_t* casted_output_buffer = reinterpret_cast<casted_buffer_t*>(output);
+    std::size_t buffer_size = size / sizeof(value_t);
     if constexpr (std::is_same_v<host_endianness_t, src_endianess_t>)
-        std::copy(casted_buffer, casted_buffer + (size / sizeof(value_t)), begin);
+        std::copy(casted_buffer, casted_buffer + buffer_size, casted_output_buffer);
     else
-        std::transform(casted_buffer, casted_buffer + (size / sizeof(value_t)), begin,
+        std::transform(casted_buffer, casted_buffer + buffer_size, casted_output_buffer,
             [](const auto& v) { return byte_swap(v); });
 }
 

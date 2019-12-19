@@ -28,10 +28,11 @@ namespace cdf
 struct Attribute
 {
     std::string name;
+    data_t data;
     Attribute() = default;
     Attribute(const Attribute&) = default;
     Attribute(Attribute&&) = default;
 
-    Attribute(const std::string& name) : name { name } {}
+    Attribute(const std::string& name, data_t&& data) : name { name }, data { data } {}
 };
 } // namespace cdf

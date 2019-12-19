@@ -21,6 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "cdf-endianness.hpp"
+#include "cdf-enums.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <variant>
@@ -29,100 +30,35 @@
 namespace cdf
 {
 
-struct tt2000_t
-{
-    int64_t value;
-};
 
-struct epoch
-{
-    double value;
-};
+using cdf_values_t = std::variant<std::vector<char>, std::vector<uint8_t>, std::vector<uint16_t>,
+    std::vector<uint32_t>, std::vector<int8_t>, std::vector<int16_t>, std::vector<int32_t>,
+    std::vector<int64_t>, std::vector<float>, std::vector<double>, std::vector<tt2000_t>,
+    std::vector<epoch>, std::string>;
 
-enum class CDF_Types : uint32_t
-{
-    CDF_INT1 = 1,
-    CDF_INT2 = 2,
-    CDF_INT4 = 4,
-    CDF_INT8 = 8,
-    CDF_UINT1 = 11,
-    CDF_UINT2 = 12,
-    CDF_UINT4 = 14,
-    CDF_BYTE = 41,
-    CDF_REAL4 = 21,
-    CDF_REAL8 = 22,
-    CDF_FLOAT = 44,
-    CDF_DOUBLE = 45,
-    CDF_EPOCH = 31,
-    CDF_EPOCH16 = 32,
-    CDF_TIME_TT2000 = 33,
-    CDF_CHAR = 51,
-    CDF_UCHAR = 52
-};
-
-template <CDF_Types type>
-constexpr auto from_cdf_type()
-{
-    if constexpr (type == CDF_Types::CDF_CHAR)
-        return char {};
-    if constexpr (type == CDF_Types::CDF_INT1)
-        return int8_t {};
-    if constexpr (type == CDF_Types::CDF_INT2)
-        return int16_t {};
-    if constexpr (type == CDF_Types::CDF_INT4)
-        return int32_t {};
-    if constexpr (type == CDF_Types::CDF_INT8)
-        return int64_t {};
-    if constexpr (type == CDF_Types::CDF_UINT1)
-        return uint8_t {};
-    if constexpr (type == CDF_Types::CDF_UINT2)
-        return uint16_t {};
-    if constexpr (type == CDF_Types::CDF_UINT4)
-        return uint32_t {};
-    if constexpr (type == CDF_Types::CDF_FLOAT)
-        return float {};
-    if constexpr (type == CDF_Types::CDF_DOUBLE)
-        return double {};
-}
-
-template <typename type>
-constexpr CDF_Types to_cdf_type()
-{
-    if constexpr (std::is_same_v<type, float>)
-        return CDF_Types::CDF_FLOAT;
-    if constexpr (std::is_same_v<type, double>)
-        return CDF_Types::CDF_DOUBLE;
-    if constexpr (std::is_same_v<type, uint8_t>)
-        return CDF_Types::CDF_UINT1;
-    if constexpr (std::is_same_v<type, uint16_t>)
-        return CDF_Types::CDF_UINT2;
-    if constexpr (std::is_same_v<type, uint32_t>)
-        return CDF_Types::CDF_UINT4;
-    if constexpr (std::is_same_v<type, int8_t>)
-        return CDF_Types::CDF_INT1;
-    if constexpr (std::is_same_v<type, int16_t>)
-        return CDF_Types::CDF_INT2;
-    if constexpr (std::is_same_v<type, int32_t>)
-        return CDF_Types::CDF_INT4;
-    if constexpr (std::is_same_v<type, int64_t>)
-        return CDF_Types::CDF_INT8;
-    if constexpr (std::is_same_v<type, epoch>)
-        return CDF_Types::CDF_EPOCH;
-    if constexpr (std::is_same_v<type, tt2000_t>)
-        return CDF_Types::CDF_TIME_TT2000;
-}
-
-
-template <CDF_Types type>
-using from_cdf_type_t = decltype(to_cdf_type<type>());
 
 template <CDF_Types type, typename endianness_t>
-auto load(const char* buffer, std::size_t buffer_size)
+auto load_values(const char* buffer, std::size_t buffer_size)
 {
-    constexpr std::size_t size = buffer_size / sizeof(from_cdf_type_t<type>);
-    std::vector<from_cdf_type_t<type>> result { size };
-    endianness::decode_v<endianness_t>(buffer, buffer_size, std::begin(result));
+    std::size_t size = buffer_size / sizeof(from_cdf_type_t<type>);
+    std::vector<from_cdf_type_t<type>> result(size);
+    endianness::decode_v<endianness_t>(buffer, buffer_size, result.data());
     return result;
+}
+
+cdf_values_t load_values(
+    const char* buffer, std::size_t buffer_size, CDF_Types type, cdf_encoding encoding)
+{
+    switch (type)
+    {
+        case CDF_Types::CDF_FLOAT:
+            return load_values<CDF_Types::CDF_FLOAT, endianness::little_endian_t>(
+                buffer, buffer_size);
+        case CDF_Types::CDF_CHAR:
+            return load_values<CDF_Types::CDF_CHAR, endianness::little_endian_t>(
+                buffer, buffer_size);
+    }
+    return {};
 }
 
 struct data_t
@@ -140,16 +76,18 @@ struct data_t
         return std::get<std::vector<from_cdf_type_t<type>>>(p_values);
     }
 
+    data_t() = default;
+
     template <typename T>
     data_t(const T& values) : p_values { values }, p_type { to_cdf_type<typename T::value_type>() }
     {
     }
 
+    data_t(const cdf_values_t& values) : p_values { values } {}
+
+
 private:
-    std::variant<std::vector<uint8_t>, std::vector<uint16_t>, std::vector<uint32_t>,
-        std::vector<int8_t>, std::vector<int16_t>, std::vector<int32_t>, std::vector<int64_t>,
-        std::vector<float>, std::vector<double>, std::vector<tt2000_t>, std::vector<epoch>>
-        p_values;
+    cdf_values_t p_values;
     CDF_Types p_type;
 };
 }

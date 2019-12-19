@@ -21,11 +21,13 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "cdf-endianness.hpp"
+#include "cdf-enums.hpp"
 #include "cdf-file.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <numeric>
 #include <optional>
 #include <utility>
 
@@ -33,46 +35,15 @@ namespace cdf::io
 {
 namespace
 {
-    enum class cdf_record_type : int32_t
+    struct data_chunk_t
     {
-        CDR = 1,
-        GDR = 2,
-        rVDR = 3,
-        ADR = 4,
-        AgrEDR = 5,
-        VXR = 6,
-        VVR = 7,
-        zVDR = 8,
-        AzEDR = 9,
-        CCR = 10,
-        CPR = 11,
-        SPR = 12,
-        CVVR = 13,
-        UIR = -1,
+        data_chunk_t(std::size_t position, std::size_t size) : position { position }, size { size }
+        {
+        }
+        std::size_t position;
+        std::size_t size;
     };
 
-    enum class cdf_encoding : int32_t
-    {
-        network = 1,
-        SUN = 2,
-        VAX = 3,
-        decstation = 4,
-        SGi = 5,
-        IBMPC = 6,
-        IBMRS = 7,
-        PPC = 9,
-        HP = 11,
-        NeXT = 12,
-        ALPHAOSF1 = 13,
-        ALPHAVMSd = 14,
-        ALPHAVMSg = 15,
-        ALPHAVMSi = 16,
-        ARM_LITTLE = 17,
-        ARM_BIG = 18,
-        IA64VMSi = 19,
-        IA64VMSd = 20,
-        IA64VMSg = 21
-    };
 
     bool is_big_endian(cdf_encoding encoding)
     {
@@ -89,6 +60,7 @@ namespace
     struct field_t
     {
         using type = T;
+        inline static constexpr std::size_t len = sizeof(T);
         inline static constexpr std::size_t offset = offset_param;
         T value;
         operator T() { return value; }
@@ -118,32 +90,33 @@ namespace
     struct unused_field_t
     {
         using type = T;
+        inline static constexpr std::size_t len = sizeof(T);
         inline static constexpr std::size_t offset = offset_param;
         inline static constexpr T value = 0;
         operator T() { return value; }
     };
 
     template <typename buffer_t, typename T>
-    void extract_field(buffer_t buffer, T& field)
+    void extract_field(buffer_t buffer, std::size_t offset, T& field)
     {
         if constexpr (std::is_same_v<std::string, typename T::type>)
         {
             std::size_t size = 0;
             for (; size < T::len; size++)
             {
-                if (buffer[T::offset + size] == '\0')
+                if (buffer[T::offset - offset + size] == '\0')
                     break;
             }
-            field = std::string { buffer + T::offset, size };
+            field = std::string { buffer + T::offset - offset, size };
         }
         else
-            field = endianness::decode<typename T::type>(buffer + T::offset);
+            field = endianness::decode<typename T::type>(buffer + T::offset - offset);
     }
 
     template <typename buffer_t, typename... Ts>
-    void extract_fields(buffer_t buffer, Ts&&... fields)
+    void extract_fields(buffer_t buffer, std::size_t offset, Ts&&... fields)
     {
-        (extract_field(buffer, std::forward<Ts>(fields)), ...);
+        (extract_field(buffer, offset, std::forward<Ts>(fields)), ...);
     }
 
     template <typename field_type>
@@ -182,10 +155,107 @@ namespace
         template <typename buffert_t>
         bool load(buffert_t&& buffer)
         {
-            extract_fields(std::forward<buffert_t>(buffer), record_size, record_type);
+            extract_fields(std::forward<buffert_t>(buffer), 0, record_size, record_type);
             return record_type == record_type;
         }
     };
+
+    template <typename T>
+    constexpr auto last_member(T&& field)
+    {
+        return field;
+    }
+
+    template <typename T1, typename T2>
+    constexpr auto last_member(T1&& field1, T2&& field2)
+    {
+        if constexpr (field1.offset > field2.offset)
+            return field1;
+        else
+            return field2;
+    }
+
+    template <typename T1, typename T2, typename... Ts>
+    constexpr auto last_member(T1&& field1, T2&& field2, Ts&&... fields)
+    {
+        if constexpr (field1.offset > field2.offset)
+            return last_member(field1, fields...);
+        else
+            return last_member(field2, fields...);
+    }
+
+    template <typename T>
+    constexpr auto first_member(T&& field)
+    {
+        return field;
+    }
+
+    template <typename T1, typename T2>
+    constexpr auto first_member(T1&& field1, T2&& field2)
+    {
+        if constexpr (field1.offset < field2.offset)
+            return field1;
+        else
+            return field2;
+    }
+
+    template <typename T1, typename T2, typename... Ts>
+    constexpr auto first_member(T1&& field1, T2&& field2, Ts&&... fields)
+    {
+        if constexpr (field1.offset < field2.offset)
+            return last_member(field1, fields...);
+        else
+            return last_member(field2, fields...);
+    }
+
+
+    template <typename streamT, typename cdf_DR_t, typename... Ts>
+    constexpr bool load_desc_record(
+        streamT&& stream, std::size_t offset, cdf_DR_t&& cdf_desc_record, Ts&&... fields)
+    {
+        using last_member_t = decltype(last_member(fields...));
+        constexpr std::size_t buffer_len = last_member_t::offset + last_member_t::len;
+        char buffer[buffer_len];
+        stream.seekg(offset);
+        stream.read(buffer, buffer_len);
+        if (cdf_desc_record.header.load(buffer))
+        {
+            extract_fields(buffer, 0, fields...);
+            return true;
+        }
+        return false;
+    }
+
+    template <typename streamT, typename... Ts>
+    constexpr bool load_fields(streamT&& stream, std::size_t offset, Ts&&... fields)
+    {
+        using last_member_t = decltype(last_member(fields...));
+        using first_member_t = decltype(first_member(fields...));
+        constexpr std::size_t buffer_len
+            = last_member_t::offset + last_member_t::len - first_member_t::offset;
+        char buffer[buffer_len];
+        std::size_t pos = offset + first_member_t::offset;
+        stream.seekg(pos);
+        stream.read(buffer, buffer_len);
+        extract_fields(buffer, first_member_t::offset, fields...);
+        return true;
+    }
+
+    template <typename streamT>
+    std::vector<char> load_chunks(streamT&& stream, const std::vector<data_chunk_t>& chunks)
+    {
+        std::size_t total_size = std::accumulate(std::cbegin(chunks), std::cend(chunks), 0UL,
+            [](auto& sz, auto& chunk) { return sz + chunk.size; });
+        std::vector<char> buffer(total_size);
+        std::size_t pos = 0;
+        std::for_each(
+            std::cbegin(chunks), std::cend(chunks), [&buffer, &stream, &pos](auto& chunk) {
+                stream.seekg(chunk.position);
+                stream.read(buffer.data() + pos, chunk.size);
+                pos += chunk.size;
+            });
+        return buffer;
+    }
 
     template <typename version_t>
     struct cdf_CDR_t
@@ -207,16 +277,8 @@ namespace
         template <typename streamT>
         bool load(streamT&& stream)
         {
-            char buffer[312];
-            stream.seekg(8);
-            stream.read(buffer, 312);
-            if (header.load(buffer))
-            {
-                extract_fields(buffer, GDRoffset, Version, Release, Encoding, Flags, Increment,
-                    Identifier, copyright);
-                return true;
-            }
-            return false;
+            return load_desc_record(stream, 8, *this, GDRoffset, Version, Release, Encoding, Flags,
+                Increment, Identifier, copyright);
         }
     };
 
@@ -241,18 +303,8 @@ namespace
         template <typename streamT>
         bool load(streamT&& stream, std::size_t GDRoffset)
         {
-            constexpr std::size_t buffer_size
-                = LeapSecondLastUpdated.offset + sizeof(LeapSecondLastUpdated.value);
-            char buffer[buffer_size];
-            stream.seekg(GDRoffset);
-            stream.read(buffer, buffer_size);
-            if (header.load(buffer))
-            {
-                extract_fields(buffer, rVDRhead, zVDRhead, ADRhead, eof, NrVars, NumAttr, rMaxRec,
-                    rNumDims, NzVars, UIRhead, LeapSecondLastUpdated);
-                return true;
-            }
-            return false;
+            return load_desc_record(stream, GDRoffset, *this, rVDRhead, zVDRhead, ADRhead, eof,
+                NrVars, NumAttr, rMaxRec, rNumDims, NzVars, UIRhead, LeapSecondLastUpdated);
         }
     };
 
@@ -274,21 +326,11 @@ namespace
         unused_field_t<after<decltype(MAXzEntries)>, uint32_t> rfuE;
         cdf_string_field_t<version_t, decltype(rfuE), 256, 64> Name;
 
-
         template <typename streamT>
         bool load(streamT&& stream, std::size_t ADRoffset)
         {
-            constexpr std::size_t buffer_size = Name.offset + Name.len;
-            char buffer[buffer_size];
-            stream.seekg(ADRoffset);
-            stream.read(buffer, buffer_size);
-            if (header.load(buffer))
-            {
-                extract_fields(buffer, ADRnext, AgrEDRhead, scope, num, NgrEntries, MAXgrEntries,
-                    AzEDRhead, NzEntries, MAXzEntries, Name);
-                return true;
-            }
-            return false;
+            return load_desc_record(stream, ADRoffset, *this, ADRnext, AgrEDRhead, scope, num,
+                NgrEntries, MAXgrEntries, AzEDRhead, NzEntries, MAXzEntries, Name);
         }
     };
 
@@ -299,28 +341,21 @@ namespace
         cdf_DR_header<version_t, cdf_record_type::ADR> header;
         cdf_offset_field_t<version_t, decltype(header)> AEDRnext;
         field_t<after<decltype(AEDRnext)>, uint32_t> AttrNum;
-        field_t<after<decltype(AttrNum)>, uint32_t> DataType;
+        field_t<after<decltype(AttrNum)>, CDF_Types> DataType;
         field_t<after<decltype(DataType)>, uint32_t> Num;
         field_t<after<decltype(Num)>, uint32_t> NumElements;
         field_t<after<decltype(NumElements)>, uint32_t> NumStrings;
         unused_field_t<after<decltype(NumStrings)>, uint32_t> rfB;
-        unused_field_t<after<decltype(NumElements)>, uint32_t> rfC;
-        unused_field_t<after<decltype(NumElements)>, uint32_t> rfD;
-        unused_field_t<after<decltype(NumElements)>, uint32_t> rfE;
+        unused_field_t<after<decltype(rfB)>, uint32_t> rfC;
+        unused_field_t<after<decltype(rfC)>, uint32_t> rfD;
+        unused_field_t<after<decltype(rfD)>, uint32_t> rfE;
+        field_t<after<decltype(rfE)>, uint32_t> Values;
 
         template <typename streamT>
-        bool load(streamT&& stream, std::size_t ADRoffset)
+        bool load(streamT&& stream, std::size_t AEDRoffset)
         {
-            constexpr std::size_t buffer_size = NumStrings.offset + sizeof(NumStrings.value);
-            char buffer[buffer_size];
-            stream.seekg(ADRoffset);
-            stream.read(buffer, buffer_size);
-            if (header.load(buffer))
-            {
-                extract_fields(buffer, AEDRnext, AttrNum, DataType, Num, NumElements, NumStrings);
-                return true;
-            }
-            return false;
+            return load_desc_record(stream, AEDRoffset, *this, AEDRnext, AttrNum, DataType, Num,
+                NumElements, NumStrings);
         }
     };
 
@@ -400,13 +435,32 @@ namespace
     }
 
     template <typename cdf_version_tag_t, typename streamT>
-    bool load_attribute_data(std::size_t offset, streamT& stream)
+    data_t load_attribute_data(std::size_t offset, streamT& stream, std::size_t AEDRCount)
     {
         cdf_AEDR_t<cdf_version_tag_t> AEDR;
         if (AEDR.load(stream, offset))
         {
+            std::vector<data_chunk_t> chunks;
+            std::size_t element_size = cdf_type_size(CDF_Types { AEDR.DataType.value });
+            chunks.emplace_back(offset + AEDR.Values.offset, AEDR.NumElements * element_size);
+            if (AEDRCount > 1)
+            {
+                decltype(AEDR.AEDRnext) next;
+                decltype(AEDR.AEDRnext) current = AEDR.AEDRnext;
+                decltype(AEDR.NumElements) NumElements;
+                for (; AEDRCount > 1; --AEDRCount)
+                {
+                    load_fields(stream, next.value, next, NumElements);
+                    chunks.emplace_back(
+                        current.value + AEDR.Values.offset, NumElements.value * element_size);
+                    current = next;
+                };
+            }
+            auto raw_data = load_chunks(stream, chunks);
+            return load_values(
+                raw_data.data(), std::size(raw_data), AEDR.DataType.value, cdf_encoding::IBMPC);
         }
-        return 0;
+        return {};
     }
 
     template <typename cdf_version_tag_t, typename streamT>
@@ -415,13 +469,14 @@ namespace
         cdf_ADR_t<cdf_version_tag_t> ADR;
         if (ADR.load(stream, offset))
         {
-            cdf.attrinutes.emplace(ADR.Name, ADR.Name);
-            if (ADR.NzEntries)
-                load_attribute_data<cdf_version_tag_t>(ADR.AzEDRhead, stream);
-            else
-            {
-                load_attribute_data<cdf_version_tag_t>(ADR.AzEDRhead, stream);
-            }
+            data_t data;
+            if (ADR.AzEDRhead != 0)
+                data = load_attribute_data<cdf_version_tag_t>(ADR.AzEDRhead, stream, ADR.NzEntries);
+            else if (ADR.AgrEDRhead != 0)
+                data = load_attribute_data<cdf_version_tag_t>(
+                    ADR.AgrEDRhead, stream, ADR.NgrEntries);
+            cdf.attrinutes.emplace(std::piecewise_construct, std::forward_as_tuple(ADR.Name.value),
+                std::forward_as_tuple(ADR.Name.value, std::move(data)));
             return ADR.ADRnext;
         }
         return 0;
