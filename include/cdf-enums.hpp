@@ -102,6 +102,8 @@ constexpr auto from_cdf_type()
 {
     if constexpr (type == CDF_Types::CDF_CHAR)
         return char {};
+    if constexpr (type == CDF_Types::CDF_BYTE)
+        return int8_t {};
     if constexpr (type == CDF_Types::CDF_INT1)
         return int8_t {};
     if constexpr (type == CDF_Types::CDF_INT2)

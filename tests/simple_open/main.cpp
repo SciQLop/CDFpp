@@ -20,7 +20,12 @@ SCENARIO("Loading a cdf file", "[CDF]")
         {
             auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
             REQUIRE(std::filesystem::exists(path));
-            REQUIRE(cdf::io::load(path) != std::nullopt);
+            auto cd_opt = cdf::io::load(path);
+            REQUIRE(cd_opt != std::nullopt);
+            auto cd = *cd_opt;
+            REQUIRE(cd.attributes.find("attr")!=cd.attributes.cend());
+            REQUIRE(cd.attributes.find("attr_float")!=cd.attributes.cend());
+            REQUIRE(cd.attributes.find("attr_int")!=cd.attributes.cend());
         }
     }
 }

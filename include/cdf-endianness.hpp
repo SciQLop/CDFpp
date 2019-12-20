@@ -123,7 +123,7 @@ void decode_v(const char* input, std::size_t size, value_t* output)
     casted_buffer_t* casted_output_buffer = reinterpret_cast<casted_buffer_t*>(output);
     std::size_t buffer_size = size / sizeof(value_t);
     if constexpr (std::is_same_v<host_endianness_t, src_endianess_t>)
-        std::copy(casted_buffer, casted_buffer + buffer_size, casted_output_buffer);
+        std::copy_n(casted_buffer, buffer_size, casted_output_buffer);
     else
         std::transform(casted_buffer, casted_buffer + buffer_size, casted_output_buffer,
             [](const auto& v) { return byte_swap(v); });

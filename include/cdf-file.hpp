@@ -30,7 +30,7 @@ namespace cdf
 struct CDF
 {
     std::unordered_map<std::string, Variable> variables;
-    std::unordered_map<std::string, Attribute> attrinutes;
+    std::unordered_map<std::string, Attribute> attributes;
     const Variable& operator[](const std::string& name) const { return variables.at(name); }
 };
 } // namespace cdf

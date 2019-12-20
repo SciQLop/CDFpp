@@ -169,7 +169,7 @@ namespace
     template <typename T1, typename T2>
     constexpr auto last_member(T1&& field1, T2&& field2)
     {
-        if constexpr (field1.offset > field2.offset)
+        if constexpr (std::remove_reference_t<T1>::offset > std::remove_reference_t<T2>::offset)
             return field1;
         else
             return field2;
@@ -178,7 +178,7 @@ namespace
     template <typename T1, typename T2, typename... Ts>
     constexpr auto last_member(T1&& field1, T2&& field2, Ts&&... fields)
     {
-        if constexpr (field1.offset > field2.offset)
+        if constexpr (std::remove_reference_t<T1>::offset > std::remove_reference_t<T2>::offset)
             return last_member(field1, fields...);
         else
             return last_member(field2, fields...);
@@ -193,7 +193,7 @@ namespace
     template <typename T1, typename T2>
     constexpr auto first_member(T1&& field1, T2&& field2)
     {
-        if constexpr (field1.offset < field2.offset)
+        if constexpr (std::remove_reference_t<T1>::offset < std::remove_reference_t<T2>::offset)
             return field1;
         else
             return field2;
@@ -202,7 +202,7 @@ namespace
     template <typename T1, typename T2, typename... Ts>
     constexpr auto first_member(T1&& field1, T2&& field2, Ts&&... fields)
     {
-        if constexpr (field1.offset < field2.offset)
+        if constexpr (std::remove_reference_t<T1>::offset < std::remove_reference_t<T2>::offset)
             return last_member(field1, fields...);
         else
             return last_member(field2, fields...);
@@ -450,15 +450,16 @@ namespace
                 decltype(AEDR.NumElements) NumElements;
                 for (; AEDRCount > 1; --AEDRCount)
                 {
-                    load_fields(stream, next.value, next, NumElements);
+                    load_fields(stream, current.value, next, NumElements);
                     chunks.emplace_back(
                         current.value + AEDR.Values.offset, NumElements.value * element_size);
                     current = next;
                 };
             }
             auto raw_data = load_chunks(stream, chunks);
-            return load_values(
+            auto data = load_values(
                 raw_data.data(), std::size(raw_data), AEDR.DataType.value, cdf_encoding::IBMPC);
+            return data_t { std::move(data) };
         }
         return {};
     }
@@ -475,7 +476,7 @@ namespace
             else if (ADR.AgrEDRhead != 0)
                 data = load_attribute_data<cdf_version_tag_t>(
                     ADR.AgrEDRhead, stream, ADR.NgrEntries);
-            cdf.attrinutes.emplace(std::piecewise_construct, std::forward_as_tuple(ADR.Name.value),
+            cdf.attributes.emplace(std::piecewise_construct, std::forward_as_tuple(ADR.Name.value),
                 std::forward_as_tuple(ADR.Name.value, std::move(data)));
             return ADR.ADRnext;
         }

@@ -43,7 +43,7 @@ auto load_values(const char* buffer, std::size_t buffer_size)
     std::size_t size = buffer_size / sizeof(from_cdf_type_t<type>);
     std::vector<from_cdf_type_t<type>> result(size);
     endianness::decode_v<endianness_t>(buffer, buffer_size, result.data());
-    return result;
+    return cdf_values_t { std::move(result) };
 }
 
 cdf_values_t load_values(
@@ -56,6 +56,30 @@ cdf_values_t load_values(
                 buffer, buffer_size);
         case CDF_Types::CDF_CHAR:
             return load_values<CDF_Types::CDF_CHAR, endianness::little_endian_t>(
+                buffer, buffer_size);
+        case CDF_Types::CDF_INT1:
+            return load_values<CDF_Types::CDF_INT1, endianness::little_endian_t>(
+                buffer, buffer_size);
+        case CDF_Types::CDF_INT2:
+            return load_values<CDF_Types::CDF_INT2, endianness::little_endian_t>(
+                buffer, buffer_size);
+        case CDF_Types::CDF_INT4:
+            return load_values<CDF_Types::CDF_INT4, endianness::little_endian_t>(
+                buffer, buffer_size);
+        case CDF_Types::CDF_INT8:
+            return load_values<CDF_Types::CDF_INT8, endianness::little_endian_t>(
+                buffer, buffer_size);
+        case CDF_Types::CDF_UINT1:
+            return load_values<CDF_Types::CDF_UINT1, endianness::little_endian_t>(
+                buffer, buffer_size);
+        case CDF_Types::CDF_UINT2:
+            return load_values<CDF_Types::CDF_UINT2, endianness::little_endian_t>(
+                buffer, buffer_size);
+        case CDF_Types::CDF_UINT4:
+            return load_values<CDF_Types::CDF_UINT4, endianness::little_endian_t>(
+                buffer, buffer_size);
+        case CDF_Types::CDF_BYTE:
+            return load_values<CDF_Types::CDF_BYTE, endianness::little_endian_t>(
                 buffer, buffer_size);
     }
     return {};
@@ -84,6 +108,7 @@ struct data_t
     }
 
     data_t(const cdf_values_t& values) : p_values { values } {}
+    data_t(cdf_values_t&& values) { this->p_values = std::move(values); }
 
 
 private:
