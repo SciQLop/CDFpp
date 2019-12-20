@@ -118,7 +118,7 @@ T decode(const char* input)
 template <typename src_endianess_t, typename value_t>
 void decode_v(const char* input, std::size_t size, value_t* output)
 {
-    using casted_buffer_t = uint_t<sizeof(value_t)>*;
+    using casted_buffer_t = uint_t<sizeof(value_t)>;
     const casted_buffer_t* casted_buffer = reinterpret_cast<const casted_buffer_t*>(input);
     casted_buffer_t* casted_output_buffer = reinterpret_cast<casted_buffer_t*>(output);
     std::size_t buffer_size = size / sizeof(value_t);

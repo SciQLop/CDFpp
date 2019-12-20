@@ -1,5 +1,9 @@
 #define CATCH_CONFIG_MAIN
+#if __has_include(<catch2/catch.hpp>)
+#include <catch2/catch.hpp>
+#else
 #include <catch.hpp>
+#endif
 #include <cdf-io.hpp>
 #include <cdf.hpp>
 #include <iostream>
@@ -23,9 +27,9 @@ SCENARIO("Loading a cdf file", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            REQUIRE(cd.attributes.find("attr")!=cd.attributes.cend());
-            REQUIRE(cd.attributes.find("attr_float")!=cd.attributes.cend());
-            REQUIRE(cd.attributes.find("attr_int")!=cd.attributes.cend());
+            REQUIRE(cd.attributes.find("attr") != cd.attributes.cend());
+            REQUIRE(cd.attributes.find("attr_float") != cd.attributes.cend());
+            REQUIRE(cd.attributes.find("attr_int") != cd.attributes.cend());
         }
     }
 }

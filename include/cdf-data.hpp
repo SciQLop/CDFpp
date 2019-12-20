@@ -30,11 +30,14 @@
 namespace cdf
 {
 
+struct cdf_none
+{
+};
 
-using cdf_values_t = std::variant<std::vector<char>, std::vector<uint8_t>, std::vector<uint16_t>,
-    std::vector<uint32_t>, std::vector<int8_t>, std::vector<int16_t>, std::vector<int32_t>,
-    std::vector<int64_t>, std::vector<float>, std::vector<double>, std::vector<tt2000_t>,
-    std::vector<epoch>, std::string>;
+using cdf_values_t = std::variant<cdf_none, std::vector<char>, std::vector<uint8_t>,
+    std::vector<uint16_t>, std::vector<uint32_t>, std::vector<int8_t>, std::vector<int16_t>,
+    std::vector<int32_t>, std::vector<int64_t>, std::vector<float>, std::vector<double>,
+    std::vector<tt2000_t>, std::vector<epoch>>;
 
 
 template <CDF_Types type, typename endianness_t>
@@ -100,7 +103,7 @@ struct data_t
         return std::get<std::vector<from_cdf_type_t<type>>>(p_values);
     }
 
-    data_t() = default;
+    data_t() : p_values {}, p_type { CDF_Types::CDF_NONE } {}
 
     template <typename T>
     data_t(const T& values) : p_values { values }, p_type { to_cdf_type<typename T::value_type>() }

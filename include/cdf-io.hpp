@@ -203,9 +203,9 @@ namespace
     constexpr auto first_member(T1&& field1, T2&& field2, Ts&&... fields)
     {
         if constexpr (std::remove_reference_t<T1>::offset < std::remove_reference_t<T2>::offset)
-            return last_member(field1, fields...);
+            return first_member(field1, fields...);
         else
-            return last_member(field2, fields...);
+            return first_member(field2, fields...);
     }
 
 
