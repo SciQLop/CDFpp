@@ -39,12 +39,25 @@ inline const bool is_little_endian = true;
 #define bswap64 __builtin_bswap64
 #endif
 
+#include "cdf-enums.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <type_traits>
 
 namespace cdf::endianness
 {
+
+bool is_big_endian_encoding(cdf_encoding encoding)
+{
+    return encoding == cdf_encoding::network || encoding == cdf_encoding::SUN
+        || encoding == cdf_encoding::NeXT || encoding == cdf_encoding::PPC
+        || encoding == cdf_encoding::SGi || encoding == cdf_encoding::IBMRS
+        || encoding == cdf_encoding::ARM_BIG;
+}
+bool is_little_endian_encoding(cdf_encoding encoding)
+{
+    return !is_big_endian_encoding(encoding);
+}
 
 struct big_endian_t
 {

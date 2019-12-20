@@ -28,11 +28,36 @@ namespace cdf
 struct Attribute
 {
     std::string name;
-    data_t data;
     Attribute() = default;
     Attribute(const Attribute&) = default;
     Attribute(Attribute&&) = default;
-
     Attribute(const std::string& name, data_t&& data) : name { name }, data { data } {}
+
+    template <CDF_Types type>
+    decltype(auto) get()
+    {
+        return data.get<type>();
+    }
+
+    template <CDF_Types type>
+    decltype(auto) get() const
+    {
+        return data.get<type>();
+    }
+
+    template <typename type>
+    decltype(auto) get()
+    {
+        return data.get<type>();
+    }
+
+    template <typename type>
+    decltype(auto) get() const
+    {
+        return data.get<type>();
+    }
+
+private:
+    data_t data;
 };
 } // namespace cdf

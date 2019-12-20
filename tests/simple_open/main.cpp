@@ -28,12 +28,12 @@ SCENARIO("Loading a cdf file", "[CDF]")
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
             REQUIRE(cd.attributes.find("attr") != cd.attributes.cend());
-            REQUIRE(cd.attributes["attr"].data.get<std::string>() == "a cdf text attribute");
+            REQUIRE(cd.attributes["attr"].get<std::string>() == "a cdf text attribute");
             REQUIRE(cd.attributes.find("attr_float") != cd.attributes.cend());
-            REQUIRE(cd.attributes["attr_float"].data.get<std::vector<float>>()
+            REQUIRE(cd.attributes["attr_float"].get<std::vector<float>>()
                 == std::vector<float> { 1.f, 2.f, 3.f });
             REQUIRE(cd.attributes.find("attr_int") != cd.attributes.cend());
-            REQUIRE(cd.attributes["attr_int"].data.get<std::vector<int8_t>>()
+            REQUIRE(cd.attributes["attr_int"].get<std::vector<int8_t>>()
                 == std::vector<int8_t> { 1, 2, 3 });
         }
     }
