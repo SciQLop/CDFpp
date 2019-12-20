@@ -522,7 +522,7 @@ namespace
         CDF cdf;
         if (!load_attributes<cdf_version_tag_t>(cdf_file, context, cdf))
             return std::nullopt;
-        return CDF {};
+        return cdf;
     }
 } // namespace
 
