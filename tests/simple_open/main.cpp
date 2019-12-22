@@ -28,13 +28,19 @@ SCENARIO("Loading a cdf file", "[CDF]")
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
             REQUIRE(cd.attributes.find("attr") != cd.attributes.cend());
-            REQUIRE(cd.attributes["attr"].get<std::string>() == "a cdf text attribute");
+            REQUIRE(cd.attributes["attr"].get<std::string>(0) == "a cdf text attribute");
             REQUIRE(cd.attributes.find("attr_float") != cd.attributes.cend());
-            REQUIRE(cd.attributes["attr_float"].get<std::vector<float>>()
-                == std::vector<float> { 1.f, 2.f, 3.f });
+            REQUIRE(cd.attributes["attr_float"].get<std::vector<float>>(0)
+                == std::vector<float> { 1.f});
+            REQUIRE(cd.attributes["attr_float"].get<std::vector<float>>(1)
+                == std::vector<float> { 2.f});
+            REQUIRE(cd.attributes["attr_float"].get<std::vector<float>>(2)
+                == std::vector<float> { 3.f});
             REQUIRE(cd.attributes.find("attr_int") != cd.attributes.cend());
-            REQUIRE(cd.attributes["attr_int"].get<std::vector<int8_t>>()
-                == std::vector<int8_t> { 1, 2, 3 });
+            REQUIRE(cd.attributes["attr_int"].get<std::vector<int8_t>>(0) == std::vector<int8_t>{1});
+            REQUIRE(cd.attributes["attr_int"].get<std::vector<int8_t>>(1) == std::vector<int8_t>{2});
+            REQUIRE(cd.attributes["attr_int"].get<std::vector<int8_t>>(2) == std::vector<int8_t>{3});
+
         }
     }
 }

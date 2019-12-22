@@ -45,6 +45,14 @@ namespace
         std::size_t size;
     };
 
+    template <typename T, typename streamT>
+    T read_buffer(streamT&& stream, std::size_t pos, std::size_t size)
+    {
+        T buffer(size);
+        stream.seekg(pos);
+        stream.read(buffer.data(), size);
+        return buffer;
+    }
 
     template <typename streamT>
     std::vector<char> load_chunks(streamT&& stream, const std::vector<data_chunk_t>& chunks)
@@ -138,31 +146,21 @@ namespace
     }
 
     template <typename cdf_version_tag_t, typename streamT>
-    data_t load_attribute_data(std::size_t offset, streamT& stream, std::size_t AEDRCount)
+    Attribute::attr_data_t load_attribute_data(std::size_t offset, streamT& stream, std::size_t AEDRCount)
     {
         cdf_AEDR_t<cdf_version_tag_t> AEDR;
         if (AEDR.load(stream, offset))
         {
-            std::vector<data_chunk_t> chunks;
-            std::size_t element_size = cdf_type_size(CDF_Types { AEDR.DataType.value });
-            chunks.emplace_back(offset + AEDR.Values.offset, AEDR.NumElements * element_size);
-            if (AEDRCount > 1)
+            Attribute::attr_data_t values;
+            while (AEDRCount--)
             {
-                decltype(AEDR.AEDRnext) next;
-                decltype(AEDR.AEDRnext) current = AEDR.AEDRnext;
-                decltype(AEDR.NumElements) NumElements;
-                for (; AEDRCount > 1; --AEDRCount)
-                {
-                    load_fields(stream, current.value, next, NumElements);
-                    chunks.emplace_back(
-                        current.value + AEDR.Values.offset, NumElements.value * element_size);
-                    current = next;
-                };
+                std::size_t element_size = cdf_type_size(CDF_Types { AEDR.DataType.value });
+                auto buffer = read_buffer<std::vector<char>>(stream, offset+AEDR.Values.offset, AEDR.NumElements * element_size);
+                values.emplace_back(load_values(buffer.data(),std::size(buffer),AEDR.DataType.value, cdf_encoding::IBMPC));
+                offset = AEDR.AEDRnext.value;
+                AEDR.load(stream, offset);
             }
-            auto raw_data = load_chunks(stream, chunks);
-            auto data = load_values(
-                raw_data.data(), std::size(raw_data), AEDR.DataType.value, cdf_encoding::IBMPC);
-            return data_t { std::move(data) };
+            return values;
         }
         return {};
     }
@@ -173,7 +171,7 @@ namespace
         cdf_ADR_t<cdf_version_tag_t> ADR;
         if (ADR.load(stream, offset))
         {
-            data_t data;
+            Attribute::attr_data_t data;
             if (ADR.AzEDRhead != 0)
                 data = load_attribute_data<cdf_version_tag_t>(ADR.AzEDRhead, stream, ADR.NzEntries);
             else if (ADR.AgrEDRhead != 0)

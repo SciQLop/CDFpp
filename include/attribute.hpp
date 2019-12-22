@@ -22,42 +22,48 @@
 ----------------------------------------------------------------------------*/
 #include <cdf-data.hpp>
 #include <string>
+#include <variant>
 
 namespace cdf
 {
 struct Attribute
 {
+    using attr_data_t = std::vector<data_t>;
     std::string name;
     Attribute() = default;
     Attribute(const Attribute&) = default;
     Attribute(Attribute&&) = default;
-    Attribute(const std::string& name, data_t&& data) : name { name }, data { data } {}
-
-    template <CDF_Types type>
-    decltype(auto) get()
+    Attribute(const std::string& name, attr_data_t&& data) : name { name }
     {
-        return data.get<type>();
+        this->data=std::move(data);
     }
 
     template <CDF_Types type>
-    decltype(auto) get() const
+    decltype(auto) get(std::size_t index)
     {
-        return data.get<type>();
+        return data[index].get<type>();
+    }
+
+    template <CDF_Types type>
+    decltype(auto) get(std::size_t index) const
+    {
+        return data[index].get<type>();
     }
 
     template <typename type>
-    decltype(auto) get()
+    decltype(auto) get(std::size_t index)
     {
-        return data.get<type>();
+        return data[index].get<type>();
     }
 
     template <typename type>
-    decltype(auto) get() const
+    decltype(auto) get(std::size_t index) const
     {
-        return data.get<type>();
+        return data[index].get<type>();
     }
+
 
 private:
-    data_t data;
+    attr_data_t data;
 };
 } // namespace cdf

@@ -22,11 +22,12 @@
 ----------------------------------------------------------------------------*/
 #include "cdf-endianness.hpp"
 #include "cdf-enums.hpp"
-#include <type_traits>
 #include <cstdint>
 #include <tuple>
+#include <type_traits>
 
-namespace cdf {
+namespace cdf
+{
 using magic_numbers_t = std::pair<uint32_t, uint32_t>;
 
 template <std::size_t offset_param, typename T>
@@ -110,11 +111,9 @@ template <typename version_t, typename previous_member_t>
 using cdf_offset_field_t = std::conditional_t<is_v3_v<version_t>,
     field_t<after<previous_member_t>, uint64_t>, field_t<after<previous_member_t>, uint32_t>>;
 
-template <typename version_t, typename previous_member_t, std::size_t v3size,
-    std::size_t v2size>
-using cdf_string_field_t
-    = std::conditional_t<is_v3_v<version_t>, str_field_t<after<previous_member_t>, v3size>,
-        str_field_t<after<previous_member_t>, v2size>>;
+template <typename version_t, typename previous_member_t, std::size_t v3size, std::size_t v2size>
+using cdf_string_field_t = std::conditional_t<is_v3_v<version_t>,
+    str_field_t<after<previous_member_t>, v3size>, str_field_t<after<previous_member_t>, v2size>>;
 
 template <typename version_t, cdf_record_type record_t>
 struct cdf_DR_header
@@ -133,30 +132,50 @@ struct cdf_DR_header
     }
 };
 
-template <template<typename, typename> typename  comp_t, typename... Ts> struct most_member_t;
+template <template <typename, typename> typename comp_t, typename... Ts>
+struct most_member_t;
 
-template <template<typename, typename> typename  comp_t, typename T1>
-struct most_member_t<comp_t,T1>: std::remove_reference_t<T1>{};
+template <template <typename, typename> typename comp_t, typename T1>
+struct most_member_t<comp_t, T1> : std::remove_reference_t<T1>
+{
+};
 
-template <template<typename, typename> typename  comp_t, typename T1, typename T2>
-struct most_member_t<comp_t, T1,T2>:std::conditional_t<comp_t<std::remove_reference_t<T1>, std::remove_reference_t<T2>>::value, std::remove_reference_t<T1>, std::remove_reference_t<T2>>{};
+template <template <typename, typename> typename comp_t, typename T1, typename T2>
+struct most_member_t<comp_t, T1, T2>
+        : std::conditional_t<
+              comp_t<std::remove_reference_t<T1>, std::remove_reference_t<T2>>::value,
+              std::remove_reference_t<T1>, std::remove_reference_t<T2>>
+{
+};
 
-template <template<typename, typename> typename  comp_t, typename T1, typename T2, typename... Ts>
-struct most_member_t<comp_t, T1, T2, Ts...> : std::conditional_t<comp_t<std::remove_reference_t<T1>, std::remove_reference_t<T2>>::value, most_member_t<comp_t, T1, Ts...>, most_member_t<comp_t, T2, Ts...>>{};
+template <template <typename, typename> typename comp_t, typename T1, typename T2, typename... Ts>
+struct most_member_t<comp_t, T1, T2, Ts...>
+        : std::conditional_t<
+              comp_t<std::remove_reference_t<T1>, std::remove_reference_t<T2>>::value,
+              most_member_t<comp_t, T1, Ts...>, most_member_t<comp_t, T2, Ts...>>
+{
+};
 
 
 template <typename T1, typename T2>
-using field_is_before_t = std::conditional_t< T1::offset <= T2::offset, std::true_type, std::false_type>;
+using field_is_before_t
+    = std::conditional_t<T1::offset <= T2::offset, std::true_type, std::false_type>;
 
 template <typename T1, typename T2>
-using field_is_after_t = std::conditional_t< T1::offset >= T2::offset, std::true_type, std::false_type>;
+using field_is_after_t
+    = std::conditional_t<T1::offset >= T2::offset, std::true_type, std::false_type>;
 
+template <typename... Args>
+using first_field_t = most_member_t<field_is_before_t, Args...>;
+
+template <typename... Args>
+using last_field_t = most_member_t<field_is_after_t, Args...>;
 
 template <typename streamT, typename cdf_DR_t, typename... Ts>
 constexpr bool load_desc_record(
     streamT&& stream, std::size_t offset, cdf_DR_t&& cdf_desc_record, Ts&&... fields)
 {
-    using last_member_t = most_member_t<field_is_after_t,Ts...>;
+    using last_member_t = last_field_t<Ts...>;
     constexpr std::size_t buffer_len = last_member_t::offset + last_member_t::len;
     char buffer[buffer_len];
     stream.seekg(offset);
@@ -172,8 +191,8 @@ constexpr bool load_desc_record(
 template <typename streamT, typename... Ts>
 constexpr bool load_fields(streamT&& stream, std::size_t offset, Ts&&... fields)
 {
-    using last_member_t = most_member_t<field_is_after_t,Ts...>;
-    using first_member_t = most_member_t<field_is_before_t,Ts...>;
+    using last_member_t = last_field_t<Ts...>;
+    using first_member_t = first_field_t<Ts...>;
     constexpr std::size_t buffer_len
         = last_member_t::offset + last_member_t::len - first_member_t::offset;
     char buffer[buffer_len];
@@ -230,8 +249,8 @@ struct cdf_GDR_t
     template <typename streamT>
     bool load(streamT&& stream, std::size_t GDRoffset)
     {
-        return load_desc_record(stream, GDRoffset, *this, rVDRhead, zVDRhead, ADRhead, eof,
-            NrVars, NumAttr, rMaxRec, rNumDims, NzVars, UIRhead, LeapSecondLastUpdated);
+        return load_desc_record(stream, GDRoffset, *this, rVDRhead, zVDRhead, ADRhead, eof, NrVars,
+            NumAttr, rMaxRec, rNumDims, NzVars, UIRhead, LeapSecondLastUpdated);
     }
 };
 
@@ -281,8 +300,8 @@ struct cdf_AEDR_t
     template <typename streamT>
     bool load(streamT&& stream, std::size_t AEDRoffset)
     {
-        return load_desc_record(stream, AEDRoffset, *this, AEDRnext, AttrNum, DataType, Num,
-            NumElements, NumStrings);
+        return load_desc_record(
+            stream, AEDRoffset, *this, AEDRnext, AttrNum, DataType, Num, NumElements, NumStrings);
     }
 };
 
