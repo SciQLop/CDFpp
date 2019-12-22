@@ -40,6 +40,10 @@ SCENARIO("Loading a cdf file", "[CDF]")
             REQUIRE(cd.attributes["attr_int"].get<std::vector<int8_t>>(0) == std::vector<int8_t>{1});
             REQUIRE(cd.attributes["attr_int"].get<std::vector<int8_t>>(1) == std::vector<int8_t>{2});
             REQUIRE(cd.attributes["attr_int"].get<std::vector<int8_t>>(2) == std::vector<int8_t>{3});
+            REQUIRE(cd.attributes.find("attr_multi") != cd.attributes.cend());
+            REQUIRE(cd.attributes["attr_multi"].get<std::vector<int8_t>>(0) == std::vector<int8_t>{1});
+            REQUIRE(cd.attributes["attr_multi"].get<std::vector<float>>(1) == std::vector<float>{2.});
+            REQUIRE(cd.attributes["attr_multi"].get<std::string>(2) == std::string{"hello"});
 
         }
     }

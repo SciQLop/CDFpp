@@ -9,4 +9,5 @@ cd["var"] = [1.,2.,3.]
 cd.attrs["attr"] = "a cdf text attribute"
 cd.attrs["attr_float"] = [1.,2.,3.]
 cd.attrs["attr_int"] = [1,2,3]
+cd.attrs["attr_multi"] = [1,2.,"hello"]
 cd.close()
