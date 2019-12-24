@@ -171,6 +171,15 @@ using first_field_t = most_member_t<field_is_before_t, Args...>;
 template <typename... Args>
 using last_field_t = most_member_t<field_is_after_t, Args...>;
 
+template <typename T, typename streamT>
+T read_buffer(streamT&& stream, std::size_t pos, std::size_t size)
+{
+    T buffer(size);
+    stream.seekg(pos);
+    stream.read(buffer.data(), size);
+    return buffer;
+}
+
 template <typename streamT, typename cdf_DR_t, typename... Ts>
 constexpr bool load_desc_record(
     streamT&& stream, std::size_t offset, cdf_DR_t&& cdf_desc_record, Ts&&... fields)

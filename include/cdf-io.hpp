@@ -36,39 +36,6 @@ namespace cdf::io
 {
 namespace
 {
-    struct data_chunk_t
-    {
-        data_chunk_t(std::size_t position, std::size_t size) : position { position }, size { size }
-        {
-        }
-        std::size_t position;
-        std::size_t size;
-    };
-
-    template <typename T, typename streamT>
-    T read_buffer(streamT&& stream, std::size_t pos, std::size_t size)
-    {
-        T buffer(size);
-        stream.seekg(pos);
-        stream.read(buffer.data(), size);
-        return buffer;
-    }
-
-    template <typename streamT>
-    std::vector<char> load_chunks(streamT&& stream, const std::vector<data_chunk_t>& chunks)
-    {
-        std::size_t total_size = std::accumulate(std::cbegin(chunks), std::cend(chunks), 0UL,
-            [](auto& sz, auto& chunk) { return sz + chunk.size; });
-        std::vector<char> buffer(total_size);
-        std::size_t pos = 0;
-        std::for_each(
-            std::cbegin(chunks), std::cend(chunks), [&buffer, &stream, &pos](auto& chunk) {
-                stream.seekg(chunk.position);
-                stream.read(buffer.data() + pos, chunk.size);
-                pos += chunk.size;
-            });
-        return buffer;
-    }
 
     template <typename version_t>
     struct cdf_parsing_t
