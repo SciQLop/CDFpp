@@ -124,7 +124,9 @@ struct data_t
     data_t() : p_values { cdf_none {} }, p_type { CDF_Types::CDF_NONE } {}
 
     template <typename T>
-    data_t(T&& values) : p_values { std::forward<T>(values)}, p_type { to_cdf_type<typename std::remove_reference_t<T>::value_type>() }
+    data_t(T&& values)
+            : p_values { std::forward<T>(values) }
+            , p_type { to_cdf_type<typename std::remove_reference_t<T>::value_type>() }
     {
     }
 

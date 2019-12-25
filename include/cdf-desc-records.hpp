@@ -115,12 +115,11 @@ template <typename version_t, typename previous_member_t, std::size_t v3size, st
 using cdf_string_field_t = std::conditional_t<is_v3_v<version_t>,
     str_field_t<after<previous_member_t>, v3size>, str_field_t<after<previous_member_t>, v2size>>;
 
-template <typename version_t, cdf_record_type record_t>
+template <typename version_t, cdf_record_type... record_t>
 struct cdf_DR_header
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     inline static constexpr std::size_t offset = 0;
-    inline static constexpr cdf_record_type rec_type = record_t;
     using type = uint64_t;
     std::conditional_t<v3, field_t<0, uint64_t>, field_t<0, uint32_t>> record_size;
     field_t<after<decltype(record_size)>, cdf_record_type> record_type;
@@ -128,7 +127,7 @@ struct cdf_DR_header
     bool load(buffert_t&& buffer)
     {
         extract_fields(std::forward<buffert_t>(buffer), 0, record_size, record_type);
-        return record_type == record_type;
+        return ((record_type==record_t) || ... );
     }
 };
 
@@ -293,7 +292,7 @@ template <typename version_t>
 struct cdf_AEDR_t
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
-    cdf_DR_header<version_t, cdf_record_type::ADR> header;
+    cdf_DR_header<version_t, cdf_record_type::AzEDR, cdf_record_type::AgrEDR> header;
     cdf_offset_field_t<version_t, decltype(header)> AEDRnext;
     field_t<after<decltype(AEDRnext)>, uint32_t> AttrNum;
     field_t<after<decltype(AttrNum)>, CDF_Types> DataType;
@@ -311,6 +310,66 @@ struct cdf_AEDR_t
     {
         return load_desc_record(
             stream, AEDRoffset, *this, AEDRnext, AttrNum, DataType, Num, NumElements, NumStrings);
+    }
+};
+
+template <typename version_t>
+struct cdf_VDR_t
+{
+    inline static constexpr bool v3 = is_v3_v<version_t>;
+    cdf_DR_header<version_t, cdf_record_type::rVDR, cdf_record_type::zVDR> header;
+    cdf_offset_field_t<version_t, decltype(header)> VDRnext;
+    field_t<after<decltype(VDRnext)>, CDF_Types> DataType;
+    field_t<after<decltype(DataType)>, uint32_t> MaxRec;
+    cdf_offset_field_t<version_t, decltype(MaxRec)> VXRhead;
+    cdf_offset_field_t<version_t, decltype(VXRhead)> VXRtail;
+    field_t<after<decltype(VXRtail)>, uint32_t> Flags;
+    field_t<after<decltype(Flags)>, uint32_t> SRecords;
+    field_t<after<decltype(SRecords)>, uint32_t> rfuB;
+    field_t<after<decltype(rfuB)>, uint32_t> rfuC;
+    field_t<after<decltype(rfuC)>, uint32_t> rfuF;
+    field_t<after<decltype(rfuF)>, uint32_t> NumElems;
+    field_t<after<decltype(NumElems)>, uint32_t> Num;
+    cdf_offset_field_t<version_t, decltype(Num)> CPRorSPRoffset;
+    field_t<after<decltype(CPRorSPRoffset)>, uint32_t> BlockingFactor;
+    cdf_string_field_t<version_t, decltype(BlockingFactor), 256, 64> Name;
+    field_t<after<decltype(Name)>, uint32_t> zNumDims;
+    field_t<after<decltype(zNumDims)>, uint32_t> zDimSizes;
+    field_t<after<decltype(zDimSizes)>, uint32_t> DimVarys;
+    field_t<after<decltype(DimVarys)>, uint32_t> PadValues;
+    template <typename streamT>
+    bool load(streamT&& stream, std::size_t VDRoffset)
+    {
+        return load_desc_record(stream, VDRoffset, *this, VDRnext, DataType, MaxRec, VXRhead, VXRtail, Flags,
+            SRecords, NumElems, Num, CPRorSPRoffset, BlockingFactor, Name, zNumDims, zDimSizes,
+            DimVarys);
+    }
+};
+
+template <typename version_t>
+struct cdf_VXR_t
+{
+    inline static constexpr bool v3 = is_v3_v<version_t>;
+    cdf_DR_header<version_t, cdf_record_type::VXR> header;
+    cdf_offset_field_t<version_t, decltype(header)> VXRnext;
+    field_t<after<decltype(VXRnext)>, CDF_Types> Nentries;
+    field_t<after<decltype(Nentries)>, uint32_t> NusedEntries;
+    template <typename streamT>
+    bool load(streamT&& stream, std::size_t VXRoffset)
+    {
+        return load_desc_record(stream, VXRoffset, *this, VXRnext,Nentries, NusedEntries);
+    }
+};
+
+template <typename version_t>
+struct cdf_VVR_t
+{
+    inline static constexpr bool v3 = is_v3_v<version_t>;
+    cdf_DR_header<version_t, cdf_record_type::VVR> header;
+    template <typename streamT>
+    bool load(streamT&& stream, std::size_t VXRoffset)
+    {
+        return load_desc_record(stream, VXRoffset, *this);
     }
 };
 

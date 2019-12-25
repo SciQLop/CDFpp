@@ -113,7 +113,8 @@ namespace
     }
 
     template <typename cdf_version_tag_t, typename streamT>
-    Attribute::attr_data_t load_attribute_data(std::size_t offset, streamT& stream, std::size_t AEDRCount)
+    Attribute::attr_data_t load_attribute_data(
+        std::size_t offset, streamT& stream, std::size_t AEDRCount)
     {
         cdf_AEDR_t<cdf_version_tag_t> AEDR;
         if (AEDR.load(stream, offset))
@@ -122,8 +123,10 @@ namespace
             while (AEDRCount--)
             {
                 std::size_t element_size = cdf_type_size(CDF_Types { AEDR.DataType.value });
-                auto buffer = read_buffer<std::vector<char>>(stream, offset+AEDR.Values.offset, AEDR.NumElements * element_size);
-                values.emplace_back(load_values(buffer.data(),std::size(buffer),AEDR.DataType.value, cdf_encoding::IBMPC));
+                auto buffer = read_buffer<std::vector<char>>(
+                    stream, offset + AEDR.Values.offset, AEDR.NumElements * element_size);
+                values.emplace_back(load_values(
+                    buffer.data(), std::size(buffer), AEDR.DataType.value, cdf_encoding::IBMPC));
                 offset = AEDR.AEDRnext.value;
                 AEDR.load(stream, offset);
             }

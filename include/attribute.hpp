@@ -35,7 +35,7 @@ struct Attribute
     Attribute(Attribute&&) = default;
     Attribute(const std::string& name, attr_data_t&& data) : name { name }
     {
-        this->data=std::move(data);
+        this->data = std::move(data);
     }
 
     template <CDF_Types type>
