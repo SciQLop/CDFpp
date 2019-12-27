@@ -24,9 +24,10 @@ jobs:
       - name: Run tests (meson)
         run: ninja test -C build
       - name: Generate Coverage repport
-        run: lcov --capture --directory . --output-file coverage.info
-        lcov --remove coverage.info '/usr/*' --output-file coverage.info
-        lcov --list coverage.info
+        run: |
+          lcov --capture --directory . --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' --output-file coverage.info
+          lcov --list coverage.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
