@@ -13,13 +13,13 @@ jobs:
           submodules: true
       - name: Configure with CMake
         run: cmake -S . -B build_cmake
-      - name: Build
+      - name: Build (CMake)
         run: cmake --build build_cmake
-      - name: Build
+      - name: Run tests (CMake)
         run: cd build_cmake && ctest && cd ..
       - name: Configure with meson
         run: meson . build
-      - name: Build
+      - name: Build (meson)
         run: ninja -C build
-      - name: Build
+      - name: Run tests (meson)
         run: ninja test -C build
