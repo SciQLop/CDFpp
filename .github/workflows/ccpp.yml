@@ -27,6 +27,7 @@ jobs:
         run: |
           lcov --capture --directory . --output-file coverage.info
           lcov --remove coverage.info '/usr/*' --output-file coverage.info
+          lcov --remove coverage.info '*/catch.hpp' --output-file coverage.info
           lcov --list coverage.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
