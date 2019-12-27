@@ -43,6 +43,15 @@ enum class cdf_record_type : int32_t
     UIR = -1,
 };
 
+enum class cdf_attr_scope : int32_t
+{
+    global = 1,
+    variable = 2,
+    global_assumed = 3,
+    variable_assumed = 4,
+
+};
+
 enum class cdf_encoding : int32_t
 {
     network = 1,

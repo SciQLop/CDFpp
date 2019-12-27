@@ -122,8 +122,22 @@ struct data_t
     }
 
     data_t() : p_values { cdf_none {} }, p_type { CDF_Types::CDF_NONE } {}
-
-    template <typename T>
+    data_t(const data_t& other)=default;
+    data_t(data_t&& other)=default;
+    data_t& operator=(data_t&& other)
+    {
+        std::swap(p_values, other.p_values);
+        std::swap(p_type, other.p_type);
+        return *this;
+    }
+    data_t& operator=(const data_t& other)
+    {
+        p_values = other.p_values;
+        p_type = other.p_type;
+        return *this;
+    }
+    template<typename T, typename Dummy = void,
+             typename       = std::enable_if_t<!std::is_same_v<std::remove_reference_t<T>,data_t >, Dummy>>
     data_t(T&& values)
             : p_values { std::forward<T>(values) }
             , p_type { to_cdf_type<typename std::remove_reference_t<T>::value_type>() }

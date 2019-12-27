@@ -31,6 +31,26 @@ struct CDF
 {
     std::unordered_map<std::string, Variable> variables;
     std::unordered_map<std::string, Attribute> attributes;
+    std::unordered_map<std::size_t, Attribute> p_var_attributes;
     const Variable& operator[](const std::string& name) const { return variables.at(name); }
 };
+
+void add_attribute(CDF& cdf_file, const std::string& name, Attribute::attr_data_t&& data)
+{
+    if(auto [_, success] = cdf_file.attributes.try_emplace(name, name, std::move(data));!success)
+    {
+        cdf_file.attributes[name] = std::move(data);
+    }
+}
+
+void add_var_attribute(CDF& cdf_file, std::size_t index ,  const std::string& name, Attribute::attr_data_t&& data)
+{
+    if(auto [_, success] = cdf_file.p_var_attributes.try_emplace(index, name, std::move(data));!success)
+    {
+        auto& attr = cdf_file.p_var_attributes[index];
+        attr = std::move(data);
+        attr.name = name;
+    }
+}
+
 } // namespace cdf

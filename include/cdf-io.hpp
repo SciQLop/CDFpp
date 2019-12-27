@@ -147,8 +147,10 @@ namespace
             else if (ADR.AgrEDRhead != 0)
                 data = load_attribute_data<cdf_version_tag_t>(
                     ADR.AgrEDRhead, stream, ADR.NgrEntries);
-            cdf.attributes.emplace(std::piecewise_construct, std::forward_as_tuple(ADR.Name.value),
-                std::forward_as_tuple(ADR.Name.value, std::move(data)));
+            if(ADR.scope==cdf_attr_scope::global || ADR.scope == cdf_attr_scope::global_assumed)
+                add_attribute(cdf, ADR.Name.value, std::move(data));
+            else if(ADR.scope==cdf_attr_scope::variable || ADR.scope == cdf_attr_scope::variable_assumed)
+                add_var_attribute(cdf, ADR.num.value, ADR.Name.value, std::move(data));
             return ADR.ADRnext;
         }
         return 0;

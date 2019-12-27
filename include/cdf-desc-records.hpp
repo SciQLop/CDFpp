@@ -96,6 +96,9 @@ void extract_fields(buffer_t buffer, std::size_t offset, Ts&&... fields)
 template <typename field_type>
 inline constexpr std::size_t after = field_type::offset + sizeof(typename field_type::type);
 
+
+#define AFTER(f) after<decltype(f)>
+
 struct v3x_tag
 {
 };
@@ -107,13 +110,13 @@ struct v2x_tag
 template <typename version_t>
 inline constexpr bool is_v3_v = std::is_same_v<version_t, v3x_tag>;
 
-template <typename version_t, typename previous_member_t>
+template <typename version_t, std::size_t offset_param>
 using cdf_offset_field_t = std::conditional_t<is_v3_v<version_t>,
-    field_t<after<previous_member_t>, uint64_t>, field_t<after<previous_member_t>, uint32_t>>;
+    field_t<offset_param, uint64_t>, field_t<offset_param, uint32_t>>;
 
-template <typename version_t, typename previous_member_t, std::size_t v3size, std::size_t v2size>
+template <typename version_t, std::size_t offset_param, std::size_t v3size, std::size_t v2size>
 using cdf_string_field_t = std::conditional_t<is_v3_v<version_t>,
-    str_field_t<after<previous_member_t>, v3size>, str_field_t<after<previous_member_t>, v2size>>;
+    str_field_t<offset_param, v3size>, str_field_t<offset_param, v2size>>;
 
 template <typename version_t, cdf_record_type... record_t>
 struct cdf_DR_header
@@ -122,7 +125,7 @@ struct cdf_DR_header
     inline static constexpr std::size_t offset = 0;
     using type = uint64_t;
     std::conditional_t<v3, field_t<0, uint64_t>, field_t<0, uint32_t>> record_size;
-    field_t<after<decltype(record_size)>, cdf_record_type> record_type;
+    field_t<AFTER(record_size), cdf_record_type> record_type;
     template <typename buffert_t>
     bool load(buffert_t&& buffer)
     {
@@ -216,17 +219,17 @@ struct cdf_CDR_t
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::CDR> header;
-    cdf_offset_field_t<version_t, decltype(header)> GDRoffset;
-    field_t<after<decltype(GDRoffset)>, uint32_t> Version;
-    field_t<after<decltype(Version)>, uint32_t> Release;
-    field_t<after<decltype(Release)>, cdf_encoding> Encoding;
-    field_t<after<decltype(Encoding)>, uint32_t> Flags;
-    unused_field_t<after<decltype(Flags)>, uint32_t> rfuA;
-    unused_field_t<after<decltype(rfuA)>, uint32_t> rfuB;
-    field_t<after<decltype(rfuB)>, uint32_t> Increment;
-    field_t<after<decltype(Increment)>, uint32_t> Identifier;
-    unused_field_t<after<decltype(Identifier)>, uint32_t> rfuE;
-    str_field_t<after<decltype(rfuE)>, 256> copyright; // ignore format < 2.6
+    cdf_offset_field_t<version_t, AFTER(header)> GDRoffset;
+    field_t<AFTER(GDRoffset), uint32_t> Version;
+    field_t<AFTER(Version), uint32_t> Release;
+    field_t<AFTER(Release), cdf_encoding> Encoding;
+    field_t<AFTER(Encoding), uint32_t> Flags;
+    unused_field_t<AFTER(Flags), uint32_t> rfuA;
+    unused_field_t<AFTER(rfuA), uint32_t> rfuB;
+    field_t<AFTER(rfuB), uint32_t> Increment;
+    field_t<AFTER(Increment), uint32_t> Identifier;
+    unused_field_t<AFTER(Identifier), uint32_t> rfuE;
+    str_field_t<AFTER(rfuE), 256> copyright; // ignore format < 2.6
 
     template <typename streamT>
     bool load(streamT&& stream)
@@ -241,19 +244,19 @@ struct cdf_GDR_t
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::GDR> header;
-    cdf_offset_field_t<version_t, decltype(header)> rVDRhead;
-    cdf_offset_field_t<version_t, decltype(rVDRhead)> zVDRhead;
-    cdf_offset_field_t<version_t, decltype(zVDRhead)> ADRhead;
-    cdf_offset_field_t<version_t, decltype(ADRhead)> eof;
-    field_t<after<decltype(eof)>, uint32_t> NrVars;
-    field_t<after<decltype(NrVars)>, uint32_t> NumAttr;
-    field_t<after<decltype(NumAttr)>, uint32_t> rMaxRec;
-    field_t<after<decltype(rMaxRec)>, uint32_t> rNumDims;
-    field_t<after<decltype(rNumDims)>, uint32_t> NzVars;
-    field_t<after<decltype(NzVars)>, uint32_t> UIRhead;
-    unused_field_t<after<decltype(UIRhead)>, uint32_t> rfuC;
-    field_t<after<decltype(rfuC)>, uint32_t> LeapSecondLastUpdated;
-    unused_field_t<after<decltype(LeapSecondLastUpdated)>, uint32_t> rfuE;
+    cdf_offset_field_t<version_t, AFTER(header)> rVDRhead;
+    cdf_offset_field_t<version_t, AFTER(rVDRhead)> zVDRhead;
+    cdf_offset_field_t<version_t, AFTER(zVDRhead)> ADRhead;
+    cdf_offset_field_t<version_t, AFTER(ADRhead)> eof;
+    field_t<AFTER(eof), uint32_t> NrVars;
+    field_t<AFTER(NrVars), uint32_t> NumAttr;
+    field_t<AFTER(NumAttr), uint32_t> rMaxRec;
+    field_t<AFTER(rMaxRec), uint32_t> rNumDims;
+    field_t<AFTER(rNumDims), uint32_t> NzVars;
+    field_t<AFTER(NzVars), uint32_t> UIRhead;
+    unused_field_t<AFTER(UIRhead), uint32_t> rfuC;
+    field_t<AFTER(rfuC), uint32_t> LeapSecondLastUpdated;
+    unused_field_t<AFTER(LeapSecondLastUpdated), uint32_t> rfuE;
     template <typename streamT>
     bool load(streamT&& stream, std::size_t GDRoffset)
     {
@@ -267,18 +270,18 @@ struct cdf_ADR_t
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::ADR> header;
-    cdf_offset_field_t<version_t, decltype(header)> ADRnext;
-    cdf_offset_field_t<version_t, decltype(ADRnext)> AgrEDRhead;
-    field_t<after<decltype(AgrEDRhead)>, uint32_t> scope;
-    field_t<after<decltype(scope)>, uint32_t> num;
-    field_t<after<decltype(num)>, uint32_t> NgrEntries;
-    field_t<after<decltype(NgrEntries)>, uint32_t> MAXgrEntries;
-    unused_field_t<after<decltype(MAXgrEntries)>, uint32_t> rfuA;
-    cdf_offset_field_t<version_t, decltype(rfuA)> AzEDRhead;
-    field_t<after<decltype(AzEDRhead)>, uint32_t> NzEntries;
-    field_t<after<decltype(NzEntries)>, uint32_t> MAXzEntries;
-    unused_field_t<after<decltype(MAXzEntries)>, uint32_t> rfuE;
-    cdf_string_field_t<version_t, decltype(rfuE), 256, 64> Name;
+    cdf_offset_field_t<version_t, AFTER(header)> ADRnext;
+    cdf_offset_field_t<version_t, AFTER(ADRnext)> AgrEDRhead;
+    field_t<AFTER(AgrEDRhead), cdf_attr_scope> scope;
+    field_t<AFTER(scope), uint32_t> num;
+    field_t<AFTER(num), uint32_t> NgrEntries;
+    field_t<AFTER(NgrEntries), uint32_t> MAXgrEntries;
+    unused_field_t<AFTER(MAXgrEntries), uint32_t> rfuA;
+    cdf_offset_field_t<version_t, AFTER(rfuA)> AzEDRhead;
+    field_t<AFTER(AzEDRhead), uint32_t> NzEntries;
+    field_t<AFTER(NzEntries), uint32_t> MAXzEntries;
+    unused_field_t<AFTER(MAXzEntries), uint32_t> rfuE;
+    cdf_string_field_t<version_t, AFTER(rfuE), 256, 64> Name;
 
     template <typename streamT>
     bool load(streamT&& stream, std::size_t ADRoffset)
@@ -293,17 +296,17 @@ struct cdf_AEDR_t
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::AzEDR, cdf_record_type::AgrEDR> header;
-    cdf_offset_field_t<version_t, decltype(header)> AEDRnext;
-    field_t<after<decltype(AEDRnext)>, uint32_t> AttrNum;
-    field_t<after<decltype(AttrNum)>, CDF_Types> DataType;
-    field_t<after<decltype(DataType)>, uint32_t> Num;
-    field_t<after<decltype(Num)>, uint32_t> NumElements;
-    field_t<after<decltype(NumElements)>, uint32_t> NumStrings;
-    unused_field_t<after<decltype(NumStrings)>, uint32_t> rfB;
-    unused_field_t<after<decltype(rfB)>, uint32_t> rfC;
-    unused_field_t<after<decltype(rfC)>, uint32_t> rfD;
-    unused_field_t<after<decltype(rfD)>, uint32_t> rfE;
-    field_t<after<decltype(rfE)>, uint32_t> Values;
+    cdf_offset_field_t<version_t, AFTER(header)> AEDRnext;
+    field_t<AFTER(AEDRnext), uint32_t> AttrNum;
+    field_t<AFTER(AttrNum), CDF_Types> DataType;
+    field_t<AFTER(DataType), uint32_t> Num;
+    field_t<AFTER(Num), uint32_t> NumElements;
+    field_t<AFTER(NumElements), uint32_t> NumStrings;
+    unused_field_t<AFTER(NumStrings), uint32_t> rfB;
+    unused_field_t<AFTER(rfB), uint32_t> rfC;
+    unused_field_t<AFTER(rfC), uint32_t> rfD;
+    unused_field_t<AFTER(rfD), uint32_t> rfE;
+    field_t<AFTER(rfE), uint32_t> Values;
 
     template <typename streamT>
     bool load(streamT&& stream, std::size_t AEDRoffset)
@@ -318,25 +321,26 @@ struct cdf_VDR_t
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::rVDR, cdf_record_type::zVDR> header;
-    cdf_offset_field_t<version_t, decltype(header)> VDRnext;
-    field_t<after<decltype(VDRnext)>, CDF_Types> DataType;
-    field_t<after<decltype(DataType)>, uint32_t> MaxRec;
-    cdf_offset_field_t<version_t, decltype(MaxRec)> VXRhead;
-    cdf_offset_field_t<version_t, decltype(VXRhead)> VXRtail;
-    field_t<after<decltype(VXRtail)>, uint32_t> Flags;
-    field_t<after<decltype(Flags)>, uint32_t> SRecords;
-    field_t<after<decltype(SRecords)>, uint32_t> rfuB;
-    field_t<after<decltype(rfuB)>, uint32_t> rfuC;
-    field_t<after<decltype(rfuC)>, uint32_t> rfuF;
-    field_t<after<decltype(rfuF)>, uint32_t> NumElems;
-    field_t<after<decltype(NumElems)>, uint32_t> Num;
-    cdf_offset_field_t<version_t, decltype(Num)> CPRorSPRoffset;
-    field_t<after<decltype(CPRorSPRoffset)>, uint32_t> BlockingFactor;
-    cdf_string_field_t<version_t, decltype(BlockingFactor), 256, 64> Name;
-    field_t<after<decltype(Name)>, uint32_t> zNumDims;
-    field_t<after<decltype(zNumDims)>, uint32_t> zDimSizes;
-    field_t<after<decltype(zDimSizes)>, uint32_t> DimVarys;
-    field_t<after<decltype(DimVarys)>, uint32_t> PadValues;
+    cdf_offset_field_t<version_t, AFTER(header)> VDRnext;
+    field_t<AFTER(VDRnext), CDF_Types> DataType;
+    field_t<AFTER(DataType), uint32_t> MaxRec;
+    cdf_offset_field_t<version_t, AFTER(MaxRec)> VXRhead;
+    cdf_offset_field_t<version_t, AFTER(VXRhead)> VXRtail;
+    field_t<AFTER(VXRtail), uint32_t> Flags;
+    field_t<AFTER(Flags), uint32_t> SRecords;
+    field_t<AFTER(SRecords), uint32_t> rfuB;
+    field_t<AFTER(rfuB), uint32_t> rfuC;
+    field_t<AFTER(rfuC), uint32_t> rfuF;
+    field_t<AFTER(rfuF), uint32_t> NumElems;
+    field_t<AFTER(NumElems), uint32_t> Num;
+    cdf_offset_field_t<version_t, AFTER(Num)> CPRorSPRoffset;
+    field_t<AFTER(CPRorSPRoffset), uint32_t> BlockingFactor;
+    cdf_string_field_t<version_t, AFTER(BlockingFactor), 256, 64> Name;
+    field_t<AFTER(Name), uint32_t> zNumDims;
+    field_t<AFTER(zNumDims), uint32_t> zDimSizes;
+    field_t<AFTER(zDimSizes), uint32_t> DimVarys;
+    field_t<AFTER(DimVarys), uint32_t> PadValues;
+
     template <typename streamT>
     bool load(streamT&& stream, std::size_t VDRoffset)
     {
@@ -351,9 +355,9 @@ struct cdf_VXR_t
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::VXR> header;
-    cdf_offset_field_t<version_t, decltype(header)> VXRnext;
-    field_t<after<decltype(VXRnext)>, CDF_Types> Nentries;
-    field_t<after<decltype(Nentries)>, uint32_t> NusedEntries;
+    cdf_offset_field_t<version_t, AFTER(header)> VXRnext;
+    field_t<AFTER(VXRnext), CDF_Types> Nentries;
+    field_t<AFTER(Nentries), uint32_t> NusedEntries;
     template <typename streamT>
     bool load(streamT&& stream, std::size_t VXRoffset)
     {
