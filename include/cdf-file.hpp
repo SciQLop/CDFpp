@@ -35,21 +35,33 @@ struct CDF
     const Variable& operator[](const std::string& name) const { return variables.at(name); }
 };
 
-void add_attribute(CDF& cdf_file, const std::string& name, Attribute::attr_data_t&& data)
+void add_global_attribute(CDF& cdf_file, const std::string& name, Attribute::attr_data_t&& data)
 {
-    if(auto [_, success] = cdf_file.attributes.try_emplace(name, name, std::move(data));!success)
+    if (auto [_, success] = cdf_file.attributes.try_emplace(name, name, std::move(data)); !success)
     {
         cdf_file.attributes[name] = std::move(data);
     }
 }
 
-void add_var_attribute(CDF& cdf_file, std::size_t index ,  const std::string& name, Attribute::attr_data_t&& data)
+void add_var_attribute(
+    CDF& cdf_file, std::size_t index, const std::string& name, Attribute::attr_data_t&& data)
 {
-    if(auto [_, success] = cdf_file.p_var_attributes.try_emplace(index, name, std::move(data));!success)
+    if (auto [_, success] = cdf_file.p_var_attributes.try_emplace(index, name, std::move(data));
+        !success)
     {
         auto& attr = cdf_file.p_var_attributes[index];
         attr = std::move(data);
         attr.name = name;
+    }
+}
+void add_attribute(CDF& cdf_file, cdf_attr_scope scope, const std::string& name,
+    Attribute::attr_data_t&& data, std::size_t index = 0)
+{
+    if (scope == cdf_attr_scope::global || scope == cdf_attr_scope::global_assumed)
+        add_global_attribute(cdf_file, name, std::move(data));
+    else if (scope == cdf_attr_scope::variable || scope == cdf_attr_scope::variable_assumed)
+    {
+        add_var_attribute(cdf_file, index, name, std::move(data));
     }
 }
 

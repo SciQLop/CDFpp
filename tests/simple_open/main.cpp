@@ -1,12 +1,20 @@
+#include <cstdint>
+#include <filesystem>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "attribute.hpp"
+#include "cdf-file.hpp"
+#include "cdf-io/cdf-io.hpp"
+
 #define CATCH_CONFIG_MAIN
 #if __has_include(<catch2/catch.hpp>)
 #include <catch2/catch.hpp>
 #else
 #include <catch.hpp>
 #endif
-#include <cdf-io.hpp>
-#include <cdf.hpp>
-#include <iostream>
 
 
 SCENARIO("Loading a cdf file", "[CDF]")

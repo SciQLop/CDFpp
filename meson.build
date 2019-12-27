@@ -16,14 +16,19 @@ endif
 
 add_global_arguments('-DDATA_PATH="@0@/tests/resources"'.format(meson.current_source_dir()), language : 'cpp')
 
-install_headers(['./include/cdf-io.hpp',
-'./include/cdf.hpp',
-'./include/variable.hpp',
-'./include/cdf-endianness.hpp',
-'./include/cdf-enums.hpp',
-'./include/cdf-file.hpp',
-'./include/attribute.hpp',
-'./include/cdf-data.hpp']
+install_headers(
+  ['./include/attribute.hpp',
+ './include/cdf-endianness.hpp',
+ './include/cdf-enums.hpp',
+ './include/variable.hpp',
+ './include/cdf-data.hpp',
+ './include/cdf-file.hpp',
+ './include/cdf-io/cdf-io-attribute.hpp',
+ './include/cdf-io/cdf-io-desc-records.hpp',
+ './include/cdf-io/cdf-io-common.hpp',
+ './include/cdf-io/cdf-io.hpp',
+ './include/cdf-io/cdf-io-variable.hpp',
+ './include/cdf.hpp']
 , subdir : 'cdfpp')
 
 pkg = import('pkgconfig')

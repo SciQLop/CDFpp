@@ -62,10 +62,7 @@ struct Attribute
         return data[index].get<type>();
     }
 
-    void swap(attr_data_t& new_data)
-    {
-        std::swap(data, new_data);
-    }
+    void swap(attr_data_t& new_data) { std::swap(data, new_data); }
 
     Attribute& operator=(attr_data_t& new_data)
     {
@@ -78,6 +75,7 @@ struct Attribute
         data = new_data;
         return *this;
     }
+
 private:
     attr_data_t data;
 };

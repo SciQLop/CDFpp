@@ -3,15 +3,23 @@ name: C/C++ CI
 on: [push]
 
 jobs:
-  build-ubuntu:
-
+  build:
+    name: build an tests
     runs-on: ubuntu-latest
-    
+    container: jeandet/simple_cxx_fedora
     steps:
-    - uses: actions/checkout@v1
-    - name: configure
-      run: mkdir build && cd build && cmake ..
-    - name: build
-      run: cmake --build build
-    - name: test
-      run: cd build && ctest
+      - uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Configure with CMake
+        run: cmake -S . -B build_cmake
+      - name: Build
+        run: cmake --build build_cmake
+      - name: Build
+        run: cd build_cmake && ctest && cd ..
+      - name: Configure with meson
+        run: meson . build
+      - name: Build
+        run: ninja -C build
+      - name: Build
+        run: ninja test -C build

@@ -6,7 +6,6 @@
 #endif
 #include <cdf-endianness.hpp>
 #include <cstdint>
-#include <iostream>
 
 
 TEST_CASE("", "")

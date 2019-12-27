@@ -20,8 +20,8 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "cdf-endianness.hpp"
-#include "cdf-enums.hpp"
+#include "../cdf-endianness.hpp"
+#include "../cdf-enums.hpp"
 #include <cstdint>
 #include <tuple>
 #include <type_traits>
@@ -111,12 +111,12 @@ template <typename version_t>
 inline constexpr bool is_v3_v = std::is_same_v<version_t, v3x_tag>;
 
 template <typename version_t, std::size_t offset_param>
-using cdf_offset_field_t = std::conditional_t<is_v3_v<version_t>,
-    field_t<offset_param, uint64_t>, field_t<offset_param, uint32_t>>;
+using cdf_offset_field_t = std::conditional_t<is_v3_v<version_t>, field_t<offset_param, uint64_t>,
+    field_t<offset_param, uint32_t>>;
 
 template <typename version_t, std::size_t offset_param, std::size_t v3size, std::size_t v2size>
-using cdf_string_field_t = std::conditional_t<is_v3_v<version_t>,
-    str_field_t<offset_param, v3size>, str_field_t<offset_param, v2size>>;
+using cdf_string_field_t = std::conditional_t<is_v3_v<version_t>, str_field_t<offset_param, v3size>,
+    str_field_t<offset_param, v2size>>;
 
 template <typename version_t, cdf_record_type... record_t>
 struct cdf_DR_header
@@ -130,7 +130,7 @@ struct cdf_DR_header
     bool load(buffert_t&& buffer)
     {
         extract_fields(std::forward<buffert_t>(buffer), 0, record_size, record_type);
-        return ((record_type==record_t) || ... );
+        return ((record_type == record_t) || ...);
     }
 };
 
@@ -344,9 +344,9 @@ struct cdf_VDR_t
     template <typename streamT>
     bool load(streamT&& stream, std::size_t VDRoffset)
     {
-        return load_desc_record(stream, VDRoffset, *this, VDRnext, DataType, MaxRec, VXRhead, VXRtail, Flags,
-            SRecords, NumElems, Num, CPRorSPRoffset, BlockingFactor, Name, zNumDims, zDimSizes,
-            DimVarys);
+        return load_desc_record(stream, VDRoffset, *this, VDRnext, DataType, MaxRec, VXRhead,
+            VXRtail, Flags, SRecords, NumElems, Num, CPRorSPRoffset, BlockingFactor, Name, zNumDims,
+            zDimSizes, DimVarys);
     }
 };
 
@@ -361,7 +361,7 @@ struct cdf_VXR_t
     template <typename streamT>
     bool load(streamT&& stream, std::size_t VXRoffset)
     {
-        return load_desc_record(stream, VXRoffset, *this, VXRnext,Nentries, NusedEntries);
+        return load_desc_record(stream, VXRoffset, *this, VXRnext, Nentries, NusedEntries);
     }
 };
 

@@ -20,12 +20,28 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "attribute.hpp"
-#include "cdf-file.hpp"
-#include "cdf-io/cdf-io.hpp"
-#include "variable.hpp"
-#include <optional>
+#include "cdf-io-desc-records.hpp"
+#include <type_traits>
 
-namespace cdf
+namespace cdf::io::common
 {
-} // namespace cdf
+    bool is_v3x(const magic_numbers_t& magic) { return ((magic.first >> 12) & 0xff) >= 0x30; }
+
+    bool is_cdf(const magic_numbers_t& magic_numbers) noexcept
+    {
+        return (magic_numbers.first & 0xfff00000) == 0xCDF00000
+            && (magic_numbers.second == 0xCCCC0001 || magic_numbers.second == 0x0000FFFF);
+    }
+
+    template <typename context_t>
+    bool is_cdf(const context_t& context) noexcept
+    {
+        return is_cdf(context.magic);
+    }
+
+    bool is_compressed(const magic_numbers_t& magic_numbers) noexcept
+    {
+        return magic_numbers.second == 0xCCCC0001;
+    }
+
+}

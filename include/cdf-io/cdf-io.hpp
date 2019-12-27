@@ -20,10 +20,12 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "cdf-desc-records.hpp"
-#include "cdf-endianness.hpp"
-#include "cdf-enums.hpp"
-#include "cdf-file.hpp"
+#include "cdf-io-desc-records.hpp"
+#include "../cdf-endianness.hpp"
+#include "../cdf-enums.hpp"
+#include "../cdf-file.hpp"
+#include "cdf-io-common.hpp"
+#include "cdf-io-attribute.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -47,18 +49,6 @@ namespace
         cdf_GDR_t<version_t> gdr;
     };
 
-    bool is_cdf(const magic_numbers_t& magic_numbers) noexcept
-    {
-        return (magic_numbers.first & 0xfff00000) == 0xCDF00000
-            && (magic_numbers.second == 0xCCCC0001 || magic_numbers.second == 0x0000FFFF);
-    }
-
-    template <typename context_t>
-    bool is_cdf(const context_t& context) noexcept
-    {
-        return is_cdf(context.magic);
-    }
-
     template <typename streamT>
     magic_numbers_t get_magic(streamT& stream)
     {
@@ -80,12 +70,6 @@ namespace
         return length;
     }
 
-    bool is_compressed(const magic_numbers_t& magic_numbers) noexcept
-    {
-        return magic_numbers.second == 0xCCCC0001;
-    }
-
-    bool is_v3x(const magic_numbers_t& magic) { return ((magic.first >> 12) & 0xff) >= 0x30; }
 
     template <typename cdf_version_tag_t, typename buffer_t>
     cdf_record_type record_type(buffer_t&& buffer)
@@ -112,62 +96,6 @@ namespace
         return true;
     }
 
-    template <typename cdf_version_tag_t, typename streamT>
-    Attribute::attr_data_t load_attribute_data(
-        std::size_t offset, streamT& stream, std::size_t AEDRCount)
-    {
-        cdf_AEDR_t<cdf_version_tag_t> AEDR;
-        if (AEDR.load(stream, offset))
-        {
-            Attribute::attr_data_t values;
-            while (AEDRCount--)
-            {
-                std::size_t element_size = cdf_type_size(CDF_Types { AEDR.DataType.value });
-                auto buffer = read_buffer<std::vector<char>>(
-                    stream, offset + AEDR.Values.offset, AEDR.NumElements * element_size);
-                values.emplace_back(load_values(
-                    buffer.data(), std::size(buffer), AEDR.DataType.value, cdf_encoding::IBMPC));
-                offset = AEDR.AEDRnext.value;
-                AEDR.load(stream, offset);
-            }
-            return values;
-        }
-        return {};
-    }
-
-    template <typename cdf_version_tag_t, typename streamT>
-    std::size_t load_attribute(std::size_t offset, streamT& stream, CDF& cdf)
-    {
-        cdf_ADR_t<cdf_version_tag_t> ADR;
-        if (ADR.load(stream, offset))
-        {
-            Attribute::attr_data_t data;
-            if (ADR.AzEDRhead != 0)
-                data = load_attribute_data<cdf_version_tag_t>(ADR.AzEDRhead, stream, ADR.NzEntries);
-            else if (ADR.AgrEDRhead != 0)
-                data = load_attribute_data<cdf_version_tag_t>(
-                    ADR.AgrEDRhead, stream, ADR.NgrEntries);
-            if(ADR.scope==cdf_attr_scope::global || ADR.scope == cdf_attr_scope::global_assumed)
-                add_attribute(cdf, ADR.Name.value, std::move(data));
-            else if(ADR.scope==cdf_attr_scope::variable || ADR.scope == cdf_attr_scope::variable_assumed)
-                add_var_attribute(cdf, ADR.num.value, ADR.Name.value, std::move(data));
-            return ADR.ADRnext;
-        }
-        return 0;
-    }
-
-    template <typename cdf_version_tag_t, typename streamT, typename context_t>
-    bool load_attributes(streamT& stream, context_t& context, CDF& cdf)
-    {
-        auto attr_count = context.gdr.NumAttr.value;
-        auto next_attr = context.gdr.ADRhead.value;
-        while ((attr_count > 0) and (next_attr != 0ul))
-        {
-            next_attr = load_attribute<cdf_version_tag_t>(next_attr, stream, cdf);
-            --attr_count;
-        }
-        return true;
-    }
 
     template <typename cdf_version_tag_t, typename streamT, typename context_t>
     bool load_zVars(streamT& stream, context_t& context, CDF& cdf)
@@ -186,14 +114,14 @@ namespace
     {
         cdf_parsing_t<cdf_version_tag_t> context;
         context.magic = get_magic(cdf_file);
-        if (!is_cdf(context))
+        if (!common::is_cdf(context))
             return std::nullopt;
         if (!parse_CDR<cdf_version_tag_t>(cdf_file, context))
             return std::nullopt;
         if (!parse_GDR<cdf_version_tag_t>(cdf_file, context))
             return std::nullopt;
         CDF cdf;
-        if (!load_attributes<cdf_version_tag_t>(cdf_file, context, cdf))
+        if (!attribute::load_all<cdf_version_tag_t>(cdf_file, context, cdf))
             return std::nullopt;
         return cdf;
     }
@@ -206,7 +134,7 @@ std::optional<CDF> load(const std::string& path)
         std::fstream cdf_file(path, std::ios::in | std::ios::binary);
         auto length = get_file_len(cdf_file);
         auto magic = get_magic(cdf_file);
-        if (is_v3x(magic))
+        if (common::is_v3x(magic))
         {
             return parse_cdf<v3x_tag>(cdf_file);
         }

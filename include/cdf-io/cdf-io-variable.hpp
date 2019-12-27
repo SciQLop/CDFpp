@@ -20,12 +20,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "attribute.hpp"
-#include "cdf-file.hpp"
-#include "cdf-io/cdf-io.hpp"
-#include "variable.hpp"
-#include <optional>
-
-namespace cdf
+namespace cdf::io::variable
 {
-} // namespace cdf
+
+}
