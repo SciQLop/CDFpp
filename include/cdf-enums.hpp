@@ -25,6 +25,13 @@
 
 namespace cdf
 {
+
+enum class cdf_r_z
+{
+    r = 0,
+    z = 1
+};
+
 enum class cdf_record_type : int32_t
 {
     CDR = 1,

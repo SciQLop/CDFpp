@@ -118,13 +118,33 @@ template <typename version_t, std::size_t offset_param, std::size_t v3size, std:
 using cdf_string_field_t = std::conditional_t<is_v3_v<version_t>, str_field_t<offset_param, v3size>,
     str_field_t<offset_param, v2size>>;
 
+template <typename stream_t, typename derived_t>
+struct cdf_description_record
+{
+    bool is_loaded = false;
+    stream_t& p_stream;
+    std::size_t offset=0;
+    cdf_description_record(stream_t& stream, std::size_t offset) : p_stream { stream }
+    {
+        load(offset);
+    }
+
+    bool load(std::size_t offset = 0)
+    {
+        this->offset = offset;
+        is_loaded = static_cast<derived_t*>(this)->load_from(p_stream, offset);
+        return is_loaded;
+    }
+
+    cdf_description_record(stream_t& stream) : p_stream { stream } {}
+};
+
 template <typename version_t, cdf_record_type... record_t>
 struct cdf_DR_header
 {
-    inline static constexpr bool v3 = is_v3_v<version_t>;
     inline static constexpr std::size_t offset = 0;
-    using type = uint64_t;
-    std::conditional_t<v3, field_t<0, uint64_t>, field_t<0, uint32_t>> record_size;
+    using type = std::conditional_t<is_v3_v<version_t>, uint64_t, uint64_t>; // TODO check this one
+    cdf_offset_field_t<version_t, 0> record_size;
     field_t<AFTER(record_size), cdf_record_type> record_type;
     template <typename buffert_t>
     bool load(buffert_t&& buffer)
@@ -214,8 +234,8 @@ constexpr bool load_fields(streamT&& stream, std::size_t offset, Ts&&... fields)
     return true;
 }
 
-template <typename version_t>
-struct cdf_CDR_t
+template <typename version_t, typename stream_t>
+struct cdf_CDR_t : cdf_description_record<stream_t, cdf_CDR_t<version_t, stream_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::CDR> header;
@@ -231,16 +251,20 @@ struct cdf_CDR_t
     unused_field_t<AFTER(Identifier), uint32_t> rfuE;
     str_field_t<AFTER(rfuE), 256> copyright; // ignore format < 2.6
 
+    using cdf_description_record<stream_t, cdf_CDR_t<version_t, stream_t>>::cdf_description_record;
+
+    friend cdf_description_record<stream_t, cdf_CDR_t<version_t, stream_t>>;
+protected:
     template <typename streamT>
-    bool load(streamT&& stream)
+    bool load_from(streamT&& stream, std::size_t CDRoffset = 8)
     {
         return load_desc_record(stream, 8, *this, GDRoffset, Version, Release, Encoding, Flags,
             Increment, Identifier, copyright);
     }
 };
 
-template <typename version_t>
-struct cdf_GDR_t
+template <typename version_t, typename stream_t>
+struct cdf_GDR_t : cdf_description_record<stream_t, cdf_GDR_t<version_t, stream_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::GDR> header;
@@ -257,16 +281,21 @@ struct cdf_GDR_t
     unused_field_t<AFTER(UIRhead), uint32_t> rfuC;
     field_t<AFTER(rfuC), uint32_t> LeapSecondLastUpdated;
     unused_field_t<AFTER(LeapSecondLastUpdated), uint32_t> rfuE;
+
+    using cdf_description_record<stream_t, cdf_GDR_t<version_t, stream_t>>::cdf_description_record;
+
+    friend cdf_description_record<stream_t, cdf_GDR_t<version_t, stream_t>>;
+protected:
     template <typename streamT>
-    bool load(streamT&& stream, std::size_t GDRoffset)
+    bool load_from(streamT&& stream, std::size_t GDRoffset)
     {
         return load_desc_record(stream, GDRoffset, *this, rVDRhead, zVDRhead, ADRhead, eof, NrVars,
             NumAttr, rMaxRec, rNumDims, NzVars, UIRhead, LeapSecondLastUpdated);
     }
 };
 
-template <typename version_t>
-struct cdf_ADR_t
+template <typename version_t, typename stream_t>
+struct cdf_ADR_t : cdf_description_record<stream_t, cdf_ADR_t<version_t, stream_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::ADR> header;
@@ -282,17 +311,20 @@ struct cdf_ADR_t
     field_t<AFTER(NzEntries), uint32_t> MAXzEntries;
     unused_field_t<AFTER(MAXzEntries), uint32_t> rfuE;
     cdf_string_field_t<version_t, AFTER(rfuE), 256, 64> Name;
+    using cdf_description_record<stream_t, cdf_ADR_t<version_t, stream_t>>::cdf_description_record;
 
+    friend cdf_description_record<stream_t, cdf_ADR_t<version_t, stream_t>>;
+protected:
     template <typename streamT>
-    bool load(streamT&& stream, std::size_t ADRoffset)
+    bool load_from(streamT&& stream, std::size_t ADRoffset)
     {
         return load_desc_record(stream, ADRoffset, *this, ADRnext, AgrEDRhead, scope, num,
             NgrEntries, MAXgrEntries, AzEDRhead, NzEntries, MAXzEntries, Name);
     }
 };
 
-template <typename version_t>
-struct cdf_AEDR_t
+template <typename version_t, typename stream_t>
+struct cdf_AEDR_t : cdf_description_record<stream_t, cdf_AEDR_t<version_t, stream_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::AzEDR, cdf_record_type::AgrEDR> header;
@@ -308,16 +340,19 @@ struct cdf_AEDR_t
     unused_field_t<AFTER(rfD), uint32_t> rfE;
     field_t<AFTER(rfE), uint32_t> Values;
 
+    using cdf_description_record<stream_t, cdf_AEDR_t<version_t, stream_t>>::cdf_description_record;
+    friend cdf_description_record<stream_t, cdf_AEDR_t<version_t, stream_t>>;
+protected:
     template <typename streamT>
-    bool load(streamT&& stream, std::size_t AEDRoffset)
+    bool load_from(streamT&& stream, std::size_t AEDRoffset)
     {
         return load_desc_record(
             stream, AEDRoffset, *this, AEDRnext, AttrNum, DataType, Num, NumElements, NumStrings);
     }
 };
 
-template <typename version_t>
-struct cdf_VDR_t
+template <typename version_t, typename stream_t>
+struct cdf_VDR_t : cdf_description_record<stream_t, cdf_VDR_t<version_t, stream_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::rVDR, cdf_record_type::zVDR> header;
@@ -341,8 +376,11 @@ struct cdf_VDR_t
     field_t<AFTER(zDimSizes), uint32_t> DimVarys;
     field_t<AFTER(DimVarys), uint32_t> PadValues;
 
+    using cdf_description_record<stream_t, cdf_VDR_t<version_t, stream_t>>::cdf_description_record;
+    friend cdf_description_record<stream_t, cdf_VDR_t<version_t, stream_t>>;
+protected:
     template <typename streamT>
-    bool load(streamT&& stream, std::size_t VDRoffset)
+    bool load_from(streamT&& stream, std::size_t VDRoffset)
     {
         return load_desc_record(stream, VDRoffset, *this, VDRnext, DataType, MaxRec, VXRhead,
             VXRtail, Flags, SRecords, NumElems, Num, CPRorSPRoffset, BlockingFactor, Name, zNumDims,

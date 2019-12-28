@@ -20,7 +20,54 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "../cdf-file.hpp"
+#include "cdf-io-common.hpp"
+#include "cdf-io-desc-records.hpp"
+
 namespace cdf::io::variable
 {
+namespace
+{
+
+    template <typename cdf_version_tag_t, typename streamT>
+    std::size_t load(std::size_t offset, streamT& stream, CDF& cdf)
+    {
+        cdf_VDR_t<cdf_version_tag_t, streamT> VDR { stream, offset };
+        if (VDR.is_loaded)
+        {
+            return VDR.VDRnext.value;
+        }
+        return 0;
+    }
+    template <typename cdf_version_tag_t, typename streamT, typename context_t>
+    bool load_all_zVars(streamT& stream, context_t& context, CDF& cdf)
+    {
+        std::for_each(
+            common::begin_VDR<cdf_r_z::z>(context.gdr), common::end_VDR<cdf_r_z::z>(context.gdr), [&](auto& VDR) {
+                if (VDR.is_loaded)
+                {
+                }
+            });
+        return true;
+    }
+    template <typename cdf_version_tag_t, typename streamT, typename context_t>
+    bool load_all_rVars(streamT& stream, context_t& context, CDF& cdf)
+    {
+        std::for_each(
+            common::begin_VDR<cdf_r_z::r>(context.gdr), common::end_VDR<cdf_r_z::r>(context.gdr), [&](auto& VDR) {
+                if (VDR.is_loaded)
+                {
+                }
+            });
+        return true;
+    }
+}
+
+template <typename cdf_version_tag_t, typename streamT, typename context_t>
+bool load_all(streamT& stream, context_t& context, CDF& cdf)
+{
+    return load_all_rVars<cdf_version_tag_t>(stream, context, cdf)
+        & load_all_zVars<cdf_version_tag_t>(stream, context, cdf);
+}
 
 }

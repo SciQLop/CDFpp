@@ -20,12 +20,13 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "cdf-io-desc-records.hpp"
 #include "../cdf-endianness.hpp"
 #include "../cdf-enums.hpp"
 #include "../cdf-file.hpp"
-#include "cdf-io-common.hpp"
 #include "cdf-io-attribute.hpp"
+#include "cdf-io-common.hpp"
+#include "cdf-io-desc-records.hpp"
+#include "cdf-io-variable.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -38,17 +39,6 @@ namespace cdf::io
 {
 namespace
 {
-
-    template <typename version_t>
-    struct cdf_parsing_t
-    {
-        inline static constexpr bool v3 = is_v3_v<version_t>;
-        magic_numbers_t magic;
-        bool is_compressed;
-        cdf_CDR_t<version_t> cdr;
-        cdf_GDR_t<version_t> gdr;
-    };
-
     template <typename streamT>
     magic_numbers_t get_magic(streamT& stream)
     {
@@ -59,6 +49,23 @@ namespace
         uint32_t magic2 = cdf::endianness::decode<uint32_t>(buffer + 4);
         return { magic1, magic2 };
     }
+
+    template <typename version_t, typename stream_t>
+    struct cdf_headers_t
+    {
+        inline static constexpr bool v3 = is_v3_v<version_t>;
+        magic_numbers_t magic;
+        bool is_compressed;
+        bool ok = false;
+        cdf_CDR_t<version_t, stream_t> cdr;
+        cdf_GDR_t<version_t, stream_t> gdr;
+        cdf_headers_t(stream_t& stream) : cdr { stream }, gdr { stream }
+        {
+            magic = get_magic(stream);
+            if (common::is_cdf(magic) && cdr.load() && gdr.load(cdr.GDRoffset.value))
+                ok = true;
+        }
+    };
 
     template <typename streamT>
     std::size_t get_file_len(streamT& stream)
@@ -80,48 +87,16 @@ namespace
             return endianness::decode<cdf_record_type>(buffer + 4);
     }
 
-    template <typename cdf_version_tag_t, typename streamT, typename context_t>
-    bool parse_CDR(streamT& stream, context_t& context)
-    {
-        if (!context.cdr.load(stream))
-            return false;
-        return true;
-    }
-
-    template <typename cdf_version_tag_t, typename streamT, typename context_t>
-    bool parse_GDR(streamT& stream, context_t& context)
-    {
-        if (!context.gdr.load(stream, context.cdr.GDRoffset.value))
-            return false;
-        return true;
-    }
-
-
-    template <typename cdf_version_tag_t, typename streamT, typename context_t>
-    bool load_zVars(streamT& stream, context_t& context, CDF& cdf)
-    {
-        return true;
-    }
-
-    template <typename cdf_version_tag_t, typename streamT, typename context_t>
-    bool load_rVars(streamT& stream, context_t& context, CDF& cdf)
-    {
-        return true;
-    }
-
     template <typename cdf_version_tag_t, typename stream_t>
     std::optional<CDF> parse_cdf(stream_t& cdf_file)
     {
-        cdf_parsing_t<cdf_version_tag_t> context;
-        context.magic = get_magic(cdf_file);
-        if (!common::is_cdf(context))
-            return std::nullopt;
-        if (!parse_CDR<cdf_version_tag_t>(cdf_file, context))
-            return std::nullopt;
-        if (!parse_GDR<cdf_version_tag_t>(cdf_file, context))
+        cdf_headers_t<cdf_version_tag_t, stream_t> cdf_headers { cdf_file };
+        if (!cdf_headers.ok)
             return std::nullopt;
         CDF cdf;
-        if (!attribute::load_all<cdf_version_tag_t>(cdf_file, context, cdf))
+        if (!attribute::load_all<cdf_version_tag_t>(cdf_file, cdf_headers, cdf))
+            return std::nullopt;
+        if (!variable::load_all<cdf_version_tag_t>(cdf_file, cdf_headers, cdf))
             return std::nullopt;
         return cdf;
     }
