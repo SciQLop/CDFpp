@@ -28,8 +28,8 @@
 namespace cdf::io::attribute
 {
 
-template <cdf_r_z type, typename cdf_version_tag_t, typename ADR_t, typename streamT>
-Attribute::attr_data_t load_data(const ADR_t& ADR, streamT& stream)
+template <cdf_r_z type, typename cdf_version_tag_t, typename ADR_t, typename stream_t>
+Attribute::attr_data_t load_data(const ADR_t& ADR, stream_t& stream)
 {
     Attribute::attr_data_t values;
     std::for_each(common::begin_AEDR<type>(ADR), common::end_AEDR<type>(ADR), [&](auto& AEDR) {
@@ -42,8 +42,8 @@ Attribute::attr_data_t load_data(const ADR_t& ADR, streamT& stream)
     return values;
 }
 
-template <typename cdf_version_tag_t, typename streamT, typename context_t>
-bool load_all(streamT& stream, context_t& context, CDF& cdf)
+template <typename cdf_version_tag_t, typename stream_t, typename context_t>
+bool load_all(stream_t& stream, context_t& context, CDF& cdf)
 {
     std::for_each(common::begin_ADR(context.gdr), common::end_ADR(context.gdr), [&](auto& ADR) {
         if (ADR.is_loaded)

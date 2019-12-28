@@ -29,32 +29,22 @@ namespace cdf::io::variable
 namespace
 {
 
-    template <typename cdf_version_tag_t, typename streamT>
-    std::size_t load(std::size_t offset, streamT& stream, CDF& cdf)
+    template <typename cdf_version_tag_t, typename stream_t>
+    std::size_t load(std::size_t offset, stream_t& stream, CDF& cdf)
     {
-        cdf_VDR_t<cdf_version_tag_t, streamT> VDR { stream, offset };
+        cdf_VDR_t<cdf_version_tag_t, stream_t> VDR { stream, offset };
         if (VDR.is_loaded)
         {
             return VDR.VDRnext.value;
         }
         return 0;
     }
-    template <typename cdf_version_tag_t, typename streamT, typename context_t>
-    bool load_all_zVars(streamT& stream, context_t& context, CDF& cdf)
+
+    template <cdf_r_z type, typename cdf_version_tag_t, typename stream_t, typename context_t>
+    bool load_all_Vars(stream_t& stream, context_t& context, CDF& cdf)
     {
-        std::for_each(
-            common::begin_VDR<cdf_r_z::z>(context.gdr), common::end_VDR<cdf_r_z::z>(context.gdr), [&](auto& VDR) {
-                if (VDR.is_loaded)
-                {
-                }
-            });
-        return true;
-    }
-    template <typename cdf_version_tag_t, typename streamT, typename context_t>
-    bool load_all_rVars(streamT& stream, context_t& context, CDF& cdf)
-    {
-        std::for_each(
-            common::begin_VDR<cdf_r_z::r>(context.gdr), common::end_VDR<cdf_r_z::r>(context.gdr), [&](auto& VDR) {
+        std::for_each(common::begin_VDR<type>(context.gdr), common::end_VDR<type>(context.gdr),
+            [&](auto& VDR) {
                 if (VDR.is_loaded)
                 {
                 }
@@ -63,11 +53,11 @@ namespace
     }
 }
 
-template <typename cdf_version_tag_t, typename streamT, typename context_t>
-bool load_all(streamT& stream, context_t& context, CDF& cdf)
+template <typename cdf_version_tag_t, typename stream_t, typename context_t>
+bool load_all(stream_t& stream, context_t& context, CDF& cdf)
 {
-    return load_all_rVars<cdf_version_tag_t>(stream, context, cdf)
-        & load_all_zVars<cdf_version_tag_t>(stream, context, cdf);
+    return load_all_Vars<cdf_r_z::r, cdf_version_tag_t>(stream, context, cdf)
+        & load_all_Vars<cdf_r_z::z, cdf_version_tag_t>(stream, context, cdf);
 }
 
 }

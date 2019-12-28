@@ -39,8 +39,8 @@ namespace cdf::io
 {
 namespace
 {
-    template <typename streamT>
-    magic_numbers_t get_magic(streamT& stream)
+    template <typename stream_t>
+    magic_numbers_t get_magic(stream_t& stream)
     {
         stream.seekg(std::ios::beg);
         char buffer[8];
@@ -67,8 +67,8 @@ namespace
         }
     };
 
-    template <typename streamT>
-    std::size_t get_file_len(streamT& stream)
+    template <typename stream_t>
+    std::size_t get_file_len(stream_t& stream)
     {
         auto pos = stream.tellg();
         stream.seekg(std::ios::end);
