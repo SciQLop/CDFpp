@@ -32,7 +32,7 @@ template <cdf_r_z type, typename cdf_version_tag_t, typename ADR_t, typename str
 Attribute::attr_data_t load_data(const ADR_t& ADR, stream_t& stream)
 {
     Attribute::attr_data_t values;
-    std::for_each(common::begin_AEDR<type>(ADR), common::end_AEDR<type>(ADR), [&](auto& AEDR) {
+    std::for_each(begin_AEDR<type>(ADR), end_AEDR<type>(ADR), [&](auto& AEDR) {
         std::size_t element_size = cdf_type_size(CDF_Types { AEDR.DataType.value });
         auto buffer = common::read_buffer<std::vector<char>>(
             stream, AEDR.offset + AEDR.Values.offset, AEDR.NumElements * element_size);
@@ -45,7 +45,7 @@ Attribute::attr_data_t load_data(const ADR_t& ADR, stream_t& stream)
 template <typename cdf_version_tag_t, typename stream_t, typename context_t>
 bool load_all(stream_t& stream, context_t& context, CDF& cdf)
 {
-    std::for_each(common::begin_ADR(context.gdr), common::end_ADR(context.gdr), [&](auto& ADR) {
+    std::for_each(begin_ADR(context.gdr), end_ADR(context.gdr), [&](auto& ADR) {
         if (ADR.is_loaded)
         {
             Attribute::attr_data_t data = [&]() -> Attribute::attr_data_t {

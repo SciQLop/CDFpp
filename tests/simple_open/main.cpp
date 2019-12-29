@@ -17,6 +17,39 @@
 #endif
 
 
+bool has_attribute(const cdf::CDF& cd, const std::string& name)
+{
+    return cd.attributes.find(name) != cd.attributes.cend();
+}
+
+bool has_variable(const cdf::CDF& cd, const std::string& name)
+{
+    return cd.variables.find(name) != cd.variables.cend();
+}
+
+template<int index, typename T>
+bool compare_attribute_value(const cdf::Attribute& attribute , const T& values)
+{
+    auto value = std::get<index>(values);
+    using value_type=std::remove_const_t<decltype (value)>;
+    if constexpr(std::is_same_v<const char*,value_type >)
+        return attribute.get<std::string>(index) ==  std::string{value} ;
+    else
+        return attribute.get<std::vector<value_type>>(index) ==  std::vector<value_type>{value};
+}
+
+template <typename T, std::size_t... I>
+bool impl_compare_attribute_values(cdf::Attribute& attribute, T values, std::index_sequence<I...>)
+{
+    return  (... && compare_attribute_value<I>(attribute, values));
+}
+
+template <typename... Ts>
+bool compare_attribute_values(cdf::Attribute& attribute, Ts... values)
+{
+    return impl_compare_attribute_values(attribute, std::make_tuple(values...), std::make_index_sequence<sizeof...(values)>{});
+}
+
 SCENARIO("Loading a cdf file", "[CDF]")
 {
     GIVEN("a cdf file")
@@ -46,29 +79,23 @@ SCENARIO("Loading a cdf file", "[CDF]")
             auto cd = *cd_opt;
             THEN("All expected attributes are loaded")
             {
-                REQUIRE(cd.attributes.find("attr") != cd.attributes.cend());
+                REQUIRE(has_attribute(cd,"attr"));
                 REQUIRE(std::size(cd.attributes) == 4);
-                REQUIRE(cd.attributes["attr"].get<std::string>(0) == "a cdf text attribute");
-                REQUIRE(cd.attributes.find("attr_float") != cd.attributes.cend());
-                REQUIRE(cd.attributes["attr_float"].get<std::vector<float>>(0)
-                    == std::vector<float> { 1.f });
-                REQUIRE(cd.attributes["attr_float"].get<std::vector<float>>(1)
-                    == std::vector<float> { 2.f });
-                REQUIRE(cd.attributes["attr_float"].get<std::vector<float>>(2)
-                    == std::vector<float> { 3.f });
-                REQUIRE(cd.attributes.find("attr_int") != cd.attributes.cend());
-                REQUIRE(cd.attributes["attr_int"].get<std::vector<int8_t>>(0)
-                    == std::vector<int8_t> { 1 });
-                REQUIRE(cd.attributes["attr_int"].get<std::vector<int8_t>>(1)
-                    == std::vector<int8_t> { 2 });
-                REQUIRE(cd.attributes["attr_int"].get<std::vector<int8_t>>(2)
-                    == std::vector<int8_t> { 3 });
-                REQUIRE(cd.attributes.find("attr_multi") != cd.attributes.cend());
-                REQUIRE(cd.attributes["attr_multi"].get<std::vector<int8_t>>(0)
-                    == std::vector<int8_t> { 1 });
-                REQUIRE(cd.attributes["attr_multi"].get<std::vector<float>>(1)
-                    == std::vector<float> { 2. });
-                REQUIRE(cd.attributes["attr_multi"].get<std::string>(2) == std::string { "hello" });
+                REQUIRE(compare_attribute_values(cd.attributes["attr"], "a cdf text attribute"));
+                REQUIRE(has_attribute(cd,"attr_float"));
+                REQUIRE(compare_attribute_values(cd.attributes["attr_float"], 1.f, 2.f, 3.f));
+                REQUIRE(has_attribute(cd, "attr_int"));
+                REQUIRE(compare_attribute_values(cd.attributes["attr_int"], int8_t{1}, int8_t{2}, int8_t{3}));
+                REQUIRE(has_attribute(cd, "attr_multi"));
+                REQUIRE(compare_attribute_values(cd.attributes["attr_multi"], int8_t{1}, 2.f, "hello"));
+            }
+            THEN("All expected variables are loaded")
+            {
+                REQUIRE(std::size(cd.variables) == 4);
+                REQUIRE(has_variable(cd, "var"));
+                REQUIRE(has_variable(cd, "epoch"));
+                REQUIRE(has_variable(cd, "var2d"));
+                REQUIRE(has_variable(cd, "var3d"));
             }
         }
     }

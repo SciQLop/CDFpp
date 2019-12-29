@@ -65,4 +65,13 @@ void add_attribute(CDF& cdf_file, cdf_attr_scope scope, const std::string& name,
     }
 }
 
+void add_variable(CDF& cdf_file, const std::string& name, Variable&& var)
+{
+    if (auto [_, success] = cdf_file.variables.try_emplace(name, std::move(var));
+        !success)
+    {
+        cdf_file.variables[name] = std::move(var);
+    }
+}
+
 } // namespace cdf

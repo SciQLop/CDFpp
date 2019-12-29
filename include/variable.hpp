@@ -20,9 +20,13 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include <vector>
+#include <cstdint>
+
 namespace cdf
 {
 struct Variable
 {
+    std::vector<uint32_t> shape;
 };
 } // namespace cdf

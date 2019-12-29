@@ -40,7 +40,7 @@ namespace cdf::io
 namespace
 {
     template <typename stream_t>
-    magic_numbers_t get_magic(stream_t& stream)
+    common::magic_numbers_t get_magic(stream_t& stream)
     {
         stream.seekg(std::ios::beg);
         char buffer[8];
@@ -54,11 +54,11 @@ namespace
     struct cdf_headers_t
     {
         inline static constexpr bool v3 = is_v3_v<version_t>;
-        magic_numbers_t magic;
-        bool is_compressed;
-        bool ok = false;
+        common::magic_numbers_t magic;
         cdf_CDR_t<version_t, stream_t> cdr;
         cdf_GDR_t<version_t, stream_t> gdr;
+        bool is_compressed;
+        bool ok = false;
         cdf_headers_t(stream_t& stream) : cdr { stream }, gdr { stream }
         {
             magic = get_magic(stream);

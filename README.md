@@ -22,5 +22,10 @@ List of features and roadmap:
 - [ ] write uncompressed variables (v2x or v3x)
 - [ ] write compressed attributes (v2x or v3x)
 - [ ] write compressed file variables (v2x or v3x)
+- [ ] handle leap seconds
+- [ ] Python wrappers
+- [ ] Documentation
+- [ ] Examples
+- [ ] Benchmarks
 
 If you want to understand how it works, how to use the code or what works, you may have to read tests.

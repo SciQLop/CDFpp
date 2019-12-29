@@ -169,7 +169,7 @@ std::size_t cdf_type_size(CDF_Types type)
             return 16;
     }
     return 0;
-};
+}
 
 
 template <typename type>
