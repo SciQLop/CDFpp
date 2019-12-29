@@ -47,6 +47,15 @@ bool is_compressed(const magic_numbers_t& magic_numbers) noexcept
     return magic_numbers.second == 0xCCCC0001;
 }
 
+template <typename T, typename stream_t>
+T read_buffer(stream_t&& stream, std::size_t pos, std::size_t size)
+{
+    T buffer(size);
+    stream.seekg(pos);
+    stream.read(buffer.data(), size);
+    return buffer;
+}
+
 template <typename value_t, typename stream_t>
 struct blk_iterator
 {
@@ -118,29 +127,31 @@ struct blk_iterator
 template <typename version_t, typename stream_t>
 auto begin_ADR(const cdf_GDR_t<version_t, stream_t>& gdr)
 {
-    return blk_iterator<cdf_ADR_t<version_t, stream_t>, stream_t> { gdr.ADRhead.value, gdr.p_stream,
-        [](const auto& ADR) { return ADR.ADRnext.value; } };
+    using adr_t = cdf_ADR_t<version_t, stream_t>;
+    return blk_iterator<adr_t, stream_t> { gdr.ADRhead.value, gdr.p_stream,
+        [](const adr_t& adr) { return adr.ADRnext.value; } };
 }
 
 template <typename version_t, typename stream_t>
 auto end_ADR(const cdf_GDR_t<version_t, stream_t>& gdr)
 {
     return blk_iterator<cdf_ADR_t<version_t, stream_t>, stream_t> { 0, gdr.p_stream,
-        [](const auto& ADR) { return 0; } };
+        [](const auto& adr) { return 0; } };
 }
 
 template <cdf_r_z type, typename version_t, typename stream_t>
 auto begin_AEDR(const cdf_ADR_t<version_t, stream_t>& adr)
 {
+    using aedr_t = cdf_AEDR_t<version_t, stream_t>;
     if constexpr (type == cdf_r_z::r)
     {
-        return blk_iterator<cdf_AEDR_t<version_t, stream_t>, stream_t> { adr.AgrEDRhead.value,
-            adr.p_stream, [](const auto& AEDR) { return AEDR.AEDRnext.value; } };
+        return blk_iterator<aedr_t, stream_t> { adr.AgrEDRhead.value, adr.p_stream,
+            [](const aedr_t& aedr) { return aedr.AEDRnext.value; } };
     }
     else if constexpr (type == cdf_r_z::z)
     {
-        return blk_iterator<cdf_AEDR_t<version_t, stream_t>, stream_t> { adr.AzEDRhead.value,
-            adr.p_stream, [](const auto& AEDR) { return AEDR.AEDRnext.value; } };
+        return blk_iterator<aedr_t, stream_t> { adr.AzEDRhead.value, adr.p_stream,
+            [](const aedr_t& aedr) { return aedr.AEDRnext.value; } };
     }
 }
 
@@ -148,21 +159,22 @@ template <cdf_r_z type, typename version_t, typename stream_t>
 auto end_AEDR(const cdf_ADR_t<version_t, stream_t>& adr)
 {
     return blk_iterator<cdf_AEDR_t<version_t, stream_t>, stream_t> { 0, adr.p_stream,
-        [](const auto& ADR) { return 0; } };
+        [](const auto& aedr) { return 0; } };
 }
 
 template <cdf_r_z type, typename version_t, typename stream_t>
 auto begin_VDR(const cdf_GDR_t<version_t, stream_t>& gdr)
 {
+    using vdr_t = cdf_VDR_t<version_t, stream_t>;
     if constexpr (type == cdf_r_z::r)
     {
-        return blk_iterator<cdf_VDR_t<version_t, stream_t>, stream_t> { gdr.rVDRhead.value,
-            gdr.p_stream, [](const auto& VDR) { return VDR.VDRnext.value; } };
+        return blk_iterator<vdr_t, stream_t> { gdr.rVDRhead.value, gdr.p_stream,
+            [](const vdr_t& vdr) { return vdr.VDRnext.value; } };
     }
     else if constexpr (type == cdf_r_z::z)
     {
-        return blk_iterator<cdf_VDR_t<version_t, stream_t>, stream_t> { gdr.zVDRhead.value,
-            gdr.p_stream, [](const auto& VDR) { return VDR.VDRnext.value; } };
+        return blk_iterator<vdr_t, stream_t> { gdr.zVDRhead.value, gdr.p_stream,
+            [](const vdr_t& vdr) { return vdr.VDRnext.value; } };
     }
 }
 
@@ -170,7 +182,31 @@ template <cdf_r_z type, typename version_t, typename stream_t>
 auto end_VDR(const cdf_GDR_t<version_t, stream_t>& gdr)
 {
     return blk_iterator<cdf_VDR_t<version_t, stream_t>, stream_t> { 0, gdr.p_stream,
-        [](const auto& VDR) { return 0; } };
+        [](const auto& vdr) { return 0; } };
+}
+
+template <typename version_t, typename stream_t>
+auto begin_VXR(const cdf_VDR_t<version_t, stream_t>& vdr)
+{
+    using vxr_t = cdf_VXR_t<version_t, stream_t>;
+    return blk_iterator<vxr_t, stream_t> { vdr.VXRhead.value, vdr.p_stream,
+        [](const vxr_t& vxr) { return vxr.VXRnext.value; } };
+}
+
+template <typename version_t, typename stream_t>
+auto end_VXR(const cdf_VDR_t<version_t, stream_t>& vdr)
+{
+    return blk_iterator<cdf_VXR_t<version_t, stream_t>, stream_t> { 0, vdr.p_stream,
+        [](const auto& vxr) { return 0; } };
+}
+
+
+template <typename src_endianess_t, typename stream_t, typename container_t>
+void load_values(stream_t& stream, std::size_t offset, container_t& output)
+{
+    auto buffer = read_buffer<std::vector<char>>(
+        stream, offset, std::size(output) * sizeof(typename container_t::value_type));
+    endianness::decode_v<src_endianess_t>(buffer.data(), std::size(buffer), output.data());
 }
 
 }

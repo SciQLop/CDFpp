@@ -34,7 +34,7 @@ Attribute::attr_data_t load_data(const ADR_t& ADR, stream_t& stream)
     Attribute::attr_data_t values;
     std::for_each(common::begin_AEDR<type>(ADR), common::end_AEDR<type>(ADR), [&](auto& AEDR) {
         std::size_t element_size = cdf_type_size(CDF_Types { AEDR.DataType.value });
-        auto buffer = read_buffer<std::vector<char>>(
+        auto buffer = common::read_buffer<std::vector<char>>(
             stream, AEDR.offset + AEDR.Values.offset, AEDR.NumElements * element_size);
         values.emplace_back(load_values(
             buffer.data(), std::size(buffer), AEDR.DataType.value, cdf_encoding::IBMPC));

@@ -20,6 +20,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "../cdf-endianness.hpp"
 #include "../cdf-file.hpp"
 #include "cdf-io-common.hpp"
 #include "cdf-io-desc-records.hpp"
@@ -43,10 +44,31 @@ namespace
     template <cdf_r_z type, typename cdf_version_tag_t, typename stream_t, typename context_t>
     bool load_all_Vars(stream_t& stream, context_t& context, CDF& cdf)
     {
+
         std::for_each(common::begin_VDR<type>(context.gdr), common::end_VDR<type>(context.gdr),
-            [&](auto& VDR) {
-                if (VDR.is_loaded)
+            [&](const cdf_VDR_t<cdf_version_tag_t, stream_t>& vdr) {
+                auto dim_sizes = [&]() -> std::vector<uint32_t> {
+                    if constexpr (type == cdf_r_z::z)
+                    {
+                        std::vector<uint32_t> sizes(vdr.zNumDims.value);
+                        if (vdr.zNumDims.value)
+                        {
+                            std::size_t offset = vdr.offset + AFTER(vdr.zNumDims);
+                            common::load_values<endianness::big_endian_t>(
+                                stream, offset, sizes);
+                        }
+                        return sizes;
+                    }
+                    else
+                    {
+                        return {};
+                    }
+                }();
+
+                if (vdr.is_loaded)
                 {
+                    std::for_each(common::begin_VXR(vdr), common::end_VXR(vdr),
+                        [&](const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr) {});
                 }
             });
         return true;

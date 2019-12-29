@@ -94,7 +94,7 @@ void extract_fields(buffer_t buffer, std::size_t offset, Ts&&... fields)
 }
 
 template <typename field_type>
-inline constexpr std::size_t after = field_type::offset + sizeof(typename field_type::type);
+inline constexpr std::size_t after = field_type::offset + field_type::len;
 
 
 #define AFTER(f) after<decltype(f)>
@@ -146,6 +146,7 @@ struct cdf_DR_header
     using type = std::conditional_t<is_v3_v<version_t>, uint64_t, uint64_t>; // TODO check this one
     cdf_offset_field_t<version_t, 0> record_size;
     field_t<AFTER(record_size), cdf_record_type> record_type;
+    inline static constexpr std::size_t len =  decltype (record_type)::len + decltype (record_size)::len;
     template <typename buffert_t>
     bool load(buffert_t&& buffer)
     {
@@ -192,15 +193,6 @@ using first_field_t = most_member_t<field_is_before_t, Args...>;
 
 template <typename... Args>
 using last_field_t = most_member_t<field_is_after_t, Args...>;
-
-template <typename T, typename stream_t>
-T read_buffer(stream_t&& stream, std::size_t pos, std::size_t size)
-{
-    T buffer(size);
-    stream.seekg(pos);
-    stream.read(buffer.data(), size);
-    return buffer;
-}
 
 template <typename stream_t, typename cdf_DR_t, typename... Ts>
 constexpr bool load_desc_record(
