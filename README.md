@@ -29,3 +29,21 @@ List of features and roadmap:
 - [ ] Benchmarks
 
 If you want to understand how it works, how to use the code or what works, you may have to read tests.
+
+# Installing
+
+## From PyPi
+
+```bash
+# this is no possible yet
+pip3 install --user cdfpp
+```
+
+## From sources
+
+```bash
+meson build
+cd build
+ninja
+sudo ninja install
+```

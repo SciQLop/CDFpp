@@ -50,6 +50,11 @@ bool compare_attribute_values(cdf::Attribute& attribute, Ts... values)
     return impl_compare_attribute_values(attribute, std::make_tuple(values...), std::make_index_sequence<sizeof...(values)>{});
 }
 
+bool compare_shape(const cdf::Variable& variable, std::initializer_list<uint32_t> values)
+{
+    return variable.shape == std::vector<uint32_t>{values};
+}
+
 SCENARIO("Loading a cdf file", "[CDF]")
 {
     GIVEN("a cdf file")
@@ -93,9 +98,13 @@ SCENARIO("Loading a cdf file", "[CDF]")
             {
                 REQUIRE(std::size(cd.variables) == 4);
                 REQUIRE(has_variable(cd, "var"));
+                REQUIRE(compare_shape(cd.variables["var"], {}));
                 REQUIRE(has_variable(cd, "epoch"));
+                REQUIRE(compare_shape(cd.variables["epoch"],{}));
                 REQUIRE(has_variable(cd, "var2d"));
+                REQUIRE(compare_shape(cd.variables["var2d"], {4}));
                 REQUIRE(has_variable(cd, "var3d"));
+                REQUIRE(compare_shape(cd.variables["var3d"], {3, 2}));
             }
         }
     }

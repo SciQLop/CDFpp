@@ -20,13 +20,19 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include <vector>
+#include "cdf-data.hpp"
 #include <cstdint>
+#include <vector>
 
 namespace cdf
 {
 struct Variable
 {
+    using var_data_t = data_t;
+    std::string name;
     std::vector<uint32_t> shape;
+
+private:
+    var_data_t data;
 };
 } // namespace cdf

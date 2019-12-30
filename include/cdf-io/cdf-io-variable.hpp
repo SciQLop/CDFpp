@@ -63,10 +63,23 @@ namespace
         }
     }
 
+    template <cdf_r_z type, typename cdf_vxr_t, typename stream_t, typename context_t>
+    Variable::var_data_t get_variable_data(
+        const cdf_vxr_t& vxr, CDF_Types value_type, stream_t& stream, context_t& context)
+    {
+        if constexpr (type == cdf_r_z::z)
+        {
+            return {};
+        }
+        else
+        {
+            return {};
+        }
+    }
+
     template <cdf_r_z type, typename cdf_version_tag_t, typename stream_t, typename context_t>
     bool load_all_Vars(stream_t& stream, context_t& context, CDF& cdf)
     {
-
         std::for_each(begin_VDR<type>(context.gdr), end_VDR<type>(context.gdr),
             [&](const cdf_VDR_t<cdf_version_tag_t, stream_t>& vdr) {
                 Variable v;
@@ -74,9 +87,12 @@ namespace
                 if (vdr.is_loaded)
                 {
                     std::for_each(begin_VXR(vdr), end_VXR(vdr),
-                        [&](const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr) {});
+                        [&](const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr) {
+                            auto data
+                                = get_variable_data<type>(vxr, vdr.DataType.value, stream, context);
+                        });
                 }
-                add_variable(cdf,vdr.Name.value, std::move(v));
+                add_variable(cdf, vdr.Name.value, std::move(v));
             });
         return true;
     }

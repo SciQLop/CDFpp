@@ -86,8 +86,7 @@ struct table_field_t
 };
 
 template <typename T, typename cdf_dr_t, typename stream_t>
-bool load_table_field(
-    table_field_t<T, cdf_dr_t>& field, stream_t& stream, const cdf_dr_t& dr)
+bool load_table_field(table_field_t<T, cdf_dr_t>& field, stream_t& stream, const cdf_dr_t& dr)
 {
     field.value.resize(field.size(dr));
     common::load_values<endianness::big_endian_t>(stream, field.offset(dr), field.value);
@@ -298,8 +297,8 @@ struct cdf_GDR_t : cdf_description_record<stream_t, cdf_GDR_t<version_t, stream_
     unused_field_t<AFTER(UIRhead), uint32_t> rfuC;
     field_t<AFTER(rfuC), uint32_t> LeapSecondLastUpdated;
     unused_field_t<AFTER(LeapSecondLastUpdated), uint32_t> rfuE;
-    table_field_t<uint32_t, cdf_GDR_t> rDimSizes
-    = { [](auto& gdr) { return gdr.rNumDims; }, [offset=AFTER(rfuE)](auto& gdr){return offset;} };
+    table_field_t<uint32_t, cdf_GDR_t> rDimSizes = { [](auto& gdr) { return gdr.rNumDims; },
+        [offset = AFTER(rfuE)](auto& gdr) { return offset; } };
 
     using cdf_description_record<stream_t, cdf_GDR_t<version_t, stream_t>>::cdf_description_record;
 

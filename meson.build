@@ -8,6 +8,7 @@ project(
 
 cdfpp_dep = declare_dependency(include_directories:include_directories('include'))
 
+# TODO add a config file
 if(target_machine.endian() == 'big')
     add_global_arguments('-DCDFpp_BIG_ENDIAN', language : 'cpp')
 else
