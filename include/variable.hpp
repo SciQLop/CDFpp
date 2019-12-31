@@ -31,6 +31,38 @@ struct Variable
     using var_data_t = data_t;
     std::string name;
     std::vector<uint32_t> shape;
+    Variable()=default;
+    Variable(Variable&&)=default;
+    Variable(const Variable&)=default;
+    Variable& operator=(const Variable&)=default;
+    Variable& operator=(Variable&&)=default;
+    Variable(const std::string& name, std::vector<uint32_t>&& shape, var_data_t&& data)
+        :name{name}, shape{shape}, data{data}
+    {}
+
+    template <CDF_Types type>
+    decltype(auto) get()
+    {
+        return data.get<type>();
+    }
+
+    template <CDF_Types type>
+    decltype(auto) get() const
+    {
+        return data.get<type>();
+    }
+
+    template <typename type>
+    decltype(auto) get()
+    {
+        return data.get<type>();
+    }
+
+    template <typename type>
+    decltype(auto) get() const
+    {
+        return data.get<type>();
+    }
 
 private:
     var_data_t data;

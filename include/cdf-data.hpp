@@ -109,6 +109,17 @@ struct data_t
                 throw;
             }
         }
+        if constexpr (std::is_same_v<type, std::vector<double>>)
+        {
+            if (p_type == CDF_Types::CDF_DOUBLE)
+            {
+                return std::get<std::vector<double>>(p_values);
+            }
+            else
+            {
+                throw;
+            }
+        }
         else
         {
             throw;
@@ -163,6 +174,10 @@ data_t load_values(
             return data_t { load_values<CDF_Types::CDF_FLOAT, endianness::little_endian_t>(
                                 buffer, buffer_size),
                 type };
+        case CDF_Types::CDF_DOUBLE:
+        return data_t { load_values<CDF_Types::CDF_DOUBLE, endianness::little_endian_t>(
+                            buffer, buffer_size),
+            type };
         case CDF_Types::CDF_CHAR:
             return data_t { load_values<CDF_Types::CDF_CHAR, endianness::little_endian_t>(
                                 buffer, buffer_size),

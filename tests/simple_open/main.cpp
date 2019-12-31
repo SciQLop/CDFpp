@@ -99,12 +99,15 @@ SCENARIO("Loading a cdf file", "[CDF]")
                 REQUIRE(std::size(cd.variables) == 4);
                 REQUIRE(has_variable(cd, "var"));
                 REQUIRE(compare_shape(cd.variables["var"], {}));
+                auto& var_data = cd.variables["var"].get<std::vector<double>>();
                 REQUIRE(has_variable(cd, "epoch"));
                 REQUIRE(compare_shape(cd.variables["epoch"],{}));
                 REQUIRE(has_variable(cd, "var2d"));
                 REQUIRE(compare_shape(cd.variables["var2d"], {4}));
+                auto& var2d_data = cd.variables["var2d"].get<std::vector<double>>();
                 REQUIRE(has_variable(cd, "var3d"));
                 REQUIRE(compare_shape(cd.variables["var3d"], {3, 2}));
+                auto& var3d_data = cd.variables["var3d"].get<std::vector<double>>();
             }
         }
     }

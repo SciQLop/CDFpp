@@ -26,11 +26,18 @@
 #include "../variable.hpp"
 #include "cdf-io-common.hpp"
 #include "cdf-io-desc-records.hpp"
+#include <cstdint>
+#include <numeric>
 
 namespace cdf::io::variable
 {
 namespace
 {
+    struct vvr_data_chunk
+    {
+        std::size_t offset;
+        std::size_t size;
+    };
 
     template <typename cdf_version_tag_t, typename stream_t>
     std::size_t load(std::size_t offset, stream_t& stream, CDF& cdf)
@@ -77,22 +84,66 @@ namespace
         }
     }
 
+    template <typename stream_t>
+    void load_data(stream_t& stream, const vvr_data_chunk& chunk, char* data)
+    {
+        return common::read_buffer(stream, data, chunk.offset, chunk.size);
+    }
+
+    template <typename cdf_version_tag_t, typename stream_t>
+    vvr_data_chunk get_vvr_desc(const cdf_VVR_t<cdf_version_tag_t, stream_t>& vvr, std::size_t size)
+    {
+        return vvr_data_chunk { vvr.offset + AFTER(vvr.header), size };
+    }
+
+    template <typename cdf_version_tag_t, typename stream_t>
+    std::vector<vvr_data_chunk> parse_vxr(
+        const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr, uint32_t record_size)
+    {
+        std::vector<vvr_data_chunk> chunks(vxr.NusedEntries.value);
+        for (int i = 0; i < vxr.NusedEntries.value; i++)
+        {
+            int record_count = vxr.Last.value[i] - vxr.First.value[i];
+            cdf_VVR_t<cdf_version_tag_t, stream_t> vvr { vxr.p_stream, vxr.Offset.value[i] };
+            chunks[i] = get_vvr_desc(vvr, record_size * record_count);
+        }
+        return chunks;
+    }
+
+    std::size_t var_record_size(const std::vector<uint32_t>& shape, CDF_Types type)
+    {
+        return cdf_type_size(type)
+            * std::accumulate(std::cbegin(shape), std::cend(shape), 1, std::multiplies<uint32_t>());
+    }
+
     template <cdf_r_z type, typename cdf_version_tag_t, typename stream_t, typename context_t>
     bool load_all_Vars(stream_t& stream, context_t& context, CDF& cdf)
     {
         std::for_each(begin_VDR<type>(context.gdr), end_VDR<type>(context.gdr),
             [&](const cdf_VDR_t<cdf_version_tag_t, stream_t>& vdr) {
-                Variable v;
-                v.shape = get_variable_dimensions<type>(vdr, stream, context);
                 if (vdr.is_loaded)
                 {
+                    auto shape = get_variable_dimensions<type>(vdr, stream, context);
+                    uint32_t record_size = var_record_size(shape, vdr.DataType.value);
+                    std::vector<vvr_data_chunk> data_chunks;
                     std::for_each(begin_VXR(vdr), end_VXR(vdr),
                         [&](const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr) {
-                            auto data
-                                = get_variable_data<type>(vxr, vdr.DataType.value, stream, context);
+                            auto new_chunks = parse_vxr(vxr, record_size);
+                            data_chunks.insert(std::end(data_chunks), std::begin(new_chunks),
+                                std::end(new_chunks));
                         });
+                    std::size_t total_size
+                        = std::accumulate(std::cbegin(data_chunks), std::cend(data_chunks), 0,
+                            [](std::size_t acc, const auto& chunk) { return acc + chunk.size; });
+                    std::vector<char> data(total_size);
+                    std::for_each(std::cbegin(data_chunks), std::cend(data_chunks),
+                        [&, pos = 0](const vvr_data_chunk& chunk) mutable {
+                            load_data(stream, chunk, data.data() + pos);
+                            pos += chunk.size;
+                        });
+                    Variable v{vdr.Name.value, std::move(shape), load_values(data.data(), std::size(data), vdr.DataType.value, cdf_encoding::IBMPC)};
+                    add_variable(cdf, vdr.Name.value, std::move(v));
                 }
-                add_variable(cdf, vdr.Name.value, std::move(v));
             });
         return true;
     }

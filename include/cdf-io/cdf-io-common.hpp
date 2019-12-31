@@ -52,6 +52,13 @@ bool is_compressed(const magic_numbers_t& magic_numbers) noexcept
     return magic_numbers.second == 0xCCCC0001;
 }
 
+template <typename stream_t>
+void read_buffer(stream_t&& stream, char* buffer, std::size_t pos, std::size_t size)
+{
+    stream.seekg(pos);
+    stream.read(buffer, size);
+}
+
 template <typename T, typename stream_t>
 T read_buffer(stream_t&& stream, std::size_t pos, std::size_t size)
 {

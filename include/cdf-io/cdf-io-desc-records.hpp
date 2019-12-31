@@ -89,7 +89,8 @@ template <typename T, typename cdf_dr_t, typename stream_t>
 bool load_table_field(table_field_t<T, cdf_dr_t>& field, stream_t& stream, const cdf_dr_t& dr)
 {
     field.value.resize(field.size(dr));
-    common::load_values<endianness::big_endian_t>(stream, field.offset(dr), field.value);
+    common::load_values<endianness::big_endian_t>(
+        stream, dr.offset + field.offset(dr), field.value);
     return true;
 }
 
@@ -222,11 +223,18 @@ template <typename stream_t, typename cdf_DR_t, typename... Ts>
 constexpr bool load_desc_record(
     stream_t&& stream, std::size_t offset, cdf_DR_t&& cdf_desc_record, Ts&&... fields)
 {
-    using last_member_t = last_field_t<Ts...>;
-    constexpr std::size_t buffer_len = last_member_t::offset + last_member_t::len;
-    char buffer[buffer_len];
+    constexpr std::size_t buffer_size = [&]() {
+        if constexpr (sizeof...(Ts))
+        {
+            using last_member_t = last_field_t<Ts...>;
+            return last_member_t::offset + last_member_t::len;
+        }
+        else
+            return cdf_desc_record.header.len;
+    }();
+    char buffer[buffer_size];
     stream.seekg(offset);
-    stream.read(buffer, buffer_len);
+    stream.read(buffer, buffer_size);
     if (cdf_desc_record.header.load(buffer))
     {
         extract_fields(buffer, 0, fields...);
@@ -414,8 +422,15 @@ struct cdf_VXR_t : cdf_description_record<stream_t, cdf_VXR_t<version_t, stream_
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::VXR> header;
     cdf_offset_field_t<version_t, AFTER(header)> VXRnext;
-    field_t<AFTER(VXRnext), CDF_Types> Nentries;
+    field_t<AFTER(VXRnext), uint32_t> Nentries;
     field_t<AFTER(Nentries), uint32_t> NusedEntries;
+    table_field_t<uint32_t, cdf_VXR_t> First = { [](auto& vxr) { return vxr.NusedEntries; },
+        [offset = AFTER(NusedEntries)](auto& vxr) { return offset; } };
+    table_field_t<uint32_t, cdf_VXR_t> Last = { [](auto& vxr) { return vxr.NusedEntries; },
+        [offset = AFTER(NusedEntries)](auto& vxr) { return offset + (vxr.Nentries.value * 4); } };
+    table_field_t<uint32_t, cdf_VXR_t> Offset = { [](auto& vxr) { return vxr.NusedEntries; },
+        [offset = AFTER(NusedEntries)](
+            auto& vxr) { return offset + (vxr.Nentries.value * 4 * 2); } };
 
     using cdf_description_record<stream_t, cdf_VXR_t<version_t, stream_t>>::cdf_description_record;
     friend cdf_description_record<stream_t, cdf_VXR_t<version_t, stream_t>>;
@@ -423,7 +438,11 @@ struct cdf_VXR_t : cdf_description_record<stream_t, cdf_VXR_t<version_t, stream_
 protected:
     bool load_from(stream_t& stream, std::size_t VXRoffset)
     {
-        return load_desc_record(stream, VXRoffset, *this, VXRnext, Nentries, NusedEntries);
+        auto res = load_desc_record(stream, VXRoffset, *this, VXRnext, Nentries, NusedEntries);
+        res &= load_table_field(First, stream, *this);
+        res &= load_table_field(Last, stream, *this);
+        res &= load_table_field(Offset, stream, *this);
+        return res;
     }
 };
 
