@@ -175,9 +175,9 @@ data_t load_values(
                                 buffer, buffer_size),
                 type };
         case CDF_Types::CDF_DOUBLE:
-        return data_t { load_values<CDF_Types::CDF_DOUBLE, endianness::little_endian_t>(
-                            buffer, buffer_size),
-            type };
+            return data_t { load_values<CDF_Types::CDF_DOUBLE, endianness::little_endian_t>(
+                                buffer, buffer_size),
+                type };
         case CDF_Types::CDF_CHAR:
             return data_t { load_values<CDF_Types::CDF_CHAR, endianness::little_endian_t>(
                                 buffer, buffer_size),

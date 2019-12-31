@@ -10,6 +10,7 @@ if os.path.exists("a_cdf.cdf"):
 cd = pycdf.CDF("a_cdf.cdf",'')
 l=100
 cd["var"] = np.cos(np.arange(0.,(l+1)/l*2.*math.pi,2.*math.pi/l))
+print(len(cd["var"][:]))
 cd["var"].attrs["var_attr"] = "a variable attribute"
 cd["epoch"] = [datetime(2019,10,1)+timedelta(seconds=5*i) for i in range(l)]
 cd["epoch"].attrs["epoch_attr"] = "a variable attribute"

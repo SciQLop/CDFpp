@@ -14,7 +14,7 @@ List of features and roadmap:
 
 - [x] read uncompressed file headers (v2x or v3x)
 - [x] read uncompressed attributes (v2x or v3x)
-- [ ] read uncompressed variables (v2x or v3x)
+- [x] read uncompressed variables (v2x or v3x)
 - [ ] read variables with nested VXRs
 - [ ] read compressed file (v2x or v3x)
 - [ ] read compressed variables (v2x or v3x)
