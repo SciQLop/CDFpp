@@ -55,28 +55,11 @@ bool is_compressed(const magic_numbers_t& magic_numbers) noexcept
     return magic_numbers.second == 0xCCCC0001;
 }
 
-template <typename stream_t>
-void read_buffer(stream_t&& stream, char* buffer, std::size_t pos, std::size_t size)
+template <typename src_endianess_t, typename buffer_t, typename container_t>
+void load_values(buffer_t& buffer, std::size_t offset, container_t& output)
 {
-    stream.seekg(pos);
-    stream.read(buffer, size);
-}
-
-template <typename T, typename stream_t>
-T read_buffer(stream_t&& stream, std::size_t pos, std::size_t size)
-{
-    T buffer(size);
-    stream.seekg(pos);
-    stream.read(buffer.data(), size);
-    return buffer;
-}
-
-template <typename src_endianess_t, typename stream_t, typename container_t>
-void load_values(stream_t& stream, std::size_t offset, container_t& output)
-{
-    auto buffer = read_buffer<std::vector<char>>(
-        stream, offset, std::size(output) * sizeof(typename container_t::value_type));
-    endianness::decode_v<src_endianess_t>(buffer.data(), std::size(buffer), output.data());
+    auto data = buffer.read(offset, std::size(output) * sizeof(typename container_t::value_type));
+    endianness::decode_v<src_endianess_t>(data.data(), std::size(data), output.data());
 }
 
 template <typename value_t, typename stream_t>

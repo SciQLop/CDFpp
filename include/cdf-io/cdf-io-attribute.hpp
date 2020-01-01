@@ -28,15 +28,14 @@ namespace cdf::io::attribute
 {
 
 template <cdf_r_z type, typename cdf_version_tag_t, typename ADR_t, typename stream_t>
-Attribute::attr_data_t load_data(const ADR_t& ADR, stream_t& stream, uint32_t& var_num)
+Attribute::attr_data_t load_data(const ADR_t& ADR, stream_t& buffer, uint32_t& var_num)
 {
     Attribute::attr_data_t values;
     std::for_each(begin_AEDR<type>(ADR), end_AEDR<type>(ADR), [&](auto& AEDR) {
         std::size_t element_size = cdf_type_size(CDF_Types { AEDR.DataType.value });
-        auto buffer = common::read_buffer<std::vector<char>>(
-            stream, AEDR.offset + AEDR.Values.offset, AEDR.NumElements * element_size);
+        auto data = buffer.read(AEDR.offset + AEDR.Values.offset, AEDR.NumElements * element_size);
         values.emplace_back(load_values(
-            buffer.data(), std::size(buffer), AEDR.DataType.value, cdf_encoding::IBMPC));
+            data.data(), std::size(data), AEDR.DataType.value, cdf_encoding::IBMPC));
         var_num = AEDR.Num.value;
     });
     return values;

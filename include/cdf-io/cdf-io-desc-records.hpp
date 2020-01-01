@@ -24,6 +24,7 @@
 #include "../cdf-endianness.hpp"
 #include "../cdf-enums.hpp"
 #include "cdf-io-common.hpp"
+#include "cdf-io-buffers.hpp"
 #include <cstdint>
 #include <tuple>
 #include <type_traits>
@@ -105,10 +106,10 @@ void extract_field(buffer_t buffer, std::size_t offset, T& field)
             if (buffer[T::offset - offset + size] == '\0')
                 break;
         }
-        field = std::string { buffer + T::offset - offset, size };
+        field = std::string { buffer.data() + T::offset - offset, size };
     }
     else
-        field = endianness::decode<typename T::type>(buffer + T::offset - offset);
+        field = endianness::decode<typename T::type>(buffer.data() + T::offset - offset);
 }
 
 template <typename buffer_t, typename... Ts>
@@ -142,13 +143,13 @@ template <typename version_t, std::size_t offset_param, std::size_t v3size, std:
 using cdf_string_field_t = std::conditional_t<is_v3_v<version_t>, str_field_t<offset_param, v3size>,
     str_field_t<offset_param, v2size>>;
 
-template <typename stream_t, typename derived_t>
+template <typename buffer_t, typename derived_t>
 struct cdf_description_record
 {
     bool is_loaded = false;
-    stream_t& p_stream;
+    buffer_t& p_buffer;
     std::size_t offset = 0;
-    cdf_description_record(stream_t& stream, std::size_t offset) : p_stream { stream }
+    cdf_description_record(buffer_t& buffer, std::size_t offset) : p_buffer { buffer }
     {
         load(offset);
     }
@@ -156,11 +157,11 @@ struct cdf_description_record
     bool load(std::size_t offset = 0)
     {
         this->offset = offset;
-        is_loaded = static_cast<derived_t*>(this)->load_from(p_stream, offset);
+        is_loaded = static_cast<derived_t*>(this)->load_from(p_buffer, offset);
         return is_loaded;
     }
 
-    cdf_description_record(stream_t& stream) : p_stream { stream } {}
+    cdf_description_record(buffer_t& buffer) : p_buffer { buffer } {}
 };
 
 template <typename version_t, cdf_record_type... record_t>
@@ -221,7 +222,7 @@ using last_field_t = most_member_t<field_is_after_t, Args...>;
 
 template <typename stream_t, typename cdf_DR_t, typename... Ts>
 constexpr bool load_desc_record(
-    stream_t&& stream, std::size_t offset, cdf_DR_t&& cdf_desc_record, Ts&&... fields)
+    stream_t&& buffer, std::size_t offset, cdf_DR_t&& cdf_desc_record, Ts&&... fields)
 {
     constexpr std::size_t buffer_size = [&]() {
         if constexpr (sizeof...(Ts))
@@ -232,29 +233,24 @@ constexpr bool load_desc_record(
         else
             return cdf_desc_record.header.len;
     }();
-    char buffer[buffer_size];
-    stream.seekg(offset);
-    stream.read(buffer, buffer_size);
-    if (cdf_desc_record.header.load(buffer))
+    auto data = buffer.read(offset, buffer_size);
+    if (cdf_desc_record.header.load(data))
     {
-        extract_fields(buffer, 0, fields...);
+        extract_fields(data, 0, fields...);
         return true;
     }
     return false;
 }
 
-template <typename stream_t, typename... Ts>
-constexpr bool load_fields(stream_t&& stream, std::size_t offset, Ts&&... fields)
+template <typename buffer_t, typename... Ts>
+constexpr bool load_fields(buffer_t&& buffer, std::size_t offset, Ts&&... fields)
 {
     using last_member_t = last_field_t<Ts...>;
     using first_member_t = first_field_t<Ts...>;
     constexpr std::size_t buffer_len
         = last_member_t::offset + last_member_t::len - first_member_t::offset;
-    char buffer[buffer_len];
-    std::size_t pos = offset + first_member_t::offset;
-    stream.seekg(pos);
-    stream.read(buffer, buffer_len);
-    extract_fields(buffer, first_member_t::offset, fields...);
+    auto data = buffer.read(offset + first_member_t::offset ,buffer_len);
+    extract_fields(data, first_member_t::offset, fields...);
     return true;
 }
 
@@ -466,14 +462,14 @@ template <typename version_t, typename stream_t>
 auto begin_ADR(const cdf_GDR_t<version_t, stream_t>& gdr)
 {
     using adr_t = cdf_ADR_t<version_t, stream_t>;
-    return common::blk_iterator<adr_t, stream_t> { gdr.ADRhead.value, gdr.p_stream,
+    return common::blk_iterator<adr_t, stream_t> { gdr.ADRhead.value, gdr.p_buffer,
         [](const adr_t& adr) { return adr.ADRnext.value; } };
 }
 
 template <typename version_t, typename stream_t>
 auto end_ADR(const cdf_GDR_t<version_t, stream_t>& gdr)
 {
-    return common::blk_iterator<cdf_ADR_t<version_t, stream_t>, stream_t> { 0, gdr.p_stream,
+    return common::blk_iterator<cdf_ADR_t<version_t, stream_t>, stream_t> { 0, gdr.p_buffer,
         [](const auto& adr) { return 0; } };
 }
 
@@ -483,12 +479,12 @@ auto begin_AEDR(const cdf_ADR_t<version_t, stream_t>& adr)
     using aedr_t = cdf_AEDR_t<version_t, stream_t>;
     if constexpr (type == cdf_r_z::r)
     {
-        return common::blk_iterator<aedr_t, stream_t> { adr.AgrEDRhead.value, adr.p_stream,
+        return common::blk_iterator<aedr_t, stream_t> { adr.AgrEDRhead.value, adr.p_buffer,
             [](const aedr_t& aedr) { return aedr.AEDRnext.value; } };
     }
     else if constexpr (type == cdf_r_z::z)
     {
-        return common::blk_iterator<aedr_t, stream_t> { adr.AzEDRhead.value, adr.p_stream,
+        return common::blk_iterator<aedr_t, stream_t> { adr.AzEDRhead.value, adr.p_buffer,
             [](const aedr_t& aedr) { return aedr.AEDRnext.value; } };
     }
 }
@@ -496,7 +492,7 @@ auto begin_AEDR(const cdf_ADR_t<version_t, stream_t>& adr)
 template <cdf_r_z type, typename version_t, typename stream_t>
 auto end_AEDR(const cdf_ADR_t<version_t, stream_t>& adr)
 {
-    return common::blk_iterator<cdf_AEDR_t<version_t, stream_t>, stream_t> { 0, adr.p_stream,
+    return common::blk_iterator<cdf_AEDR_t<version_t, stream_t>, stream_t> { 0, adr.p_buffer,
         [](const auto& aedr) { return 0; } };
 }
 
@@ -506,12 +502,12 @@ auto begin_VDR(const cdf_GDR_t<version_t, stream_t>& gdr)
     using vdr_t = cdf_VDR_t<version_t, stream_t>;
     if constexpr (type == cdf_r_z::r)
     {
-        return common::blk_iterator<vdr_t, stream_t> { gdr.rVDRhead.value, gdr.p_stream,
+        return common::blk_iterator<vdr_t, stream_t> { gdr.rVDRhead.value, gdr.p_buffer,
             [](const vdr_t& vdr) { return vdr.VDRnext.value; } };
     }
     else if constexpr (type == cdf_r_z::z)
     {
-        return common::blk_iterator<vdr_t, stream_t> { gdr.zVDRhead.value, gdr.p_stream,
+        return common::blk_iterator<vdr_t, stream_t> { gdr.zVDRhead.value, gdr.p_buffer,
             [](const vdr_t& vdr) { return vdr.VDRnext.value; } };
     }
 }
@@ -519,7 +515,7 @@ auto begin_VDR(const cdf_GDR_t<version_t, stream_t>& gdr)
 template <cdf_r_z type, typename version_t, typename stream_t>
 auto end_VDR(const cdf_GDR_t<version_t, stream_t>& gdr)
 {
-    return common::blk_iterator<cdf_VDR_t<version_t, stream_t>, stream_t> { 0, gdr.p_stream,
+    return common::blk_iterator<cdf_VDR_t<version_t, stream_t>, stream_t> { 0, gdr.p_buffer,
         [](const auto& vdr) { return 0; } };
 }
 
@@ -527,14 +523,14 @@ template <typename version_t, typename stream_t>
 auto begin_VXR(const cdf_VDR_t<version_t, stream_t>& vdr)
 {
     using vxr_t = cdf_VXR_t<version_t, stream_t>;
-    return common::blk_iterator<vxr_t, stream_t> { vdr.VXRhead.value, vdr.p_stream,
+    return common::blk_iterator<vxr_t, stream_t> { vdr.VXRhead.value, vdr.p_buffer,
         [](const vxr_t& vxr) { return vxr.VXRnext.value; } };
 }
 
 template <typename version_t, typename stream_t>
 auto end_VXR(const cdf_VDR_t<version_t, stream_t>& vdr)
 {
-    return common::blk_iterator<cdf_VXR_t<version_t, stream_t>, stream_t> { 0, vdr.p_stream,
+    return common::blk_iterator<cdf_VXR_t<version_t, stream_t>, stream_t> { 0, vdr.p_buffer,
         [](const auto& vxr) { return 0; } };
 }
 

@@ -27,6 +27,7 @@
 #include "cdf-io-common.hpp"
 #include "cdf-io-desc-records.hpp"
 #include "cdf-io-variable.hpp"
+#include "cdf-io-buffers.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -39,53 +40,31 @@ namespace cdf::io
 {
 namespace
 {
-    template <typename stream_t>
-    common::magic_numbers_t get_magic(stream_t& stream)
+    template <typename buffer_t>
+    common::magic_numbers_t get_magic(buffer_t& buffer)
     {
-        stream.seekg(std::ios::beg);
-        char buffer[8];
-        stream.read(buffer, 8);
-        uint32_t magic1 = cdf::endianness::decode<uint32_t>(buffer);
-        uint32_t magic2 = cdf::endianness::decode<uint32_t>(buffer + 4);
+        auto data = buffer.read(0, 8);
+        uint32_t magic1 = cdf::endianness::decode<uint32_t>(data.data());
+        uint32_t magic2 = cdf::endianness::decode<uint32_t>(data.data()+4);
         return { magic1, magic2 };
     }
 
-    template <typename version_t, typename stream_t>
+    template <typename version_t, typename buffer_t>
     struct cdf_headers_t
     {
         inline static constexpr bool v3 = is_v3_v<version_t>;
         common::magic_numbers_t magic;
-        cdf_CDR_t<version_t, stream_t> cdr;
-        cdf_GDR_t<version_t, stream_t> gdr;
+        cdf_CDR_t<version_t, buffer_t> cdr;
+        cdf_GDR_t<version_t, buffer_t> gdr;
         bool is_compressed;
         bool ok = false;
-        cdf_headers_t(stream_t& stream) : cdr { stream }, gdr { stream }
+        cdf_headers_t(buffer_t& buffer) : cdr { buffer }, gdr { buffer }
         {
-            magic = get_magic(stream);
+            magic = get_magic(buffer);
             if (common::is_cdf(magic) && cdr.load() && gdr.load(cdr.GDRoffset.value))
                 ok = true;
         }
     };
-
-    template <typename stream_t>
-    std::size_t get_file_len(stream_t& stream)
-    {
-        auto pos = stream.tellg();
-        stream.seekg(std::ios::end);
-        auto length = stream.tellg();
-        stream.seekg(pos);
-        return length;
-    }
-
-
-    template <typename cdf_version_tag_t, typename buffer_t>
-    cdf_record_type record_type(buffer_t&& buffer)
-    {
-        if constexpr (std::is_same_v<cdf_version_tag_t, v3x_tag>)
-            return endianness::decode<cdf_record_type>(buffer + 8);
-        else
-            return endianness::decode<cdf_record_type>(buffer + 4);
-    }
 
     CDF from_repr(common::cdf_repr&& repr)
     {
@@ -95,16 +74,16 @@ namespace
         return cdf;
     }
 
-    template <typename cdf_version_tag_t, typename stream_t>
-    std::optional<CDF> parse_cdf(stream_t& cdf_file)
+    template <typename cdf_version_tag_t, typename buffer_t>
+    std::optional<CDF> parse_cdf(buffer_t& buffer)
     {
-        cdf_headers_t<cdf_version_tag_t, stream_t> cdf_headers { cdf_file };
+        cdf_headers_t<cdf_version_tag_t, buffer_t> cdf_headers { buffer };
         common::cdf_repr repr;
         if (!cdf_headers.ok)
             return std::nullopt;
-        if (!attribute::load_all<cdf_version_tag_t>(cdf_file, cdf_headers, repr))
+        if (!attribute::load_all<cdf_version_tag_t>(buffer, cdf_headers, repr))
             return std::nullopt;
-        if (!variable::load_all<cdf_version_tag_t>(cdf_file, cdf_headers, repr))
+        if (!variable::load_all<cdf_version_tag_t>(buffer, cdf_headers, repr))
             return std::nullopt;
         return from_repr(std::move(repr));
     }
@@ -114,8 +93,7 @@ std::optional<CDF> load(const std::string& path)
 {
     if (std::filesystem::exists(path))
     {
-        std::fstream cdf_file(path, std::ios::in | std::ios::binary);
-        auto length = get_file_len(cdf_file);
+        buffers::stream_adapter cdf_file{std::fstream{path, std::ios::in | std::ios::binary}};
         auto magic = get_magic(cdf_file);
         if (common::is_v3x(magic))
         {

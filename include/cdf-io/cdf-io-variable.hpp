@@ -58,12 +58,6 @@ namespace
         }
     }
 
-    template <typename stream_t>
-    void load_data(stream_t& stream, const vvr_data_chunk& chunk, char* data)
-    {
-        return common::read_buffer(stream, data, chunk.offset, chunk.size);
-    }
-
     template <typename cdf_version_tag_t, typename stream_t>
     std::vector<vvr_data_chunk> parse_vxr(
         const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr, uint32_t record_size)
@@ -72,7 +66,7 @@ namespace
         for (int i = 0; i < vxr.NusedEntries.value; i++)
         {
             int record_count = vxr.Last.value[i] - vxr.First.value[i] + 1;
-            cdf_VVR_t<cdf_version_tag_t, stream_t> vvr { vxr.p_stream, vxr.Offset.value[i] };
+            cdf_VVR_t<cdf_version_tag_t, stream_t> vvr { vxr.p_buffer, vxr.Offset.value[i] };
             chunks[i]
                 = vvr_data_chunk { vvr.offset + AFTER(vvr.header), record_count * record_size };
         }
@@ -106,9 +100,7 @@ namespace
                     std::vector<char> data(record_size * record_count);
                     std::for_each(std::cbegin(data_chunks), std::cend(data_chunks),
                         [&, pos = 0](const vvr_data_chunk& chunk) mutable {
-                            load_data(stream,
-                                { chunk.offset, std::min(chunk.size, std::size(data) - pos) },
-                                data.data() + pos);
+                            stream.read(data.data() + pos,chunk.offset, std::min(chunk.size, std::size(data) - pos) );
                             pos += chunk.size;
                         });
 
