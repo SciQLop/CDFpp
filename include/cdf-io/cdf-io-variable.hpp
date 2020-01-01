@@ -100,7 +100,8 @@ namespace
                     std::vector<char> data(record_size * record_count);
                     std::for_each(std::cbegin(data_chunks), std::cend(data_chunks),
                         [&, pos = 0](const vvr_data_chunk& chunk) mutable {
-                            stream.read(data.data() + pos,chunk.offset, std::min(chunk.size, std::size(data) - pos) );
+                            stream.read(data.data() + pos, chunk.offset,
+                                std::min(chunk.size, std::size(data) - pos));
                             pos += chunk.size;
                         });
 

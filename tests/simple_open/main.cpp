@@ -143,7 +143,7 @@ SCENARIO("Loading a cdf file", "[CDF]")
             THEN("All expected attributes are loaded")
             {
                 REQUIRE(has_attribute(cd, "attr"));
-                REQUIRE(std::size(cd.attributes) == 4);
+                REQUIRE(std::size(cd.attributes) == 5);
                 REQUIRE(compare_attribute_values(cd.attributes["attr"], "a cdf text attribute"));
                 REQUIRE(has_attribute(cd, "attr_float"));
                 REQUIRE(compare_attribute_values(cd.attributes["attr_float"],
@@ -154,6 +154,8 @@ SCENARIO("Loading a cdf file", "[CDF]")
                 REQUIRE(has_attribute(cd, "attr_multi"));
                 REQUIRE(compare_attribute_values(cd.attributes["attr_multi"],
                     std::vector { int8_t { 1 }, int8_t { 2 } }, std::vector { 2.f, 3.f }, "hello"));
+                REQUIRE(has_attribute(cd, "empty"));
+                REQUIRE(cd.attributes["empty"].len() == 0UL);
             }
             THEN("All expected variables are loaded")
             {
@@ -161,7 +163,7 @@ SCENARIO("Loading a cdf file", "[CDF]")
                 REQUIRE(has_variable(cd, "var"));
                 REQUIRE(compare_shape(cd.variables["var"], { 101 }));
                 REQUIRE(check_variable(
-                    cd.variables["var"], 101, cos_gen(3.141592653589793 * 2. / 100.)));
+                    cd.variables["var"], 101, cos_gen<double>(3.141592653589793 * 2. / 100.)));
                 REQUIRE(compare_attribute_values(
                     cd.variables["var"].attributes["var_attr"], "a variable attribute"));
                 REQUIRE(

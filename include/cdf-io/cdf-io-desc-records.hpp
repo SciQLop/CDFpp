@@ -23,8 +23,8 @@
 #include "../cdf-data.hpp"
 #include "../cdf-endianness.hpp"
 #include "../cdf-enums.hpp"
-#include "cdf-io-common.hpp"
 #include "cdf-io-buffers.hpp"
+#include "cdf-io-common.hpp"
 #include <cstdint>
 #include <tuple>
 #include <type_traits>
@@ -249,7 +249,7 @@ constexpr bool load_fields(buffer_t&& buffer, std::size_t offset, Ts&&... fields
     using first_member_t = first_field_t<Ts...>;
     constexpr std::size_t buffer_len
         = last_member_t::offset + last_member_t::len - first_member_t::offset;
-    auto data = buffer.read(offset + first_member_t::offset ,buffer_len);
+    auto data = buffer.read(offset + first_member_t::offset, buffer_len);
     extract_fields(data, first_member_t::offset, fields...);
     return true;
 }

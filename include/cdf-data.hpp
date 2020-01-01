@@ -32,6 +32,7 @@ namespace cdf
 
 struct cdf_none
 {
+    bool operator==(const cdf_none& other) const { return true; }
 };
 
 using cdf_values_t = std::variant<cdf_none, std::vector<char>, std::vector<uint8_t>,

@@ -24,10 +24,10 @@
 #include "../cdf-enums.hpp"
 #include "../cdf-file.hpp"
 #include "cdf-io-attribute.hpp"
+#include "cdf-io-buffers.hpp"
 #include "cdf-io-common.hpp"
 #include "cdf-io-desc-records.hpp"
 #include "cdf-io-variable.hpp"
-#include "cdf-io-buffers.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -43,9 +43,9 @@ namespace
     template <typename buffer_t>
     common::magic_numbers_t get_magic(buffer_t& buffer)
     {
-        auto data = buffer.read(0, 8);
+        auto data = buffer.template read<8>(0);
         uint32_t magic1 = cdf::endianness::decode<uint32_t>(data.data());
-        uint32_t magic2 = cdf::endianness::decode<uint32_t>(data.data()+4);
+        uint32_t magic2 = cdf::endianness::decode<uint32_t>(data.data() + 4);
         return { magic1, magic2 };
     }
 
@@ -93,7 +93,7 @@ std::optional<CDF> load(const std::string& path)
 {
     if (std::filesystem::exists(path))
     {
-        buffers::stream_adapter cdf_file{std::fstream{path, std::ios::in | std::ios::binary}};
+        buffers::stream_adapter cdf_file { std::fstream { path, std::ios::in | std::ios::binary } };
         auto magic = get_magic(cdf_file);
         if (common::is_v3x(magic))
         {

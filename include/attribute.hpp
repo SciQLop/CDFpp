@@ -77,6 +77,7 @@ struct Attribute
         data = new_data;
         return *this;
     }
+    std::size_t len() const { return std::size(data); }
 
 private:
     attr_data_t data;
