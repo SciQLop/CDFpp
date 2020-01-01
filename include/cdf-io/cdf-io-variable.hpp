@@ -121,6 +121,7 @@ namespace
                     auto shape = get_variable_dimensions<type>(vdr, stream, context);
                     uint32_t record_size = var_record_size(shape, vdr.DataType.value);
                     uint32_t record_count = vdr.MaxRec.value + 1;
+                    shape.insert(std::cbegin(shape), record_count);
                     std::vector<vvr_data_chunk> data_chunks;
                     std::for_each(begin_VXR(vdr), end_VXR(vdr),
                         [&](const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr) {
@@ -136,10 +137,10 @@ namespace
                                 data.data() + pos);
                             pos += chunk.size;
                         });
-                    Variable v { vdr.Name.value, std::move(shape),
-                        load_values(data.data(), std::size(data), vdr.DataType.value,
-                            cdf_encoding::IBMPC) };
-                    add_variable(cdf, vdr.Name.value, std::move(v));
+                    add_variable(cdf, vdr.Name.value, vdr.Num.value,
+                        load_values(
+                            data.data(), std::size(data), vdr.DataType.value, cdf_encoding::IBMPC),
+                        std::move(shape));
                 }
             });
         return true;

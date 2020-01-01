@@ -27,15 +27,32 @@ bool has_variable(const cdf::CDF& cd, const std::string& name)
     return cd.variables.find(name) != cd.variables.cend();
 }
 
+template <int index, typename value_type>
+std::enable_if_t<std::is_same_v<value_type, const char*>, bool> impl_compare_attribute_value(
+    const cdf::Attribute& attribute, const value_type& value)
+{
+    return attribute.get<std::string>(index) == std::string { value };
+}
+
+template <int index, typename value_type>
+std::enable_if_t<std::is_scalar_v<value_type> && !std::is_same_v<value_type, const char*>, bool>
+impl_compare_attribute_value(const cdf::Attribute& attribute, const value_type& value)
+{
+    return attribute.get<std::vector<value_type>>(index) == std::vector<value_type> { value };
+}
+
+template <int index, typename value_type>
+auto impl_compare_attribute_value(const cdf::Attribute& attribute, const value_type& value)
+    -> decltype(std::cbegin(value), value.at(0), true)
+{
+    return attribute.get<std::remove_const_t<std::remove_reference_t<value_type>>>(index) == value;
+}
+
 template <int index, typename T>
 bool compare_attribute_value(const cdf::Attribute& attribute, const T& values)
 {
     auto value = std::get<index>(values);
-    using value_type = std::remove_const_t<decltype(value)>;
-    if constexpr (std::is_same_v<const char*, value_type>)
-        return attribute.get<std::string>(index) == std::string { value };
-    else
-        return attribute.get<std::vector<value_type>>(index) == std::vector<value_type> { value };
+    return impl_compare_attribute_value<index>(attribute, value);
 }
 
 template <typename T, std::size_t... I>
@@ -53,7 +70,7 @@ bool compare_attribute_values(cdf::Attribute& attribute, Ts... values)
 
 bool compare_shape(const cdf::Variable& variable, std::initializer_list<uint32_t> values)
 {
-    return variable.shape == std::vector<uint32_t> { values };
+    return variable.shape() == std::vector<uint32_t> { values };
 }
 
 template <typename generator_t>
@@ -101,45 +118,53 @@ SCENARIO("Loading a cdf file", "[CDF]")
                 REQUIRE(std::size(cd.attributes) == 4);
                 REQUIRE(compare_attribute_values(cd.attributes["attr"], "a cdf text attribute"));
                 REQUIRE(has_attribute(cd, "attr_float"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr_float"], 1.f, 2.f, 3.f));
+                REQUIRE(compare_attribute_values(cd.attributes["attr_float"],
+                    std::vector { 1.f, 2.f, 3.f }, std::vector { 4.f, 5.f, 6.f }));
                 REQUIRE(has_attribute(cd, "attr_int"));
-                REQUIRE(compare_attribute_values(
-                    cd.attributes["attr_int"], int8_t { 1 }, int8_t { 2 }, int8_t { 3 }));
+                REQUIRE(compare_attribute_values(cd.attributes["attr_int"],
+                    std::vector { int8_t { 1 }, int8_t { 2 }, int8_t { 3 } }));
                 REQUIRE(has_attribute(cd, "attr_multi"));
-                REQUIRE(compare_attribute_values(
-                    cd.attributes["attr_multi"], int8_t { 1 }, 2.f, "hello"));
+                REQUIRE(compare_attribute_values(cd.attributes["attr_multi"],
+                    std::vector { int8_t { 1 }, int8_t { 2 } }, std::vector { 2.f, 3.f }, "hello"));
             }
             THEN("All expected variables are loaded")
             {
                 REQUIRE(std::size(cd.variables) == 4);
                 REQUIRE(has_variable(cd, "var"));
-                REQUIRE(compare_shape(cd.variables["var"], {}));
+                REQUIRE(compare_shape(cd.variables["var"], { 101 }));
                 REQUIRE(check_variable(cd.variables["var"], 101, [](std::size_t size) {
                     std::vector<double> values(size);
                     std::generate(std::begin(values), std::end(values),
                         [i = 0., size = double(size)]() mutable {
                             auto v = std::cos(i);
-                            i += 3.141592653589793 * 2. / (size-1);
+                            i += 3.141592653589793 * 2. / (size - 1);
                             return v;
                         });
                     return values;
                 }));
+                REQUIRE(compare_attribute_values(
+                    cd.variables["var"].attributes["var_attr"], "a variable attribute"));
+                REQUIRE(
+                    compare_attribute_values(cd.variables["var"].attributes["DEPEND0"], "epoch"));
                 REQUIRE(has_variable(cd, "epoch"));
-                REQUIRE(compare_shape(cd.variables["epoch"], {}));
+                REQUIRE(compare_shape(cd.variables["epoch"], { 101 }));
                 REQUIRE(has_variable(cd, "var2d"));
-                REQUIRE(compare_shape(cd.variables["var2d"], { 4 }));
+                REQUIRE(compare_shape(cd.variables["var2d"], { 3, 4 }));
                 REQUIRE(check_variable(cd.variables["var2d"], 3 * 4, [](std::size_t size) {
                     std::vector<double> values(size);
                     std::generate(std::begin(values), std::end(values), []() { return 1.; });
                     return values;
                 }));
                 REQUIRE(has_variable(cd, "var3d"));
-                REQUIRE(compare_shape(cd.variables["var3d"], { 3, 2 }));
+                REQUIRE(compare_shape(cd.variables["var3d"], { 4, 3, 2 }));
                 REQUIRE(check_variable(cd.variables["var3d"], 4 * 3 * 2, [](std::size_t size) {
                     std::vector<double> values(size);
                     std::generate(std::begin(values), std::end(values), []() { return 1.; });
                     return values;
                 }));
+                REQUIRE(
+                    compare_attribute_values(cd.variables["var3d"].attributes["var3d_attr_multi"],
+                        std::vector { 10., 11. }));
             }
         }
     }

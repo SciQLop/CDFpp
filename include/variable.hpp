@@ -20,6 +20,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "attribute.hpp"
 #include "cdf-data.hpp"
 #include <cstdint>
 #include <vector>
@@ -29,43 +30,67 @@ namespace cdf
 struct Variable
 {
     using var_data_t = data_t;
-    std::string name;
-    std::vector<uint32_t> shape;
+    using shape_t = std::vector<uint32_t>;
+    std::unordered_map<std::string, Attribute> attributes;
     Variable() = default;
     Variable(Variable&&) = default;
     Variable(const Variable&) = default;
     Variable& operator=(const Variable&) = default;
     Variable& operator=(Variable&&) = default;
-    Variable(const std::string& name, std::vector<uint32_t>&& shape, var_data_t&& data)
-            : name { name }, shape { shape }, data { data }
+    Variable(const std::string& name, std::size_t number, var_data_t&& data, shape_t&& shape)
+            : p_name { name }, p_number { number }, p_shape { shape }, p_data { data }
+    {
+    }
+
+    Variable(const std::string& name, var_data_t&& data, shape_t&& shape)
+            : p_name { name }, p_shape { shape }, p_data { data }
     {
     }
 
     template <CDF_Types type>
     decltype(auto) get()
     {
-        return data.get<type>();
+        return p_data.get<type>();
     }
 
     template <CDF_Types type>
     decltype(auto) get() const
     {
-        return data.get<type>();
+        return p_data.get<type>();
     }
 
     template <typename type>
     decltype(auto) get()
     {
-        return data.get<type>();
+        return p_data.get<type>();
     }
 
     template <typename type>
     decltype(auto) get() const
     {
-        return data.get<type>();
+        return p_data.get<type>();
+    }
+
+    const std::string& name() const { return p_name; }
+
+    const shape_t& shape() const { return p_shape; }
+
+    void set_data(const data_t& data, const shape_t& shape)
+    {
+        p_data = data;
+        p_shape = shape;
+    }
+
+    void set_data(data_t&& data, shape_t&& shape)
+    {
+        p_data = std::move(data);
+        p_shape = std::move(shape);
     }
 
 private:
-    var_data_t data;
+    std::string p_name;
+    std::optional<std::size_t> p_number;
+    var_data_t p_data;
+    shape_t p_shape;
 };
 } // namespace cdf

@@ -12,17 +12,18 @@ There are also Java and Python implementations which are not usable in C++.
 
 List of features and roadmap:
 
-- [x] read uncompressed file headers (v2x or v3x)
-- [x] read uncompressed attributes (v2x or v3x)
-- [x] read uncompressed variables (v2x or v3x)
+- [x] read uncompressed file headers
+- [x] read uncompressed attributes
+- [x] read uncompressed variables
+- [ ] read variable attributes
 - [ ] read variables with nested VXRs
-- [ ] read compressed file (v2x or v3x)
-- [ ] read compressed variables (v2x or v3x)
-- [ ] write uncompressed headers (v2x or v3x)
-- [ ] write uncompressed attributes (v2x or v3x)
-- [ ] write uncompressed variables (v2x or v3x)
-- [ ] write compressed attributes (v2x or v3x)
-- [ ] write compressed file variables (v2x or v3x)
+- [ ] read compressed file
+- [ ] read compressed variables
+- [ ] write uncompressed headers
+- [ ] write uncompressed attributes
+- [ ] write uncompressed variables
+- [ ] write compressed attributes
+- [ ] write compressed file variables
 - [ ] handle leap seconds
 - [ ] Python wrappers
 - [ ] Documentation
