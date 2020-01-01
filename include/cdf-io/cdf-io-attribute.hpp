@@ -21,7 +21,6 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "../attribute.hpp"
-#include "../cdf-file.hpp"
 #include "cdf-io-common.hpp"
 #include "cdf-io-desc-records.hpp"
 
@@ -44,7 +43,7 @@ Attribute::attr_data_t load_data(const ADR_t& ADR, stream_t& stream, uint32_t& v
 }
 
 template <typename cdf_version_tag_t, typename stream_t, typename context_t>
-bool load_all(stream_t& stream, context_t& context, CDF& cdf)
+bool load_all(stream_t& stream, context_t& context, common::cdf_repr& repr)
 {
     std::for_each(begin_ADR(context.gdr), end_ADR(context.gdr), [&](auto& ADR) {
         if (ADR.is_loaded)
@@ -57,7 +56,7 @@ bool load_all(stream_t& stream, context_t& context, CDF& cdf)
                     return load_data<cdf_r_z::r, cdf_version_tag_t>(ADR, stream, var_num);
                 return {};
             }();
-            add_attribute(cdf, ADR.scope.value, ADR.Name.value, std::move(data), var_num);
+            common::add_attribute(repr, ADR.scope.value, ADR.Name.value, std::move(data), var_num);
         }
     });
     return true;

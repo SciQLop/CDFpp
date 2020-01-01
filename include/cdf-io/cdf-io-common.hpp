@@ -20,10 +20,13 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "../attribute.hpp"
 #include "../cdf-endianness.hpp"
+#include "../variable.hpp"
 #include <functional>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 namespace cdf::io::common
@@ -144,5 +147,60 @@ struct blk_iterator
     value_type& operator*() { return block; }
 };
 
+struct cdf_repr
+{
+    std::unordered_map<std::string, Variable> variables;
+    std::unordered_map<std::string, Attribute> attributes;
+    std::unordered_map<std::size_t, std::unordered_map<std::string, Attribute>> var_attributes;
+};
+
+void add_global_attribute(cdf_repr& repr, const std::string& name, Attribute::attr_data_t&& data)
+{
+    if (auto [_, success] = repr.attributes.try_emplace(name, name, std::move(data)); !success)
+    {
+        repr.attributes[name] = std::move(data);
+    }
+}
+
+void add_var_attribute(cdf_repr& repr, std::size_t variable_index, const std::string& name,
+    Attribute::attr_data_t&& data)
+{
+    if (auto [_, success]
+        = repr.var_attributes[variable_index].try_emplace(name, name, std::move(data));
+        !success)
+    {
+        repr.var_attributes[variable_index][name] = std::move(data);
+    }
+}
+
+void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name,
+    Attribute::attr_data_t&& data, std::size_t variable_index = 0)
+{
+    if (scope == cdf_attr_scope::global || scope == cdf_attr_scope::global_assumed)
+        add_global_attribute(repr, name, std::move(data));
+    else if (scope == cdf_attr_scope::variable || scope == cdf_attr_scope::variable_assumed)
+    {
+        add_var_attribute(repr, variable_index, name, std::move(data));
+    }
+}
+
+void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
+    Variable::var_data_t&& data, Variable::shape_t&& shape)
+{
+    if (auto [_, success]
+        = repr.variables.try_emplace(name, name, number, std::move(data), std::move(shape));
+        !success)
+    {
+        auto& var = repr.variables[name];
+        var.set_data(std::move(data), std::move(shape));
+    }
+    repr.variables[name].attributes = [&]() -> decltype(Variable::attributes) {
+        auto attrs = repr.var_attributes.extract(number);
+        if (!attrs.empty())
+            return attrs.mapped();
+        else
+            return {};
+    }();
+}
 
 }

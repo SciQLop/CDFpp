@@ -22,7 +22,6 @@
 ----------------------------------------------------------------------------*/
 #include "../cdf-data.hpp"
 #include "../cdf-endianness.hpp"
-#include "../cdf-file.hpp"
 #include "../variable.hpp"
 #include "cdf-io-common.hpp"
 #include "cdf-io-desc-records.hpp"
@@ -38,17 +37,6 @@ namespace
         std::size_t offset;
         std::size_t size;
     };
-
-    template <typename cdf_version_tag_t, typename stream_t>
-    std::size_t load(std::size_t offset, stream_t& stream, CDF& cdf)
-    {
-        cdf_VDR_t<cdf_version_tag_t, stream_t> VDR { stream, offset };
-        if (VDR.is_loaded)
-        {
-            return VDR.VDRnext.value;
-        }
-        return 0;
-    }
 
     template <cdf_r_z type, typename cdf_vdr_t, typename stream_t, typename context_t>
     std::vector<uint32_t> get_variable_dimensions(
@@ -67,20 +55,6 @@ namespace
         else
         {
             return context.gdr.rDimSizes.value;
-        }
-    }
-
-    template <cdf_r_z type, typename cdf_vxr_t, typename stream_t, typename context_t>
-    Variable::var_data_t get_variable_data(
-        const cdf_vxr_t& vxr, CDF_Types value_type, stream_t& stream, context_t& context)
-    {
-        if constexpr (type == cdf_r_z::z)
-        {
-            return {};
-        }
-        else
-        {
-            return {};
         }
     }
 
@@ -112,7 +86,7 @@ namespace
     }
 
     template <cdf_r_z type, typename cdf_version_tag_t, typename stream_t, typename context_t>
-    bool load_all_Vars(stream_t& stream, context_t& context, CDF& cdf)
+    bool load_all_Vars(stream_t& stream, context_t& context, common::cdf_repr& cdf)
     {
         std::for_each(begin_VDR<type>(context.gdr), end_VDR<type>(context.gdr),
             [&](const cdf_VDR_t<cdf_version_tag_t, stream_t>& vdr) {
@@ -137,7 +111,8 @@ namespace
                                 data.data() + pos);
                             pos += chunk.size;
                         });
-                    add_variable(cdf, vdr.Name.value, vdr.Num.value,
+
+                    common::add_variable(cdf, vdr.Name.value, vdr.Num.value,
                         load_values(
                             data.data(), std::size(data), vdr.DataType.value, cdf_encoding::IBMPC),
                         std::move(shape));
@@ -148,7 +123,7 @@ namespace
 }
 
 template <typename cdf_version_tag_t, typename stream_t, typename context_t>
-bool load_all(stream_t& stream, context_t& context, CDF& cdf)
+bool load_all(stream_t& stream, context_t& context, common::cdf_repr& cdf)
 {
     return load_all_Vars<cdf_r_z::r, cdf_version_tag_t>(stream, context, cdf)
         & load_all_Vars<cdf_r_z::z, cdf_version_tag_t>(stream, context, cdf);

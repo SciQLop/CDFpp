@@ -33,6 +33,8 @@ struct Attribute
     Attribute() = default;
     Attribute(const Attribute&) = default;
     Attribute(Attribute&&) = default;
+    Attribute& operator=(Attribute&&) = default;
+    Attribute& operator=(const Attribute&) = default;
     Attribute(const std::string& name, attr_data_t&& data) : name { name }
     {
         this->data = std::move(data);

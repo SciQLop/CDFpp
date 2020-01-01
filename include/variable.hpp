@@ -22,6 +22,7 @@
 ----------------------------------------------------------------------------*/
 #include "attribute.hpp"
 #include "cdf-data.hpp"
+#include "cdf-enums.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -86,6 +87,10 @@ struct Variable
         p_data = std::move(data);
         p_shape = std::move(shape);
     }
+
+    std::optional<std::size_t> number() { return p_number; }
+
+    CDF_Types type() { return p_data.type(); }
 
 private:
     std::string p_name;

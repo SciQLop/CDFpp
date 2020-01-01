@@ -87,18 +87,26 @@ namespace
             return endianness::decode<cdf_record_type>(buffer + 4);
     }
 
+    CDF from_repr(common::cdf_repr&& repr)
+    {
+        CDF cdf;
+        cdf.attributes = std::move(repr.attributes);
+        cdf.variables = std::move(repr.variables);
+        return cdf;
+    }
+
     template <typename cdf_version_tag_t, typename stream_t>
     std::optional<CDF> parse_cdf(stream_t& cdf_file)
     {
         cdf_headers_t<cdf_version_tag_t, stream_t> cdf_headers { cdf_file };
+        common::cdf_repr repr;
         if (!cdf_headers.ok)
             return std::nullopt;
-        CDF cdf;
-        if (!attribute::load_all<cdf_version_tag_t>(cdf_file, cdf_headers, cdf))
+        if (!attribute::load_all<cdf_version_tag_t>(cdf_file, cdf_headers, repr))
             return std::nullopt;
-        if (!variable::load_all<cdf_version_tag_t>(cdf_file, cdf_headers, cdf))
+        if (!variable::load_all<cdf_version_tag_t>(cdf_file, cdf_headers, repr))
             return std::nullopt;
-        return cdf;
+        return from_repr(std::move(repr));
     }
 } // namespace
 

@@ -158,6 +158,7 @@ struct data_t
     data_t(const cdf_values_t& values, CDF_Types type) : p_values { values }, p_type { type } {}
     data_t(cdf_values_t&& values, CDF_Types type) : p_values { values }, p_type { type } {}
 
+    CDF_Types type() { return p_type; }
 
 private:
     cdf_values_t p_values;

@@ -85,6 +85,34 @@ bool check_variable(const cdf::Variable& var, std::size_t size, generator_t gene
     return is_valid;
 }
 
+template <typename T>
+struct cos_gen
+{
+    const T step;
+    cos_gen(T step) : step { step } {}
+    std::vector<T> operator()(std::size_t size)
+    {
+        std::vector<T> values(size);
+        std::generate(std::begin(values), std::end(values), [i = T(0.), step = step]() mutable {
+            auto v = std::cos(i);
+            i += step;
+            return v;
+        });
+        return values;
+    }
+};
+
+template <typename T>
+struct ones
+{
+    std::vector<T> operator()(std::size_t size)
+    {
+        std::vector<T> values(size);
+        std::generate(std::begin(values), std::end(values), []() mutable { return T(1); });
+        return values;
+    }
+};
+
 SCENARIO("Loading a cdf file", "[CDF]")
 {
     GIVEN("a cdf file")
@@ -132,16 +160,8 @@ SCENARIO("Loading a cdf file", "[CDF]")
                 REQUIRE(std::size(cd.variables) == 4);
                 REQUIRE(has_variable(cd, "var"));
                 REQUIRE(compare_shape(cd.variables["var"], { 101 }));
-                REQUIRE(check_variable(cd.variables["var"], 101, [](std::size_t size) {
-                    std::vector<double> values(size);
-                    std::generate(std::begin(values), std::end(values),
-                        [i = 0., size = double(size)]() mutable {
-                            auto v = std::cos(i);
-                            i += 3.141592653589793 * 2. / (size - 1);
-                            return v;
-                        });
-                    return values;
-                }));
+                REQUIRE(check_variable(
+                    cd.variables["var"], 101, cos_gen(3.141592653589793 * 2. / 100.)));
                 REQUIRE(compare_attribute_values(
                     cd.variables["var"].attributes["var_attr"], "a variable attribute"));
                 REQUIRE(
@@ -150,18 +170,10 @@ SCENARIO("Loading a cdf file", "[CDF]")
                 REQUIRE(compare_shape(cd.variables["epoch"], { 101 }));
                 REQUIRE(has_variable(cd, "var2d"));
                 REQUIRE(compare_shape(cd.variables["var2d"], { 3, 4 }));
-                REQUIRE(check_variable(cd.variables["var2d"], 3 * 4, [](std::size_t size) {
-                    std::vector<double> values(size);
-                    std::generate(std::begin(values), std::end(values), []() { return 1.; });
-                    return values;
-                }));
+                REQUIRE(check_variable(cd.variables["var2d"], 3 * 4, ones<double>()));
                 REQUIRE(has_variable(cd, "var3d"));
                 REQUIRE(compare_shape(cd.variables["var3d"], { 4, 3, 2 }));
-                REQUIRE(check_variable(cd.variables["var3d"], 4 * 3 * 2, [](std::size_t size) {
-                    std::vector<double> values(size);
-                    std::generate(std::begin(values), std::end(values), []() { return 1.; });
-                    return values;
-                }));
+                REQUIRE(check_variable(cd.variables["var3d"], 4 * 3 * 2, ones<double>()));
                 REQUIRE(
                     compare_attribute_values(cd.variables["var3d"].attributes["var3d_attr_multi"],
                         std::vector { 10., 11. }));
