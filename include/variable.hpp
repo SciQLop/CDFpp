@@ -75,6 +75,7 @@ struct Variable
     const std::string& name() const { return p_name; }
 
     const shape_t& shape() const { return p_shape; }
+    const std::size_t len() const { return p_shape[0]; }
 
     void set_data(const data_t& data, const shape_t& shape)
     {

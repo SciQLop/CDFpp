@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <optional>
@@ -74,11 +75,12 @@ bool compare_shape(const cdf::Variable& variable, std::initializer_list<uint32_t
 }
 
 template <typename generator_t>
-bool check_variable(const cdf::Variable& var, std::size_t size, generator_t generator)
+bool check_variable(
+    const cdf::Variable& var, std::initializer_list<uint32_t> expected_shape, generator_t generator)
 {
     auto values = var.get<std::vector<double>>();
-    bool is_valid = (std::size(values) == size);
-    auto ref = generator(size);
+    bool is_valid = compare_shape(var, expected_shape);
+    auto ref = generator(std::size(values));
     auto diff = std::transform_reduce(std::cbegin(values), std::cend(values), std::cbegin(ref), 0.,
         std::plus<double>(), std::minus<double>());
     is_valid &= (std::abs(diff) < 1e-9);
@@ -163,7 +165,7 @@ SCENARIO("Loading a cdf file", "[CDF]")
                 REQUIRE(has_variable(cd, "var"));
                 REQUIRE(compare_shape(cd.variables["var"], { 101 }));
                 REQUIRE(check_variable(
-                    cd.variables["var"], 101, cos_gen<double>(3.141592653589793 * 2. / 100.)));
+                    cd.variables["var"], { 101 }, cos_gen<double>(3.141592653589793 * 2. / 100.)));
                 REQUIRE(compare_attribute_values(
                     cd.variables["var"].attributes["var_attr"], "a variable attribute"));
                 REQUIRE(
@@ -172,10 +174,10 @@ SCENARIO("Loading a cdf file", "[CDF]")
                 REQUIRE(compare_shape(cd.variables["epoch"], { 101 }));
                 REQUIRE(has_variable(cd, "var2d"));
                 REQUIRE(compare_shape(cd.variables["var2d"], { 3, 4 }));
-                REQUIRE(check_variable(cd.variables["var2d"], 3 * 4, ones<double>()));
+                REQUIRE(check_variable(cd.variables["var2d"], { 3, 4 }, ones<double>()));
                 REQUIRE(has_variable(cd, "var3d"));
                 REQUIRE(compare_shape(cd.variables["var3d"], { 4, 3, 2 }));
-                REQUIRE(check_variable(cd.variables["var3d"], 4 * 3 * 2, ones<double>()));
+                REQUIRE(check_variable(cd.variables["var3d"], { 4, 3, 2 }, ones<double>()));
                 REQUIRE(
                     compare_attribute_values(cd.variables["var3d"].attributes["var3d_attr_multi"],
                         std::vector { 10., 11. }));

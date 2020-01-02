@@ -44,8 +44,9 @@ namespace
     common::magic_numbers_t get_magic(buffer_t& buffer)
     {
         auto data = buffer.template read<8>(0);
-        uint32_t magic1 = cdf::endianness::decode<uint32_t>(data.data());
-        uint32_t magic2 = cdf::endianness::decode<uint32_t>(data.data() + 4);
+        uint32_t magic1 = cdf::endianness::decode<endianness::big_endian_t, uint32_t>(data.data());
+        uint32_t magic2
+            = cdf::endianness::decode<endianness::big_endian_t, uint32_t>(data.data() + 4);
         return { magic1, magic2 };
     }
 

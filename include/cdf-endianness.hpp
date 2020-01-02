@@ -22,12 +22,12 @@
 ----------------------------------------------------------------------------*/
 
 #ifdef CDFpp_BIG_ENDIAN
-inline const bool is_big_endian = true;
-inline const bool is_little_endian = false;
+inline const bool host_is_big_endian = true;
+inline const bool host_is_little_endian = false;
 #else
 #ifdef CDFpp_LITTLE_ENDIAN
-inline const bool is_big_endian = false;
-inline const bool is_little_endian = true;
+inline const bool host_is_big_endian = false;
+inline const bool host_is_little_endian = true;
 #else
 #error "Can't find if platform is either big or little endian"
 #endif
@@ -66,7 +66,7 @@ struct little_endian_t
 {
 };
 
-using host_endianness_t = std::conditional_t<is_little_endian, little_endian_t, big_endian_t>;
+using host_endianness_t = std::conditional_t<host_is_little_endian, little_endian_t, big_endian_t>;
 
 template <typename endianness_t>
 inline constexpr bool is_little_endian_v = std::is_same_v<little_endian_t, endianness_t>;
@@ -118,10 +118,10 @@ namespace
     }
 }
 
-template <typename T>
-T decode(const char* input)
+template <typename src_endianess_t, typename T, typename U>
+T decode(const U* input)
 {
-    if constexpr (is_little_endian)
+    if constexpr (!std::is_same_v<host_endianness_t, src_endianess_t>)
     {
         return byte_swap<T>(*reinterpret_cast<const T*>(input));
     }

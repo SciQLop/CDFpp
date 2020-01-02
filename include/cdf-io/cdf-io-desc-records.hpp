@@ -109,7 +109,8 @@ void extract_field(buffer_t buffer, std::size_t offset, T& field)
         field = std::string { buffer.data() + T::offset - offset, size };
     }
     else
-        field = endianness::decode<typename T::type>(buffer.data() + T::offset - offset);
+        field = endianness::decode<endianness::big_endian_t, typename T::type>(
+            buffer.data() + T::offset - offset);
 }
 
 template <typename buffer_t, typename... Ts>
