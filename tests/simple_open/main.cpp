@@ -39,14 +39,17 @@ template <int index, typename value_type>
 std::enable_if_t<std::is_scalar_v<value_type> && !std::is_same_v<value_type, const char*>, bool>
 impl_compare_attribute_value(const cdf::Attribute& attribute, const value_type& value)
 {
-    return attribute.get<std::vector<value_type>>(index) == std::vector<value_type> { value };
+    return attribute.get<value_type>(index) == std::vector<value_type> { value };
 }
 
 template <int index, typename value_type>
 auto impl_compare_attribute_value(const cdf::Attribute& attribute, const value_type& value)
     -> decltype(std::cbegin(value), value.at(0), true)
 {
-    return attribute.get<std::remove_const_t<std::remove_reference_t<value_type>>>(index) == value;
+    return attribute
+               .get<typename std::remove_const_t<std::remove_reference_t<value_type>>::value_type>(
+                   index)
+        == value;
 }
 
 template <int index, typename T>
@@ -78,7 +81,7 @@ template <typename generator_t>
 bool check_variable(
     const cdf::Variable& var, std::initializer_list<uint32_t> expected_shape, generator_t generator)
 {
-    auto values = var.get<std::vector<double>>();
+    auto values = var.get<double>();
     bool is_valid = compare_shape(var, expected_shape);
     auto ref = generator(std::size(values));
     auto diff = std::transform_reduce(std::cbegin(values), std::cend(values), std::cbegin(ref), 0.,

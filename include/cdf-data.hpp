@@ -79,58 +79,41 @@ struct data_t
     {
         if constexpr (std::is_same_v<type, std::string>)
         {
-            if (p_type == CDF_Types::CDF_CHAR)
+            if (std::holds_alternative<std::string>(p_values))
             {
-                return std::get<std::string>(p_values);
-            }
-            else
-            {
-                throw;
-            }
-        }
-        if constexpr (std::is_same_v<type, std::vector<int8_t>>)
-        {
-            if (p_type == CDF_Types::CDF_BYTE || p_type == CDF_Types::CDF_INT1)
-            {
-                return std::get<std::vector<int8_t>>(p_values);
-            }
-            else
-            {
-                throw;
-            }
-        }
-        if constexpr (std::is_same_v<type, std::vector<float>>)
-        {
-            if (p_type == CDF_Types::CDF_FLOAT)
-            {
-                return std::get<std::vector<float>>(p_values);
-            }
-            else
-            {
-                throw;
-            }
-        }
-        if constexpr (std::is_same_v<type, std::vector<double>>)
-        {
-            if (p_type == CDF_Types::CDF_DOUBLE)
-            {
-                return std::get<std::vector<double>>(p_values);
-            }
-            else
-            {
-                throw;
+                return std::get<type>(p_values);
             }
         }
         else
         {
-            throw;
+            if (std::holds_alternative<std::vector<type>>(p_values))
+            {
+                return std::get<std::vector<type>>(p_values);
+            }
+            else
+                throw;
         }
     }
 
     template <typename type>
     decltype(auto) get() const
     {
-        return std::get<type>(p_values);
+        if constexpr (std::is_same_v<type, std::string>)
+        {
+            if (std::holds_alternative<std::string>(p_values))
+            {
+                return std::get<type>(p_values);
+            }
+        }
+        else
+        {
+            if (std::holds_alternative<std::vector<type>>(p_values))
+            {
+                return std::get<std::vector<type>>(p_values);
+            }
+            else
+                throw;
+        }
     }
 
     data_t() : p_values { cdf_none {} }, p_type { CDF_Types::CDF_NONE } {}
@@ -170,52 +153,29 @@ private:
 data_t load_values(
     const char* buffer, std::size_t buffer_size, CDF_Types type, cdf_encoding encoding)
 {
+#define DATA_FROM_T(type)                                                                          \
+    case CDF_Types::type:                                                                          \
+        if (endianness::is_big_endian_encoding(encoding))                                          \
+            return data_t { load_values<CDF_Types::type, endianness::big_endian_t>(                \
+                                buffer, buffer_size),                                              \
+                CDF_Types::type };                                                                 \
+        return data_t { load_values<CDF_Types::type, endianness::little_endian_t>(                 \
+                            buffer, buffer_size),                                                  \
+            CDF_Types::type };
+
     switch (type)
     {
-        case CDF_Types::CDF_FLOAT:
-            return data_t { load_values<CDF_Types::CDF_FLOAT, endianness::little_endian_t>(
-                                buffer, buffer_size),
-                type };
-        case CDF_Types::CDF_DOUBLE:
-            return data_t { load_values<CDF_Types::CDF_DOUBLE, endianness::little_endian_t>(
-                                buffer, buffer_size),
-                type };
-        case CDF_Types::CDF_CHAR:
-            return data_t { load_values<CDF_Types::CDF_CHAR, endianness::little_endian_t>(
-                                buffer, buffer_size),
-                type };
-        case CDF_Types::CDF_INT1:
-            return data_t { load_values<CDF_Types::CDF_INT1, endianness::little_endian_t>(
-                                buffer, buffer_size),
-                type };
-        case CDF_Types::CDF_INT2:
-            return data_t { load_values<CDF_Types::CDF_INT2, endianness::little_endian_t>(
-                                buffer, buffer_size),
-                type };
-        case CDF_Types::CDF_INT4:
-            return data_t { load_values<CDF_Types::CDF_INT4, endianness::little_endian_t>(
-                                buffer, buffer_size),
-                type };
-        case CDF_Types::CDF_INT8:
-            return data_t { load_values<CDF_Types::CDF_INT8, endianness::little_endian_t>(
-                                buffer, buffer_size),
-                type };
-        case CDF_Types::CDF_UINT1:
-            return data_t { load_values<CDF_Types::CDF_UINT1, endianness::little_endian_t>(
-                                buffer, buffer_size),
-                type };
-        case CDF_Types::CDF_UINT2:
-            return data_t { load_values<CDF_Types::CDF_UINT2, endianness::little_endian_t>(
-                                buffer, buffer_size),
-                type };
-        case CDF_Types::CDF_UINT4:
-            return data_t { load_values<CDF_Types::CDF_UINT4, endianness::little_endian_t>(
-                                buffer, buffer_size),
-                type };
-        case CDF_Types::CDF_BYTE:
-            return data_t { load_values<CDF_Types::CDF_BYTE, endianness::little_endian_t>(
-                                buffer, buffer_size),
-                type };
+        DATA_FROM_T(CDF_FLOAT)
+        DATA_FROM_T(CDF_DOUBLE)
+        DATA_FROM_T(CDF_CHAR)
+        DATA_FROM_T(CDF_INT1)
+        DATA_FROM_T(CDF_INT2)
+        DATA_FROM_T(CDF_INT4)
+        DATA_FROM_T(CDF_INT8)
+        DATA_FROM_T(CDF_UINT1)
+        DATA_FROM_T(CDF_UINT2)
+        DATA_FROM_T(CDF_UINT4)
+        DATA_FROM_T(CDF_BYTE)
     }
     return {};
 }

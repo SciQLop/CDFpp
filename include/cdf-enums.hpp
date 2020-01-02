@@ -197,6 +197,8 @@ constexpr CDF_Types to_cdf_type()
         return CDF_Types::CDF_EPOCH;
     if constexpr (std::is_same_v<type, tt2000_t>)
         return CDF_Types::CDF_TIME_TT2000;
+    else
+        throw;
 }
 
 
