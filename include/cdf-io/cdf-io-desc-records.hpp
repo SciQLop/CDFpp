@@ -86,12 +86,12 @@ struct table_field_t
     }
 };
 
-template <typename T, typename cdf_dr_t, typename stream_t>
-bool load_table_field(table_field_t<T, cdf_dr_t>& field, stream_t& stream, const cdf_dr_t& dr)
+template <typename T, typename cdf_dr_t, typename buffer_t>
+bool load_table_field(table_field_t<T, cdf_dr_t>& field, buffer_t& buffer, const cdf_dr_t& dr)
 {
     field.value.resize(field.size(dr));
     common::load_values<endianness::big_endian_t>(
-        stream, dr.offset + field.offset(dr), field.value);
+        buffer, dr.offset + field.offset(dr), field.value);
     return true;
 }
 
@@ -221,9 +221,9 @@ using first_field_t = most_member_t<field_is_before_t, Args...>;
 template <typename... Args>
 using last_field_t = most_member_t<field_is_after_t, Args...>;
 
-template <typename stream_t, typename cdf_DR_t, typename... Ts>
+template <typename buffer_t, typename cdf_DR_t, typename... Ts>
 constexpr bool load_desc_record(
-    stream_t&& buffer, std::size_t offset, cdf_DR_t&& cdf_desc_record, Ts&&... fields)
+    buffer_t&& buffer, std::size_t offset, cdf_DR_t&& cdf_desc_record, Ts&&... fields)
 {
     constexpr std::size_t buffer_size = [&]() {
         if constexpr (sizeof...(Ts))
@@ -255,8 +255,8 @@ constexpr bool load_fields(buffer_t&& buffer, std::size_t offset, Ts&&... fields
     return true;
 }
 
-template <typename version_t, typename stream_t>
-struct cdf_CDR_t : cdf_description_record<stream_t, cdf_CDR_t<version_t, stream_t>>
+template <typename version_t, typename buffer_t>
+struct cdf_CDR_t : cdf_description_record<buffer_t, cdf_CDR_t<version_t, buffer_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::CDR> header;
@@ -272,20 +272,20 @@ struct cdf_CDR_t : cdf_description_record<stream_t, cdf_CDR_t<version_t, stream_
     unused_field_t<AFTER(Identifier), uint32_t> rfuE;
     str_field_t<AFTER(rfuE), 256> copyright; // ignore format < 2.6
 
-    using cdf_description_record<stream_t, cdf_CDR_t<version_t, stream_t>>::cdf_description_record;
+    using cdf_description_record<buffer_t, cdf_CDR_t<version_t, buffer_t>>::cdf_description_record;
 
-    friend cdf_description_record<stream_t, cdf_CDR_t<version_t, stream_t>>;
+    friend cdf_description_record<buffer_t, cdf_CDR_t<version_t, buffer_t>>;
 
 protected:
-    bool load_from(stream_t& stream, std::size_t CDRoffset = 8)
+    bool load_from(buffer_t& buffer, std::size_t CDRoffset = 8)
     {
-        return load_desc_record(stream, 8, *this, GDRoffset, Version, Release, Encoding, Flags,
+        return load_desc_record(buffer, 8, *this, GDRoffset, Version, Release, Encoding, Flags,
             Increment, Identifier, copyright);
     }
 };
 
-template <typename version_t, typename stream_t>
-struct cdf_GDR_t : cdf_description_record<stream_t, cdf_GDR_t<version_t, stream_t>>
+template <typename version_t, typename buffer_t>
+struct cdf_GDR_t : cdf_description_record<buffer_t, cdf_GDR_t<version_t, buffer_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::GDR> header;
@@ -305,22 +305,22 @@ struct cdf_GDR_t : cdf_description_record<stream_t, cdf_GDR_t<version_t, stream_
     table_field_t<uint32_t, cdf_GDR_t> rDimSizes = { [](auto& gdr) { return gdr.rNumDims; },
         [offset = AFTER(rfuE)](auto& gdr) { return offset; } };
 
-    using cdf_description_record<stream_t, cdf_GDR_t<version_t, stream_t>>::cdf_description_record;
+    using cdf_description_record<buffer_t, cdf_GDR_t<version_t, buffer_t>>::cdf_description_record;
 
-    friend cdf_description_record<stream_t, cdf_GDR_t<version_t, stream_t>>;
+    friend cdf_description_record<buffer_t, cdf_GDR_t<version_t, buffer_t>>;
 
 protected:
-    bool load_from(stream_t& stream, std::size_t GDRoffset)
+    bool load_from(buffer_t& buffer, std::size_t GDRoffset)
     {
-        auto res = load_desc_record(stream, GDRoffset, *this, rVDRhead, zVDRhead, ADRhead, eof,
+        auto res = load_desc_record(buffer, GDRoffset, *this, rVDRhead, zVDRhead, ADRhead, eof,
             NrVars, NumAttr, rMaxRec, rNumDims, NzVars, UIRhead, LeapSecondLastUpdated);
-        res &= load_table_field(rDimSizes, stream, *this);
+        res &= load_table_field(rDimSizes, buffer, *this);
         return res;
     }
 };
 
-template <typename version_t, typename stream_t>
-struct cdf_ADR_t : cdf_description_record<stream_t, cdf_ADR_t<version_t, stream_t>>
+template <typename version_t, typename buffer_t>
+struct cdf_ADR_t : cdf_description_record<buffer_t, cdf_ADR_t<version_t, buffer_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::ADR> header;
@@ -336,20 +336,20 @@ struct cdf_ADR_t : cdf_description_record<stream_t, cdf_ADR_t<version_t, stream_
     field_t<AFTER(NzEntries), uint32_t> MAXzEntries;
     unused_field_t<AFTER(MAXzEntries), uint32_t> rfuE;
     cdf_string_field_t<version_t, AFTER(rfuE), 256, 64> Name;
-    using cdf_description_record<stream_t, cdf_ADR_t<version_t, stream_t>>::cdf_description_record;
+    using cdf_description_record<buffer_t, cdf_ADR_t<version_t, buffer_t>>::cdf_description_record;
 
-    friend cdf_description_record<stream_t, cdf_ADR_t<version_t, stream_t>>;
+    friend cdf_description_record<buffer_t, cdf_ADR_t<version_t, buffer_t>>;
 
 protected:
-    bool load_from(stream_t& stream, std::size_t ADRoffset)
+    bool load_from(buffer_t& buffer, std::size_t ADRoffset)
     {
-        return load_desc_record(stream, ADRoffset, *this, ADRnext, AgrEDRhead, scope, num,
+        return load_desc_record(buffer, ADRoffset, *this, ADRnext, AgrEDRhead, scope, num,
             NgrEntries, MAXgrEntries, AzEDRhead, NzEntries, MAXzEntries, Name);
     }
 };
 
-template <typename version_t, typename stream_t>
-struct cdf_AEDR_t : cdf_description_record<stream_t, cdf_AEDR_t<version_t, stream_t>>
+template <typename version_t, typename buffer_t>
+struct cdf_AEDR_t : cdf_description_record<buffer_t, cdf_AEDR_t<version_t, buffer_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::AzEDR, cdf_record_type::AgrEDR> header;
@@ -365,19 +365,19 @@ struct cdf_AEDR_t : cdf_description_record<stream_t, cdf_AEDR_t<version_t, strea
     unused_field_t<AFTER(rfD), uint32_t> rfE;
     field_t<AFTER(rfE), uint32_t> Values;
 
-    using cdf_description_record<stream_t, cdf_AEDR_t<version_t, stream_t>>::cdf_description_record;
-    friend cdf_description_record<stream_t, cdf_AEDR_t<version_t, stream_t>>;
+    using cdf_description_record<buffer_t, cdf_AEDR_t<version_t, buffer_t>>::cdf_description_record;
+    friend cdf_description_record<buffer_t, cdf_AEDR_t<version_t, buffer_t>>;
 
 protected:
-    bool load_from(stream_t& stream, std::size_t AEDRoffset)
+    bool load_from(buffer_t& buffer, std::size_t AEDRoffset)
     {
         return load_desc_record(
-            stream, AEDRoffset, *this, AEDRnext, AttrNum, DataType, Num, NumElements, NumStrings);
+            buffer, AEDRoffset, *this, AEDRnext, AttrNum, DataType, Num, NumElements, NumStrings);
     }
 };
 
-template <typename version_t, typename stream_t>
-struct cdf_VDR_t : cdf_description_record<stream_t, cdf_VDR_t<version_t, stream_t>>
+template <typename version_t, typename buffer_t>
+struct cdf_VDR_t : cdf_description_record<buffer_t, cdf_VDR_t<version_t, buffer_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::rVDR, cdf_record_type::zVDR> header;
@@ -401,20 +401,20 @@ struct cdf_VDR_t : cdf_description_record<stream_t, cdf_VDR_t<version_t, stream_
     field_t<AFTER(zDimSizes), uint32_t> DimVarys;
     field_t<AFTER(DimVarys), uint32_t> PadValues;
 
-    using cdf_description_record<stream_t, cdf_VDR_t<version_t, stream_t>>::cdf_description_record;
-    friend cdf_description_record<stream_t, cdf_VDR_t<version_t, stream_t>>;
+    using cdf_description_record<buffer_t, cdf_VDR_t<version_t, buffer_t>>::cdf_description_record;
+    friend cdf_description_record<buffer_t, cdf_VDR_t<version_t, buffer_t>>;
 
 protected:
-    bool load_from(stream_t& stream, std::size_t VDRoffset)
+    bool load_from(buffer_t& buffer, std::size_t VDRoffset)
     {
-        return load_desc_record(stream, VDRoffset, *this, VDRnext, DataType, MaxRec, VXRhead,
+        return load_desc_record(buffer, VDRoffset, *this, VDRnext, DataType, MaxRec, VXRhead,
             VXRtail, Flags, SRecords, NumElems, Num, CPRorSPRoffset, BlockingFactor, Name, zNumDims,
             zDimSizes, DimVarys);
     }
 };
 
-template <typename version_t, typename stream_t>
-struct cdf_VXR_t : cdf_description_record<stream_t, cdf_VXR_t<version_t, stream_t>>
+template <typename version_t, typename buffer_t>
+struct cdf_VXR_t : cdf_description_record<buffer_t, cdf_VXR_t<version_t, buffer_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::VXR> header;
@@ -429,109 +429,109 @@ struct cdf_VXR_t : cdf_description_record<stream_t, cdf_VXR_t<version_t, stream_
         [offset = AFTER(NusedEntries)](
             auto& vxr) { return offset + (vxr.Nentries.value * 4 * 2); } };
 
-    using cdf_description_record<stream_t, cdf_VXR_t<version_t, stream_t>>::cdf_description_record;
-    friend cdf_description_record<stream_t, cdf_VXR_t<version_t, stream_t>>;
+    using cdf_description_record<buffer_t, cdf_VXR_t<version_t, buffer_t>>::cdf_description_record;
+    friend cdf_description_record<buffer_t, cdf_VXR_t<version_t, buffer_t>>;
 
 protected:
-    bool load_from(stream_t& stream, std::size_t VXRoffset)
+    bool load_from(buffer_t& buffer, std::size_t VXRoffset)
     {
-        auto res = load_desc_record(stream, VXRoffset, *this, VXRnext, Nentries, NusedEntries);
-        res &= load_table_field(First, stream, *this);
-        res &= load_table_field(Last, stream, *this);
-        res &= load_table_field(Offset, stream, *this);
+        auto res = load_desc_record(buffer, VXRoffset, *this, VXRnext, Nentries, NusedEntries);
+        res &= load_table_field(First, buffer, *this);
+        res &= load_table_field(Last, buffer, *this);
+        res &= load_table_field(Offset, buffer, *this);
         return res;
     }
 };
 
-template <typename version_t, typename stream_t>
-struct cdf_VVR_t : cdf_description_record<stream_t, cdf_VVR_t<version_t, stream_t>>
+template <typename version_t, typename buffer_t>
+struct cdf_VVR_t : cdf_description_record<buffer_t, cdf_VVR_t<version_t, buffer_t>>
 {
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::VVR> header;
 
-    using cdf_description_record<stream_t, cdf_VVR_t<version_t, stream_t>>::cdf_description_record;
-    friend cdf_description_record<stream_t, cdf_VVR_t<version_t, stream_t>>;
+    using cdf_description_record<buffer_t, cdf_VVR_t<version_t, buffer_t>>::cdf_description_record;
+    friend cdf_description_record<buffer_t, cdf_VVR_t<version_t, buffer_t>>;
 
 protected:
-    bool load_from(stream_t& stream, std::size_t VVRoffset)
+    bool load_from(buffer_t& buffer, std::size_t VVRoffset)
     {
-        return load_desc_record(stream, VVRoffset, *this);
+        return load_desc_record(buffer, VVRoffset, *this);
     }
 };
 
-template <typename version_t, typename stream_t>
-auto begin_ADR(const cdf_GDR_t<version_t, stream_t>& gdr)
+template <typename version_t, typename buffer_t>
+auto begin_ADR(const cdf_GDR_t<version_t, buffer_t>& gdr)
 {
-    using adr_t = cdf_ADR_t<version_t, stream_t>;
-    return common::blk_iterator<adr_t, stream_t> { gdr.ADRhead.value, gdr.p_buffer,
+    using adr_t = cdf_ADR_t<version_t, buffer_t>;
+    return common::blk_iterator<adr_t, buffer_t> { gdr.ADRhead.value, gdr.p_buffer,
         [](const adr_t& adr) { return adr.ADRnext.value; } };
 }
 
-template <typename version_t, typename stream_t>
-auto end_ADR(const cdf_GDR_t<version_t, stream_t>& gdr)
+template <typename version_t, typename buffer_t>
+auto end_ADR(const cdf_GDR_t<version_t, buffer_t>& gdr)
 {
-    return common::blk_iterator<cdf_ADR_t<version_t, stream_t>, stream_t> { 0, gdr.p_buffer,
+    return common::blk_iterator<cdf_ADR_t<version_t, buffer_t>, buffer_t> { 0, gdr.p_buffer,
         [](const auto& adr) { return 0; } };
 }
 
-template <cdf_r_z type, typename version_t, typename stream_t>
-auto begin_AEDR(const cdf_ADR_t<version_t, stream_t>& adr)
+template <cdf_r_z type, typename version_t, typename buffer_t>
+auto begin_AEDR(const cdf_ADR_t<version_t, buffer_t>& adr)
 {
-    using aedr_t = cdf_AEDR_t<version_t, stream_t>;
+    using aedr_t = cdf_AEDR_t<version_t, buffer_t>;
     if constexpr (type == cdf_r_z::r)
     {
-        return common::blk_iterator<aedr_t, stream_t> { adr.AgrEDRhead.value, adr.p_buffer,
+        return common::blk_iterator<aedr_t, buffer_t> { adr.AgrEDRhead.value, adr.p_buffer,
             [](const aedr_t& aedr) { return aedr.AEDRnext.value; } };
     }
     else if constexpr (type == cdf_r_z::z)
     {
-        return common::blk_iterator<aedr_t, stream_t> { adr.AzEDRhead.value, adr.p_buffer,
+        return common::blk_iterator<aedr_t, buffer_t> { adr.AzEDRhead.value, adr.p_buffer,
             [](const aedr_t& aedr) { return aedr.AEDRnext.value; } };
     }
 }
 
-template <cdf_r_z type, typename version_t, typename stream_t>
-auto end_AEDR(const cdf_ADR_t<version_t, stream_t>& adr)
+template <cdf_r_z type, typename version_t, typename buffer_t>
+auto end_AEDR(const cdf_ADR_t<version_t, buffer_t>& adr)
 {
-    return common::blk_iterator<cdf_AEDR_t<version_t, stream_t>, stream_t> { 0, adr.p_buffer,
+    return common::blk_iterator<cdf_AEDR_t<version_t, buffer_t>, buffer_t> { 0, adr.p_buffer,
         [](const auto& aedr) { return 0; } };
 }
 
-template <cdf_r_z type, typename version_t, typename stream_t>
-auto begin_VDR(const cdf_GDR_t<version_t, stream_t>& gdr)
+template <cdf_r_z type, typename version_t, typename buffer_t>
+auto begin_VDR(const cdf_GDR_t<version_t, buffer_t>& gdr)
 {
-    using vdr_t = cdf_VDR_t<version_t, stream_t>;
+    using vdr_t = cdf_VDR_t<version_t, buffer_t>;
     if constexpr (type == cdf_r_z::r)
     {
-        return common::blk_iterator<vdr_t, stream_t> { gdr.rVDRhead.value, gdr.p_buffer,
+        return common::blk_iterator<vdr_t, buffer_t> { gdr.rVDRhead.value, gdr.p_buffer,
             [](const vdr_t& vdr) { return vdr.VDRnext.value; } };
     }
     else if constexpr (type == cdf_r_z::z)
     {
-        return common::blk_iterator<vdr_t, stream_t> { gdr.zVDRhead.value, gdr.p_buffer,
+        return common::blk_iterator<vdr_t, buffer_t> { gdr.zVDRhead.value, gdr.p_buffer,
             [](const vdr_t& vdr) { return vdr.VDRnext.value; } };
     }
 }
 
-template <cdf_r_z type, typename version_t, typename stream_t>
-auto end_VDR(const cdf_GDR_t<version_t, stream_t>& gdr)
+template <cdf_r_z type, typename version_t, typename buffer_t>
+auto end_VDR(const cdf_GDR_t<version_t, buffer_t>& gdr)
 {
-    return common::blk_iterator<cdf_VDR_t<version_t, stream_t>, stream_t> { 0, gdr.p_buffer,
+    return common::blk_iterator<cdf_VDR_t<version_t, buffer_t>, buffer_t> { 0, gdr.p_buffer,
         [](const auto& vdr) { return 0; } };
 }
 
-template <typename version_t, typename stream_t>
-auto begin_VXR(const cdf_VDR_t<version_t, stream_t>& vdr)
+template <typename version_t, typename buffer_t>
+auto begin_VXR(const cdf_VDR_t<version_t, buffer_t>& vdr)
 {
-    using vxr_t = cdf_VXR_t<version_t, stream_t>;
-    return common::blk_iterator<vxr_t, stream_t> { vdr.VXRhead.value, vdr.p_buffer,
+    using vxr_t = cdf_VXR_t<version_t, buffer_t>;
+    return common::blk_iterator<vxr_t, buffer_t> { vdr.VXRhead.value, vdr.p_buffer,
         [](const vxr_t& vxr) { return vxr.VXRnext.value; } };
 }
 
-template <typename version_t, typename stream_t>
-auto end_VXR(const cdf_VDR_t<version_t, stream_t>& vdr)
+template <typename version_t, typename buffer_t>
+auto end_VXR(const cdf_VDR_t<version_t, buffer_t>& vdr)
 {
-    return common::blk_iterator<cdf_VXR_t<version_t, stream_t>, stream_t> { 0, vdr.p_buffer,
+    return common::blk_iterator<cdf_VXR_t<version_t, buffer_t>, buffer_t> { 0, vdr.p_buffer,
         [](const auto& vxr) { return 0; } };
 }
 

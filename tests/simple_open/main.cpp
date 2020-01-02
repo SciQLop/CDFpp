@@ -147,8 +147,8 @@ SCENARIO("Loading a cdf file", "[CDF]")
             auto cd = *cd_opt;
             THEN("All expected attributes are loaded")
             {
-                REQUIRE(has_attribute(cd, "attr"));
                 REQUIRE(std::size(cd.attributes) == 5);
+                REQUIRE(has_attribute(cd, "attr"));
                 REQUIRE(compare_attribute_values(cd.attributes["attr"], "a cdf text attribute"));
                 REQUIRE(has_attribute(cd, "attr_float"));
                 REQUIRE(compare_attribute_values(cd.attributes["attr_float"],
@@ -184,6 +184,63 @@ SCENARIO("Loading a cdf file", "[CDF]")
                 REQUIRE(
                     compare_attribute_values(cd.variables["var3d"].attributes["var3d_attr_multi"],
                         std::vector { 10., 11. }));
+            }
+        }
+        WHEN("In memory data as std::vector is a cdf file")
+        {
+            auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
+            REQUIRE(std::filesystem::exists(path));
+            auto data = [&]() -> std::vector<char> {
+                std::fstream file { path ,file.binary| file.in};
+                    if(file.is_open())
+                    {
+                        file.seekg(file.end);
+                        std::vector<char> data(static_cast<std::size_t>(file.tellg()));
+                        file.seekg(0);
+                        file.read(data.data(), std::size(data));
+                        return data;
+                    }
+                return {};
+            }();
+            auto cd_opt = cdf::io::load(path);
+            REQUIRE(cd_opt != std::nullopt);
+            auto cd = *cd_opt;
+            THEN("All expected attributes are loaded")
+            {
+                REQUIRE(std::size(cd.attributes) == 5);
+            }
+            THEN("All expected variables are loaded")
+            {
+                REQUIRE(std::size(cd.variables) == 4);
+            }
+        }
+        WHEN("In memory data as char* is a cdf file")
+        {
+            auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
+            REQUIRE(std::filesystem::exists(path));
+            auto data = [&]() -> char* {
+                std::fstream file { path ,file.binary| file.in};
+                    if(file.is_open())
+                    {
+                        file.seekg(file.end);
+                        std::size_t size = static_cast<std::size_t>(file.tellg());
+                        char* data = new char[size];
+                        file.seekg(0);
+                        file.read(data, size);
+                        return data;
+                    }
+                return {};
+            }();
+            auto cd_opt = cdf::io::load(path);
+            REQUIRE(cd_opt != std::nullopt);
+            auto cd = *cd_opt;
+            THEN("All expected attributes are loaded")
+            {
+                REQUIRE(std::size(cd.attributes) == 5);
+            }
+            THEN("All expected variables are loaded")
+            {
+                REQUIRE(std::size(cd.variables) == 4);
             }
         }
     }

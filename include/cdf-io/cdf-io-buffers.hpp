@@ -36,16 +36,14 @@ struct stream_adapter
     stream_adapter(stream_t&& stream) : stream { std::move(stream) } {}
 
     template <typename T>
-    auto impl_read(stream_t& stream, T& array, std::size_t offset, std::size_t size)
-        -> decltype(array.data(), void())
+    auto impl_read(T& array, std::size_t offset, std::size_t size) -> decltype(array.data(), void())
     {
         stream.seekg(offset);
         stream.read(array.data(), size);
     }
 
     template <typename T>
-    auto impl_read(stream_t& stream, T& array, std::size_t offset, std::size_t size)
-        -> decltype(*array, void())
+    auto impl_read(T& array, std::size_t offset, std::size_t size) -> decltype(*array, void())
     {
         stream.seekg(offset);
         stream.read(array, size);
@@ -54,7 +52,7 @@ struct stream_adapter
     std::vector<char> read(std::size_t offset, std::size_t size)
     {
         std::vector<char> buffer(size);
-        impl_read(stream, buffer, offset, size);
+        impl_read(buffer, offset, size);
         return buffer;
     }
 
@@ -62,14 +60,44 @@ struct stream_adapter
     std::array<char, size> read(std::size_t offset)
     {
         std::array<char, size> buffer;
-        impl_read(stream, buffer, offset, size);
+        impl_read(buffer, offset, size);
         return buffer;
     }
 
-    void read(char* data, std::size_t offset, std::size_t size)
+    void read(char* data, std::size_t offset, std::size_t size) { impl_read(data, offset, size); }
+};
+
+template <typename array_t>
+struct array_adapter
+{
+    const array_t& array;
+    array_adapter(const array_t& array) : array { array } {}
+
+    template <typename T>
+    void impl_read(T& output_array, std::size_t offset, std::size_t size)
     {
-        impl_read(stream, data, offset, size);
+        if constexpr(std::is_pointer_v<std::remove_reference_t<T>>)
+            std::copy_n(std::cbegin(array) + offset, size, output_array);
+        else
+            std::copy_n(std::cbegin(array) + offset, size, std::begin(output_array));
     }
+
+    std::vector<char> read(std::size_t offset, std::size_t size)
+    {
+        std::vector<char> buffer(size);
+        impl_read(buffer, offset, size);
+        return buffer;
+    }
+
+    template <std::size_t size>
+    std::array<char, size> read(std::size_t offset)
+    {
+        std::array<char, size> buffer;
+        impl_read(buffer, offset, size);
+        return buffer;
+    }
+
+    void read(char* data, std::size_t offset, std::size_t size) { impl_read(data, offset, size); }
 };
 
 }

@@ -88,22 +88,40 @@ namespace
             return std::nullopt;
         return from_repr(std::move(repr));
     }
+
+    template <typename buffer_t>
+    auto impl_load(buffer_t&& buffer)
+    -> decltype (buffer.read(0UL,0UL),std::optional<CDF>{})
+    {
+        auto magic = get_magic(buffer);
+        if (common::is_v3x(magic))
+        {
+            return parse_cdf<v3x_tag>(buffer);
+        }
+        else
+        {
+            return parse_cdf<v2x_tag>(buffer);
+        }
+    }
 } // namespace
+
 
 std::optional<CDF> load(const std::string& path)
 {
     if (std::filesystem::exists(path))
     {
-        buffers::stream_adapter cdf_file { std::fstream { path, std::ios::in | std::ios::binary } };
-        auto magic = get_magic(cdf_file);
-        if (common::is_v3x(magic))
-        {
-            return parse_cdf<v3x_tag>(cdf_file);
-        }
-        else
-        {
-            return parse_cdf<v2x_tag>(cdf_file);
-        }
+        buffers::stream_adapter buffer { std::fstream { path, std::ios::in | std::ios::binary } };
+        return impl_load(buffer);
+    }
+    return std::nullopt;
+}
+
+std::optional<CDF> load(const std::vector<char>& data)
+{
+    if (std::size(data))
+    {
+        buffers::array_adapter buffer {data};
+        return impl_load(buffer);
     }
     return std::nullopt;
 }
