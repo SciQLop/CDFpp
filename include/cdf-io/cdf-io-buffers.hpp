@@ -67,19 +67,39 @@ struct stream_adapter
     void read(char* data, std::size_t offset, std::size_t size) { impl_read(data, offset, size); }
 };
 
+namespace
+{
+    template <typename T>
+    auto begin(T&& collection)
+    {
+        if constexpr (std::is_pointer_v<std::remove_reference_t<T>>)
+            return std::forward<T>(collection);
+        else
+            return std::begin(std::forward<T>(collection));
+    }
+
+    template <typename T>
+    auto end(T&& collection)
+    {
+        if constexpr (std::is_pointer_v<std::remove_reference_t<T>>)
+            return std::forward<T>(collection);
+        else
+            return std::end(std::forward<T>(collection));
+    }
+}
+
 template <typename array_t>
 struct array_adapter
 {
     const array_t& array;
-    array_adapter(const array_t& array) : array { array } {}
+    const std::size_t size;
+    array_adapter(const array_t& array) : array { array }, size { std::size(array) } {}
+    array_adapter(const array_t& array, std::size_t size) : array { array }, size { size } {}
 
     template <typename T>
     void impl_read(T& output_array, std::size_t offset, std::size_t size)
     {
-        if constexpr(std::is_pointer_v<std::remove_reference_t<T>>)
-            std::copy_n(std::cbegin(array) + offset, size, output_array);
-        else
-            std::copy_n(std::cbegin(array) + offset, size, std::begin(output_array));
+        std::copy_n(begin(array) + offset, size, begin(output_array));
     }
 
     std::vector<char> read(std::size_t offset, std::size_t size)

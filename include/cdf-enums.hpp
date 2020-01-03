@@ -145,6 +145,8 @@ std::size_t cdf_type_size(CDF_Types type)
 {
     switch (type)
     {
+        case CDF_Types::CDF_NONE:
+            return 0;
         case CDF_Types::CDF_INT1:
         case CDF_Types::CDF_UINT1:
         case CDF_Types::CDF_BYTE:

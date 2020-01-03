@@ -225,15 +225,17 @@ template <typename buffer_t, typename cdf_DR_t, typename... Ts>
 constexpr bool load_desc_record(
     buffer_t&& buffer, std::size_t offset, cdf_DR_t&& cdf_desc_record, Ts&&... fields)
 {
-    constexpr std::size_t buffer_size = [&]() {
-        if constexpr (sizeof...(Ts))
+    constexpr std::size_t buffer_size = [len = decltype(cdf_desc_record.header)::len]() constexpr
+    {
+        if constexpr (sizeof...(Ts) > 0)
         {
             using last_member_t = last_field_t<Ts...>;
             return last_member_t::offset + last_member_t::len;
         }
         else
-            return cdf_desc_record.header.len;
-    }();
+            return len;
+    }
+    ();
     auto data = buffer.read(offset, buffer_size);
     if (cdf_desc_record.header.load(data))
     {

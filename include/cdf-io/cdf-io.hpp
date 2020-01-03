@@ -90,8 +90,7 @@ namespace
     }
 
     template <typename buffer_t>
-    auto impl_load(buffer_t&& buffer)
-    -> decltype (buffer.read(0UL,0UL),std::optional<CDF>{})
+    auto impl_load(buffer_t&& buffer) -> decltype(buffer.read(0UL, 0UL), std::optional<CDF> {})
     {
         auto magic = get_magic(buffer);
         if (common::is_v3x(magic))
@@ -120,7 +119,16 @@ std::optional<CDF> load(const std::vector<char>& data)
 {
     if (std::size(data))
     {
-        buffers::array_adapter buffer {data};
+        buffers::array_adapter buffer { data };
+        return impl_load(buffer);
+    }
+    return std::nullopt;
+}
+std::optional<CDF> load(char* data, std::size_t size)
+{
+    if (size != 0 && data != nullptr)
+    {
+        buffers::array_adapter buffer { data, size };
         return impl_load(buffer);
     }
     return std::nullopt;

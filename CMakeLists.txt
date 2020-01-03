@@ -40,6 +40,19 @@ else()
  add_compile_definitions(CDFpp_LITTLE_ENDIAN)
 endif()
 
+find_package(ZLIB REQUIRED)
+
+
+add_library(CDFpp INTERFACE)
+
+target_include_directories(CDFpp
+  INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+
+target_link_libraries(CDFpp INTERFACE ZLIB::ZLIB)
+
 enable_testing()
 
 #add_subdirectory(sw)
@@ -57,16 +70,21 @@ enable_testing()
 
 
 add_executable(simple_open tests/simple_open/main.cpp)
-target_include_directories(simple_open PRIVATE include)
+target_link_libraries(simple_open PRIVATE CDFpp)
 target_include_directories(simple_open PRIVATE catch2)
 
 target_compile_definitions(simple_open PRIVATE DATA_PATH="${CMAKE_CURRENT_LIST_DIR}/tests/resources")
 add_test(test-simple_open simple_open)
 
 add_executable(endianness tests/endianness/main.cpp)
-target_include_directories(endianness PRIVATE include)
+target_link_libraries(endianness PUBLIC CDFpp)
 target_include_directories(endianness PRIVATE catch2)
 add_test(test-endianness endianness)
+
+add_executable(zlib_test tests/zlib/main.cpp)
+target_link_libraries(zlib_test PUBLIC CDFpp)
+target_include_directories(zlib_test PRIVATE catch2)
+add_test(test-zlib_test zlib_test)
 #add_library(MyLib ${SOURCES})
 
 

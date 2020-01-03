@@ -118,6 +118,16 @@ struct ones
     }
 };
 
+std::size_t filesize(std::fstream& file)
+{
+    file.seekg(0, file.beg);
+    auto pos = file.tellg();
+    file.seekg(0, file.end);
+    pos = file.tellg() - pos;
+    file.seekg(0, file.beg);
+    return static_cast<std::size_t>(pos);
+}
+
 SCENARIO("Loading a cdf file", "[CDF]")
 {
     GIVEN("a cdf file")
@@ -191,57 +201,41 @@ SCENARIO("Loading a cdf file", "[CDF]")
             auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
             REQUIRE(std::filesystem::exists(path));
             auto data = [&]() -> std::vector<char> {
-                std::fstream file { path ,file.binary| file.in};
-                    if(file.is_open())
-                    {
-                        file.seekg(file.end);
-                        std::vector<char> data(static_cast<std::size_t>(file.tellg()));
-                        file.seekg(0);
-                        file.read(data.data(), std::size(data));
-                        return data;
-                    }
+                std::fstream file { path, std::ios::binary | std::ios::in };
+                if (file.is_open())
+                {
+                    std::vector<char> data(filesize(file));
+                    file.read(data.data(), static_cast<int64_t>(std::size(data)));
+                    return data;
+                }
                 return {};
             }();
-            auto cd_opt = cdf::io::load(path);
+            auto cd_opt = cdf::io::load(data);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded")
-            {
-                REQUIRE(std::size(cd.attributes) == 5);
-            }
-            THEN("All expected variables are loaded")
-            {
-                REQUIRE(std::size(cd.variables) == 4);
-            }
+            THEN("All expected attributes are loaded") { REQUIRE(std::size(cd.attributes) == 5); }
+            THEN("All expected variables are loaded") { REQUIRE(std::size(cd.variables) == 4); }
         }
         WHEN("In memory data as char* is a cdf file")
         {
             auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
             REQUIRE(std::filesystem::exists(path));
-            auto data = [&]() -> char* {
-                std::fstream file { path ,file.binary| file.in};
-                    if(file.is_open())
-                    {
-                        file.seekg(file.end);
-                        std::size_t size = static_cast<std::size_t>(file.tellg());
-                        char* data = new char[size];
-                        file.seekg(0);
-                        file.read(data, size);
-                        return data;
-                    }
-                return {};
+            auto [data, size] = [&]() {
+                std::fstream file { path, std::ios::binary | std::ios::in  };
+                if (file.is_open())
+                {
+                    std::size_t size = filesize(file);
+                    char* data = new char[size];
+                    file.read(data, static_cast<int64_t>(size));
+                    return std::make_tuple(data, size);
+                }
+                return std::make_tuple(static_cast<char*>(nullptr), 0UL);
             }();
-            auto cd_opt = cdf::io::load(path);
+            auto cd_opt = cdf::io::load(data, size);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded")
-            {
-                REQUIRE(std::size(cd.attributes) == 5);
-            }
-            THEN("All expected variables are loaded")
-            {
-                REQUIRE(std::size(cd.variables) == 4);
-            }
+            THEN("All expected attributes are loaded") { REQUIRE(std::size(cd.attributes) == 5); }
+            THEN("All expected variables are loaded") { REQUIRE(std::size(cd.variables) == 4); }
         }
     }
 }
