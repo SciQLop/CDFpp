@@ -232,6 +232,7 @@ SCENARIO("Loading a cdf file", "[CDF]")
                 return std::make_tuple(static_cast<char*>(nullptr), 0UL);
             }();
             auto cd_opt = cdf::io::load(data, size);
+            delete[] data;
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
             THEN("All expected attributes are loaded") { REQUIRE(std::size(cd.attributes) == 5); }

@@ -51,7 +51,7 @@ namespace
     std::vector<T> flate(std::vector<U>& input, int flush, int compression_lvl = Z_BEST_COMPRESSION)
     {
         std::size_t input_bytes_cnt = std::size(input) * sizeof(U);
-        std::size_t chunk_sz = std::max(std::size(input), 512UL);
+        constexpr std::size_t chunk_sz = 32768UL;
         char chunk[chunk_sz];
         std::vector<char> output;
         z_stream fstream;
