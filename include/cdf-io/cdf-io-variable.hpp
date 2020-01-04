@@ -63,12 +63,13 @@ namespace
         const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr, uint32_t record_size)
     {
         std::vector<vvr_data_chunk> chunks(vxr.NusedEntries.value);
-        for (int i = 0; i < vxr.NusedEntries.value; i++)
+        for (auto i = 0UL; i < vxr.NusedEntries.value; i++)
         {
             int record_count = vxr.Last.value[i] - vxr.First.value[i] + 1;
-            cdf_VVR_t<cdf_version_tag_t, stream_t> vvr { vxr.p_buffer, vxr.Offset.value[i] };
-            chunks[i]
-                = vvr_data_chunk { vvr.offset + AFTER(vvr.header), record_count * record_size };
+            if (cdf_VVR_t<cdf_version_tag_t, stream_t> vvr { vxr.p_buffer };
+                vvr.load(vxr.Offset.value[i]))
+                chunks[i]
+                    = vvr_data_chunk { vvr.offset + AFTER(vvr.header), record_count * record_size };
         }
         return chunks;
     }
@@ -115,11 +116,11 @@ namespace
     }
 }
 
-template <typename cdf_version_tag_t, typename stream_t, typename context_t>
-bool load_all(stream_t& stream, context_t& context, common::cdf_repr& cdf)
+template <typename cdf_version_tag_t, typename context_t>
+bool load_all(context_t& context, common::cdf_repr& cdf)
 {
-    return load_all_Vars<cdf_r_z::r, cdf_version_tag_t>(stream, context, cdf)
-        & load_all_Vars<cdf_r_z::z, cdf_version_tag_t>(stream, context, cdf);
+    return load_all_Vars<cdf_r_z::r, cdf_version_tag_t>(context.buffer, context, cdf)
+        & load_all_Vars<cdf_r_z::z, cdf_version_tag_t>(context.buffer, context, cdf);
 }
 
 }

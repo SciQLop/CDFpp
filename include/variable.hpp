@@ -39,12 +39,12 @@ struct Variable
     Variable& operator=(const Variable&) = default;
     Variable& operator=(Variable&&) = default;
     Variable(const std::string& name, std::size_t number, var_data_t&& data, shape_t&& shape)
-            : p_name { name }, p_number { number }, p_shape { shape }, p_data { data }
+            : p_name { name }, p_number { number }, p_data { data }, p_shape { shape }
     {
     }
 
     Variable(const std::string& name, var_data_t&& data, shape_t&& shape)
-            : p_name { name }, p_shape { shape }, p_data { data }
+            : p_name { name }, p_data { data }, p_shape { shape }
     {
     }
 
@@ -75,7 +75,7 @@ struct Variable
     const std::string& name() const { return p_name; }
 
     const shape_t& shape() const { return p_shape; }
-    const std::size_t len() const { return p_shape[0]; }
+    std::size_t len() const { return p_shape[0]; }
 
     void set_data(const data_t& data, const shape_t& shape)
     {

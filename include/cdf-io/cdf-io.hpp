@@ -28,6 +28,7 @@
 #include "cdf-io-common.hpp"
 #include "cdf-io-desc-records.hpp"
 #include "cdf-io-variable.hpp"
+#include "cdf-io-zlib.hpp"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -54,15 +55,18 @@ namespace
     struct cdf_headers_t
     {
         inline static constexpr bool v3 = is_v3_v<version_t>;
+        using version_tag = version_t;
         common::magic_numbers_t magic;
         cdf_CDR_t<version_t, buffer_t> cdr;
         cdf_GDR_t<version_t, buffer_t> gdr;
+        buffer_t& buffer;
         bool is_compressed;
         bool ok = false;
-        cdf_headers_t(buffer_t& buffer) : cdr { buffer }, gdr { buffer }
+        cdf_headers_t(buffer_t& buffer, std::size_t CDRoffset = 8)
+                : cdr { buffer }, gdr { buffer }, buffer { buffer }
         {
             magic = get_magic(buffer);
-            if (common::is_cdf(magic) && cdr.load() && gdr.load(cdr.GDRoffset.value))
+            if (common::is_cdf(magic) && cdr.load(CDRoffset) && gdr.load(cdr.GDRoffset.value))
                 ok = true;
         }
     };
@@ -75,18 +79,46 @@ namespace
         return cdf;
     }
 
-    template <typename cdf_version_tag_t, typename buffer_t>
-    std::optional<CDF> parse_cdf(buffer_t& buffer)
+    template <typename cdf_headers_t>
+    std::optional<CDF> impl_parse_cdf(cdf_headers_t& cdf_headers)
     {
-        cdf_headers_t<cdf_version_tag_t, buffer_t> cdf_headers { buffer };
         common::cdf_repr repr;
         if (!cdf_headers.ok)
             return std::nullopt;
-        if (!attribute::load_all<cdf_version_tag_t>(buffer, cdf_headers, repr))
+        if (!attribute::load_all<typename cdf_headers_t::version_tag>(cdf_headers, repr))
             return std::nullopt;
-        if (!variable::load_all<cdf_version_tag_t>(buffer, cdf_headers, repr))
+        if (!variable::load_all<typename cdf_headers_t::version_tag>(cdf_headers, repr))
             return std::nullopt;
         return from_repr(std::move(repr));
+    }
+
+    template <typename cdf_version_tag_t, typename buffer_t>
+    std::optional<CDF> parse_cdf(buffer_t& buffer, bool is_compressed = false)
+    {
+        if (is_compressed)
+        {
+            if (cdf_CCR_t<cdf_version_tag_t, buffer_t> CCR { buffer }; CCR.load(8UL))
+            {
+                if (cdf_CPR_t<cdf_version_tag_t, buffer_t> CPR { buffer };
+                    CPR.load(CCR.CPRoffset.value)
+                    && CPR.cType.value == cdf_compression_type::gzip_compression)
+                {
+                    auto data = buffer.read(0, 8);
+                    zlib::gzinflate(CCR.data.value, data);
+                    buffers::array_adapter decompressed_buffer(data);
+                    cdf_headers_t<cdf_version_tag_t, decltype(decompressed_buffer)> cdf_headers {
+                        decompressed_buffer
+                    };
+                    return impl_parse_cdf(cdf_headers);
+                }
+            }
+            return std::nullopt;
+        }
+        else
+        {
+            cdf_headers_t<cdf_version_tag_t, buffer_t> cdf_headers { buffer };
+            return impl_parse_cdf(cdf_headers);
+        }
     }
 
     template <typename buffer_t>
@@ -95,11 +127,11 @@ namespace
         auto magic = get_magic(buffer);
         if (common::is_v3x(magic))
         {
-            return parse_cdf<v3x_tag>(buffer);
+            return parse_cdf<v3x_tag>(buffer, common::is_compressed(magic));
         }
         else
         {
-            return parse_cdf<v2x_tag>(buffer);
+            return parse_cdf<v2x_tag>(buffer, common::is_compressed(magic));
         }
     }
 } // namespace

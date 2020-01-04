@@ -53,6 +53,14 @@ target_include_directories(CDFpp
 
 target_link_libraries(CDFpp INTERFACE ZLIB::ZLIB)
 
+
+if(MSVC)
+  target_compile_options(CDFpp INTERFACE /W4 /WX)
+else()
+  target_compile_options(CDFpp INTERFACE -Wall -Wextra -pedantic -Werror)
+endif()
+
+
 enable_testing()
 
 #add_subdirectory(sw)

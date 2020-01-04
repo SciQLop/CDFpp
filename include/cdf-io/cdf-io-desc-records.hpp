@@ -89,9 +89,10 @@ struct table_field_t
 template <typename T, typename cdf_dr_t, typename buffer_t>
 bool load_table_field(table_field_t<T, cdf_dr_t>& field, buffer_t& buffer, const cdf_dr_t& dr)
 {
-    field.value.resize(field.size(dr));
-    common::load_values<endianness::big_endian_t>(
-        buffer, dr.offset + field.offset(dr), field.value);
+    auto size = field.size(dr);
+    auto offset = field.offset(dr);
+    field.value.resize(size);
+    common::load_values<endianness::big_endian_t>(buffer, dr.offset + offset, field.value);
     return true;
 }
 
@@ -114,7 +115,7 @@ void extract_field(buffer_t buffer, std::size_t offset, T& field)
 }
 
 template <typename buffer_t, typename... Ts>
-void extract_fields(buffer_t buffer, std::size_t offset, Ts&&... fields)
+void extract_fields(buffer_t buffer, [[maybe_unused]] std::size_t offset, Ts&&... fields)
 {
     (extract_field(buffer, offset, std::forward<Ts>(fields)), ...);
 }
@@ -150,10 +151,6 @@ struct cdf_description_record
     bool is_loaded = false;
     buffer_t& p_buffer;
     std::size_t offset = 0;
-    cdf_description_record(buffer_t& buffer, std::size_t offset) : p_buffer { buffer }
-    {
-        load(offset);
-    }
 
     bool load(std::size_t offset = 0)
     {
@@ -279,10 +276,10 @@ struct cdf_CDR_t : cdf_description_record<buffer_t, cdf_CDR_t<version_t, buffer_
     friend cdf_description_record<buffer_t, cdf_CDR_t<version_t, buffer_t>>;
 
 protected:
-    bool load_from(buffer_t& buffer, std::size_t CDRoffset = 8)
+    bool load_from(buffer_t& buffer, [[maybe_unused]] std::size_t CDRoffset = 8)
     {
-        return load_desc_record(buffer, 8, *this, GDRoffset, Version, Release, Encoding, Flags,
-            Increment, Identifier, copyright);
+        return load_desc_record(buffer, CDRoffset, *this, GDRoffset, Version, Release, Encoding,
+            Flags, Increment, Identifier, copyright);
     }
 };
 
@@ -305,7 +302,7 @@ struct cdf_GDR_t : cdf_description_record<buffer_t, cdf_GDR_t<version_t, buffer_
     field_t<AFTER(rfuC), uint32_t> LeapSecondLastUpdated;
     unused_field_t<AFTER(LeapSecondLastUpdated), uint32_t> rfuE;
     table_field_t<uint32_t, cdf_GDR_t> rDimSizes = { [](auto& gdr) { return gdr.rNumDims; },
-        [offset = AFTER(rfuE)](auto& gdr) { return offset; } };
+        [offset = AFTER(rfuE)]([[maybe_unused]] auto& gdr) { return offset; } };
 
     using cdf_description_record<buffer_t, cdf_GDR_t<version_t, buffer_t>>::cdf_description_record;
 
@@ -424,7 +421,7 @@ struct cdf_VXR_t : cdf_description_record<buffer_t, cdf_VXR_t<version_t, buffer_
     field_t<AFTER(VXRnext), uint32_t> Nentries;
     field_t<AFTER(Nentries), uint32_t> NusedEntries;
     table_field_t<uint32_t, cdf_VXR_t> First = { [](auto& vxr) { return vxr.NusedEntries; },
-        [offset = AFTER(NusedEntries)](auto& vxr) { return offset; } };
+        [offset = AFTER(NusedEntries)]([[maybe_unused]] auto& vxr) { return offset; } };
     table_field_t<uint32_t, cdf_VXR_t> Last = { [](auto& vxr) { return vxr.NusedEntries; },
         [offset = AFTER(NusedEntries)](auto& vxr) { return offset + (vxr.Nentries.value * 4); } };
     table_field_t<uint32_t, cdf_VXR_t> Offset = { [](auto& vxr) { return vxr.NusedEntries; },
@@ -462,6 +459,57 @@ protected:
 };
 
 template <typename version_t, typename buffer_t>
+struct cdf_CCR_t : cdf_description_record<buffer_t, cdf_CCR_t<version_t, buffer_t>>
+{
+    inline static constexpr bool v3 = is_v3_v<version_t>;
+    cdf_DR_header<version_t, cdf_record_type::CCR> header;
+    cdf_offset_field_t<version_t, AFTER(header)> CPRoffset;
+    cdf_offset_field_t<version_t, AFTER(CPRoffset)> uSize;
+    field_t<AFTER(uSize), uint32_t> rfuA;
+    table_field_t<char, cdf_CCR_t> data {
+        [offset = AFTER(rfuA)](const cdf_CCR_t& ccr) -> std::size_t {
+            return static_cast<std::size_t>(ccr.header.record_size.value - offset);
+        },
+        [offset = AFTER(rfuA)](
+            [[maybe_unused]] const cdf_CCR_t& ccr) -> std::size_t { return offset; }
+    };
+
+    using cdf_description_record<buffer_t, cdf_CCR_t<version_t, buffer_t>>::cdf_description_record;
+    friend cdf_description_record<buffer_t, cdf_CCR_t<version_t, buffer_t>>;
+
+protected:
+    bool load_from(buffer_t& buffer, std::size_t CCRoffset)
+    {
+        auto res = load_desc_record(buffer, CCRoffset, *this, CPRoffset, uSize);
+        res &= load_table_field(data, buffer, *this);
+        return res;
+    }
+};
+
+template <typename version_t, typename buffer_t>
+struct cdf_CPR_t : cdf_description_record<buffer_t, cdf_CPR_t<version_t, buffer_t>>
+{
+    inline static constexpr bool v3 = is_v3_v<version_t>;
+    cdf_DR_header<version_t, cdf_record_type::CPR> header;
+    field_t<AFTER(header), cdf_compression_type> cType;
+    field_t<AFTER(cType), uint32_t> rfuA;
+    field_t<AFTER(rfuA), uint32_t> pCount;
+    table_field_t<uint32_t, cdf_CPR_t> cParms
+        = { [offset = AFTER(pCount)](auto& cpr) { return cpr.pCount.value; },
+              [offset = AFTER(pCount)]([[maybe_unused]] auto& cpr) { return offset; } };
+
+    using cdf_description_record<buffer_t, cdf_CPR_t<version_t, buffer_t>>::cdf_description_record;
+    friend cdf_description_record<buffer_t, cdf_CPR_t<version_t, buffer_t>>;
+
+protected:
+    bool load_from(buffer_t& buffer, std::size_t CPRoffset)
+    {
+        return load_desc_record(buffer, CPRoffset, *this, cType, rfuA, pCount)
+            && load_table_field(cParms, buffer, *this);
+    }
+};
+
+template <typename version_t, typename buffer_t>
 auto begin_ADR(const cdf_GDR_t<version_t, buffer_t>& gdr)
 {
     using adr_t = cdf_ADR_t<version_t, buffer_t>;
@@ -473,7 +521,7 @@ template <typename version_t, typename buffer_t>
 auto end_ADR(const cdf_GDR_t<version_t, buffer_t>& gdr)
 {
     return common::blk_iterator<cdf_ADR_t<version_t, buffer_t>, buffer_t> { 0, gdr.p_buffer,
-        [](const auto& adr) { return 0; } };
+        []([[maybe_unused]] const auto& adr) { return 0; } };
 }
 
 template <cdf_r_z type, typename version_t, typename buffer_t>
@@ -496,7 +544,7 @@ template <cdf_r_z type, typename version_t, typename buffer_t>
 auto end_AEDR(const cdf_ADR_t<version_t, buffer_t>& adr)
 {
     return common::blk_iterator<cdf_AEDR_t<version_t, buffer_t>, buffer_t> { 0, adr.p_buffer,
-        [](const auto& aedr) { return 0; } };
+        []([[maybe_unused]] const auto& aedr) { return 0; } };
 }
 
 template <cdf_r_z type, typename version_t, typename buffer_t>
@@ -519,7 +567,7 @@ template <cdf_r_z type, typename version_t, typename buffer_t>
 auto end_VDR(const cdf_GDR_t<version_t, buffer_t>& gdr)
 {
     return common::blk_iterator<cdf_VDR_t<version_t, buffer_t>, buffer_t> { 0, gdr.p_buffer,
-        [](const auto& vdr) { return 0; } };
+        []([[maybe_unused]] const auto& vdr) { return 0; } };
 }
 
 template <typename version_t, typename buffer_t>
@@ -534,7 +582,7 @@ template <typename version_t, typename buffer_t>
 auto end_VXR(const cdf_VDR_t<version_t, buffer_t>& vdr)
 {
     return common::blk_iterator<cdf_VXR_t<version_t, buffer_t>, buffer_t> { 0, vdr.p_buffer,
-        [](const auto& vxr) { return 0; } };
+        []([[maybe_unused]] const auto& vxr) { return 0; } };
 }
 
 }

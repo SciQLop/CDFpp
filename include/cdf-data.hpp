@@ -32,13 +32,13 @@ namespace cdf
 
 struct cdf_none
 {
-    bool operator==(const cdf_none& other) const { return true; }
+    bool operator==([[maybe_unused]] const cdf_none& other) const { return true; }
 };
 
 using cdf_values_t = std::variant<cdf_none, std::vector<char>, std::vector<uint8_t>,
     std::vector<uint16_t>, std::vector<uint32_t>, std::vector<int8_t>, std::vector<int16_t>,
     std::vector<int32_t>, std::vector<int64_t>, std::vector<float>, std::vector<double>,
-    std::vector<tt2000_t>, std::vector<epoch>, std::string>;
+    std::vector<tt2000_t>, std::vector<epoch>, std::vector<epoch16>, std::string>;
 
 
 template <CDF_Types type, typename endianness_t>
@@ -49,6 +49,14 @@ auto load_values(const char* buffer, std::size_t buffer_size)
         std::string result(buffer_size, '\0');
         std::copy_n(buffer, buffer_size, result.data());
         return result;
+    }
+    else if constexpr (type == CDF_Types::CDF_EPOCH16) // special case for epoch
+    {
+        std::size_t size = buffer_size / sizeof(from_cdf_type_t<type>);
+        std::vector<from_cdf_type_t<type>> result(size);
+        endianness::decode_v<endianness_t>(
+            buffer, buffer_size * 2, reinterpret_cast<double*>(result.data()));
+        return cdf_values_t { std::move(result) };
     }
     else
     {
@@ -79,19 +87,11 @@ struct data_t
     {
         if constexpr (std::is_same_v<type, std::string>)
         {
-            if (std::holds_alternative<std::string>(p_values))
-            {
-                return std::get<type>(p_values);
-            }
+            return std::get<type>(p_values);
         }
         else
         {
-            if (std::holds_alternative<std::vector<type>>(p_values))
-            {
-                return std::get<std::vector<type>>(p_values);
-            }
-            else
-                throw;
+            return std::get<std::vector<type>>(p_values);
         }
     }
 
@@ -100,19 +100,15 @@ struct data_t
     {
         if constexpr (std::is_same_v<type, std::string>)
         {
-            if (std::holds_alternative<std::string>(p_values))
-            {
-                return std::get<type>(p_values);
-            }
+            return std::get<type>(p_values);
         }
         else
         {
-            if (std::holds_alternative<std::vector<type>>(p_values))
-            {
-                return std::get<std::vector<type>>(p_values);
-            }
-            else
-                throw;
+            // might use optional later
+            // if (std::holds_alternative<std::vector<type>>(p_values))
+            //{
+            return std::get<std::vector<type>>(p_values);
+            //}
         }
     }
 
@@ -167,7 +163,13 @@ data_t load_values(
     {
         DATA_FROM_T(CDF_FLOAT)
         DATA_FROM_T(CDF_DOUBLE)
+        DATA_FROM_T(CDF_REAL4)
+        DATA_FROM_T(CDF_REAL8)
+        DATA_FROM_T(CDF_EPOCH)
+        DATA_FROM_T(CDF_EPOCH16)
+        DATA_FROM_T(CDF_TIME_TT2000)
         DATA_FROM_T(CDF_CHAR)
+        DATA_FROM_T(CDF_UCHAR)
         DATA_FROM_T(CDF_INT1)
         DATA_FROM_T(CDF_INT2)
         DATA_FROM_T(CDF_INT4)
@@ -176,6 +178,8 @@ data_t load_values(
         DATA_FROM_T(CDF_UINT2)
         DATA_FROM_T(CDF_UINT4)
         DATA_FROM_T(CDF_BYTE)
+        case CDF_Types::CDF_NONE:
+            return {};
     }
     return {};
 }

@@ -59,6 +59,15 @@ enum class cdf_attr_scope : int32_t
 
 };
 
+enum class cdf_compression_type : int32_t
+{
+    no_compression = 0,
+    rle_compression = 1,
+    huff_compression = 2,
+    ahuff_compression = 3,
+    gzip_compression = 5
+};
+
 enum class cdf_encoding : int32_t
 {
     network = 1,
@@ -114,11 +123,19 @@ struct epoch
     double value;
 };
 
+struct epoch16
+{
+    double first;
+    double second;
+};
+
 template <CDF_Types type>
 constexpr auto from_cdf_type()
 {
     if constexpr (type == CDF_Types::CDF_CHAR)
         return char {};
+    if constexpr (type == CDF_Types::CDF_UCHAR)
+        return static_cast<unsigned char>(0);
     if constexpr (type == CDF_Types::CDF_BYTE)
         return int8_t {};
     if constexpr (type == CDF_Types::CDF_INT1)
@@ -139,6 +156,16 @@ constexpr auto from_cdf_type()
         return float {};
     if constexpr (type == CDF_Types::CDF_DOUBLE)
         return double {};
+    if constexpr (type == CDF_Types::CDF_REAL4)
+        return float {};
+    if constexpr (type == CDF_Types::CDF_REAL8)
+        return double {};
+    if constexpr (type == CDF_Types::CDF_TIME_TT2000)
+        return tt2000_t {};
+    if constexpr (type == CDF_Types::CDF_EPOCH)
+        return epoch {};
+    if constexpr (type == CDF_Types::CDF_EPOCH16)
+        return epoch16 {};
 }
 
 std::size_t cdf_type_size(CDF_Types type)
