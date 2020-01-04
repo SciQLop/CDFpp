@@ -57,7 +57,7 @@ target_link_libraries(CDFpp INTERFACE ZLIB::ZLIB)
 if(MSVC)
   target_compile_options(CDFpp INTERFACE /W4 /WX)
 else()
-  target_compile_options(CDFpp INTERFACE -Wall -Wextra -pedantic -Werror)
+  target_compile_options(CDFpp INTERFACE -Wall -Wextra -pedantic -Wno-strict-aliasing -Werror)
 endif()
 
 
