@@ -71,10 +71,12 @@ enable_testing()
 #    src/main.c
 #    )
     
-#option(my_option "My Option" ON)
-#if (my_option)
-#	add_definitions(-DMY_OPTION)
-#endif()
+option(with_pybind11 "Enable Pybind11 wrapper" ON)
+if (with_pybind11)
+    find_package(pybind11 REQUIRED)
+    pybind11_add_module(pycdfpp wrapper/pycdfpp.cpp)
+    target_link_libraries(pycdfpp PRIVATE CDFpp)
+endif()
 
 
 add_executable(simple_open tests/simple_open/main.cpp)

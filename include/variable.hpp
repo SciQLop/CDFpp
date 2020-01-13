@@ -93,10 +93,19 @@ struct Variable
 
     CDF_Types type() { return p_data.type(); }
 
+    template <typename... Ts>
+    friend auto visit(Variable& var, Ts... lambdas);
+
 private:
     std::string p_name;
     std::optional<std::size_t> p_number;
     var_data_t p_data;
     shape_t p_shape;
 };
+
+template <typename... Ts>
+auto visit(Variable& var, Ts... lambdas)
+{
+    return visit(var.p_data, lambdas...);
+}
 } // namespace cdf

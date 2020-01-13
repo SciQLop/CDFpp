@@ -30,6 +30,23 @@
 namespace cdf
 {
 
+namespace
+{
+    template <typename... Ts>
+    struct Visitor : Ts...
+    {
+        Visitor(const Ts&... args) : Ts(args)... {}
+
+        using Ts::operator()...;
+    };
+
+    template <typename... Ts>
+    auto make_visitor(Ts... lambdas)
+    {
+        return Visitor<Ts...>(lambdas...);
+    }
+}
+
 struct cdf_none
 {
     bool operator==([[maybe_unused]] const cdf_none& other) const { return true; }
@@ -112,6 +129,7 @@ struct data_t
         }
     }
 
+
     data_t() : p_values { cdf_none {} }, p_type { CDF_Types::CDF_NONE } {}
     data_t(const data_t& other) = default;
     data_t(data_t&& other) = default;
@@ -140,11 +158,19 @@ struct data_t
 
     CDF_Types type() { return p_type; }
 
+    template <typename... Ts>
+    friend auto visit(data_t& data, Ts... lambdas);
+
 private:
     cdf_values_t p_values;
     CDF_Types p_type;
 };
 
+template <typename... Ts>
+auto visit(data_t& data, Ts... lambdas)
+{
+    return std::visit(make_visitor(lambdas...), data.p_values);
+}
 
 data_t load_values(
     const char* buffer, std::size_t buffer_size, CDF_Types type, cdf_encoding encoding)
