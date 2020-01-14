@@ -27,15 +27,17 @@
 namespace cdf::io::attribute
 {
 
-template <cdf_r_z type, typename cdf_version_tag_t, typename ADR_t, typename stream_t>
-Attribute::attr_data_t load_data(const ADR_t& ADR, stream_t& buffer, uint32_t& var_num)
+template <cdf_r_z type, typename cdf_version_tag_t, typename ADR_t, typename stream_t,
+    typename context_t>
+Attribute::attr_data_t load_data(
+    context_t& context, const ADR_t& ADR, stream_t& buffer, uint32_t& var_num)
 {
     Attribute::attr_data_t values;
     std::for_each(begin_AEDR<type>(ADR), end_AEDR<type>(ADR), [&](auto& AEDR) {
         std::size_t element_size = cdf_type_size(CDF_Types { AEDR.DataType.value });
         auto data = buffer.read(AEDR.offset + AEDR.Values.offset, AEDR.NumElements * element_size);
         values.emplace_back(
-            load_values(data.data(), std::size(data), AEDR.DataType.value, cdf_encoding::IBMPC));
+            load_values(data.data(), std::size(data), AEDR.DataType.value, context.encoding()));
         var_num = AEDR.Num.value;
     });
     return values;
@@ -50,9 +52,11 @@ bool load_all(context_t& context, common::cdf_repr& repr)
             uint32_t var_num;
             Attribute::attr_data_t data = [&]() -> Attribute::attr_data_t {
                 if (ADR.AzEDRhead != 0)
-                    return load_data<cdf_r_z::z, cdf_version_tag_t>(ADR, context.buffer, var_num);
+                    return load_data<cdf_r_z::z, cdf_version_tag_t>(
+                        context, ADR, context.buffer, var_num);
                 else if (ADR.AgrEDRhead != 0)
-                    return load_data<cdf_r_z::r, cdf_version_tag_t>(ADR, context.buffer, var_num);
+                    return load_data<cdf_r_z::r, cdf_version_tag_t>(
+                        context, ADR, context.buffer, var_num);
                 return {};
             }();
             common::add_attribute(repr, ADR.scope.value, ADR.Name.value, std::move(data), var_num);

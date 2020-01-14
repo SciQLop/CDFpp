@@ -108,7 +108,7 @@ namespace
 
                     common::add_variable(cdf, vdr.Name.value, vdr.Num.value,
                         load_values(
-                            data.data(), std::size(data), vdr.DataType.value, cdf_encoding::IBMPC),
+                            data.data(), std::size(data), vdr.DataType.value, context.encoding()),
                         std::move(shape));
                 }
             });

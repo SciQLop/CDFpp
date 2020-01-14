@@ -69,6 +69,7 @@ namespace
             if (common::is_cdf(magic) && cdr.load(CDRoffset) && gdr.load(cdr.GDRoffset.value))
                 ok = true;
         }
+        inline cdf_encoding encoding() { return cdr.Encoding.value; }
     };
 
     CDF from_repr(common::cdf_repr&& repr)

@@ -174,7 +174,7 @@ SCENARIO("Loading a cdf file", "[CDF]")
             }
             THEN("All expected variables are loaded")
             {
-                REQUIRE(std::size(cd.variables) == 4);
+                REQUIRE(std::size(cd.variables) == 5);
                 REQUIRE(has_variable(cd, "var"));
                 REQUIRE(compare_shape(cd.variables["var"], { 101 }));
                 REQUIRE(check_variable(
@@ -214,7 +214,7 @@ SCENARIO("Loading a cdf file", "[CDF]")
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
             THEN("All expected attributes are loaded") { REQUIRE(std::size(cd.attributes) == 5); }
-            THEN("All expected variables are loaded") { REQUIRE(std::size(cd.variables) == 4); }
+            THEN("All expected variables are loaded") { REQUIRE(std::size(cd.variables) == 5); }
         }
         WHEN("In memory data as char* is a cdf file")
         {
@@ -236,7 +236,7 @@ SCENARIO("Loading a cdf file", "[CDF]")
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
             THEN("All expected attributes are loaded") { REQUIRE(std::size(cd.attributes) == 5); }
-            THEN("All expected variables are loaded") { REQUIRE(std::size(cd.variables) == 4); }
+            THEN("All expected variables are loaded") { REQUIRE(std::size(cd.variables) == 5); }
         }
         WHEN("file exists and is a cdf file")
         {
@@ -264,7 +264,7 @@ SCENARIO("Loading a cdf file", "[CDF]")
             }
             THEN("All expected variables are loaded")
             {
-                REQUIRE(std::size(cd.variables) == 4);
+                REQUIRE(std::size(cd.variables) == 5);
                 REQUIRE(has_variable(cd, "var"));
                 REQUIRE(compare_shape(cd.variables["var"], { 101 }));
                 REQUIRE(check_variable(

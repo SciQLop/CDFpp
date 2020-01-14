@@ -66,6 +66,7 @@ def add_varaibles(cd):
     cd["var2d"] = np.ones((3,4))
     cd["var3d"] = np.ones((4,3,2))
     cd["var3d"].attrs["var3d_attr_multi"] = [10,11]
+    cd["var2d_counter"] = np.array([[1.,2.],[3.,4.]])
 
 def add_attributes(cd):
     cd.attrs["attr"] = "a cdf text attribute"

@@ -424,9 +424,10 @@ struct cdf_VXR_t : cdf_description_record<buffer_t, cdf_VXR_t<version_t, buffer_
         [offset = AFTER(NusedEntries)]([[maybe_unused]] auto& vxr) { return offset; } };
     table_field_t<uint32_t, cdf_VXR_t> Last = { [](auto& vxr) { return vxr.NusedEntries; },
         [offset = AFTER(NusedEntries)](auto& vxr) { return offset + (vxr.Nentries.value * 4); } };
-    table_field_t<uint32_t, cdf_VXR_t> Offset = { [](auto& vxr) { return vxr.NusedEntries; },
-        [offset = AFTER(NusedEntries)](
-            auto& vxr) { return offset + (vxr.Nentries.value * 4 * 2); } };
+    table_field_t<std::conditional_t<is_v3_v<version_t>, uint64_t, uint32_t>, cdf_VXR_t> Offset = {
+        [](auto& vxr) { return vxr.NusedEntries; },
+        [offset = AFTER(NusedEntries)](auto& vxr) { return offset + (vxr.Nentries.value * 4 * 2); }
+    };
 
     using cdf_description_record<buffer_t, cdf_VXR_t<version_t, buffer_t>>::cdf_description_record;
     friend cdf_description_record<buffer_t, cdf_VXR_t<version_t, buffer_t>>;
