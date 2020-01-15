@@ -15,7 +15,7 @@ endif
 
 add_global_arguments('-DDATA_PATH="@0@/tests/resources"'.format(meson.current_source_dir()), language : 'cpp')
 
-
+pybind11_dep = dependency('pybind11', required : true, fallback:['pybind11','pybind11_dep'])
 zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
 
 cdfpp_lib = library('CDFpp',
@@ -26,6 +26,13 @@ cdfpp_dep = declare_dependency(include_directories: include_directories('include
                                 link_with:cdfpp_lib,
                                 dependencies: zlib_dep)
 
+pymod = import('python')
+python3 = pymod.find_installation('python3')
+
+python3.extension_module('cdfpp', 'wrapper/pycdfpp.cpp',
+                         dependencies: [cdfpp_dep, pybind11_dep],
+                         install: true
+                        )
 
 install_headers(
 ['./include/attribute.hpp',
