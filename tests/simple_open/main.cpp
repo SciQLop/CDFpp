@@ -194,6 +194,12 @@ SCENARIO("Loading a cdf file", "[CDF]")
                 REQUIRE(
                     compare_attribute_values(cd.variables["var3d"].attributes["var3d_attr_multi"],
                         std::vector { 10., 11. }));
+
+                REQUIRE(has_variable(cd, "var2d_counter"));
+                REQUIRE(compare_shape(cd.variables["var2d_counter"], { 2, 2 }));
+                REQUIRE(check_variable(cd.variables["var2d_counter"], { 2, 2 }, [](const auto&) {
+                    return std::vector<double> { 1., 2., 3., 4. };
+                }));
             }
         }
         WHEN("In memory data as std::vector is a cdf file")

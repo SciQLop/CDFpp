@@ -49,7 +49,7 @@ bool load_all(context_t& context, common::cdf_repr& repr)
     std::for_each(begin_ADR(context.gdr), end_ADR(context.gdr), [&](auto& ADR) {
         if (ADR.is_loaded)
         {
-            uint32_t var_num;
+            uint32_t var_num = 0;
             Attribute::attr_data_t data = [&]() -> Attribute::attr_data_t {
                 if (ADR.AzEDRhead != 0)
                     return load_data<cdf_r_z::z, cdf_version_tag_t>(

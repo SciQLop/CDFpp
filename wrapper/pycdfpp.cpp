@@ -49,12 +49,13 @@ std::vector<ssize_t> strides(const Variable& var)
 {
     auto shape = var.shape();
     std::vector<ssize_t> res(std::size(shape));
-    std::transform(std::cbegin(shape), std::cend(shape), std::begin(res),
+    std::transform(std::crbegin(shape), std::crend(shape), std::begin(res),
         [bw = sizeof(T), next = sizeof(T)](auto v) mutable {
             auto res = next;
             next = static_cast<ssize_t>(v * next);
             return res;
         });
+    std::reverse(std::begin(res), std::end(res)); // if column major
     return res;
 }
 
