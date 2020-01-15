@@ -8,7 +8,7 @@ build-backend = "mesonpep517.buildapi"
 [tool.mesonpep517.metadata]
 author="Alexis Jeandet"
 author-email="alexis.jeandet@member.fsf.org"
-summary="Create pep517 compliant packages from the meson build system"
+summary="A modern C++ header only cdf library"
 home-page="https://github.com/SciQLop/CDFpp"
 requires-python="py3"
 description-file="README.md"
