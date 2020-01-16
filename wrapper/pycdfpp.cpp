@@ -173,7 +173,7 @@ PYBIND11_MODULE(pycdfpp, m)
     py::class_<Attribute>(m, "Attribute")
         .def_property_readonly("name", [](Attribute& attr) { return attr.name; })
         .def("__getitem__",
-            [](Attribute& att, int index) -> cdf::cdf_values_t {
+            [](Attribute& att, std::size_t index) -> cdf::cdf_values_t {
                 if (index >= att.len())
                     throw std::out_of_range(
                         "Trying to get an attribute value outside of its range");
