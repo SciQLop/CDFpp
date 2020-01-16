@@ -19,6 +19,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include <cdf-data.hpp>
 #include <cdf.hpp>
 using namespace cdf;
 
@@ -158,13 +159,27 @@ PYBIND11_MODULE(pycdfpp, m)
         .def(
             "__iter__",
             [](const CDF& cd) {
-                return py::make_iterator(cd.variables.begin(), cd.variables.end());
+                return py::make_key_iterator(std::begin(cd.variables), std::end(cd.variables));
             },
-            py::keep_alive<0, 1>());
+            py::keep_alive<0, 1>())
+        .def(
+            "items",
+            [](const CDF& cd) {
+                return py::make_iterator(std::begin(cd.variables), std::end(cd.variables));
+            },
+            py::keep_alive<0, 1>())
+        .def("__len__", [](const CDF& cd) { return std::size(cd.variables); });
 
-    py::class_<Attribute>(m, "Attribute").def_property_readonly("name", [](Attribute& attr) {
-        return attr.name;
-    });
+    py::class_<Attribute>(m, "Attribute")
+        .def_property_readonly("name", [](Attribute& attr) { return attr.name; })
+        .def("__getitem__",
+            [](Attribute& att, int index) -> cdf::cdf_values_t {
+                if (index >= att.len())
+                    throw std::out_of_range(
+                        "Trying to get an attribute value outside of its range");
+                return att[index].values();
+            })
+        .def("__len__", [](const Attribute& att) { return att.len(); });
 
     py::class_<Variable>(m, "Variable", py::buffer_protocol())
         .def_property_readonly("name", &Variable::name)

@@ -121,11 +121,7 @@ struct data_t
         }
         else
         {
-            // might use optional later
-            // if (std::holds_alternative<std::vector<type>>(p_values))
-            //{
             return std::get<std::vector<type>>(p_values);
-            //}
         }
     }
 
@@ -160,6 +156,7 @@ struct data_t
 
     template <typename... Ts>
     friend auto visit(data_t& data, Ts... lambdas);
+    cdf_values_t& values() { return p_values; }
 
 private:
     cdf_values_t p_values;

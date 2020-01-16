@@ -41,30 +41,30 @@ struct Attribute
     }
 
     template <CDF_Types type>
-    decltype(auto) get(std::size_t index)
+    inline decltype(auto) get(std::size_t index)
     {
         return data[index].get<type>();
     }
 
     template <CDF_Types type>
-    decltype(auto) get(std::size_t index) const
+    inline decltype(auto) get(std::size_t index) const
     {
         return data[index].get<type>();
     }
 
     template <typename type>
-    decltype(auto) get(std::size_t index)
+    inline decltype(auto) get(std::size_t index)
     {
         return data[index].get<type>();
     }
 
     template <typename type>
-    decltype(auto) get(std::size_t index) const
+    inline decltype(auto) get(std::size_t index) const
     {
         return data[index].get<type>();
     }
 
-    void swap(attr_data_t& new_data) { std::swap(data, new_data); }
+    inline void swap(attr_data_t& new_data) { std::swap(data, new_data); }
 
     Attribute& operator=(attr_data_t& new_data)
     {
@@ -77,7 +77,8 @@ struct Attribute
         data = new_data;
         return *this;
     }
-    std::size_t len() const { return std::size(data); }
+    inline std::size_t len() const { return std::size(data); }
+    inline data_t& operator[](std::size_t index) { return data[index]; }
 
 private:
     attr_data_t data;

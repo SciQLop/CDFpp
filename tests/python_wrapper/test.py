@@ -4,41 +4,58 @@ import os
 import unittest
 import pycdfpp
 
-variables = [
-{
-    'name':'epoch',
-    'shape':[101]
+variables = {
+'epoch':{
+    'shape':[101],
+    'type':pycdfpp.CDF_EPOCH
 },
-{
-    'name':'var',
-    'shape':[101]
+'var':{
+    'shape':[101],
+    'type':pycdfpp.CDF_DOUBLE
 },
-{
-    'name':'var2d',
-    'shape':[3,4]
+'var2d':{
+    'shape':[3,4],
+    'type':pycdfpp.CDF_DOUBLE
 },
-{
-    'name':'var2d_counter',
-    'shape':[2,2]
+'var2d_counter':{
+    'shape':[2,2],
+    'type':pycdfpp.CDF_DOUBLE
 },
-{
-    'name':'var3d',
-    'shape':[4,3,2]
+'var3d':{
+    'shape':[4,3,2],
+    'type':pycdfpp.CDF_DOUBLE
 }
-]
+}
+
+attributes = ['attr', 'attr_float', 'attr_int', 'attr_multi', 'empty']
 
 class PycdfTest(unittest.TestCase):
     def setUp(self):
-        pass
+        self.cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/a_cdf.cdf')
+        self.assertIsNotNone(self.cdf)
 
     def tearDown(self):
         pass
 
-    def test_loads_cdf(self):
-        cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/a_cdf.cdf')
-        self.assertIsNotNone(cdf)
-        for v in variables:
-            self.assertTrue(v['name'] in cdf)
+    def test_has_all_expected_vars(self):
+        for name in variables:
+            self.assertTrue(name in self.cdf)
+
+    def test_has_all_expected_attributes(self):
+        for name in attributes:
+            self.assertTrue(name in self.cdf.attributes)
+
+    def test_access_attribute_data_outside_of_range(self):
+        attr = self.cdf.attributes['attr_int']
+        with self.assertRaises(IndexError):
+            attr[len(attr)]
+
+    def test_vars_have_expected_type_and_shape(self):
+        for name,var in self.cdf.items():
+            self.assertTrue(name in variables)
+            v_exp = variables[name]
+            self.assertEqual(v_exp['shape'], var.shape)
+            self.assertEqual(v_exp['type'], var.type)
 
 
 if __name__ == '__main__':
