@@ -154,7 +154,7 @@ PYBIND11_MODULE(pycdfpp, m)
         .def_readonly("attributes", &CDF::attributes)
         .def("__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; })
         .def("__contains__",
-            [](const CDF& cd, std::string& key) { return cd.attributes.count(key) > 0; })
+            [](const CDF& cd, std::string& key) { return cd.variables.count(key) > 0; })
         .def(
             "__iter__",
             [](const CDF& cd) {
