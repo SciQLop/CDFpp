@@ -50,7 +50,7 @@ std::vector<ssize_t> strides(const Variable& var)
     auto shape = var.shape();
     std::vector<ssize_t> res(std::size(shape));
     std::transform(std::crbegin(shape), std::crend(shape), std::begin(res),
-        [bw = sizeof(T), next = sizeof(T)](auto v) mutable {
+        [next = sizeof(T)](auto v) mutable {
             auto res = next;
             next = static_cast<ssize_t>(v * next);
             return res;
@@ -152,9 +152,19 @@ PYBIND11_MODULE(pycdfpp, m)
 
     py::class_<CDF>(m, "CDF")
         .def_readonly("attributes", &CDF::attributes)
-        .def("__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; });
+        .def("__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; })
+        .def("__contains__",
+            [](const CDF& cd, std::string& key) { return cd.attributes.count(key) > 0; })
+        .def(
+            "__iter__",
+            [](const CDF& cd) {
+                return py::make_iterator(cd.variables.begin(), cd.variables.end());
+            },
+            py::keep_alive<0, 1>());
 
-    py::class_<Attribute>(m, "Attribute");
+    py::class_<Attribute>(m, "Attribute").def_property_readonly("name", [](Attribute& attr) {
+        return attr.name;
+    });
 
     py::class_<Variable>(m, "Variable", py::buffer_protocol())
         .def_property_readonly("name", &Variable::name)

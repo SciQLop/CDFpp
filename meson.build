@@ -6,12 +6,19 @@ project(
   license : 'GPL3'
 )
 
-# TODO add a config file
+conf_data = configuration_data()
+conf_data.set('version', meson.project_version())
 if(target_machine.endian() == 'big')
-    add_global_arguments('-DCDFpp_BIG_ENDIAN', language : 'cpp')
+    conf_data.set('CDFpp_BIG_ENDIAN', true)
 else
-    add_global_arguments('-DCDFpp_LITTLE_ENDIAN', language : 'cpp')
+    conf_data.set('CDFpp_LITTLE_ENDIAN', true)
 endif
+configure_file(input : 'config.h.in',
+               output : 'config.h',
+               format : 'cmake',
+               install : true,
+               install_dir : 'cdfpp',
+               configuration : conf_data)
 
 add_global_arguments('-DDATA_PATH="@0@/tests/resources"'.format(meson.current_source_dir()), language : 'cpp')
 
@@ -29,7 +36,7 @@ cdfpp_dep = declare_dependency(include_directories: include_directories('include
 pymod = import('python')
 python3 = pymod.find_installation('python3')
 
-python3.extension_module('cdfpp', 'wrapper/pycdfpp.cpp',
+python3.extension_module('pycdfpp', 'wrapper/pycdfpp.cpp',
                          dependencies: [cdfpp_dep, pybind11_dep],
                          install: true
                         )
@@ -70,4 +77,9 @@ foreach test:['endianness','simple_open', 'zlib']
                     )
     test(test, exe)
 endforeach
+
+test('python_wrapper_test', python3,
+    args:[meson.current_source_dir()+'/tests/python_wrapper/test.py'],
+    env:['PYTHONPATH='+meson.current_build_dir()],
+    workdir:meson.current_build_dir())
 

@@ -35,10 +35,13 @@ ENDIF(IWYU)
 include (TestBigEndian)
 TEST_BIG_ENDIAN(IS_BIG_ENDIAN)
 if(IS_BIG_ENDIAN)
- add_compile_definitions(CDFpp_BIG_ENDIAN)
+ set(CDFpp_BIG_ENDIAN ON)
 else()
- add_compile_definitions(CDFpp_LITTLE_ENDIAN)
+ set(CDFpp_LITTLE_ENDIAN ON)
 endif()
+
+configure_file(config.h.in config.h @ONLY)
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 find_package(ZLIB REQUIRED)
 

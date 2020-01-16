@@ -20,7 +20,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-
+#include "config.h"
 #ifdef CDFpp_BIG_ENDIAN
 inline const bool host_is_big_endian = true;
 inline const bool host_is_little_endian = false;
