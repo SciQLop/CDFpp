@@ -84,7 +84,7 @@ bool check_variable(
     auto values = var.get<double>();
     bool is_valid = compare_shape(var, expected_shape);
     auto ref = generator(std::size(values));
-    auto diff = std::transform_reduce(std::cbegin(values), std::cend(values), std::cbegin(ref), 0.,
+    auto diff = std::inner_product(std::cbegin(values), std::cend(values), std::cbegin(ref), 0.,
         std::plus<double>(), std::minus<double>());
     is_valid &= (std::abs(diff) < 1e-9);
     return is_valid;
