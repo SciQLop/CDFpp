@@ -79,6 +79,7 @@ if (with_pybind11)
     find_package(pybind11 REQUIRED)
     pybind11_add_module(pycdfpp wrapper/pycdfpp.cpp)
     target_link_libraries(pycdfpp PRIVATE CDFpp)
+    install(TARGETS pycdfpp LIBRARY DESTINATION pycdfpp)
 endif()
 
 
