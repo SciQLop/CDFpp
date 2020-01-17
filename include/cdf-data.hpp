@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <variant>
 #include <vector>
+#include <string>
 
 namespace cdf
 {

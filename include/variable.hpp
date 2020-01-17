@@ -25,6 +25,7 @@
 #include "cdf-enums.hpp"
 #include <cstdint>
 #include <vector>
+#include <unordered_map>
 
 namespace cdf
 {

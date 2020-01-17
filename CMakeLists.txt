@@ -65,14 +65,6 @@ endif()
 
 
 enable_testing()
-
-#add_subdirectory(sw)
-
-#set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
-#set(SOURCES
-#    src/main.c
-#    )
     
 option(with_pybind11 "Enable Pybind11 wrapper" ON)
 if (with_pybind11)
@@ -82,24 +74,25 @@ if (with_pybind11)
     install(TARGETS pycdfpp LIBRARY DESTINATION pycdfpp)
 endif()
 
+option(with_tests "Enable tests" ON)
+if (with_tests)
+    add_executable(simple_open tests/simple_open/main.cpp)
+    target_link_libraries(simple_open PRIVATE CDFpp)
+    target_include_directories(simple_open PRIVATE catch2)
 
-add_executable(simple_open tests/simple_open/main.cpp)
-target_link_libraries(simple_open PRIVATE CDFpp)
-target_include_directories(simple_open PRIVATE catch2)
+    target_compile_definitions(simple_open PRIVATE DATA_PATH="${CMAKE_CURRENT_LIST_DIR}/tests/resources")
+    add_test(test-simple_open simple_open)
 
-target_compile_definitions(simple_open PRIVATE DATA_PATH="${CMAKE_CURRENT_LIST_DIR}/tests/resources")
-add_test(test-simple_open simple_open)
+    add_executable(endianness tests/endianness/main.cpp)
+    target_link_libraries(endianness PUBLIC CDFpp)
+    target_include_directories(endianness PRIVATE catch2)
+    add_test(test-endianness endianness)
 
-add_executable(endianness tests/endianness/main.cpp)
-target_link_libraries(endianness PUBLIC CDFpp)
-target_include_directories(endianness PRIVATE catch2)
-add_test(test-endianness endianness)
-
-add_executable(zlib_test tests/zlib/main.cpp)
-target_link_libraries(zlib_test PUBLIC CDFpp)
-target_include_directories(zlib_test PRIVATE catch2)
-add_test(test-zlib_test zlib_test)
-#add_library(MyLib ${SOURCES})
+    add_executable(zlib_test tests/zlib/main.cpp)
+    target_link_libraries(zlib_test PUBLIC CDFpp)
+    target_include_directories(zlib_test PRIVATE catch2)
+    add_test(test-zlib_test zlib_test)
+endif()
 
 
 
