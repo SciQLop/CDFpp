@@ -5,7 +5,7 @@ with open('README.md') as readme_file:
 
 setup(
     name="pycdfpp",
-    version="0.1.0",
+    version="0.1.2",
     description="A modern C++ header only cdf library",
     author='Alexis Jeandet',
     author_email='alexis.jeandet@member.fsf.org',
