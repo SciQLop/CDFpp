@@ -1,6 +1,8 @@
 name: Python packages
 
-on: [published]
+on:
+  release:
+    types: [published]
 
 jobs:
   build:
