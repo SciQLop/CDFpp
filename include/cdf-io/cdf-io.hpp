@@ -30,7 +30,6 @@
 #include "cdf-io-variable.hpp"
 #include "cdf-io-zlib.hpp"
 #include <algorithm>
-#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <numeric>
@@ -140,9 +139,10 @@ namespace
 
 std::optional<CDF> load(const std::string& path)
 {
-    if (std::filesystem::exists(path))
+    auto fs = std::fstream { path, std::ios::in | std::ios::binary };
+    if (fs.is_open())
     {
-        buffers::stream_adapter buffer { std::fstream { path, std::ios::in | std::ios::binary } };
+        buffers::stream_adapter buffer { std::move(fs) };
         return impl_load(buffer);
     }
     return std::nullopt;

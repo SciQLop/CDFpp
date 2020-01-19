@@ -5,7 +5,7 @@ with open('README.md') as readme_file:
 
 setup(
     name="pycdfpp",
-    version="0.1.2",
+    version="0.1.3",
     description="A modern C++ header only cdf library",
     author='Alexis Jeandet',
     author_email='alexis.jeandet@member.fsf.org',
@@ -22,6 +22,7 @@ setup(
         ],
     license="GNU General Public License v3",
     long_description=readme,
+    long_description_content_type='text/markdown',
     keywords='CDF NASA Space Physics Plasma',
     url='https://github.com/SciQLop/CDFpp',
     packages=['pycdfpp']
