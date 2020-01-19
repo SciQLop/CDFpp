@@ -1,0 +1,28 @@
+name: Python packages
+
+on: [published]
+
+jobs:
+  build:
+    name: build python packages
+    runs-on: ubuntu-latest
+    container: jeandet/manylinuxcpp2017
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Build for Python 3.5
+        run: $PYTHON35/bin/python setup.py bdist_wheel -- -Dwith_tests=OFF --
+      - name: Build for Python 3.6
+        run: $PYTHON36/bin/python setup.py bdist_wheel -- -Dwith_tests=OFF --
+      - name: Build for Python 3.7
+        run: $PYTHON37/bin/python setup.py bdist_wheel -- -Dwith_tests=OFF --
+      - name: Build for Python 3.8
+        run: $PYTHON38/bin/python setup.py bdist_wheel -- -Dwith_tests=OFF --
+      - name: Make wheels universal
+        run: for wheel in $(ls dist); do auditwheel repair dist/$wheel; done
+      - name: Publish on PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        run: twine upload wheelhouse/*
