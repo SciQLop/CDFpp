@@ -1,4 +1,4 @@
-name: Python packages
+name: Python packages linux
 
 on:
   release:

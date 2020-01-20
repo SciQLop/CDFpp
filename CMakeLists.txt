@@ -3,9 +3,17 @@ project(CDF++ CXX)
 
 include(GNUInstallDirs)
 
+OPTION(with_pybind11 "Enable Pybind11 wrapper" ON)
 OPTION (CPPCHECK "Analyzes the source code with cppcheck" OFF)
 OPTION (CLANG_TIDY "Analyzes the source code with Clang Tidy" OFF)
 OPTION (IWYU "Analyzes the source code with Include What You Use" OFF)
+option(with_tests "Enable tests" ON)
+
+
+if (with_pybind11)
+    include("${CMAKE_CURRENT_LIST_DIR}/cmake/pybind11.cmake")
+endif()
+
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -56,43 +64,42 @@ target_include_directories(CDFpp
 
 target_link_libraries(CDFpp INTERFACE ZLIB::ZLIB)
 
-
-if(MSVC)
-  target_compile_options(CDFpp INTERFACE /W4 /WX)
-else()
-  target_compile_options(CDFpp INTERFACE -Wall -Wextra -pedantic -Wno-strict-aliasing -Werror)
+if(NOT SKBUILD)
+    if(MSVC)
+      target_compile_options(CDFpp INTERFACE /W4 /WX)
+    else()
+      target_compile_options(CDFpp INTERFACE -Wall -Wextra -pedantic -Wno-strict-aliasing -Werror)
+    endif()
 endif()
 
 
 enable_testing()
-    
-option(with_pybind11 "Enable Pybind11 wrapper" ON)
+
 if (with_pybind11)
-    find_package(pybind11 REQUIRED)
     pybind11_add_module(pycdfpp wrapper/pycdfpp.cpp)
     target_link_libraries(pycdfpp PRIVATE CDFpp)
     install(TARGETS pycdfpp LIBRARY DESTINATION pycdfpp)
 endif()
 
-option(with_tests "Enable tests" ON)
-if (with_tests)
-    add_executable(simple_open tests/simple_open/main.cpp)
-    target_link_libraries(simple_open PRIVATE CDFpp)
-    target_include_directories(simple_open PRIVATE catch2)
+if(NOT SKBUILD)
+    if (with_tests)
+        add_executable(simple_open tests/simple_open/main.cpp)
+        target_link_libraries(simple_open PRIVATE CDFpp)
+        target_include_directories(simple_open PRIVATE catch2)
 
-    target_compile_definitions(simple_open PRIVATE DATA_PATH="${CMAKE_CURRENT_LIST_DIR}/tests/resources")
-    add_test(test-simple_open simple_open)
+        target_compile_definitions(simple_open PRIVATE DATA_PATH="${CMAKE_CURRENT_LIST_DIR}/tests/resources")
+        add_test(test-simple_open simple_open)
 
-    add_executable(endianness tests/endianness/main.cpp)
-    target_link_libraries(endianness PUBLIC CDFpp)
-    target_include_directories(endianness PRIVATE catch2)
-    add_test(test-endianness endianness)
+        add_executable(endianness tests/endianness/main.cpp)
+        target_link_libraries(endianness PUBLIC CDFpp)
+        target_include_directories(endianness PRIVATE catch2)
+        add_test(test-endianness endianness)
 
-    add_executable(zlib_test tests/zlib/main.cpp)
-    target_link_libraries(zlib_test PUBLIC CDFpp)
-    target_include_directories(zlib_test PRIVATE catch2)
-    add_test(test-zlib_test zlib_test)
+        add_executable(zlib_test tests/zlib/main.cpp)
+        target_link_libraries(zlib_test PUBLIC CDFpp)
+        target_include_directories(zlib_test PRIVATE catch2)
+        add_test(test-zlib_test zlib_test)
+    endif()
 endif()
-
 
 
