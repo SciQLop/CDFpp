@@ -7,5 +7,5 @@ if (NOT pybind11_FOUND)
 endif()
 
 if(MINGW)
-    add_definitions(-D_hypot=hypot)
+    add_definitions(-D_hypot=hypot -DMS_WIN64)
 endif()
