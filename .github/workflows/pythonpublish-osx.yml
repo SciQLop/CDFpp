@@ -18,5 +18,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: x64
       - run: |
-          pip install scikit-build
+          pip install scikit-build ninja twine
           python setup.py bdist_wheel
+      - name: Publish on PyPi
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+        run: twine upload dist/*
