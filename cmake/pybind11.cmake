@@ -6,4 +6,6 @@ if (NOT pybind11_FOUND)
     add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/pybind11 ${CMAKE_CURRENT_BINARY_DIR}/build_pybind11)
 endif()
 
-
+if(MINGW)
+    add_definitions(-D_hypot=hypot)
+endif()

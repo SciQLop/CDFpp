@@ -1,4 +1,4 @@
-name: Python packages OSX
+name: Python packages Windows
 
 on: [push]
 
