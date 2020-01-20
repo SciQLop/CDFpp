@@ -38,8 +38,7 @@ If you want to understand how it works, how to use the code or what works, you m
 ## From PyPi
 
 ```bash
-# this is no possible yet
-pip3 install --user cdfpp
+pip3 install --user pycdfpp
 ```
 
 ## From sources
@@ -49,4 +48,15 @@ meson build
 cd build
 ninja
 sudo ninja install
+```
+
+# Basic usage
+
+## Python
+
+```python
+from pycdfpp import pycdfpp
+cdf = pycdfpp.load("some_cdf.cdf")
+cdf_var_data = cdf["var_name"].as_array() #builds a numpy array
+attribute_name_first_value = cdf.attributes['attribute_name'][0]
 ```

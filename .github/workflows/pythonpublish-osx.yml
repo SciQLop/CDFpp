@@ -1,6 +1,8 @@
 name: Python packages OSX
 
-on: [push]
+on:
+  release:
+    types: [published]
 
 jobs:
   build:
