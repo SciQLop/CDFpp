@@ -24,8 +24,8 @@
 #include "cdf-data.hpp"
 #include "cdf-enums.hpp"
 #include <cstdint>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 namespace cdf
 {
@@ -92,7 +92,7 @@ struct Variable
 
     std::optional<std::size_t> number() { return p_number; }
 
-    CDF_Types type() { return p_data.type(); }
+    CDF_Types type() const { return p_data.type(); }
 
     template <typename... Ts>
     friend auto visit(Variable& var, Ts... lambdas);

@@ -80,7 +80,26 @@ struct Attribute
     inline std::size_t len() const { return std::size(data); }
     inline data_t& operator[](std::size_t index) { return data[index]; }
 
+    template <typename... Ts>
+    friend void visit(Attribute& attr, Ts... lambdas);
+
+    template <typename... Ts>
+    friend void visit(const Attribute& attr, Ts... lambdas);
+
 private:
     attr_data_t data;
 };
+template <typename... Ts>
+void visit(Attribute& attr, Ts... lambdas)
+{
+    std::for_each(std::cbegin(attr.data), std::cend(attr.data),
+        [lambdas...](const auto& element) { visit(element, lambdas...); });
+}
+
+template <typename... Ts>
+void visit(const Attribute& attr, Ts... lambdas)
+{
+    std::for_each(std::cbegin(attr.data), std::cend(attr.data),
+        [lambdas...](const auto& element) { visit(element, lambdas...); });
+}
 } // namespace cdf

@@ -19,6 +19,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "repr.hpp"
 #include <cdf-data.hpp>
 #include <cdf.hpp>
 using namespace cdf;
@@ -153,6 +154,7 @@ PYBIND11_MODULE(pycdfpp, m)
 
     py::class_<CDF>(m, "CDF")
         .def_readonly("attributes", &CDF::attributes)
+        .def("__repr__", __repr__<CDF>)
         .def("__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; })
         .def("__contains__",
             [](const CDF& cd, std::string& key) { return cd.variables.count(key) > 0; })
@@ -172,6 +174,7 @@ PYBIND11_MODULE(pycdfpp, m)
 
     py::class_<Attribute>(m, "Attribute")
         .def_property_readonly("name", [](Attribute& attr) { return attr.name; })
+        .def("__repr__", __repr__<Attribute>)
         .def("__getitem__",
             [](Attribute& att, std::size_t index) -> cdf::cdf_values_t {
                 if (index >= att.len())

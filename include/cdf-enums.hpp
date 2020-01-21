@@ -21,6 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include <cstdint>
+#include <string>
 #include <type_traits>
 
 namespace cdf
@@ -198,6 +199,50 @@ std::size_t cdf_type_size(CDF_Types type)
             return 16;
     }
     return 0;
+}
+
+std::string cdf_type_str(CDF_Types type)
+{
+    switch (type)
+    {
+        case CDF_Types::CDF_NONE:
+            return "CDF_NONE";
+        case CDF_Types::CDF_INT1:
+            return "CDF_INT1";
+        case CDF_Types::CDF_UINT1:
+            return "CDF_UINT1";
+        case CDF_Types::CDF_BYTE:
+            return "CDF_BYTE";
+        case CDF_Types::CDF_CHAR:
+            return "CDF_CHAR";
+        case CDF_Types::CDF_UCHAR:
+            return "CDF_UCHAR";
+        case CDF_Types::CDF_INT2:
+            return "CDF_INT2";
+        case CDF_Types::CDF_UINT2:
+            return "CDF_UINT2";
+        case CDF_Types::CDF_INT4:
+            return "CDF_INT1";
+        case CDF_Types::CDF_UINT4:
+            return "CDF_UINT4";
+        case CDF_Types::CDF_FLOAT:
+            return "CDF_FLOAT";
+        case CDF_Types::CDF_REAL4:
+            return "CDF_REAL4";
+        case CDF_Types::CDF_INT8:
+            return "CDF_INT8";
+        case CDF_Types::CDF_EPOCH:
+            return "CDF_EPOCH";
+        case CDF_Types::CDF_REAL8:
+            return "CDF_REAL8";
+        case CDF_Types::CDF_DOUBLE:
+            return "CDF_DOUBLE";
+        case CDF_Types::CDF_TIME_TT2000:
+            return "CDF_TIME_TT2000";
+        case CDF_Types::CDF_EPOCH16:
+            return "CDF_EPOCH16";
+    }
+    return "unknown type";
 }
 
 

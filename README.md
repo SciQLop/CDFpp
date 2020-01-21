@@ -26,7 +26,7 @@ List of features and roadmap:
 - [ ] write compressed attributes
 - [ ] write compressed file variables
 - [ ] handle leap seconds
-- [ ] Python wrappers
+- [x] Python wrappers
 - [ ] Documentation
 - [ ] Examples
 - [ ] Benchmarks

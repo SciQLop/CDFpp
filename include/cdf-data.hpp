@@ -24,9 +24,9 @@
 #include "cdf-enums.hpp"
 #include <algorithm>
 #include <cstdint>
+#include <string>
 #include <variant>
 #include <vector>
-#include <string>
 
 namespace cdf
 {
@@ -153,10 +153,12 @@ struct data_t
     data_t(const cdf_values_t& values, CDF_Types type) : p_values { values }, p_type { type } {}
     data_t(cdf_values_t&& values, CDF_Types type) : p_values { values }, p_type { type } {}
 
-    CDF_Types type() { return p_type; }
+    CDF_Types type() const { return p_type; }
 
     template <typename... Ts>
     friend auto visit(data_t& data, Ts... lambdas);
+    template <typename... Ts>
+    friend auto visit(const data_t& data, Ts... lambdas);
     cdf_values_t& values() { return p_values; }
 
 private:
@@ -166,6 +168,12 @@ private:
 
 template <typename... Ts>
 auto visit(data_t& data, Ts... lambdas)
+{
+    return std::visit(make_visitor(lambdas...), data.p_values);
+}
+
+template <typename... Ts>
+auto visit(const data_t& data, Ts... lambdas)
 {
     return std::visit(make_visitor(lambdas...), data.p_values);
 }
