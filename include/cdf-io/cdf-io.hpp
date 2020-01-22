@@ -93,7 +93,7 @@ namespace
     }
 
     template <typename cdf_version_tag_t, typename buffer_t>
-    std::optional<CDF> parse_cdf(buffer_t& buffer, bool is_compressed = false)
+    std::optional<CDF> parse_cdf(buffer_t&& buffer, bool is_compressed = false)
     {
         if (is_compressed)
         {
@@ -127,11 +127,11 @@ namespace
         auto magic = get_magic(buffer);
         if (common::is_v3x(magic))
         {
-            return parse_cdf<v3x_tag>(buffer, common::is_compressed(magic));
+            return parse_cdf<v3x_tag>(std::forward<buffer_t>(buffer), common::is_compressed(magic));
         }
         else
         {
-            return parse_cdf<v2x_tag>(buffer, common::is_compressed(magic));
+            return parse_cdf<v2x_tag>(std::forward<buffer_t>(buffer), common::is_compressed(magic));
         }
     }
 } // namespace
@@ -139,11 +139,10 @@ namespace
 
 std::optional<CDF> load(const std::string& path)
 {
-    auto fs = std::fstream { path, std::ios::in | std::ios::binary };
-    if (fs.is_open())
+    auto buffer = buffers::make_file_adapter(path);
+    if (buffer.is_valid())
     {
-        buffers::stream_adapter buffer { std::move(fs) };
-        return impl_load(buffer);
+        return impl_load(std::move(buffer));
     }
     return std::nullopt;
 }
@@ -152,8 +151,7 @@ std::optional<CDF> load(const std::vector<char>& data)
 {
     if (std::size(data))
     {
-        buffers::array_adapter buffer { data };
-        return impl_load(buffer);
+        return impl_load(buffers::array_adapter { data });
     }
     return std::nullopt;
 }
@@ -161,8 +159,7 @@ std::optional<CDF> load(char* data, std::size_t size)
 {
     if (size != 0 && data != nullptr)
     {
-        buffers::array_adapter buffer { data, size };
-        return impl_load(buffer);
+        return impl_load(buffers::array_adapter { data, size });
     }
     return std::nullopt;
 }

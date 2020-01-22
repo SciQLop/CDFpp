@@ -92,11 +92,13 @@ py::buffer_info make_buffer(cdf::Variable& var)
         [](const cdf_none&) { return py::buffer_info {}; });
 }
 
-py_array make_array(cdf::Variable& var)
+py::array make_array(py::object& obj)
 {
+    Variable& var = obj.cast<Variable&>();
 #define ARRAY_T_LAMBDA2(type1, type2)                                                              \
-    [&var](const std::vector<type2>&) -> py_array {                                                \
-        return py_array { py::array_t<type1>(impl_make_buffer<type1, type2>(var)) };               \
+    [&var, &obj](const std::vector<type2>&) -> py::array {                                         \
+        return py::array_t<type1>(                                                                 \
+            shape_ssize_t(var), strides<type1>(var), var.get<type1>().data(), obj);                \
     }
 #define ARRAY_T_LAMBDA(type) ARRAY_T_LAMBDA2(type, type)
 
@@ -114,15 +116,15 @@ py_array make_array(cdf::Variable& var)
 
         [](const std::vector<epoch16>&) {
             throw;
-            return py_array { py::array_t<double> {} };
+            return py::array {};
         },
         [](const std::string&) {
             throw;
-            return py_array { py::array_t<double> {} };
+            return py::array {};
         },
         [](const cdf_none&) {
             throw;
-            return py_array { py::array_t<double> {} };
+            return py::array {};
         });
 }
 
@@ -153,9 +155,11 @@ PYBIND11_MODULE(pycdfpp, m)
         .export_values();
 
     py::class_<CDF>(m, "CDF")
-        .def_readonly("attributes", &CDF::attributes)
+        .def_readonly("attributes", &CDF::attributes, py::return_value_policy::reference)
         .def("__repr__", __repr__<CDF>)
-        .def("__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; })
+        .def(
+            "__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; },
+            py::return_value_policy::reference)
         .def("__contains__",
             [](const CDF& cd, std::string& key) { return cd.variables.count(key) > 0; })
         .def(
@@ -185,11 +189,15 @@ PYBIND11_MODULE(pycdfpp, m)
         .def("__len__", [](const Attribute& att) { return att.len(); });
 
     py::class_<Variable>(m, "Variable", py::buffer_protocol())
+        .def("__repr__", __repr__<Variable>)
+        .def_readonly("attributes", &Variable::attributes, py::return_value_policy::reference)
         .def_property_readonly("name", &Variable::name)
         .def_property_readonly("type", &Variable::type)
         .def_property_readonly("shape", &Variable::shape)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
-        .def("as_array", [](Variable& var) -> py_array { return make_array(var); });
+        .def(
+            "as_array", [](py::object& obj) -> py::array { return make_array(obj); },
+            py::return_value_policy::reference_internal);
 
     m.def("load", [](const char* name) { return io::load(name); });
 }

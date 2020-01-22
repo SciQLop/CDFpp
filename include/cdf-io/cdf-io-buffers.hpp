@@ -24,6 +24,7 @@
 #include "cdf-data.hpp"
 #include "cdf-enums.hpp"
 #include <cstdint>
+#include <fstream>
 #include <vector>
 
 namespace cdf::io::buffers
@@ -65,6 +66,7 @@ struct stream_adapter
     }
 
     void read(char* data, std::size_t offset, std::size_t size) { impl_read(data, offset, size); }
+    bool is_valid() { return stream.is_open(); }
 };
 
 namespace
@@ -118,6 +120,61 @@ struct array_adapter
     }
 
     void read(char* data, std::size_t offset, std::size_t size) { impl_read(data, offset, size); }
+    bool is_valid() { return size != 0; }
 };
+
+#if __has_include(<sys/mman.h>)
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+struct mmap_adapter
+{
+    int fd = -1;
+    char* mapped_file = nullptr;
+    mmap_adapter(const std::string& path)
+    {
+        if (fd = open(path.c_str(), O_RDONLY, static_cast<mode_t>(0600)); fd != -1)
+        {
+            struct stat fileInfo;
+            if (fstat(fd, &fileInfo) != -1 && fileInfo.st_size != 0)
+            {
+                mapped_file = static_cast<char*>(
+                    mmap(nullptr, fileInfo.st_size, PROT_READ, MAP_SHARED, fd, 0UL));
+            }
+        }
+    }
+
+    std::vector<char> read(std::size_t offset, std::size_t size)
+    {
+        std::vector<char> buffer(size);
+        std::copy_n(mapped_file + offset, size, std::begin(buffer));
+        return buffer;
+    }
+
+    template <std::size_t size>
+    std::array<char, size> read(std::size_t offset)
+    {
+        std::array<char, size> buffer;
+        std::copy_n(mapped_file + offset, size, std::begin(buffer));
+        return buffer;
+    }
+
+    void read(char* data, std::size_t offset, std::size_t size)
+    {
+        std::copy_n(mapped_file + offset, size, data);
+    }
+
+    bool is_valid() { return fd != -1 && mapped_file != nullptr; }
+};
+#endif
+
+auto make_file_adapter(const std::string& path)
+{
+#if __has_include(<sys/mman.h>)
+    return mmap_adapter { path };
+#else
+    return stream_adapter { std::fstream { path, std::ios::in | std::ios::binary } };
+#endif
+}
 
 }
