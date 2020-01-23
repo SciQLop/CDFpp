@@ -61,10 +61,10 @@ namespace
     //   https://github.com/qpdf/qpdf/blob/master/libqpdf/Pl_Flate.cc
 
     template <typename in_de, typename zlib_or_gzip_t, typename T, typename U>
-    bool impl_flate(std::vector<U>& input, std::vector<T>& output, int flush,
-        int compression_lvl = Z_BEST_COMPRESSION)
+    bool impl_flate(
+        U& input, std::vector<T>& output, int flush, int compression_lvl = Z_BEST_COMPRESSION)
     {
-        std::size_t input_bytes_cnt = std::size(input) * sizeof(U);
+        std::size_t input_bytes_cnt = std::size(input) * sizeof(typename U::value_type);
         std::size_t output_byte_pos = std::size(output) * sizeof(T);
         constexpr std::size_t chunk_sz = 65536UL;
         char chunk[chunk_sz];
@@ -147,7 +147,7 @@ namespace
 
 
     template <typename in_de, typename zlib_or_gzip_t, typename T, typename U>
-    std::vector<T> flate(std::vector<U>& input, int flush, int compression_lvl = Z_BEST_COMPRESSION)
+    std::vector<T> flate(U& input, int flush, int compression_lvl = Z_BEST_COMPRESSION)
     {
         std::vector<T> result;
         impl_flate<in_de, zlib_or_gzip_t>(input, result, flush, compression_lvl);
@@ -155,8 +155,8 @@ namespace
     }
 
     template <typename in_de, typename zlib_or_gzip_t, typename T, typename U>
-    bool flate(std::vector<U>& input, std::vector<T>& output, int flush,
-        int compression_lvl = Z_BEST_COMPRESSION)
+    bool flate(
+        U& input, std::vector<T>& output, int flush, int compression_lvl = Z_BEST_COMPRESSION)
     {
         return impl_flate<in_de, zlib_or_gzip_t>(input, output, flush, compression_lvl);
     }
@@ -164,50 +164,50 @@ namespace
 
 
 template <typename T, typename U>
-std::vector<T> inflate(std::vector<U>& input)
+std::vector<T> inflate(U& input)
 {
     return flate<in, zlib_t, T>(input, Z_NO_FLUSH);
 }
 
 template <typename T, typename U>
-bool inflate(std::vector<U>& input, std::vector<T>& output)
+bool inflate(U& input, std::vector<T>& output)
 {
     return flate<in, zlib_t>(input, output, Z_NO_FLUSH);
 }
 
 template <typename T>
-std::vector<char> deflate(std::vector<T>& input)
+std::vector<char> deflate(T& input)
 {
     return flate<de, zlib_t, char>(input, Z_FINISH, Z_DEFAULT_COMPRESSION);
 }
 
 template <typename T>
-bool deflate(std::vector<T>& input, std::vector<char>& output)
+bool deflate(T& input, std::vector<char>& output)
 {
     return flate<de, zlib_t>(input, output, Z_FINISH, Z_DEFAULT_COMPRESSION);
 }
 
 template <typename T, typename U>
-std::vector<T> gzinflate(std::vector<U>& input)
+std::vector<T> gzinflate(U& input)
 {
     return flate<in, gzip_t, T>(input, Z_NO_FLUSH);
 }
 
 template <typename T, typename U>
-bool gzinflate(std::vector<U>& input, std::vector<T>& output)
+bool gzinflate(U& input, std::vector<T>& output)
 {
     return flate<in, gzip_t>(input, output, Z_NO_FLUSH);
 }
 
 
 template <typename T>
-std::vector<char> gzdeflate(std::vector<T>& input)
+std::vector<char> gzdeflate(T& input)
 {
     return flate<de, gzip_t, char>(input, Z_FINISH, Z_DEFAULT_COMPRESSION);
 }
 
 template <typename T>
-bool gzdeflate(std::vector<T>& input, std::vector<char>& output)
+bool gzdeflate(T& input, std::vector<char>& output)
 {
     return flate<de, gzip_t, char>(input, output, Z_FINISH, Z_DEFAULT_COMPRESSION);
 }

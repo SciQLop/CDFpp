@@ -151,7 +151,9 @@ struct data_t
     }
 
     data_t(const cdf_values_t& values, CDF_Types type) : p_values { values }, p_type { type } {}
-    data_t(cdf_values_t&& values, CDF_Types type) : p_values { values }, p_type { type } {}
+    data_t(cdf_values_t&& values, CDF_Types type) : p_values { std::move(values) }, p_type { type }
+    {
+    }
 
     CDF_Types type() const { return p_type; }
 

@@ -6,9 +6,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "attribute.hpp"
-#include "cdf-file.hpp"
-#include "cdf-io/cdf-io.hpp"
 
 #define CATCH_CONFIG_MAIN
 #if __has_include(<catch2/catch.hpp>)
@@ -17,6 +14,10 @@
 #include <catch.hpp>
 #endif
 
+
+#include "attribute.hpp"
+#include "cdf-file.hpp"
+#include "cdf-io/cdf-io.hpp"
 
 bool has_attribute(const cdf::CDF& cd, const std::string& name)
 {

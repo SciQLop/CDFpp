@@ -199,5 +199,7 @@ PYBIND11_MODULE(pycdfpp, m)
             "as_array", [](py::object& obj) -> py::array { return make_array(obj); },
             py::return_value_policy::reference_internal);
 
-    m.def("load", [](const char* name) { return io::load(name); });
+    m.def(
+        "load", [](const char* name) { return io::load(name); },
+        py::return_value_policy::reference);
 }

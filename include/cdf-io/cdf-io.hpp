@@ -103,7 +103,8 @@ namespace
                     CPR.load(CCR.CPRoffset.value)
                     && CPR.cType.value == cdf_compression_type::gzip_compression)
                 {
-                    auto data = buffer.read(0, 8);
+                    std::vector<char> data(8UL);
+                    buffer.read(data.data(), 0, 8);
                     zlib::gzinflate(CCR.data.value, data);
                     buffers::array_adapter decompressed_buffer(data);
                     cdf_headers_t<cdf_version_tag_t, decltype(decompressed_buffer)> cdf_headers {

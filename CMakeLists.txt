@@ -99,6 +99,9 @@ if(NOT SKBUILD)
         target_link_libraries(zlib_test PUBLIC CDFpp)
         target_include_directories(zlib_test PRIVATE catch2)
         add_test(test-zlib_test zlib_test)
+
+        add_executable(manual_load tests/manual_load/main.cpp)
+        target_link_libraries(manual_load PUBLIC CDFpp)
     endif()
 endif()
 
