@@ -102,6 +102,11 @@ if(NOT SKBUILD)
 
         add_executable(manual_load tests/manual_load/main.cpp)
         target_link_libraries(manual_load PUBLIC CDFpp)
+        if (with_pybind11)
+            add_executable(test_wrapper_cpp tests/python_wrapper_cpp/main.cpp)
+            target_link_libraries(test_wrapper_cpp PUBLIC CDFpp)
+            target_link_libraries(test_wrapper_cpp PRIVATE pybind11::embed)
+        endif()
     endif()
 endif()
 

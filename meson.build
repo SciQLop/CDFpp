@@ -24,6 +24,7 @@ add_global_arguments('-DDATA_PATH="@0@/tests/resources"'.format(meson.current_so
 
 pybind11_dep = dependency('pybind11', required : true, fallback:['pybind11','pybind11_dep'])
 zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
+python3_dep = dependency('python3')
 
 cdfpp_lib = library('CDFpp',
         include_directories: include_directories('include'),
@@ -83,3 +84,7 @@ test('python_wrapper_test', python3,
     env:['PYTHONPATH='+meson.current_build_dir()],
     workdir:meson.current_build_dir())
 
+python_wrapper_cpp = executable('python_wrapper_cpp','tests/python_wrapper_cpp/main.cpp',
+                dependencies:[cdfpp_dep, pybind11_dep, python3_dep],
+                install: false
+                )
