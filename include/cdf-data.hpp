@@ -73,7 +73,7 @@ auto load_values(const char* buffer, std::size_t buffer_size)
         std::size_t size = buffer_size / sizeof(from_cdf_type_t<type>);
         std::vector<from_cdf_type_t<type>> result(size);
         endianness::decode_v<endianness_t>(
-            buffer, buffer_size * 2, reinterpret_cast<double*>(result.data()));
+            buffer, buffer_size, reinterpret_cast<double*>(result.data()));
         return cdf_values_t { std::move(result) };
     }
     else
