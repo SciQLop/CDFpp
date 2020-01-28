@@ -40,8 +40,9 @@ bool is_v3x(const magic_numbers_t& magic)
 
 bool is_cdf(const magic_numbers_t& magic_numbers) noexcept
 {
-    return (magic_numbers.first & 0xfff00000) == 0xCDF00000
-        && (magic_numbers.second == 0xCCCC0001 || magic_numbers.second == 0x0000FFFF);
+    return (((magic_numbers.first & 0xfff00000) == 0xCDF00000)
+               && (magic_numbers.second == 0xCCCC0001 || magic_numbers.second == 0x0000FFFF))
+        || (magic_numbers.first == 0x0000FFFF && magic_numbers.second == 0x0000FFFF);
 }
 
 template <typename context_t>

@@ -25,6 +25,7 @@
 #include <iostream>
 #include <type_traits>
 #include <vector>
+#define ZLIB_CONST
 #include <zlib.h>
 
 namespace cdf::io::zlib
@@ -94,7 +95,7 @@ namespace
             return {};
 
         fstream.avail_in = input_bytes_cnt;
-        fstream.next_in = reinterpret_cast<Bytef*>(input.data());
+        fstream.next_in = reinterpret_cast<const Bytef*>(input.data());
         bool done = false;
         while (!done)
         {
@@ -107,8 +108,8 @@ namespace
                     return deflate(&fstream, flush);
             }();
             if (fstream.avail_in)
-                fstream.next_in
-                    = reinterpret_cast<Bytef*>(input.data()) + input_bytes_cnt - fstream.avail_in;
+                fstream.next_in = reinterpret_cast<const Bytef*>(input.data()) + input_bytes_cnt
+                    - fstream.avail_in;
             switch (ret)
             {
                 case Z_DATA_ERROR:

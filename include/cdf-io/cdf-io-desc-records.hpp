@@ -459,6 +459,32 @@ protected:
     }
 };
 
+
+template <typename version_t, typename buffer_t>
+struct cdf_CVVR_t : cdf_description_record<buffer_t, cdf_CVVR_t<version_t, buffer_t>>
+{
+    inline static constexpr bool v3 = is_v3_v<version_t>;
+    cdf_DR_header<version_t, cdf_record_type::CVVR> header;
+    field_t<AFTER(header), uint32_t> rfuA;
+    cdf_offset_field_t<version_t, AFTER(rfuA)> cSize;
+    table_field_t<char, cdf_CVVR_t> data { [](const cdf_CVVR_t& cvvr) -> std::size_t {
+                                              return static_cast<std::size_t>(cvvr.cSize.value);
+                                          },
+        [offset = AFTER(cSize)](
+            [[maybe_unused]] const cdf_CVVR_t& cvvr) -> std::size_t { return offset; } };
+
+    using cdf_description_record<buffer_t, cdf_CVVR_t<version_t, buffer_t>>::cdf_description_record;
+    friend cdf_description_record<buffer_t, cdf_CVVR_t<version_t, buffer_t>>;
+
+protected:
+    bool load_from(buffer_t& buffer, std::size_t VVRoffset)
+    {
+        auto res = load_desc_record(buffer, VVRoffset, *this);
+        res &= load_table_field(data, buffer, *this);
+        return res;
+    }
+};
+
 template <typename version_t, typename buffer_t>
 struct cdf_CCR_t : cdf_description_record<buffer_t, cdf_CCR_t<version_t, buffer_t>>
 {
@@ -585,5 +611,4 @@ auto end_VXR(const cdf_VDR_t<version_t, buffer_t>& vdr)
     return common::blk_iterator<cdf_VXR_t<version_t, buffer_t>, buffer_t> { 0, vdr.p_buffer,
         []([[maybe_unused]] const auto& vxr) { return 0; } };
 }
-
 }

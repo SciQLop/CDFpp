@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
 import sys
@@ -23,34 +23,34 @@ class SimpleRequest(unittest.TestCase):
 
     def tearDown(self):
         pass
-#lynx -dump -listonly https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/ | grep http | grep '\.cdf' | awk '{print $2}'
+#lynx -dump -listonly https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/ | grep http | grep '\.cdf' | awk '{print $2}'
     @data(
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/a1_k0_mpa_20050804_v02.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/ac_h2_sis_20101105_v06.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/ac_or_ssc_20031101_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/ac_or_ssc_20040809_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/bigcdf_compressed.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/c1_waveform_wbd_200202080940_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/c1_waveform_wbd_200202080940_v01_subset.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/cl_jp_pgp_20031001_v52.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/cl_sp_edi_00000000_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/cluster-2_cp3drl_2002052000000_v1.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/de_uv_sai_19910218_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/ge_k0_cpi_19921231_v02.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/i1_av_ott_1983351130734_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/im_k0_euv_20011231_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/im_k0_rpi_20051218_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/im_k1_rpi_20051217_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/mms1_fpi_fast_sitl_20150801132440_v0.0.0.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/po_h4_pwi_19970901_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/po_h9_pwi_1997010103_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/po_k0_uvi_20051230_v02.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/tha_l2_fgm_20070729_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/tha_l2_fgm_20101202_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/tha_l2_scm_20160831_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/timed_L1Cdisk_guvi_20060601005849_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/twins1_l1_imager_2010102701_v01.cdf',
-            'https://cdaweb.gsfc.nasa.gov/pub/software/cdf/cdf_test_files/ulysses.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/a1_k0_mpa_20050804_v02.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/ac_h2_sis_20101105_v06.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/ac_or_ssc_20031101_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/ac_or_ssc_20040809_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/bigcdf_compressed.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/c1_waveform_wbd_200202080940_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/c1_waveform_wbd_200202080940_v01_subset.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/cl_jp_pgp_20031001_v52.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/cl_sp_edi_00000000_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/cluster-2_cp3drl_2002052000000_v1.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/de_uv_sai_19910218_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/ge_k0_cpi_19921231_v02.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/i1_av_ott_1983351130734_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/im_k0_euv_20011231_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/im_k0_rpi_20051218_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/im_k1_rpi_20051217_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/mms1_fpi_fast_sitl_20150801132440_v0.0.0.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/po_h4_pwi_19970901_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/po_h9_pwi_1997010103_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/po_k0_uvi_20051230_v02.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/tha_l2_fgm_20070729_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/tha_l2_fgm_20101202_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/tha_l2_scm_20160831_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/timed_L1Cdisk_guvi_20060601005849_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/twins1_l1_imager_2010102701_v01.cdf',
+            'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/ulysses.cdf',
             #manually added files 
             "https://cdaweb.gsfc.nasa.gov/pub/data/mms/mms1/fpi/brst/l2/des-moms/2018/01/mms1_fpi_brst_l2_des-moms_20180101005543_v3.3.0.cdf",
             "https://cdaweb.gsfc.nasa.gov/pub/data/mms/mms1/fpi/brst/l2/dis-qmoms/2017/07/mms1_fpi_brst_l2_dis-qmoms_20170703052703_v3.3.0.cdf",
