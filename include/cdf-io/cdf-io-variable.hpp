@@ -55,7 +55,17 @@ namespace
         }
         else
         {
-            return context.gdr.rDimSizes.value;
+            if (std::size(vdr.DimVarys.value) == 0)
+                return { 1 };
+            std::vector<uint32_t> shape;
+            std::copy_if(std::cbegin(context.gdr.rDimSizes.value),
+                std::cend(context.gdr.rDimSizes.value), std::back_inserter(shape),
+                [DimVarys = vdr.DimVarys.value.begin()]([[maybe_unused]] const auto& v) mutable {
+                    bool vary = *DimVarys != 0;
+                    DimVarys++;
+                    return vary;
+                });
+            return shape;
         }
     }
 
@@ -86,9 +96,9 @@ namespace
         }
     }
 
-    template <typename cdf_version_tag_t, typename stream_t>
+    template <cdf_r_z rz_, typename cdf_version_tag_t, typename stream_t>
     std::vector<char> load_uncompressed_data(stream_t& stream,
-        const cdf_VDR_t<cdf_version_tag_t, stream_t>& vdr, uint32_t record_size,
+        const cdf_VDR_t<rz_, cdf_version_tag_t, stream_t>& vdr, uint32_t record_size,
         uint32_t record_count)
     {
         std::vector<char> data(record_size * record_count);
@@ -107,9 +117,9 @@ namespace
         return data;
     }
 
-    template <typename cdf_version_tag_t, typename buffer_t>
+    template <cdf_r_z rz_, typename cdf_version_tag_t, typename buffer_t>
     std::vector<char> load_compressed_data(buffer_t& buffer,
-        const cdf_VDR_t<cdf_version_tag_t, buffer_t>& vdr, uint32_t record_size,
+        const cdf_VDR_t<rz_, cdf_version_tag_t, buffer_t>& vdr, uint32_t record_size,
         uint32_t record_count)
     {
         std::vector<char> data(record_size * record_count);
@@ -152,7 +162,7 @@ namespace
     bool load_all_Vars(stream_t& stream, context_t& context, common::cdf_repr& cdf)
     {
         std::for_each(begin_VDR<type>(context.gdr), end_VDR<type>(context.gdr),
-            [&](const cdf_VDR_t<cdf_version_tag_t, stream_t>& vdr) {
+            [&](const cdf_VDR_t<type, cdf_version_tag_t, stream_t>& vdr) {
                 if (vdr.is_loaded)
                 {
                     auto shape = get_variable_dimensions<type>(vdr, stream, context);

@@ -63,7 +63,7 @@ void load_values(buffer_t& buffer, std::size_t offset, container_t& output)
     endianness::decode_v<src_endianess_t>(data.data(), std::size(data), output.data());
 }
 
-template <typename value_t, typename stream_t>
+template <typename value_t, typename stream_t, typename... Args>
 struct blk_iterator
 {
     using iterator_category = std::forward_iterator_tag;
@@ -72,16 +72,23 @@ struct blk_iterator
     using pointer = void;
     using reference = value_type&;
 
+
     std::size_t offset;
     value_t block;
     stream_t& stream;
     std::function<std::size_t(value_t&)> next;
+    std::tuple<Args...> load_opt_args;
 
-    blk_iterator(std::size_t offset, stream_t& stream, std::function<std::size_t(value_t&)>&& next)
-            : offset { offset }, block { stream }, stream { stream }, next { std::move(next) }
+    blk_iterator(std::size_t offset, stream_t& stream, std::function<std::size_t(value_t&)>&& next,
+        Args... args)
+            : offset { offset }
+            , block { stream }
+            , stream { stream }
+            , next { std::move(next) }
+            , load_opt_args { args... }
     {
         if (offset != 0)
-            block.load(offset);
+            block.load(offset, args...);
     }
 
     auto operator==(const blk_iterator& other) { return other.offset == offset; }
@@ -112,6 +119,12 @@ struct blk_iterator
         return *this;
     }
 
+    template <size_t... Is>
+    int wrapper_load(std::size_t offset, std::index_sequence<Is...>)
+    {
+        return block.load(offset, std::get<Is>(load_opt_args)...);
+    }
+
     void step_forward(int n = 1)
     {
         while (n > 0)
@@ -120,7 +133,7 @@ struct blk_iterator
             offset = next(block);
             if (offset != 0)
             {
-                block.load(offset);
+                wrapper_load(offset, std::make_index_sequence<sizeof...(Args)> {});
             }
         }
     }

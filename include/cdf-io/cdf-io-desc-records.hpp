@@ -152,10 +152,12 @@ struct cdf_description_record
     buffer_t& p_buffer;
     std::size_t offset = 0;
 
-    bool load(std::size_t offset = 0)
+    template <typename... Args>
+    bool load(std::size_t offset, Args... opt_args)
     {
         this->offset = offset;
-        is_loaded = static_cast<derived_t*>(this)->load_from(p_buffer, offset);
+        is_loaded = static_cast<derived_t*>(this)->load_from(
+            p_buffer, offset, std::forward<Args>(opt_args)...);
         return is_loaded;
     }
 
@@ -375,9 +377,22 @@ protected:
     }
 };
 
-template <typename version_t, typename buffer_t>
-struct cdf_VDR_t : cdf_description_record<buffer_t, cdf_VDR_t<version_t, buffer_t>>
+template <cdf_r_z>
+struct cdf_rzVDR_t
 {
+};
+
+template <>
+struct cdf_rzVDR_t<cdf_r_z::r>
+{
+    uint32_t rNumDims;
+};
+
+template <cdf_r_z rz_, typename version_t, typename buffer_t>
+struct cdf_VDR_t : cdf_description_record<buffer_t, cdf_VDR_t<rz_, version_t, buffer_t>>,
+                   cdf_rzVDR_t<rz_>
+{
+    static constexpr cdf_r_z rz = rz_;
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::rVDR, cdf_record_type::zVDR> header;
     cdf_offset_field_t<version_t, AFTER(header)> VDRnext;
@@ -396,19 +411,67 @@ struct cdf_VDR_t : cdf_description_record<buffer_t, cdf_VDR_t<version_t, buffer_
     field_t<AFTER(CPRorSPRoffset), uint32_t> BlockingFactor;
     cdf_string_field_t<version_t, AFTER(BlockingFactor), 256, 64> Name;
     field_t<AFTER(Name), uint32_t> zNumDims;
-    field_t<AFTER(zNumDims), uint32_t> zDimSizes;
-    field_t<AFTER(zDimSizes), uint32_t> DimVarys;
-    field_t<AFTER(DimVarys), uint32_t> PadValues;
+    table_field_t<uint32_t, cdf_VDR_t> zDimSizes = { [](auto& vdr) {
+                                                        if constexpr (vdr.rz == cdf_r_z::z)
+                                                            return vdr.zNumDims;
+                                                        else
+                                                        {
+                                                            return 0;
+                                                        }
+                                                    },
+        [zoffset = AFTER(zNumDims), roffset = AFTER(Name)]([[maybe_unused]] auto& vdr) {
+            if constexpr (vdr.rz == cdf_r_z::z)
+                return zoffset;
+            else
+                return roffset;
+        } };
+    table_field_t<uint32_t, cdf_VDR_t> DimVarys = { [](auto& vdr) {
+                                                       if constexpr (vdr.rz == cdf_r_z::z)
+                                                           return vdr.zNumDims;
+                                                       else
+                                                       {
+                                                           return vdr.rNumDims;
+                                                       }
+                                                   },
+        [](auto& vdr) { return vdr.zDimSizes.offset(vdr) + (vdr.zDimSizes.size(vdr) * 4); } };
+    table_field_t<uint32_t, cdf_VDR_t> PadValues = { [](auto& vdr) {
+                                                        if ((vdr.Flags.value & 2) == 0)
+                                                            return 0;
+                                                        else
+                                                            return 0;
+                                                    },
+        [](auto& vdr) { return vdr.DimVarys.offset(vdr) + (vdr.DimVarys.size(vdr) * 4); } };
 
-    using cdf_description_record<buffer_t, cdf_VDR_t<version_t, buffer_t>>::cdf_description_record;
-    friend cdf_description_record<buffer_t, cdf_VDR_t<version_t, buffer_t>>;
+    using cdf_description_record<buffer_t,
+        cdf_VDR_t<rz_, version_t, buffer_t>>::cdf_description_record;
+    friend cdf_description_record<buffer_t, cdf_VDR_t<rz_, version_t, buffer_t>>;
 
 protected:
-    bool load_from(buffer_t& buffer, std::size_t VDRoffset)
+    bool impl_load_from(
+        buffer_t& buffer, std::size_t VDRoffset, [[maybe_unused]] uint32_t rNumDims = 0)
     {
-        return load_desc_record(buffer, VDRoffset, *this, VDRnext, DataType, MaxRec, VXRhead,
-            VXRtail, Flags, SRecords, NumElems, Num, CPRorSPRoffset, BlockingFactor, Name, zNumDims,
-            zDimSizes, DimVarys);
+        if constexpr (rz_ == cdf_r_z::r)
+            this->rNumDims = rNumDims;
+        auto res = load_desc_record(buffer, VDRoffset, *this, VDRnext, DataType, MaxRec, VXRhead,
+            VXRtail, Flags, SRecords, NumElems, Num, CPRorSPRoffset, BlockingFactor, Name,
+            zNumDims);
+        res &= load_table_field(zDimSizes, buffer, *this);
+        res &= load_table_field(DimVarys, buffer, *this);
+        res &= load_table_field(PadValues, buffer, *this);
+        return res;
+    }
+
+    template <typename Dummy = bool>
+    auto load_from(buffer_t& buffer, std::size_t VDRoffset, uint32_t rNumDims)
+        -> std::enable_if_t<rz_ == cdf_r_z::r, Dummy>
+    {
+        return impl_load_from(buffer, VDRoffset, rNumDims);
+    }
+    template <typename Dummy = bool>
+    auto load_from(buffer_t& buffer, std::size_t VDRoffset)
+        -> std::enable_if_t<rz_ == cdf_r_z::z, Dummy>
+    {
+        return impl_load_from(buffer, VDRoffset);
     }
 };
 
@@ -577,11 +640,13 @@ auto end_AEDR(const cdf_ADR_t<version_t, buffer_t>& adr)
 template <cdf_r_z type, typename version_t, typename buffer_t>
 auto begin_VDR(const cdf_GDR_t<version_t, buffer_t>& gdr)
 {
-    using vdr_t = cdf_VDR_t<version_t, buffer_t>;
+    using vdr_t = cdf_VDR_t<type, version_t, buffer_t>;
     if constexpr (type == cdf_r_z::r)
     {
-        return common::blk_iterator<vdr_t, buffer_t> { gdr.rVDRhead.value, gdr.p_buffer,
-            [](const vdr_t& vdr) { return vdr.VDRnext.value; } };
+        return common::blk_iterator<vdr_t, buffer_t, decltype(gdr.rNumDims.value)> {
+            gdr.rVDRhead.value, gdr.p_buffer, [](const vdr_t& vdr) { return vdr.VDRnext.value; },
+            gdr.rNumDims.value
+        };
     }
     else if constexpr (type == cdf_r_z::z)
     {
@@ -593,20 +658,29 @@ auto begin_VDR(const cdf_GDR_t<version_t, buffer_t>& gdr)
 template <cdf_r_z type, typename version_t, typename buffer_t>
 auto end_VDR(const cdf_GDR_t<version_t, buffer_t>& gdr)
 {
-    return common::blk_iterator<cdf_VDR_t<version_t, buffer_t>, buffer_t> { 0, gdr.p_buffer,
-        []([[maybe_unused]] const auto& vdr) { return 0; } };
+    using vdr_t = cdf_VDR_t<type, version_t, buffer_t>;
+    if constexpr (type == cdf_r_z::r)
+    {
+        return common::blk_iterator<vdr_t, buffer_t, decltype(gdr.rNumDims.value)> { 0,
+            gdr.p_buffer, []([[maybe_unused]] const auto& vdr) { return 0; }, gdr.rNumDims.value };
+    }
+    else if constexpr (type == cdf_r_z::z)
+    {
+        return common::blk_iterator<vdr_t, buffer_t> { 0, gdr.p_buffer,
+            []([[maybe_unused]] const auto& vdr) { return 0; } };
+    }
 }
 
-template <typename version_t, typename buffer_t>
-auto begin_VXR(const cdf_VDR_t<version_t, buffer_t>& vdr)
+template <cdf_r_z rz_, typename version_t, typename buffer_t>
+auto begin_VXR(const cdf_VDR_t<rz_, version_t, buffer_t>& vdr)
 {
     using vxr_t = cdf_VXR_t<version_t, buffer_t>;
     return common::blk_iterator<vxr_t, buffer_t> { vdr.VXRhead.value, vdr.p_buffer,
         [](const vxr_t& vxr) { return vxr.VXRnext.value; } };
 }
 
-template <typename version_t, typename buffer_t>
-auto end_VXR(const cdf_VDR_t<version_t, buffer_t>& vdr)
+template <cdf_r_z rz_, typename version_t, typename buffer_t>
+auto end_VXR(const cdf_VDR_t<rz_, version_t, buffer_t>& vdr)
 {
     return common::blk_iterator<cdf_VXR_t<version_t, buffer_t>, buffer_t> { 0, vdr.p_buffer,
         []([[maybe_unused]] const auto& vxr) { return 0; } };
