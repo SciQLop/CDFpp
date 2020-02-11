@@ -133,18 +133,25 @@ namespace
                         [&pos, &buffer, &record_size, &data](
                             const cdf_CVVR_t<cdf_version_tag_t, buffer_t>& cvvr,
                             std::size_t record_count) mutable {
-                            std::vector<char> vvr_data;
-                            zlib::gzinflate(cvvr.data.value, vvr_data);
-                            buffers::array_adapter decompressed_buffer(vvr_data);
-                            if (cdf_VVR_t<cdf_version_tag_t, decltype(decompressed_buffer)> vvr {
-                                    decompressed_buffer };
-                                vvr.load(0))
+                            if (std::size(cvvr.data.value))
                             {
-                                decompressed_buffer.read(data.data() + pos,
-                                    vvr.offset + AFTER(vvr.header),
-                                    std::min(static_cast<std::size_t>(record_size * record_count),
-                                        std::size(data) - pos));
-                                pos += static_cast<std::size_t>(record_size * record_count);
+                                auto decompressed_buffer = [&]() {
+                                    std::vector<char> vvr_data;
+                                    zlib::gzinflate(cvvr.data.value, vvr_data);
+                                    return buffers::owning_array_adapter<decltype(vvr_data)>(
+                                        std::move(vvr_data));
+                                }();
+                                if (cdf_VVR_t<cdf_version_tag_t, decltype(decompressed_buffer)>
+                                        vvr { decompressed_buffer };
+                                    vvr.load(0))
+                                {
+                                    decompressed_buffer.read(data.data() + pos,
+                                        vvr.offset + AFTER(vvr.header),
+                                        std::min(
+                                            static_cast<std::size_t>(record_size * record_count),
+                                            std::size(data) - pos));
+                                    pos += static_cast<std::size_t>(record_size * record_count);
+                                }
                             }
                         });
                 });
@@ -173,11 +180,13 @@ namespace
                         if (vdr.CPRorSPRoffset.value
                             == static_cast<decltype(vdr.CPRorSPRoffset.value)>(-1))
                         {
-                            return load_uncompressed_data(stream, vdr, record_size, record_count);
+                            if (!common::is_nrv(vdr))
+                                return load_uncompressed_data(
+                                    stream, vdr, record_size, record_count);
                         }
                         else
                         {
-                            if (vdr.Flags.value == 4)
+                            if (common::is_compressed(vdr) and !common::is_nrv(vdr))
                                 return load_compressed_data(stream, vdr, record_size, record_count);
                         }
                         return std::vector<char> {};

@@ -66,7 +66,8 @@ py::buffer_info impl_make_buffer(cdf::Variable& var)
 {
     return py::buffer_info(var.get<U>().data(), /* Pointer to buffer */
         sizeof(T), /* Size of one scalar */
-        py::format_descriptor<T>::format(), std::size(var.shape()), /* Number of dimensions */
+        py::format_descriptor<T>::format(),
+        static_cast<ssize_t>(std::size(var.shape())), /* Number of dimensions */
         shape_ssize_t(var), strides<T>(var));
 }
 
@@ -133,6 +134,15 @@ py::array make_array(py::object& obj)
 PYBIND11_MODULE(pycdfpp, m)
 {
     m.doc() = "pycdfpp module";
+
+    PYBIND11_NUMPY_DTYPE(tt2000_t, value);
+    PYBIND11_NUMPY_DTYPE(epoch, value);
+    PYBIND11_NUMPY_DTYPE(epoch16, first, second);
+
+    py::class_<tt2000_t>(m, "tt2000");
+    py::class_<epoch>(m, "epoch");
+    py::class_<epoch16>(m, "epoch16");
+
     py::enum_<CDF_Types>(m, "CDF_Types")
         .value("CDF_BYTE", CDF_Types::CDF_BYTE)
         .value("CDF_CHAR", CDF_Types::CDF_CHAR)

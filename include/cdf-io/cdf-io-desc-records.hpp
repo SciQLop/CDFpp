@@ -303,8 +303,10 @@ struct cdf_GDR_t : cdf_description_record<buffer_t, cdf_GDR_t<version_t, buffer_
     unused_field_t<AFTER(UIRhead), uint32_t> rfuC;
     field_t<AFTER(rfuC), uint32_t> LeapSecondLastUpdated;
     unused_field_t<AFTER(LeapSecondLastUpdated), uint32_t> rfuE;
-    table_field_t<uint32_t, cdf_GDR_t> rDimSizes = { [](auto& gdr) { return gdr.rNumDims; },
-        [offset = AFTER(rfuE)]([[maybe_unused]] auto& gdr) { return offset; } };
+    table_field_t<uint32_t, cdf_GDR_t> rDimSizes { [](auto& gdr) -> std::size_t {
+                                                      return gdr.rNumDims.value;
+                                                  },
+        [offset = AFTER(rfuE)]([[maybe_unused]] auto& gdr) -> std::size_t { return offset; } };
 
     using cdf_description_record<buffer_t, cdf_GDR_t<version_t, buffer_t>>::cdf_description_record;
 
@@ -313,10 +315,9 @@ struct cdf_GDR_t : cdf_description_record<buffer_t, cdf_GDR_t<version_t, buffer_
 protected:
     bool load_from(buffer_t& buffer, std::size_t GDRoffset)
     {
-        auto res = load_desc_record(buffer, GDRoffset, *this, rVDRhead, zVDRhead, ADRhead, eof,
-            NrVars, NumAttr, rMaxRec, rNumDims, NzVars, UIRhead, LeapSecondLastUpdated);
-        res &= load_table_field(rDimSizes, buffer, *this);
-        return res;
+        return load_desc_record(buffer, GDRoffset, *this, rVDRhead, zVDRhead, ADRhead, eof, NrVars,
+                   NumAttr, rMaxRec, rNumDims, NzVars, UIRhead, LeapSecondLastUpdated)
+            && load_table_field(rDimSizes, buffer, *this);
     }
 };
 
@@ -411,36 +412,41 @@ struct cdf_VDR_t : cdf_description_record<buffer_t, cdf_VDR_t<rz_, version_t, bu
     field_t<AFTER(CPRorSPRoffset), uint32_t> BlockingFactor;
     cdf_string_field_t<version_t, AFTER(BlockingFactor), 256, 64> Name;
     field_t<AFTER(Name), uint32_t> zNumDims;
-    table_field_t<uint32_t, cdf_VDR_t> zDimSizes = { [](auto& vdr) {
-                                                        if constexpr (vdr.rz == cdf_r_z::z)
-                                                            return vdr.zNumDims;
-                                                        else
-                                                        {
-                                                            return 0;
-                                                        }
-                                                    },
-        [zoffset = AFTER(zNumDims), roffset = AFTER(Name)]([[maybe_unused]] auto& vdr) {
-            if constexpr (vdr.rz == cdf_r_z::z)
+    table_field_t<uint32_t, cdf_VDR_t> zDimSizes { [](auto& vdr) -> std::size_t {
+                                                      if constexpr (rz_ == cdf_r_z::z)
+                                                          return vdr.zNumDims.value;
+                                                      else
+                                                      {
+                                                          return 0;
+                                                      }
+                                                  },
+        [zoffset = AFTER(zNumDims), roffset = AFTER(Name)](
+            [[maybe_unused]] auto& vdr) -> std::size_t {
+            if constexpr (rz_ == cdf_r_z::z)
                 return zoffset;
             else
                 return roffset;
         } };
-    table_field_t<uint32_t, cdf_VDR_t> DimVarys = { [](auto& vdr) {
-                                                       if constexpr (vdr.rz == cdf_r_z::z)
-                                                           return vdr.zNumDims;
-                                                       else
-                                                       {
-                                                           return vdr.rNumDims;
-                                                       }
-                                                   },
-        [](auto& vdr) { return vdr.zDimSizes.offset(vdr) + (vdr.zDimSizes.size(vdr) * 4); } };
-    table_field_t<uint32_t, cdf_VDR_t> PadValues = { [](auto& vdr) {
-                                                        if ((vdr.Flags.value & 2) == 0)
-                                                            return 0;
-                                                        else
-                                                            return 0;
-                                                    },
-        [](auto& vdr) { return vdr.DimVarys.offset(vdr) + (vdr.DimVarys.size(vdr) * 4); } };
+    table_field_t<uint32_t, cdf_VDR_t> DimVarys { [](auto& vdr) -> std::size_t {
+                                                     if constexpr (rz_ == cdf_r_z::z)
+                                                         return vdr.zNumDims.value;
+                                                     else
+                                                     {
+                                                         return vdr.rNumDims;
+                                                     }
+                                                 },
+        [](auto& vdr) -> std::size_t {
+            return vdr.zDimSizes.offset(vdr) + (vdr.zDimSizes.size(vdr) * 4);
+        } };
+    table_field_t<uint32_t, cdf_VDR_t> PadValues { [](auto& vdr) -> std::size_t {
+                                                      if ((vdr.Flags.value & 2) == 0)
+                                                          return 0;
+                                                      else
+                                                          return 0;
+                                                  },
+        [](auto& vdr) -> std::size_t {
+            return vdr.DimVarys.offset(vdr) + (vdr.DimVarys.size(vdr) * 4);
+        } };
 
     using cdf_description_record<buffer_t,
         cdf_VDR_t<rz_, version_t, buffer_t>>::cdf_description_record;
@@ -452,13 +458,12 @@ protected:
     {
         if constexpr (rz_ == cdf_r_z::r)
             this->rNumDims = rNumDims;
-        auto res = load_desc_record(buffer, VDRoffset, *this, VDRnext, DataType, MaxRec, VXRhead,
-            VXRtail, Flags, SRecords, NumElems, Num, CPRorSPRoffset, BlockingFactor, Name,
-            zNumDims);
-        res &= load_table_field(zDimSizes, buffer, *this);
-        res &= load_table_field(DimVarys, buffer, *this);
-        res &= load_table_field(PadValues, buffer, *this);
-        return res;
+        return load_desc_record(buffer, VDRoffset, *this, VDRnext, DataType, MaxRec, VXRhead,
+                   VXRtail, Flags, SRecords, NumElems, Num, CPRorSPRoffset, BlockingFactor, Name,
+                   zNumDims)
+            && load_table_field(zDimSizes, buffer, *this)
+            && load_table_field(DimVarys, buffer, *this)
+            && load_table_field(PadValues, buffer, *this);
     }
 
     template <typename Dummy = bool>
@@ -483,13 +488,19 @@ struct cdf_VXR_t : cdf_description_record<buffer_t, cdf_VXR_t<version_t, buffer_
     cdf_offset_field_t<version_t, AFTER(header)> VXRnext;
     field_t<AFTER(VXRnext), uint32_t> Nentries;
     field_t<AFTER(Nentries), uint32_t> NusedEntries;
-    table_field_t<uint32_t, cdf_VXR_t> First = { [](auto& vxr) { return vxr.NusedEntries; },
-        [offset = AFTER(NusedEntries)]([[maybe_unused]] auto& vxr) { return offset; } };
-    table_field_t<uint32_t, cdf_VXR_t> Last = { [](auto& vxr) { return vxr.NusedEntries; },
-        [offset = AFTER(NusedEntries)](auto& vxr) { return offset + (vxr.Nentries.value * 4); } };
-    table_field_t<std::conditional_t<is_v3_v<version_t>, uint64_t, uint32_t>, cdf_VXR_t> Offset = {
-        [](auto& vxr) { return vxr.NusedEntries; },
-        [offset = AFTER(NusedEntries)](auto& vxr) { return offset + (vxr.Nentries.value * 4 * 2); }
+    table_field_t<uint32_t, cdf_VXR_t> First {
+        [](auto& vxr) -> std::size_t { return vxr.NusedEntries.value; },
+        [offset = AFTER(NusedEntries)]([[maybe_unused]] auto& vxr) -> std::size_t { return offset; }
+    };
+    table_field_t<uint32_t, cdf_VXR_t> Last { [](auto& vxr) -> std::size_t {
+                                                 return vxr.NusedEntries.value;
+                                             },
+        [offset = AFTER(NusedEntries)](
+            auto& vxr) -> std::size_t { return offset + (vxr.Nentries.value * 4); } };
+    table_field_t<std::conditional_t<is_v3_v<version_t>, uint64_t, uint32_t>, cdf_VXR_t> Offset {
+        [](auto& vxr) -> std::size_t { return vxr.NusedEntries.value; },
+        [offset = AFTER(NusedEntries)](
+            auto& vxr) -> std::size_t { return offset + (vxr.Nentries.value * 4 * 2); }
     };
 
     using cdf_description_record<buffer_t, cdf_VXR_t<version_t, buffer_t>>::cdf_description_record;
@@ -498,11 +509,9 @@ struct cdf_VXR_t : cdf_description_record<buffer_t, cdf_VXR_t<version_t, buffer_
 protected:
     bool load_from(buffer_t& buffer, std::size_t VXRoffset)
     {
-        auto res = load_desc_record(buffer, VXRoffset, *this, VXRnext, Nentries, NusedEntries);
-        res &= load_table_field(First, buffer, *this);
-        res &= load_table_field(Last, buffer, *this);
-        res &= load_table_field(Offset, buffer, *this);
-        return res;
+        return load_desc_record(buffer, VXRoffset, *this, VXRnext, Nentries, NusedEntries)
+            && load_table_field(First, buffer, *this) && load_table_field(Last, buffer, *this)
+            && load_table_field(Offset, buffer, *this);
     }
 };
 
@@ -542,9 +551,7 @@ struct cdf_CVVR_t : cdf_description_record<buffer_t, cdf_CVVR_t<version_t, buffe
 protected:
     bool load_from(buffer_t& buffer, std::size_t VVRoffset)
     {
-        auto res = load_desc_record(buffer, VVRoffset, *this);
-        res &= load_table_field(data, buffer, *this);
-        return res;
+        return load_desc_record(buffer, VVRoffset, *this) && load_table_field(data, buffer, *this);
     }
 };
 
@@ -570,9 +577,8 @@ struct cdf_CCR_t : cdf_description_record<buffer_t, cdf_CCR_t<version_t, buffer_
 protected:
     bool load_from(buffer_t& buffer, std::size_t CCRoffset)
     {
-        auto res = load_desc_record(buffer, CCRoffset, *this, CPRoffset, uSize);
-        res &= load_table_field(data, buffer, *this);
-        return res;
+        return load_desc_record(buffer, CCRoffset, *this, CPRoffset, uSize)
+            && load_table_field(data, buffer, *this);
     }
 };
 
@@ -584,9 +590,10 @@ struct cdf_CPR_t : cdf_description_record<buffer_t, cdf_CPR_t<version_t, buffer_
     field_t<AFTER(header), cdf_compression_type> cType;
     field_t<AFTER(cType), uint32_t> rfuA;
     field_t<AFTER(rfuA), uint32_t> pCount;
-    table_field_t<uint32_t, cdf_CPR_t> cParms
-        = { [offset = AFTER(pCount)](auto& cpr) { return cpr.pCount.value; },
-              [offset = AFTER(pCount)]([[maybe_unused]] auto& cpr) { return offset; } };
+    table_field_t<uint32_t, cdf_CPR_t> cParms { [offset = AFTER(pCount)](auto& cpr) -> std::size_t {
+                                                   return cpr.pCount.value;
+                                               },
+        [offset = AFTER(pCount)]([[maybe_unused]] auto& cpr) -> std::size_t { return offset; } };
 
     using cdf_description_record<buffer_t, cdf_CPR_t<version_t, buffer_t>>::cdf_description_record;
     friend cdf_description_record<buffer_t, cdf_CPR_t<version_t, buffer_t>>;

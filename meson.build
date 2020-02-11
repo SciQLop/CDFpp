@@ -21,6 +21,11 @@ configure_file(input : 'config.h.in',
                configuration : conf_data)
 
 add_global_arguments('-DDATA_PATH="@0@/tests/resources"'.format(meson.current_source_dir()), language : 'cpp')
+cpp = meson.get_compiler('cpp')
+if('clang'==cpp.get_id())
+    add_global_arguments('-fsized-deallocation', language : 'cpp')
+endif
+
 
 pybind11_dep = dependency('pybind11', required : true, fallback:['pybind11','pybind11_dep'])
 zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
@@ -86,5 +91,10 @@ test('python_wrapper_test', python3,
 
 python_wrapper_cpp = executable('python_wrapper_cpp','tests/python_wrapper_cpp/main.cpp',
                 dependencies:[cdfpp_dep, pybind11_dep, python3_dep],
+                install: false
+                )
+
+manual_load = executable('manual_load','tests/manual_load/main.cpp',
+                dependencies:[cdfpp_dep],
                 install: false
                 )

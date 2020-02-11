@@ -175,17 +175,44 @@ namespace
 }
 
 template <typename array_t>
-struct array_adapter
+struct with_ownership
+{
+    array_t array;
+    with_ownership(array_t&& array) : array { std::move(array) } {}
+};
+template <typename array_t>
+struct without_ownership
 {
     const array_t& array;
+    without_ownership(const array_t& array) : array { array } {}
+};
+
+template <typename array_t, bool takes_ownership = false>
+struct array_adapter
+        : std::conditional_t<takes_ownership, with_ownership<array_t>, without_ownership<array_t>>
+{
     const std::size_t size;
-    array_adapter(const array_t& array) : array { array }, size { std::size(array) } {}
-    array_adapter(const array_t& array, std::size_t size) : array { array }, size { size } {}
+    template <bool owns = takes_ownership>
+    array_adapter(const array_t& array, typename std::enable_if<!owns>::type* = 0)
+            : without_ownership<array_t> { array }, size { std::size(array) }
+    {
+    }
+    template <bool owns = takes_ownership>
+    array_adapter(const array_t& array, std::size_t size, typename std::enable_if<!owns>::type* = 0)
+            : without_ownership<array_t> { array }, size { size }
+    {
+    }
+
+    template <bool owns = takes_ownership>
+    array_adapter(array_t&& array, typename std::enable_if<owns>::type* = 0)
+            : with_ownership<array_t> { std::move(array) }, size { std::size(this->array) }
+    {
+    }
 
     template <typename T>
     void impl_read(T& output_array, std::size_t offset, std::size_t size)
     {
-        std::copy_n(begin(array) + offset, size, begin(output_array));
+        std::copy_n(begin(this->array) + offset, size, begin(output_array));
     }
 
     std::vector<char> read(std::size_t offset, std::size_t size)
@@ -206,6 +233,9 @@ struct array_adapter
     void read(char* data, std::size_t offset, std::size_t size) { impl_read(data, offset, size); }
     bool is_valid() { return size != 0; }
 };
+
+template <typename array_t>
+using owning_array_adapter = array_adapter<array_t, true>;
 
 #if __has_include(<sys/mman.h>)
 #include <fcntl.h>

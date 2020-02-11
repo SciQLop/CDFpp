@@ -8,6 +8,13 @@ import pycdfpp
 import tempfile
 from urllib.request import urlopen
 
+has_pycdf = True
+try:
+    from spacepy import pycdf
+except ImportError:
+    has_pycdf = False
+
+
 def dl_data(url:str):
     with tempfile.NamedTemporaryFile(delete=False) as f:
         with urlopen(url) as remote_file:
@@ -52,14 +59,14 @@ class SimpleRequest(unittest.TestCase):
             'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/twins1_l1_imager_2010102701_v01.cdf',
             'https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/ulysses.cdf',
             #manually added files 
-            "https://cdaweb.gsfc.nasa.gov/pub/data/mms/mms1/fpi/brst/l2/des-moms/2018/01/mms1_fpi_brst_l2_des-moms_20180101005543_v3.3.0.cdf",
-            "https://cdaweb.gsfc.nasa.gov/pub/data/mms/mms1/fpi/brst/l2/dis-qmoms/2017/07/mms1_fpi_brst_l2_dis-qmoms_20170703052703_v3.3.0.cdf",
-            "https://cdaweb.gsfc.nasa.gov/pub/data/mms/mms1/scm/srvy/l2/scsrvy/2019/03/mms1_scm_srvy_l2_scsrvy_20190301_v2.2.0.cdf",
-            "https://cdaweb.gsfc.nasa.gov/pub/data/cluster/c1/cp/2008/c1_cp_fgm_spin_20080101_v01.cdf",
-            "https://cdaweb.gsfc.nasa.gov/pub/data/cluster/c1/jp/pmp/2008/c1_jp_pmp_20081001_v32.cdf",
-            "https://cdaweb.gsfc.nasa.gov/pub/data/cluster/c1/jp/pse/2009/c1_jp_pse_20090101_v28.cdf",
-            "https://cdaweb.gsfc.nasa.gov/pub/data/cluster/c1/pp/cis/2008/c1_pp_cis_20080101_v01.cdf",
-            "https://cdaweb.gsfc.nasa.gov/pub/data/cluster/c1/pp/dwp/2010/c1_pp_dwp_20100111_v01.cdf",
+            "https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/mms1_fpi_brst_l2_des-moms_20180101005543_v3.3.0.cdf",
+            "https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/mms1_fpi_brst_l2_dis-qmoms_20170703052703_v3.3.0.cdf",
+            "https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/mms1_scm_srvy_l2_scsrvy_20190301_v2.2.0.cdf",
+            "https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/c1_cp_fgm_spin_20080101_v01.cdf",
+            "https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/c1_jp_pmp_20081001_v32.cdf",
+            "https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/c1_jp_pse_20090101_v28.cdf",
+            "https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/c1_pp_cis_20080101_v01.cdf",
+            "https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/c1_pp_dwp_20100111_v01.cdf",
             )
     def test_open(self, url):
         print(f"downloading {url}")
@@ -69,9 +76,20 @@ class SimpleRequest(unittest.TestCase):
                 print(f"loading {file.name}")
                 cdf = pycdfpp.load(file.name)
                 self.assertIsNotNone(cdf)
+                if cdf is not None and has_pycdf:
+                    ref_cdf = pycdf.CDF(file.name)
+                    self.assertEqual(len(cdf), len(ref_cdf))
+                    self.assertEqual(len(cdf.attributes), len(ref_cdf.attrs))
+                    for name, attr in cdf.attributes.items():
+                        self.assertIn(name, ref_cdf.attrs)
+                        ref_attr = ref_cdf.attrs[name]
+                        for val, ref_val in zip(attr, ref_attr):
+                            self.assertEqual(val, ref_val)
+
             except:
                 self.fail(sys.exc_info()[0])
             os.unlink(file.name)
+
 
 if __name__ == '__main__':
     unittest.main()

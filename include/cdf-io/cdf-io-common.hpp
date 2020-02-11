@@ -51,9 +51,22 @@ bool is_cdf(const context_t& context) noexcept
     return is_cdf(context.magic);
 }
 
-bool is_compressed(const magic_numbers_t& magic_numbers) noexcept
+template <typename T>
+auto is_compressed(const T& magic_numbers) noexcept -> decltype(magic_numbers.second, true)
 {
     return magic_numbers.second == 0xCCCC0001;
+}
+
+template <typename T>
+auto is_compressed(const T& vdr) noexcept -> decltype(vdr.Flags.value, true)
+{
+    return (vdr.Flags.value & 4) == 4;
+}
+
+template <typename T>
+auto is_nrv(const T& vdr) noexcept -> decltype(vdr.Flags.value, true)
+{
+    return (vdr.Flags.value & 1) == 0;
 }
 
 template <typename src_endianess_t, typename buffer_t, typename container_t>

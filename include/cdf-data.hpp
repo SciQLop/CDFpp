@@ -62,7 +62,8 @@ using cdf_values_t = std::variant<cdf_none, std::vector<char>, std::vector<uint8
 template <CDF_Types type, typename endianness_t>
 auto load_values(const char* buffer, std::size_t buffer_size)
 {
-    if constexpr (type == CDF_Types::CDF_CHAR) // special case for strings
+    if constexpr (type == CDF_Types::CDF_CHAR
+        || type == CDF_Types::CDF_UCHAR) // special case for strings
     {
         std::string result(buffer_size, '\0');
         std::copy_n(buffer, buffer_size, result.data());

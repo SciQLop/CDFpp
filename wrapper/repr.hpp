@@ -52,15 +52,6 @@ std::ostream& stream_collection(std::ostream& os, const input_t& input, const it
 }
 
 
-template <typename T>
-std::string __repr__(T& obj)
-{
-    std::stringstream sstr;
-    sstr << obj;
-    return sstr.str();
-}
-
-
 std::ostream& operator<<(std::ostream& os, const cdf::Attribute& attribute)
 {
 #define PRINT_LAMBDA(type)                                                                         \
@@ -103,4 +94,13 @@ std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
     os << std::endl;
 
     return os;
+}
+
+
+template <typename T>
+std::string __repr__(T& obj)
+{
+    std::stringstream sstr;
+    sstr << obj;
+    return sstr.str();
 }
