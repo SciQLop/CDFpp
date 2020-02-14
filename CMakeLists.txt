@@ -55,10 +55,11 @@ find_package(ZLIB REQUIRED)
 
 
 add_library(CDFpp INTERFACE)
-
+add_compile_definitions(HAS_UNCAUGHT_EXCEPTIONS=1)
 target_include_directories(CDFpp
   INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/date/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
@@ -89,7 +90,15 @@ if(NOT SKBUILD)
 
         target_compile_definitions(simple_open PRIVATE DATA_PATH="${CMAKE_CURRENT_LIST_DIR}/tests/resources")
         add_test(test-simple_open simple_open)
+        if (with_pybind11)
+            add_executable(cdf_chrono tests/chrono/main.cpp)
+            target_link_libraries(cdf_chrono PRIVATE CDFpp)
+            target_include_directories(cdf_chrono PRIVATE catch2)
+            target_link_libraries(cdf_chrono PRIVATE pybind11::embed)
 
+            target_compile_definitions(cdf_chrono PRIVATE DATA_PATH="${CMAKE_CURRENT_LIST_DIR}/tests/resources")
+            add_test(test-cdf_chrono cdf_chrono)
+        endif()
         add_executable(endianness tests/endianness/main.cpp)
         target_link_libraries(endianness PUBLIC CDFpp)
         target_include_directories(endianness PRIVATE catch2)

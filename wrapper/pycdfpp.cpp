@@ -24,6 +24,7 @@
 #include <cdf.hpp>
 using namespace cdf;
 
+#include <pybind11/chrono.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -137,10 +138,10 @@ PYBIND11_MODULE(pycdfpp, m)
 
     PYBIND11_NUMPY_DTYPE(tt2000_t, value);
     PYBIND11_NUMPY_DTYPE(epoch, value);
-    PYBIND11_NUMPY_DTYPE(epoch16, first, second);
+    PYBIND11_NUMPY_DTYPE(epoch16, seconds, picoseconds);
 
     py::class_<tt2000_t>(m, "tt2000");
-    py::class_<epoch>(m, "epoch");
+    py::class_<epoch>(m, "epoch").def("to_datetime", [](const epoch&) {});
     py::class_<epoch16>(m, "epoch16");
 
     py::enum_<CDF_Types>(m, "CDF_Types")

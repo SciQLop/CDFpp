@@ -114,21 +114,36 @@ enum class CDF_Types : uint32_t
     CDF_UCHAR = 52
 };
 
+// number of nanoseconds since 01-Jan-2000 12:00:00.000.000.000  (J2000)
 struct tt2000_t
 {
     int64_t value;
 };
+bool operator==(const tt2000_t& lhs, const tt2000_t& rhs)
+{
+    return lhs.value == rhs.value;
+}
 
+// number of milliseconds since 01-Jan-0000 00:00:00.000
 struct epoch
 {
     double value;
 };
+bool operator==(const epoch& lhs, const epoch& rhs)
+{
+    return lhs.value == rhs.value;
+}
 
+// number of picoseconds since 01-Jan-0000 00:00:00.000.000.000.000
 struct epoch16
 {
-    double first;
-    double second;
+    double seconds;
+    double picoseconds;
 };
+bool operator==(const epoch16& lhs, const epoch16& rhs)
+{
+    return lhs.seconds == rhs.seconds && lhs.picoseconds == rhs.picoseconds;
+}
 
 template <CDF_Types type>
 constexpr auto from_cdf_type()
