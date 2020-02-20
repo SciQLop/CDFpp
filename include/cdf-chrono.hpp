@@ -37,6 +37,7 @@ constexpr double mseconds_0AD_to_1970 = duration_cast<milliseconds>(_1970 - _0AD
 constexpr int64_t seconds_1970_to_J2000 = duration_cast<seconds>(_J2000 - _1970).count();
 
 constexpr std::array leap_seconds_J2000 = {
+    std::pair { duration_cast<seconds>((sys_days { 0_y / 01 / 01 } + 0h) - _J2000).count(), 0 },
     std::pair { duration_cast<seconds>((sys_days { 1972_y / 01 / 01 } + 0h) - _J2000).count(), 10 },
     std::pair { duration_cast<seconds>((sys_days { 1972_y / 07 / 01 } + 0h) - _J2000).count(), 11 },
     std::pair { duration_cast<seconds>((sys_days { 1973_y / 01 / 01 } + 0h) - _J2000).count(), 12 },
@@ -86,13 +87,14 @@ epoch16 to_epoch16(std::chrono::time_point<Clock, Duration> tp)
 
 inline int64_t J2000_leap_sec_offset(int64_t sec)
 {
-    if(sec<leap_seconds_J2000[0].first)
+    if (sec < leap_seconds_J2000[0].first)
         return 0;
-    auto i=0ul;
-    while (i<std::size(leap_seconds_J2000) && leap_seconds_J2000[i].first < sec) {
+    auto i = 0ul;
+    while (i < std::size(leap_seconds_J2000) && leap_seconds_J2000[i].first < sec)
+    {
         i++;
     }
-    return leap_seconds_J2000[i].second;
+    return leap_seconds_J2000[i - 1].second;
 }
 
 template <class Clock, class Duration = typename Clock::duration>
@@ -101,8 +103,9 @@ tt2000_t to_tt2000(std::chrono::time_point<Clock, Duration> tp)
     using namespace std::chrono;
     auto [sec, nsec]
         = std::lldiv(duration_cast<nanoseconds>(tp.time_since_epoch()).count(), 1000000000);
-    auto offset = J2000_leap_sec_offset(sec);
-    return tt2000_t { (sec - seconds_1970_to_J2000 + offset) * 1000000000 + nsec };
+    sec -= seconds_1970_to_J2000;
+    sec += J2000_leap_sec_offset(sec);
+    return tt2000_t { sec * 1000000000 + nsec };
 }
 
 }
