@@ -24,6 +24,7 @@
 #include "cdf-enums.hpp"
 #include "date/date.h"
 #include <chrono>
+#include <cmath>
 
 namespace cdf
 {
@@ -36,36 +37,63 @@ constexpr double seconds_0AD_to_1970 = duration_cast<seconds>(_1970 - _0AD).coun
 constexpr double mseconds_0AD_to_1970 = duration_cast<milliseconds>(_1970 - _0AD).count();
 constexpr int64_t seconds_1970_to_J2000 = duration_cast<seconds>(_J2000 - _1970).count();
 
-constexpr std::array leap_seconds_J2000 =
-{
-    std::pair{ duration_cast<seconds>( (sys_days { 1972_y / 01 / 01 } + 0h ) - _J2000).count() , 10 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1972_y / 07 / 01 } + 0h ) - _J2000).count() , 11 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1973_y / 01 / 01 } + 0h ) - _J2000).count() , 12 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1974_y / 01 / 01 } + 0h ) - _J2000).count() , 13 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1975_y / 01 / 01 } + 0h ) - _J2000).count() , 14 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1976_y / 01 / 01 } + 0h ) - _J2000).count() , 15 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1977_y / 01 / 01 } + 0h ) - _J2000).count() , 16 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1978_y / 01 / 01 } + 0h ) - _J2000).count() , 17 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1979_y / 01 / 01 } + 0h ) - _J2000).count() , 18 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1980_y / 01 / 01 } + 0h ) - _J2000).count() , 19 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1981_y / 07 / 01 } + 0h ) - _J2000).count() , 20 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1982_y / 07 / 01 } + 0h ) - _J2000).count() , 21 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1983_y / 07 / 01 } + 0h ) - _J2000).count() , 22 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1985_y / 07 / 01 } + 0h ) - _J2000).count() , 23 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1988_y / 01 / 01 } + 0h ) - _J2000).count() , 24 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1990_y / 01 / 01 } + 0h ) - _J2000).count() , 25 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1991_y / 01 / 01 } + 0h ) - _J2000).count() , 26 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1992_y / 07 / 01 } + 0h ) - _J2000).count() , 27 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1993_y / 07 / 01 } + 0h ) - _J2000).count() , 28 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1994_y / 07 / 01 } + 0h ) - _J2000).count() , 29 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1996_y / 01 / 01 } + 0h ) - _J2000).count() , 30 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1997_y / 07 / 01 } + 0h ) - _J2000).count() , 31 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 1999_y / 01 / 01 } + 0h ) - _J2000).count() , 32 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 2006_y / 01 / 01 } + 0h ) - _J2000).count() , 33 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 2009_y / 01 / 01 } + 0h ) - _J2000).count() , 34 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 2012_y / 07 / 01 } + 0h ) - _J2000).count() , 35 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 2015_y / 07 / 01 } + 0h ) - _J2000).count() , 36 - 32 },
-    std::pair{ duration_cast<seconds>( (sys_days { 2017_y / 01 / 01 } + 0h ) - _J2000).count() , 37 - 32 },
+constexpr std::array leap_seconds_J2000 = {
+    std::pair {
+        duration_cast<seconds>((sys_days { 1972_y / 01 / 01 } + 0h) - _J2000).count(), 10 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1972_y / 07 / 01 } + 0h) - _J2000).count(), 11 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1973_y / 01 / 01 } + 0h) - _J2000).count(), 12 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1974_y / 01 / 01 } + 0h) - _J2000).count(), 13 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1975_y / 01 / 01 } + 0h) - _J2000).count(), 14 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1976_y / 01 / 01 } + 0h) - _J2000).count(), 15 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1977_y / 01 / 01 } + 0h) - _J2000).count(), 16 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1978_y / 01 / 01 } + 0h) - _J2000).count(), 17 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1979_y / 01 / 01 } + 0h) - _J2000).count(), 18 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1980_y / 01 / 01 } + 0h) - _J2000).count(), 19 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1981_y / 07 / 01 } + 0h) - _J2000).count(), 20 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1982_y / 07 / 01 } + 0h) - _J2000).count(), 21 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1983_y / 07 / 01 } + 0h) - _J2000).count(), 22 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1985_y / 07 / 01 } + 0h) - _J2000).count(), 23 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1988_y / 01 / 01 } + 0h) - _J2000).count(), 24 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1990_y / 01 / 01 } + 0h) - _J2000).count(), 25 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1991_y / 01 / 01 } + 0h) - _J2000).count(), 26 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1992_y / 07 / 01 } + 0h) - _J2000).count(), 27 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1993_y / 07 / 01 } + 0h) - _J2000).count(), 28 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1994_y / 07 / 01 } + 0h) - _J2000).count(), 29 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1996_y / 01 / 01 } + 0h) - _J2000).count(), 30 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1997_y / 07 / 01 } + 0h) - _J2000).count(), 31 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 1999_y / 01 / 01 } + 0h) - _J2000).count(), 32 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 2006_y / 01 / 01 } + 0h) - _J2000).count(), 33 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 2009_y / 01 / 01 } + 0h) - _J2000).count(), 34 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 2012_y / 07 / 01 } + 0h) - _J2000).count(), 35 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 2015_y / 07 / 01 } + 0h) - _J2000).count(), 36 - 32 },
+    std::pair {
+        duration_cast<seconds>((sys_days { 2017_y / 01 / 01 } + 0h) - _J2000).count(), 37 - 32 },
 };
 
 
@@ -90,7 +118,7 @@ inline int64_t J2000_leap_sec_offset(int64_t sec)
     if (sec < leap_seconds_J2000[0].first)
         return 0;
     auto i = 0ul;
-    while (i < std::size(leap_seconds_J2000) && leap_seconds_J2000[i].first < sec)
+    while (i < std::size(leap_seconds_J2000) && leap_seconds_J2000[i].first <= sec)
     {
         i++;
     }
@@ -106,6 +134,25 @@ tt2000_t to_tt2000(std::chrono::time_point<Clock, Duration> tp)
     sec -= seconds_1970_to_J2000;
     sec += J2000_leap_sec_offset(sec);
     return tt2000_t { sec * 1000000000 + nsec };
+}
+
+auto to_time_point(const epoch& ep)
+{
+    double ms=ep.value - mseconds_0AD_to_1970, ns;
+    ns = std::modf(ms,&ms)*1000000.;
+    return _1970 + milliseconds(int64_t(ms)) + nanoseconds(int64_t(ns));
+}
+
+auto to_time_point(const epoch16& ep)
+{
+    double ms=ep.seconds * 1000. - mseconds_0AD_to_1970, ns;
+    ns = std::modf(ms,&ms)*1000000.+ep.picoseconds/1000.;
+    return _1970 + milliseconds(int64_t(ms)) + nanoseconds(int64_t(ns));
+}
+
+auto to_time_point(const tt2000_t& ep)
+{
+    return _J2000 + nanoseconds(ep.value) - seconds(J2000_leap_sec_offset(ep.value / 1000000000));
 }
 
 }
