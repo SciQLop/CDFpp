@@ -55,9 +55,8 @@ constexpr auto dates = { sys_days { 0000_y / January / 1 } + 0h + 0min + 0s,
 
 TEST_CASE("")
 {
-    std::for_each(std::cbegin(dates), std::cend(dates), [&](const auto& date) {
-        std::cout << date << std::endl;
-    });
+    std::for_each(std::cbegin(dates), std::cend(dates),
+        [&](const auto& date) { std::cout << date << std::endl; });
 }
 
 TEST_CASE("From std::time_point to cdf epoch", "")
@@ -100,7 +99,7 @@ TEST_CASE("From cdf epoch to std::time_point", "")
         auto ms = seconds_since_0_AD_no_leap(format("%FT%T", floor<seconds>(date)))
                       .template cast<double>()
             * 1000.;
-        auto res = cdf::to_time_point(cdf::epoch{ms}) ;
+        auto res = cdf::to_time_point(cdf::epoch { ms });
         std::cout << date << std::endl;
         std::cout << res << std::endl;
         REQUIRE(res == date);
@@ -113,7 +112,7 @@ TEST_CASE("From cdf epoch16 to std::time_point", "")
     std::for_each(std::cbegin(dates), std::cend(dates), [&](const auto& date) {
         auto s = seconds_since_0_AD_no_leap(format("%FT%T", floor<seconds>(date)))
                      .template cast<double>();
-        REQUIRE(cdf::to_time_point(cdf::epoch16{s,0.})==date);
+        REQUIRE(cdf::to_time_point(cdf::epoch16 { s, 0. }) == date);
     });
 }
 
