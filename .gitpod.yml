@@ -1,0 +1,4 @@
+tasks:
+  - init: pip install scikit-build astropy numpy ddt && export LDFLAGS="-Wl,--no-as-needed -L/usr/lib/x86_64-linux-gnu -ldl -lutil -pthread -lpthread" && mkdir build && cd build && cmake -D CMAKE_EXPORT_COMPILE_COMMANDS=1 .. && make -j 2
+image:
+  file: .gitpod.Dockerfile
