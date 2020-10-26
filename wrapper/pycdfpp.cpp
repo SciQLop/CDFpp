@@ -22,6 +22,7 @@
 #include "repr.hpp"
 #include <cdf-data.hpp>
 #include <cdf.hpp>
+#include <cdf-chrono.hpp>
 using namespace cdf;
 
 #include <pybind11/chrono.h>
@@ -213,4 +214,9 @@ PYBIND11_MODULE(pycdfpp, m)
     m.def(
         "load", [](const char* name) { return io::load(name); },
         py::return_value_policy::reference);
+
+    m.def("to_tt2000",[](decltype (std::chrono::system_clock::now()) tp){return cdf::to_tt2000(tp);});
+    m.def("to_timepoint",[](cdf::tt2000_t epoch){return cdf::to_time_point(epoch);});
+    m.def("tt2000_value",[](const cdf::tt2000_t& epoch){ return epoch.value;});
+
 }

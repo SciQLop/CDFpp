@@ -278,7 +278,7 @@ struct cdf_CDR_t : cdf_description_record<buffer_t, cdf_CDR_t<version_t, buffer_
     friend cdf_description_record<buffer_t, cdf_CDR_t<version_t, buffer_t>>;
 
 protected:
-    bool load_from(buffer_t& buffer, [[maybe_unused]] std::size_t CDRoffset = 8)
+    bool load_from(buffer_t& buffer, std::size_t CDRoffset = 8)
     {
         return load_desc_record(buffer, CDRoffset, *this, GDRoffset, Version, Release, Encoding,
             Flags, Increment, Identifier, copyright);
