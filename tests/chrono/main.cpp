@@ -27,9 +27,9 @@ def seconds_since_0_AD_no_leap(date_str):
       dt = (date - Time('0000-01-01 00:00:00', scale='tai') ).datetime
       return dt.days * 86400 + date.datetime.hour * 3600 + date.datetime.minute * 60 + date.datetime.second
 
-def seconds_since_J2000(date_str):
-   date = Time(date_str, scale='tai')
-   return int((date - Time('2000-01-01 12:00:00', scale='tai') ).sec)
+def nseconds_since_J2000(date_str):
+   date = Time(date_str, scale='utc')
+   return int((date - Time('2000-01-01 11:59:27.816', scale='tai') ).sec*1000*1000*1000)
 )";
 
 using namespace date;
@@ -51,7 +51,8 @@ constexpr auto dates = { sys_days { 0000_y / January / 1 } + 0h + 0min + 0s,
     sys_days { 2010_y / January / 1 } + 0h + 0min + 0s,
     sys_days { 2020_y / January / 1 } + 0h + 0min + 0s,
     sys_days { 2000_y / January / 1 } + 0h + 0min + 0s,
-    sys_days { 2020_y / July / 25 } + 2h + 35min + 8s };
+    sys_days { 2020_y / July / 25 } + 2h + 35min + 8s,
+    sys_days { 2030_y / July / 25 } + 2h + 35min + 8s  };
 
 TEST_CASE("")
 {
@@ -82,17 +83,16 @@ TEST_CASE("From std::time_point to cdf epoch16", "")
 
 TEST_CASE("From std::time_point to cdf tt2000", "")
 {
-    auto seconds_since_J2000 = py::globals()["seconds_since_J2000"];
+    auto nseconds_since_J2000 = py::globals()["nseconds_since_J2000"];
     std::for_each(std::cbegin(dates), std::cend(dates), [&](const auto& d) {
         if (d > sys_days { 1972_y / January / 1 } + 0h + 0min + 0s)
         {
             for (auto i = -2; i <= 2; i++)
             {
                 auto date = d + seconds(i);
-                std::cout << date << std::endl;
-                auto ns_since_J2000 = seconds_since_J2000(format("%FT%T", floor<seconds>(date)))
-                              .template cast<int64_t>()
-                    * 1000 * 1000 * 1000;
+                auto ns_since_J2000 = nseconds_since_J2000(format("%FT%T", floor<seconds>(date)))
+                              .template cast<int64_t>();
+                INFO( format("%FT%T",floor<seconds>(date)) );
                 REQUIRE(cdf::to_tt2000(date).value == ns_since_J2000);
             }
         }
@@ -123,7 +123,7 @@ TEST_CASE("From cdf epoch16 to std::time_point", "")
 
 TEST_CASE("From cdf tt2000 to std::time_point", "")
 {
-    auto seconds_since_J2000 = py::globals()["seconds_since_J2000"];
+    auto seconds_since_J2000 = py::globals()["nseconds_since_J2000"];
     std::for_each(std::cbegin(dates), std::cend(dates), [&](const auto& d) {
         if (d > sys_days { 1972_y / January / 1 } + 0h + 0min + 0s)
         {
@@ -131,8 +131,8 @@ TEST_CASE("From cdf tt2000 to std::time_point", "")
             {
                 auto date = d + seconds(i);
                 auto ns_since_J2000 = seconds_since_J2000(format("%FT%T", floor<seconds>(date)))
-                              .template cast<int64_t>()
-                    * 1000 * 1000 * 1000;
+                              .template cast<int64_t>();
+                INFO( format("%FT%T",floor<seconds>(date)) );
                 REQUIRE(cdf::to_time_point(cdf::tt2000_t { ns_since_J2000 }) == date);
             }
         }

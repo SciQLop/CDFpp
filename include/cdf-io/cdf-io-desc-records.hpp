@@ -161,7 +161,7 @@ struct cdf_description_record
         return is_loaded;
     }
 
-    cdf_description_record(buffer_t& buffer) : p_buffer { buffer } {}
+    cdf_description_record(buffer_t& buffer) : p_buffer { buffer } { }
 };
 
 template <typename version_t, cdf_record_type... record_t>
