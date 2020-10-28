@@ -1,7 +1,9 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.11)
 project(CDF++ CXX)
 
 include(GNUInstallDirs)
+include(FetchContent)
+
 
 OPTION(with_pybind11 "Enable Pybind11 wrapper" ON)
 OPTION (CPPCHECK "Analyzes the source code with cppcheck" OFF)
@@ -9,6 +11,11 @@ OPTION (CLANG_TIDY "Analyzes the source code with Clang Tidy" OFF)
 OPTION (IWYU "Analyzes the source code with Include What You Use" OFF)
 option(with_tests "Enable tests" ON)
 
+FetchContent_Declare( date_src
+  GIT_REPOSITORY https://github.com/HowardHinnant/date.git
+  GIT_TAG        v3.0.0  # adjust tag/branch/commit as needed
+)
+FetchContent_MakeAvailable(date_src)
 
 if (with_pybind11)
     include("${CMAKE_CURRENT_LIST_DIR}/cmake/pybind11.cmake")
@@ -63,7 +70,7 @@ target_include_directories(CDFpp
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-target_link_libraries(CDFpp INTERFACE ZLIB::ZLIB)
+target_link_libraries(CDFpp INTERFACE ZLIB::ZLIB date::date)
 
 if(NOT SKBUILD)
     if(MSVC)
