@@ -161,7 +161,7 @@ struct cdf_description_record
         return is_loaded;
     }
 
-    cdf_description_record(buffer_t& buffer) : p_buffer { buffer } {}
+    cdf_description_record(buffer_t& buffer) : p_buffer { buffer } { }
 };
 
 template <typename version_t, cdf_record_type... record_t>
@@ -278,7 +278,7 @@ struct cdf_CDR_t : cdf_description_record<buffer_t, cdf_CDR_t<version_t, buffer_
     friend cdf_description_record<buffer_t, cdf_CDR_t<version_t, buffer_t>>;
 
 protected:
-    bool load_from(buffer_t& buffer, [[maybe_unused]] std::size_t CDRoffset = 8)
+    bool load_from(buffer_t& buffer, std::size_t CDRoffset = 8)
     {
         return load_desc_record(buffer, CDRoffset, *this, GDRoffset, Version, Release, Encoding,
             Flags, Increment, Identifier, copyright);

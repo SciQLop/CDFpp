@@ -129,7 +129,7 @@ std::size_t filesize(std::fstream& file)
     return static_cast<std::size_t>(pos);
 }
 
-SCENARIO("Loading a cdf file", "[CDF]")
+SCENARIO("Loading a cdf files", "[CDF]")
 {
     GIVEN("a cdf file")
     {

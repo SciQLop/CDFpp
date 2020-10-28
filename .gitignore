@@ -1,5 +1,5 @@
 build/
-subprojects/Catch2-*
-subprojects/packagecache/
+subprojects/*
+!subprojects/*.wrap
 *.kdev4
 CMakeLists.txt.user

@@ -36,7 +36,7 @@ namespace
     template <typename... Ts>
     struct Visitor : Ts...
     {
-        Visitor(const Ts&... args) : Ts(args)... {}
+        Visitor(const Ts&... args) : Ts(args)... { }
 
         using Ts::operator()...;
     };
@@ -128,7 +128,7 @@ struct data_t
     }
 
 
-    data_t() : p_values { cdf_none {} }, p_type { CDF_Types::CDF_NONE } {}
+    data_t() : p_values { cdf_none {} }, p_type { CDF_Types::CDF_NONE } { }
     data_t(const data_t& other) = default;
     data_t(data_t&& other) = default;
     data_t& operator=(data_t&& other)
@@ -151,7 +151,7 @@ struct data_t
     {
     }
 
-    data_t(const cdf_values_t& values, CDF_Types type) : p_values { values }, p_type { type } {}
+    data_t(const cdf_values_t& values, CDF_Types type) : p_values { values }, p_type { type } { }
     data_t(cdf_values_t&& values, CDF_Types type) : p_values { std::move(values) }, p_type { type }
     {
     }

@@ -178,13 +178,13 @@ template <typename array_t>
 struct with_ownership
 {
     array_t array;
-    with_ownership(array_t&& array) : array { std::move(array) } {}
+    with_ownership(array_t&& array) : array { std::move(array) } { }
 };
 template <typename array_t>
 struct without_ownership
 {
     const array_t& array;
-    without_ownership(const array_t& array) : array { array } {}
+    without_ownership(const array_t& array) : array { array } { }
 };
 
 template <typename array_t, bool takes_ownership = false>

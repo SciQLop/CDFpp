@@ -22,8 +22,10 @@
 #include "repr.hpp"
 #include <cdf-data.hpp>
 #include <cdf.hpp>
+#include <cdf-chrono.hpp>
 using namespace cdf;
 
+#include <pybind11/chrono.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -137,10 +139,10 @@ PYBIND11_MODULE(pycdfpp, m)
 
     PYBIND11_NUMPY_DTYPE(tt2000_t, value);
     PYBIND11_NUMPY_DTYPE(epoch, value);
-    PYBIND11_NUMPY_DTYPE(epoch16, first, second);
+    PYBIND11_NUMPY_DTYPE(epoch16, seconds, picoseconds);
 
     py::class_<tt2000_t>(m, "tt2000");
-    py::class_<epoch>(m, "epoch");
+    py::class_<epoch>(m, "epoch").def("to_datetime", [](const epoch&) {});
     py::class_<epoch16>(m, "epoch16");
 
     py::enum_<CDF_Types>(m, "CDF_Types")
@@ -212,4 +214,9 @@ PYBIND11_MODULE(pycdfpp, m)
     m.def(
         "load", [](const char* name) { return io::load(name); },
         py::return_value_policy::reference);
+
+    m.def("to_tt2000",[](decltype (std::chrono::system_clock::now()) tp){return cdf::to_tt2000(tp);});
+    m.def("to_timepoint",[](cdf::tt2000_t epoch){return cdf::to_time_point(epoch);});
+    m.def("tt2000_value",[](const cdf::tt2000_t& epoch){ return epoch.value;});
+
 }
