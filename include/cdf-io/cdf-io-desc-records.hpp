@@ -90,9 +90,12 @@ template <typename T, typename cdf_dr_t, typename buffer_t>
 bool load_table_field(table_field_t<T, cdf_dr_t>& field, buffer_t& buffer, const cdf_dr_t& dr)
 {
     auto size = field.size(dr);
-    auto offset = field.offset(dr);
-    field.value.resize(size);
-    common::load_values<endianness::big_endian_t>(buffer, dr.offset + offset, field.value);
+    if(size)
+    {
+        auto offset = field.offset(dr);
+        field.value.resize(size);
+        common::load_values<endianness::big_endian_t>(buffer, dr.offset + offset, field.value);
+    }
     return true;
 }
 

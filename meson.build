@@ -6,6 +6,11 @@ project(
   license : 'GPL3'
 )
 
+if get_option('buildtype').contains('debug')
+    add_project_arguments('-DCDFPP_ASSERT', language : ['cpp'])
+endif
+
+
 conf_data = configuration_data()
 conf_data.set('version', meson.project_version())
 if(target_machine.endian() == 'big')
@@ -30,17 +35,18 @@ endif
 pybind11_dep = dependency('pybind11', required : true, fallback:['pybind11','pybind11_dep'])
 date_dep = dependency('date', required : true, fallback:['hinnant-date','date_dep'])
 zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
+hedley_dep = dependency('hedley', main : true, fallback : ['hedley', 'hedley_dep'])
 
 pymod = import('python')
 python3 = pymod.find_installation('python3')
 
 cdfpp_lib = library('CDFpp',
         include_directories: include_directories('include'),
-        dependencies: [zlib_dep, date_dep])
+        dependencies: [zlib_dep, date_dep, hedley_dep])
 
 cdfpp_dep = declare_dependency(include_directories: include_directories('include'),
                                 link_with:cdfpp_lib,
-                                dependencies: [zlib_dep, date_dep])
+                                dependencies: [zlib_dep, date_dep, hedley_dep])
 
 
 
