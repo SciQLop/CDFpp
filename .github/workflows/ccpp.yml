@@ -18,7 +18,7 @@ jobs:
       - name: Build (CMake)
         run: cmake --build build_cmake
       - name: Run tests (CMake)
-        run: cd build_cmake && ctest && cd ..
+        run: cd build_cmake && ctest -V && cd ..
       - name: Configure with meson
         run: meson -Db_coverage=true . build
       - name: Build (meson)
