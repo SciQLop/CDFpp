@@ -20,6 +20,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "cdf-debug.hpp"
 #include "cdf-endianness.hpp"
 #include "cdf-enums.hpp"
 #include <algorithm>
@@ -31,13 +32,12 @@
 namespace cdf
 {
 
-namespace
+namespace _private
 {
     template <typename... Ts>
     struct Visitor : Ts...
     {
         Visitor(const Ts&... args) : Ts(args)... { }
-
         using Ts::operator()...;
     };
 
@@ -58,91 +58,33 @@ using cdf_values_t = std::variant<cdf_none, std::vector<char>, std::vector<uint8
     std::vector<int32_t>, std::vector<int64_t>, std::vector<float>, std::vector<double>,
     std::vector<tt2000_t>, std::vector<epoch>, std::vector<epoch16>, std::string>;
 
-
-template <CDF_Types type, typename endianness_t>
-auto load_values(const char* buffer, std::size_t buffer_size)
-{
-    if constexpr (type == CDF_Types::CDF_CHAR
-        || type == CDF_Types::CDF_UCHAR) // special case for strings
-    {
-        std::string result(buffer_size, '\0');
-        std::copy_n(buffer, buffer_size, result.data());
-        return result;
-    }
-    else if constexpr (type == CDF_Types::CDF_EPOCH16) // special case for epoch
-    {
-        std::size_t size = buffer_size / sizeof(from_cdf_type_t<type>);
-        std::vector<from_cdf_type_t<type>> result(size);
-        endianness::decode_v<endianness_t>(
-            buffer, buffer_size, reinterpret_cast<double*>(result.data()));
-        return cdf_values_t { std::move(result) };
-    }
-    else
-    {
-        std::size_t size = buffer_size / sizeof(from_cdf_type_t<type>);
-        std::vector<from_cdf_type_t<type>> result(size);
-        endianness::decode_v<endianness_t>(buffer, buffer_size, result.data());
-        return cdf_values_t { std::move(result) };
-    }
-}
-
 struct data_t
 {
 
     template <CDF_Types type>
-    decltype(auto) get()
-    {
-        return std::get<std::vector<from_cdf_type_t<type>>>(p_values);
-    }
+    decltype(auto) get();
 
     template <CDF_Types type>
-    decltype(auto) get() const
-    {
-        return std::get<std::vector<from_cdf_type_t<type>>>(p_values);
-    }
+    decltype(auto) get() const;
 
     template <typename type>
-    decltype(auto) get()
-    {
-        if constexpr (std::is_same_v<type, std::string>)
-        {
-            return std::get<type>(p_values);
-        }
-        else
-        {
-            return std::get<std::vector<type>>(p_values);
-        }
-    }
+    decltype(auto) get();
 
     template <typename type>
-    decltype(auto) get() const
-    {
-        if constexpr (std::is_same_v<type, std::string>)
-        {
-            return std::get<type>(p_values);
-        }
-        else
-        {
-            return std::get<std::vector<type>>(p_values);
-        }
-    }
+    decltype(auto) get() const;
 
+    CDF_Types type() const { return p_type; }
+
+    cdf_values_t& values() { return p_values; }
+
+    data_t& operator=(data_t&& other);
+    data_t& operator=(const data_t& other);
 
     data_t() : p_values { cdf_none {} }, p_type { CDF_Types::CDF_NONE } { }
     data_t(const data_t& other) = default;
     data_t(data_t&& other) = default;
-    data_t& operator=(data_t&& other)
-    {
-        std::swap(p_values, other.p_values);
-        std::swap(p_type, other.p_type);
-        return *this;
-    }
-    data_t& operator=(const data_t& other)
-    {
-        p_values = other.p_values;
-        p_type = other.p_type;
-        return *this;
-    }
+
+
     template <typename T, typename Dummy = void,
         typename = std::enable_if_t<!std::is_same_v<std::remove_reference_t<T>, data_t>, Dummy>>
     data_t(T&& values)
@@ -156,13 +98,13 @@ struct data_t
     {
     }
 
-    CDF_Types type() const { return p_type; }
-
     template <typename... Ts>
     friend auto visit(data_t& data, Ts... lambdas);
     template <typename... Ts>
     friend auto visit(const data_t& data, Ts... lambdas);
-    cdf_values_t& values() { return p_values; }
+
+    template <typename T, typename type>
+    friend decltype(auto) _get_impl(T* self);
 
 private:
     cdf_values_t p_values;
@@ -172,18 +114,107 @@ private:
 template <typename... Ts>
 auto visit(data_t& data, Ts... lambdas)
 {
-    return std::visit(make_visitor(lambdas...), data.p_values);
+    return std::visit(_private::make_visitor(lambdas...), data.p_values);
 }
 
 template <typename... Ts>
 auto visit(const data_t& data, Ts... lambdas)
 {
-    return std::visit(make_visitor(lambdas...), data.p_values);
+    return std::visit(_private::make_visitor(lambdas...), data.p_values);
 }
 
+template <CDF_Types type, typename endianness_t>
+CDFPP_NON_NULL(1)
+auto load_values(const char* buffer, std::size_t buffer_size);
+
+CDFPP_NON_NULL(1)
 data_t load_values(
+    const char* buffer, std::size_t buffer_size, CDF_Types type, cdf_encoding encoding);
+
+
+/*=================================================================================
+ Implementation
+===================================================================================*/
+
+
+template <CDF_Types type>
+inline decltype(auto) data_t::get()
+{
+    return std::get<std::vector<from_cdf_type_t<type>>>(p_values);
+}
+
+template <CDF_Types type>
+inline decltype(auto) data_t::get() const
+{
+    return std::get<std::vector<from_cdf_type_t<type>>>(p_values);
+}
+
+
+template <typename T, typename type>
+inline decltype(auto) _get_impl(T* self)
+{
+    if constexpr (std::is_same_v<type, std::string>)
+    {
+        return std::get<type>(self->p_values);
+    }
+    else
+    {
+        return std::get<std::vector<type>>(self->p_values);
+    }
+}
+
+template <typename type>
+inline decltype(auto) data_t::get()
+{
+    return _get_impl<data_t, type>(this);
+}
+
+template <typename type>
+inline decltype(auto) data_t::get() const
+{
+    return _get_impl<const data_t, type>(this);
+}
+
+
+inline data_t& data_t::operator=(data_t&& other)
+{
+    std::swap(p_values, other.p_values);
+    std::swap(p_type, other.p_type);
+    return *this;
+}
+inline data_t& data_t::operator=(const data_t& other)
+{
+    p_values = other.p_values;
+    p_type = other.p_type;
+    return *this;
+}
+
+template <CDF_Types type, typename endianness_t>
+inline auto load_values(const char* buffer, std::size_t buffer_size)
+{
+
+    cdfpp_assert(buffer != nullptr);
+    if constexpr (type == CDF_Types::CDF_CHAR
+        || type == CDF_Types::CDF_UCHAR) // special case for strings
+    {
+        std::string result(buffer_size, '\0');
+        std::copy_n(buffer, buffer_size, result.data());
+        return result;
+    }
+    else
+    {
+        using raw_type = from_cdf_type_t<type>;
+        std::size_t size = buffer_size / sizeof(raw_type);
+        std::vector<raw_type> result(size);
+        endianness::decode_v<endianness_t>(buffer, buffer_size, result.data());
+        return cdf_values_t { std::move(result) };
+    }
+}
+
+inline data_t load_values(
     const char* buffer, std::size_t buffer_size, CDF_Types type, cdf_encoding encoding)
 {
+    cdfpp_assert(buffer != nullptr);
 #define DATA_FROM_T(type)                                                                          \
     case CDF_Types::type:                                                                          \
         if (endianness::is_big_endian_encoding(encoding))                                          \

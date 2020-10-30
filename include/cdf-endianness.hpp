@@ -39,15 +39,15 @@ inline const bool host_is_little_endian = true;
 #define bswap64 __builtin_bswap64
 #endif
 
+#include "cdf-debug.hpp"
 #include "cdf-enums.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <type_traits>
-#ifdef CDFPP_ASSERT
-#include <cassert>
-#include <hedley.h>
-#endif
+
+#include <iostream>
+
 namespace cdf::endianness
 {
 
@@ -124,13 +124,12 @@ namespace
 
 
 template <typename src_endianess_t, typename T, typename U>
-#ifdef CDFPP_ASSERT
-HEDLEY_NON_NULL(1)
-#endif
+CDFPP_NON_NULL(1)
 T decode(const U* input)
 {
     T result;
-    std::memcpy(&result,input,sizeof (T));
+    cdfpp_assert(input != nullptr);
+    std::memcpy(&result, input, sizeof(T));
     if constexpr (!std::is_same_v<host_endianness_t, src_endianess_t>)
     {
         return byte_swap<T>(result);
@@ -139,14 +138,13 @@ T decode(const U* input)
 }
 
 template <typename src_endianess_t, typename value_t>
-void decode_v(const char* input, std::size_t size, value_t* output)
+CDFPP_NON_NULL(1, 3)
+inline void decode_v(const char* input, std::size_t size, value_t* output)
 {
     using casted_buffer_t = uint_t<sizeof(value_t)>;
-#ifdef CDFPP_ASSERT
-    assert(input!=nullptr);
-    assert(output!=nullptr);
-#endif
-    std::memcpy(output,input,size);
+    cdfpp_assert(input != nullptr);
+    cdfpp_assert(output != nullptr);
+    std::memcpy(output, input, size);
     if constexpr (not std::is_same_v<host_endianness_t, src_endianess_t>)
     {
         std::size_t buffer_size = size / sizeof(value_t);
@@ -154,6 +152,13 @@ void decode_v(const char* input, std::size_t size, value_t* output)
         std::transform(casted_buffer, casted_buffer + buffer_size, casted_buffer,
             [](const auto& v) { return byte_swap(v); });
     }
+}
+
+template <typename src_endianess_t>
+CDFPP_NON_NULL(1, 3)
+inline void decode_v(const char* input, std::size_t size, epoch16* output)
+{
+    decode_v<src_endianess_t>(input, size, reinterpret_cast<double*>(output));
 }
 
 }

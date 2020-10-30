@@ -20,6 +20,8 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "../cdf-debug.hpp"
+
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
@@ -30,7 +32,7 @@
 
 namespace cdf::io::zlib
 {
-namespace
+namespace _internal
 {
     struct in
     {
@@ -62,7 +64,7 @@ namespace
     //   https://github.com/qpdf/qpdf/blob/master/libqpdf/Pl_Flate.cc
 
     template <typename in_de, typename zlib_or_gzip_t, typename T, typename U>
-    bool impl_flate(
+    CDF_WARN_UNUSED_RESULT bool impl_flate(
         U& input, std::vector<T>& output, int flush, int compression_lvl = Z_BEST_COMPRESSION)
     {
         std::size_t input_bytes_cnt = std::size(input) * sizeof(typename U::value_type);
@@ -156,7 +158,7 @@ namespace
     }
 
     template <typename in_de, typename zlib_or_gzip_t, typename T, typename U>
-    bool flate(
+    CDF_WARN_UNUSED_RESULT bool flate(
         U& input, std::vector<T>& output, int flush, int compression_lvl = Z_BEST_COMPRESSION)
     {
         return impl_flate<in_de, zlib_or_gzip_t>(input, output, flush, compression_lvl);
@@ -167,36 +169,42 @@ namespace
 template <typename T, typename U>
 std::vector<T> inflate(U& input)
 {
+    using namespace _internal;
     return flate<in, zlib_t, T>(input, Z_NO_FLUSH);
 }
 
 template <typename T, typename U>
-bool inflate(U& input, std::vector<T>& output)
+CDF_WARN_UNUSED_RESULT bool inflate(U& input, std::vector<T>& output)
 {
+    using namespace _internal;
     return flate<in, zlib_t>(input, output, Z_NO_FLUSH);
 }
 
 template <typename T>
 std::vector<char> deflate(T& input)
 {
+    using namespace _internal;
     return flate<de, zlib_t, char>(input, Z_FINISH, Z_DEFAULT_COMPRESSION);
 }
 
 template <typename T>
-bool deflate(T& input, std::vector<char>& output)
+CDF_WARN_UNUSED_RESULT bool deflate(T& input, std::vector<char>& output)
 {
+    using namespace _internal;
     return flate<de, zlib_t>(input, output, Z_FINISH, Z_DEFAULT_COMPRESSION);
 }
 
 template <typename T, typename U>
 std::vector<T> gzinflate(U& input)
 {
+    using namespace _internal;
     return flate<in, gzip_t, T>(input, Z_NO_FLUSH);
 }
 
 template <typename T, typename U>
 bool gzinflate(U& input, std::vector<T>& output)
 {
+    using namespace _internal;
     return flate<in, gzip_t>(input, output, Z_NO_FLUSH);
 }
 
@@ -204,12 +212,14 @@ bool gzinflate(U& input, std::vector<T>& output)
 template <typename T>
 std::vector<char> gzdeflate(T& input)
 {
+    using namespace _internal;
     return flate<de, gzip_t, char>(input, Z_FINISH, Z_DEFAULT_COMPRESSION);
 }
 
 template <typename T>
-bool gzdeflate(T& input, std::vector<char>& output)
+CDF_WARN_UNUSED_RESULT bool gzdeflate(T& input, std::vector<char>& output)
 {
+    using namespace _internal;
     return flate<de, gzip_t, char>(input, output, Z_FINISH, Z_DEFAULT_COMPRESSION);
 }
 }
