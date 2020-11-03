@@ -20,11 +20,11 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#ifdef CDFPP_ASSERT
+#ifdef CDFPP_ENABLE_ASSERT
 #include <cassert>
-#define cdfpp_assert(x) assert(x)
+#define CDFPP_ASSERT(x) assert(x)
 #else
-#define cdfpp_assert(x)
+#define CDFPP_ASSERT(x)
 #endif
 #ifdef CDFPP_HEDLEY
 #include <hedley.h>

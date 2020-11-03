@@ -21,6 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "../cdf-data.hpp"
+#include "../cdf-debug.hpp"
 #include "../cdf-endianness.hpp"
 #include "../variable.hpp"
 #include "cdf-io-common.hpp"
@@ -71,7 +72,7 @@ namespace
 
 
     template <bool is_compressed, typename cdf_version_tag_t, typename stream_t, typename func_t>
-    void foreach_vvr(const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr, func_t f)
+    void foreach_vvr(stream_t& stream, const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr, func_t f)
     {
         for (auto i = 0UL; i < vxr.NusedEntries.value; i++)
         {
@@ -82,7 +83,13 @@ namespace
                 if (cdf_CVVR_t<cdf_version_tag_t, stream_t> cvvr { vxr.p_buffer };
                     cvvr.load(vxr.Offset.value[i]))
                 {
-                    f(cvvr, record_count);
+                    std::vector<char> vvr_data;
+                    zlib::gzinflate(cvvr.data.value, vvr_data);
+                    if(std::size(vvr_data))
+                    {
+
+                        f(vvr_data, record_count);
+                    }
                 }
             }
             else
@@ -90,29 +97,48 @@ namespace
                 if (cdf_VVR_t<cdf_version_tag_t, stream_t> vvr { vxr.p_buffer };
                     vvr.load(vxr.Offset.value[i]))
                 {
-                    f(vvr, record_count);
+                    f(stream, vvr, record_count);
                 }
             }
         }
     }
+
+    template <cdf_r_z rz_, bool is_compressed, typename cdf_version_tag_t, typename stream_t,
+        typename func_t>
+    void foreach_vvr(stream_t& stream, const cdf_VDR_t<rz_, cdf_version_tag_t, stream_t>& vdr, func_t f)
+    {
+        std::for_each(begin_VXR(vdr), end_VXR(vdr),
+            [&f, &stream](const auto& vxr) { foreach_vvr<is_compressed>(stream, vxr, f); });
+    }
+
+    template <typename cdf_version_tag_t, typename buffer_t>
+    inline void load_vvr_data(buffer_t& stream, std::size_t size,
+        const cdf_VVR_t<cdf_version_tag_t, buffer_t>& vvr, char* const data)
+    {
+        stream.read(data, vvr.offset + AFTER(vvr.header), size);
+    }
+
+    template <typename cdf_version_tag_t, typename buffer_t>
+    inline void load_cvvr(buffer_t& stream, std::size_t size,
+        const cdf_CVVR_t<cdf_version_tag_t, buffer_t>& cvvr, char* const data)
+    {
+    }
+
 
     template <cdf_r_z rz_, typename cdf_version_tag_t, typename stream_t>
     std::vector<char> load_uncompressed_data(stream_t& stream,
         const cdf_VDR_t<rz_, cdf_version_tag_t, stream_t>& vdr, uint32_t record_size,
         uint32_t record_count)
     {
-        std::vector<char> data(record_size * record_count);
-        std::for_each(begin_VXR(vdr), end_VXR(vdr),
-            [&, pos = 0](const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr) mutable {
-                foreach_vvr<false>(vxr,
-                    [&pos, &stream, &record_size, &data](
-                        const cdf_VVR_t<cdf_version_tag_t, stream_t>& vvr,
-                        std::size_t record_count) mutable {
-                        stream.read(data.data() + pos, vvr.offset + AFTER(vvr.header),
-                            std::min(static_cast<std::size_t>(record_size * record_count),
-                                std::size(data) - pos));
-                        pos += static_cast<std::size_t>(record_size * record_count);
-                    });
+        std::vector<char> data(record_count * record_size);
+        std::size_t pos { 0UL };
+        foreach_vvr<rz_, false>(stream, vdr,
+            [&pos, record_size, &data](stream_t& stream, const auto& vvr, std::size_t vvr_records_count) {
+                std::size_t data_size
+                    = std::min(vvr_records_count * record_size, std::size(data) - pos);
+                CDFPP_ASSERT(data_size <= vvr.data_size());
+                load_vvr_data<cdf_version_tag_t>(stream, data_size, vvr, data.data() + pos);
+                pos += data_size;
             });
         return data;
     }
@@ -123,37 +149,19 @@ namespace
         uint32_t record_count)
     {
         std::vector<char> data(record_size * record_count);
+        std::size_t pos { 0UL };
         if (cdf_CPR_t<cdf_version_tag_t, buffer_t> CPR { buffer };
             CPR.load(vdr.CPRorSPRoffset.value)
             && CPR.cType.value == cdf_compression_type::gzip_compression)
         {
-            std::for_each(begin_VXR(vdr), end_VXR(vdr),
-                [&, pos = 0](const cdf_VXR_t<cdf_version_tag_t, buffer_t>& vxr) mutable {
-                    foreach_vvr<true>(vxr,
-                        [&pos, &buffer, &record_size, &data](
-                            const cdf_CVVR_t<cdf_version_tag_t, buffer_t>& cvvr,
-                            std::size_t record_count) mutable {
-                            if (std::size(cvvr.data.value))
-                            {
-                                auto decompressed_buffer = [&]() {
-                                    std::vector<char> vvr_data;
-                                    zlib::gzinflate(cvvr.data.value, vvr_data);
-                                    return buffers::owning_array_adapter<decltype(vvr_data)>(
-                                        std::move(vvr_data));
-                                }();
-                                if (cdf_VVR_t<cdf_version_tag_t, decltype(decompressed_buffer)>
-                                        vvr { decompressed_buffer };
-                                    vvr.load(0))
-                                {
-                                    decompressed_buffer.read(data.data() + pos,
-                                        vvr.offset + AFTER(vvr.header),
-                                        std::min(
-                                            static_cast<std::size_t>(record_size * record_count),
-                                            std::size(data) - pos));
-                                    pos += static_cast<std::size_t>(record_size * record_count);
-                                }
-                            }
-                        });
+            foreach_vvr<rz_, true>(buffer, vdr,
+                [&pos, record_size, &data](const std::vector<char>& vvr_data, std::size_t vvr_records_count)
+                {
+                    std::size_t data_size
+                        = std::min(vvr_records_count * record_size, std::size(data) - pos);
+                    CDFPP_ASSERT(data_size <= std::size(vvr_data));
+                    std::copy(std::cbegin(vvr_data),std::cend(vvr_data),data.data() + pos);
+                    pos += data_size;
                 });
         }
         return data;

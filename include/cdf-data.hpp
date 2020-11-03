@@ -193,7 +193,7 @@ template <CDF_Types type, typename endianness_t>
 inline auto load_values(const char* buffer, std::size_t buffer_size)
 {
 
-    cdfpp_assert(buffer != nullptr);
+    CDFPP_ASSERT(buffer != nullptr);
     if constexpr (type == CDF_Types::CDF_CHAR
         || type == CDF_Types::CDF_UCHAR) // special case for strings
     {
@@ -214,7 +214,7 @@ inline auto load_values(const char* buffer, std::size_t buffer_size)
 inline data_t load_values(
     const char* buffer, std::size_t buffer_size, CDF_Types type, cdf_encoding encoding)
 {
-    cdfpp_assert(buffer != nullptr);
+    CDFPP_ASSERT(buffer != nullptr);
 #define DATA_FROM_T(type)                                                                          \
     case CDF_Types::type:                                                                          \
         if (endianness::is_big_endian_encoding(encoding))                                          \

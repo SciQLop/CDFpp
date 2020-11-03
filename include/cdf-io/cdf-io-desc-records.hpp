@@ -524,6 +524,11 @@ struct cdf_VVR_t : cdf_description_record<buffer_t, cdf_VVR_t<version_t, buffer_
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::VVR> header;
 
+    constexpr std::size_t data_size() const
+    {
+        return header.record_size.value - AFTER(header.record_type);
+    }
+
     using cdf_description_record<buffer_t, cdf_VVR_t<version_t, buffer_t>>::cdf_description_record;
     friend cdf_description_record<buffer_t, cdf_VVR_t<version_t, buffer_t>>;
 
@@ -554,7 +559,8 @@ struct cdf_CVVR_t : cdf_description_record<buffer_t, cdf_CVVR_t<version_t, buffe
 protected:
     bool load_from(buffer_t& buffer, std::size_t VVRoffset)
     {
-        return load_desc_record(buffer, VVRoffset, *this) && load_table_field(data, buffer, *this);
+        return load_desc_record(buffer, VVRoffset, *this, cSize)
+            && load_table_field(data, buffer, *this);
     }
 };
 

@@ -56,17 +56,29 @@ def print_cdf(cd):
     print_vars(cd)
     print_attrs(cd)
 
-def add_varaibles(cd):
+def make_var(cdf_file, name, compress, values):
+    if compress:
+        cdf_file.new(name, data=values, compress=pycdf.const.GZIP_COMPRESSION, compress_param=9)
+    else:
+        cdf_file.new(name, data=values)
+
+def add_varaibles(cd, compress=False):
     l=100
-    cd["var"] = np.cos(np.arange(0.,(l+1)/l*2.*math.pi,2.*math.pi/l))
+    for name,values in [('var', np.cos(np.arange(0.,(l+1)/l*2.*math.pi,2.*math.pi/l))),
+                          ('epoch', [datetime(2019,10,1)+timedelta(seconds=5*i) for i in range(l+1)]),
+                          ('var2d', np.ones((3,4))),
+                          ('var3d', np.ones((4,3,2))),
+                          ('var2d_counter', np.array([[1.,2.],[3.,4.]]))]:
+        make_var(cd, name=name, compress=compress, values=values)
+    #cd["var"] = np.cos(np.arange(0.,(l+1)/l*2.*math.pi,2.*math.pi/l))
     cd["var"].attrs["var_attr"] = "a variable attribute"
     cd["var"].attrs["DEPEND0"] = "epoch"
-    cd["epoch"] = [datetime(2019,10,1)+timedelta(seconds=5*i) for i in range(len(cd["var"]))]
+    #cd["epoch"] = [datetime(2019,10,1)+timedelta(seconds=5*i) for i in range(len(cd["var"]))]
     cd["epoch"].attrs["epoch_attr"] = "a variable attribute"
-    cd["var2d"] = np.ones((3,4))
-    cd["var3d"] = np.ones((4,3,2))
+    #cd["var2d"] = np.ones((3,4))
+    #cd["var3d"] = np.ones((4,3,2))
     cd["var3d"].attrs["var3d_attr_multi"] = [10,11]
-    cd["var2d_counter"] = np.array([[1.,2.],[3.,4.]])
+    #cd["var2d_counter"] = np.array([[1.,2.],[3.,4.]])
 
 def add_attributes(cd):
     cd.attrs["attr"] = "a cdf text attribute"
@@ -76,16 +88,17 @@ def add_attributes(cd):
     cd.attrs["empty"] = []
 
 
-def make_cdf(name, compress=False):
+def make_cdf(name, compress_file=False, compress_var=False):
     if os.path.exists(name):
         os.unlink(name)
     cd = pycdf.CDF(name,'')
-    add_varaibles(cd)
+    add_varaibles(cd, compress=compress_var)
     add_attributes(cd)
     print_cdf(cd)
-    if compress:
+    if compress_file:
         cd.compress(pycdf.const.GZIP_COMPRESSION)
     cd.close()
 
 make_cdf("a_cdf.cdf")
-make_cdf("a_compressed_cdf.cdf", True)
+make_cdf("a_compressed_cdf.cdf", compress_file=True)
+make_cdf("a_cdf_with_compressed_vars.cdf", compress_var=True)

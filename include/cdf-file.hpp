@@ -37,18 +37,12 @@ struct CDF
 
 void add_attribute(CDF& cdf_file, const std::string& name, Attribute::attr_data_t&& data)
 {
-    if (auto [_, success] = cdf_file.attributes.try_emplace(name, name, std::move(data)); !success)
-    {
-        cdf_file.attributes[name] = std::move(data);
-    }
+    cdf_file.attributes[name] = std::move(data);
 }
 
 void add_variable(CDF& cdf_file, const std::string& name, Variable&& var)
 {
-    if (auto [_, success] = cdf_file.variables.try_emplace(name, std::move(var)); !success)
-    {
-        cdf_file.variables[name] = std::move(var);
-    }
+    cdf_file.variables[name] = std::move(var);
 }
 
 } // namespace cdf

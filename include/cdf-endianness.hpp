@@ -128,7 +128,7 @@ CDFPP_NON_NULL(1)
 T decode(const U* input)
 {
     T result;
-    cdfpp_assert(input != nullptr);
+    CDFPP_ASSERT(input != nullptr);
     std::memcpy(&result, input, sizeof(T));
     if constexpr (!std::is_same_v<host_endianness_t, src_endianess_t>)
     {
@@ -142,8 +142,8 @@ CDFPP_NON_NULL(1, 3)
 inline void decode_v(const char* input, std::size_t size, value_t* output)
 {
     using casted_buffer_t = uint_t<sizeof(value_t)>;
-    cdfpp_assert(input != nullptr);
-    cdfpp_assert(output != nullptr);
+    CDFPP_ASSERT(input != nullptr);
+    CDFPP_ASSERT(output != nullptr);
     std::memcpy(output, input, size);
     if constexpr (not std::is_same_v<host_endianness_t, src_endianess_t>)
     {

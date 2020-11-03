@@ -7,7 +7,7 @@ project(
 )
 
 if get_option('buildtype').contains('debug')
-    add_project_arguments('-DCDFPP_ASSERT', language : ['cpp'])
+    add_project_arguments('-DCDFPP_ENABLE_ASSERT', language : ['cpp'])
     add_project_arguments('-DCDFPP_HEDLEY', language : ['cpp'])
 endif
 
