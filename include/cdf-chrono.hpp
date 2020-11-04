@@ -23,7 +23,11 @@
 #include "cdf-chrono-constants.hpp"
 #include "cdf-enums.hpp"
 #include "cdf-leap-seconds.h"
+#include "cdf-debug.hpp"
+CDFPP_DIAGNOSTIC_PUSH
+CDFPP_DIAGNOSTIC_DISABLE_DEPRECATED
 #include "date/date.h"
+CDFPP_DIAGNOSTIC_POP
 #include <array>
 #include <chrono>
 #include <cmath>

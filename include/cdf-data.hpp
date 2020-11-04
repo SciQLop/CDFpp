@@ -124,10 +124,8 @@ auto visit(const data_t& data, Ts... lambdas)
 }
 
 template <CDF_Types type, typename endianness_t>
-CDFPP_NON_NULL(1)
 auto load_values(const char* buffer, std::size_t buffer_size);
 
-CDFPP_NON_NULL(1)
 data_t load_values(
     const char* buffer, std::size_t buffer_size, CDF_Types type, cdf_encoding encoding);
 
@@ -193,7 +191,8 @@ template <CDF_Types type, typename endianness_t>
 inline auto load_values(const char* buffer, std::size_t buffer_size)
 {
 
-    CDFPP_ASSERT(buffer != nullptr);
+    CDFPP_ASSERT(not(buffer == nullptr and buffer_size != 0UL));
+
     if constexpr (type == CDF_Types::CDF_CHAR
         || type == CDF_Types::CDF_UCHAR) // special case for strings
     {
@@ -206,7 +205,8 @@ inline auto load_values(const char* buffer, std::size_t buffer_size)
         using raw_type = from_cdf_type_t<type>;
         std::size_t size = buffer_size / sizeof(raw_type);
         std::vector<raw_type> result(size);
-        endianness::decode_v<endianness_t>(buffer, buffer_size, result.data());
+        if(size!=0UL)
+            endianness::decode_v<endianness_t>(buffer, buffer_size, result.data());
         return cdf_values_t { std::move(result) };
     }
 }
@@ -214,7 +214,7 @@ inline auto load_values(const char* buffer, std::size_t buffer_size)
 inline data_t load_values(
     const char* buffer, std::size_t buffer_size, CDF_Types type, cdf_encoding encoding)
 {
-    CDFPP_ASSERT(buffer != nullptr);
+    CDFPP_ASSERT(not(buffer == nullptr and buffer_size != 0UL));
 #define DATA_FROM_T(type)                                                                          \
     case CDF_Types::type:                                                                          \
         if (endianness::is_big_endian_encoding(encoding))                                          \

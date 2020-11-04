@@ -166,21 +166,13 @@ struct cdf_repr
 
 void add_global_attribute(cdf_repr& repr, const std::string& name, Attribute::attr_data_t&& data)
 {
-    if (auto [_, success] = repr.attributes.try_emplace(name, name, std::move(data)); !success)
-    {
-        repr.attributes[name] = std::move(data);
-    }
+    repr.attributes[name] = Attribute { name, std::move(data) };
 }
 
 void add_var_attribute(cdf_repr& repr, std::size_t variable_index, const std::string& name,
     Attribute::attr_data_t&& data)
 {
-    if (auto [_, success]
-        = repr.var_attributes[variable_index].try_emplace(name, name, std::move(data));
-        !success)
-    {
-        repr.var_attributes[variable_index][name] = std::move(data);
-    }
+    repr.var_attributes[variable_index][name] = Attribute { name, std::move(data) };
 }
 
 void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name,
@@ -197,13 +189,7 @@ void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name
 void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
     Variable::var_data_t&& data, Variable::shape_t&& shape)
 {
-    if (auto [_, success]
-        = repr.variables.try_emplace(name, name, number, std::move(data), std::move(shape));
-        !success)
-    {
-        auto& var = repr.variables[name];
-        var.set_data(std::move(data), std::move(shape));
-    }
+    repr.variables[name] = Variable { name, number, std::move(data), std::move(shape) };
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes) {
         auto attrs = repr.var_attributes.extract(number);
         if (!attrs.empty())

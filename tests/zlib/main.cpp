@@ -37,7 +37,7 @@ TEST_CASE("", "")
     std::generate(std::begin(data), std::end(data), []() mutable { return 1.; });
     auto comp = cdf::io::zlib::deflate(data);
     REQUIRE(std::size(comp) < std::size(data));
-    cdf::io::zlib::inflate(comp, data);
+    REQUIRE(cdf::io::zlib::inflate(comp, data));
     REQUIRE(std::size(data) == 4096);
     REQUIRE(std::accumulate(
         std::cbegin(data), std::cend(data), true, [](double a, bool b) { return b && (a == 1.); }));

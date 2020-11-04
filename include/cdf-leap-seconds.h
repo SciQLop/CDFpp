@@ -21,7 +21,11 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "cdf-debug.hpp"
+CDFPP_DIAGNOSTIC_PUSH
+CDFPP_DIAGNOSTIC_DISABLE_DEPRECATED
 #include "date/date.h"
+CDFPP_DIAGNOSTIC_POP
 #include <chrono>
 #include <utility>
 #include <array>

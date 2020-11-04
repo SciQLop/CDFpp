@@ -191,11 +191,16 @@ namespace
                             if (!common::is_nrv(vdr))
                                 return load_uncompressed_data(
                                     stream, vdr, record_size, record_count);
+                            else
+                                return load_uncompressed_data(
+                                    stream, vdr, record_size, 1);
                         }
                         else
                         {
                             if (common::is_compressed(vdr) and !common::is_nrv(vdr))
                                 return load_compressed_data(stream, vdr, record_size, record_count);
+                            else
+                                return load_compressed_data(stream, vdr, record_size, 1);
                         }
                         return std::vector<char> {};
                     }();
