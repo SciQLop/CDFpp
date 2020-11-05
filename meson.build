@@ -116,3 +116,12 @@ manual_load = executable('manual_load','tests/manual_load/main.cpp',
                 dependencies:[cdfpp_dep],
                 install: false
                 )
+
+
+foreach example:['basic_cpp']
+    exe = executable('example-'+example,'examples/'+example+'/main.cpp',
+                    dependencies:[cdfpp_dep],
+                    cpp_args: ['-DDATA_PATH="@0@/tests/resources"'.format(meson.current_source_dir())],
+                    install: false
+                    )
+endforeach

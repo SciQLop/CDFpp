@@ -21,7 +21,7 @@ List of features and roadmap:
 - [x] loads cdf files from memory (std::vector<char> or char*)
 - [ ] read variables with nested VXRs
 - [x] read compressed file
-- [ ] read compressed variables
+- [x] read compressed variables
 - [ ] write uncompressed headers
 - [ ] write uncompressed attributes
 - [ ] write uncompressed variables
@@ -61,4 +61,42 @@ from pycdfpp import pycdfpp
 cdf = pycdfpp.load("some_cdf.cdf")
 cdf_var_data = cdf["var_name"].as_array() #builds a numpy array
 attribute_name_first_value = cdf.attributes['attribute_name'][0]
+```
+
+## C++
+```cpp
+#include "cdf-io/cdf-io.hpp"
+#include <iostream>
+
+std::ostream& operator<<(std::ostream& os, const cdf::Variable::shape_t& shape)
+{
+    os << "(";
+    for (auto i = 0; i < static_cast<int>(std::size(shape)) - 1; i++)
+        os << shape[i] << ',';
+    if (std::size(shape) >= 1)
+        os << shape[std::size(shape) - 1];
+    os << ")";
+    return os;
+}
+
+int main(int argc, char** argv)
+{
+    auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
+    // cdf::io::load returns a optional<CDF>
+    if (const auto my_cdf = cdf::io::load(path); my_cdf)
+    {
+        std::cout << "Attribute list:" << std::endl;
+        for (const auto& [name, attribute] : my_cdf->attributes)
+        {
+            std::cout << "\t" << name << std::endl;
+        }
+        std::cout << "Variable list:" << std::endl;
+        for (const auto& [name, variable] : my_cdf->variables)
+        {
+            std::cout << "\t" << name << " shape:" << variable.shape() << std::endl;
+        }
+        return 0;
+    }
+    return -1;
+}
 ```
