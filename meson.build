@@ -41,9 +41,30 @@ hedley_dep = dependency('hedley', main : true, fallback : ['hedley', 'hedley_dep
 pymod = import('python')
 python3 = pymod.find_installation('python3')
 
+cdfpp_headers = [
+    'include/cdf.hpp',
+    'include/cdf-chrono.hpp',
+    'include/cdf-chrono-constants.hpp',
+    'include/cdf-data.hpp',
+    'include/cdf-debug.hpp',
+    'include/cdf-endianness.hpp',
+    'include/cdf-enums.hpp',
+    'include/cdf-file.hpp',
+    'include/cdf-io/cdf-io.hpp',
+    'include/cdf-io/cdf-io-attribute.hpp',
+    'include/cdf-io/cdf-io-buffers.hpp',
+    'include/cdf-io/cdf-io-common.hpp',
+    'include/cdf-io/cdf-io-desc-records.hpp',
+    'include/cdf-io/cdf-io-variable.hpp',
+    'include/cdf-io/cdf-io-zlib.hpp'
+]
+
+
 cdfpp_lib = library('CDFpp',
         include_directories: include_directories('include'),
-        dependencies: [zlib_dep, date_dep, hedley_dep])
+        dependencies: [zlib_dep, date_dep, hedley_dep],
+        extra_files: [cdfpp_headers, 'pyproject.toml', 'README.md', 'setup.py']
+        )
 
 cdfpp_dep = declare_dependency(include_directories: include_directories('include'),
                                 link_with:cdfpp_lib,
@@ -52,7 +73,7 @@ cdfpp_dep = declare_dependency(include_directories: include_directories('include
 
 
 python3.extension_module('pycdfpp', 'wrapper/pycdfpp.cpp',
-                         dependencies: [cdfpp_dep, pybind11_dep],
+                         dependencies: [cdfpp_dep, pybind11_dep,python3.dependency()],
                          install: true
                         )
 
@@ -95,7 +116,7 @@ endforeach
 
 foreach test:['chrono']
     exe = executable('test-'+test,'tests/'+test+'/main.cpp',
-                    dependencies:[catch_dep, cdfpp_dep, python3.dependency(embed:true)],
+                    dependencies:[catch_dep, cdfpp_dep, pybind11_dep, python3.dependency(embed:true)],
                     cpp_args: ['-DDATA_PATH="@0@/tests/resources"'.format(meson.current_source_dir())],
                     install: false
                     )
