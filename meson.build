@@ -129,7 +129,7 @@ test('python_wrapper_test', python3,
     workdir:meson.current_build_dir())
 
 python_wrapper_cpp = executable('python_wrapper_cpp','tests/python_wrapper_cpp/main.cpp',
-                dependencies:[cdfpp_dep, pybind11_dep, python3.dependency(embed:true)],
+                dependencies:[pybind11_dep, python3.dependency(embed:true)],
                 install: false
                 )
 

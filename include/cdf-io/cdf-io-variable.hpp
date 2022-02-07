@@ -46,11 +46,20 @@ namespace
     {
         if constexpr (type == cdf_r_z::z)
         {
-            std::vector<uint32_t> sizes(vdr.zNumDims.value);
+            std::vector<uint32_t> all_sizes(vdr.zNumDims.value);
+            std::vector<uint32_t> sizes;
             if (vdr.zNumDims.value)
             {
                 std::size_t offset = vdr.offset + AFTER(vdr.zNumDims);
-                common::load_values<endianness::big_endian_t>(stream, offset, sizes);
+                common::load_values<endianness::big_endian_t>(stream, offset, all_sizes);
+                std::copy_if(std::cbegin(all_sizes), std::cend(all_sizes),
+                    std::back_inserter(sizes),
+                    [DimVarys = vdr.DimVarys.value.begin()]([[maybe_unused]] const auto& v) mutable
+                    {
+                        bool vary = *DimVarys != 0;
+                        DimVarys++;
+                        return vary;
+                    });
             }
             return sizes;
         }
@@ -61,7 +70,8 @@ namespace
             std::vector<uint32_t> shape;
             std::copy_if(std::cbegin(context.gdr.rDimSizes.value),
                 std::cend(context.gdr.rDimSizes.value), std::back_inserter(shape),
-                [DimVarys = vdr.DimVarys.value.begin()]([[maybe_unused]] const auto& v) mutable {
+                [DimVarys = vdr.DimVarys.value.begin()]([[maybe_unused]] const auto& v) mutable
+                {
                     bool vary = *DimVarys != 0;
                     DimVarys++;
                     return vary;
@@ -85,7 +95,7 @@ namespace
                 {
                     std::vector<char> vvr_data;
                     zlib::gzinflate(cvvr.data.value, vvr_data);
-                    if(std::size(vvr_data))
+                    if (std::size(vvr_data))
                     {
 
                         f(vvr_data, record_count);
@@ -105,7 +115,8 @@ namespace
 
     template <cdf_r_z rz_, bool is_compressed, typename cdf_version_tag_t, typename stream_t,
         typename func_t>
-    void foreach_vvr(stream_t& stream, const cdf_VDR_t<rz_, cdf_version_tag_t, stream_t>& vdr, func_t f)
+    void foreach_vvr(
+        stream_t& stream, const cdf_VDR_t<rz_, cdf_version_tag_t, stream_t>& vdr, func_t f)
     {
         std::for_each(begin_VXR(vdr), end_VXR(vdr),
             [&f, &stream](const auto& vxr) { foreach_vvr<is_compressed>(stream, vxr, f); });
@@ -133,7 +144,9 @@ namespace
         std::vector<char> data(record_count * record_size);
         std::size_t pos { 0UL };
         foreach_vvr<rz_, false>(stream, vdr,
-            [&pos, record_size, &data](stream_t& stream, const auto& vvr, std::size_t vvr_records_count) {
+            [&pos, record_size, &data](
+                stream_t& stream, const auto& vvr, std::size_t vvr_records_count)
+            {
                 std::size_t data_size
                     = std::min(vvr_records_count * record_size, std::size(data) - pos);
                 CDFPP_ASSERT(data_size <= vvr.data_size());
@@ -155,12 +168,13 @@ namespace
             && CPR.cType.value == cdf_compression_type::gzip_compression)
         {
             foreach_vvr<rz_, true>(buffer, vdr,
-                [&pos, record_size, &data](const std::vector<char>& vvr_data, std::size_t vvr_records_count)
+                [&pos, record_size, &data](
+                    const std::vector<char>& vvr_data, std::size_t vvr_records_count)
                 {
                     std::size_t data_size
                         = std::min(vvr_records_count * record_size, std::size(data) - pos);
                     CDFPP_ASSERT(data_size <= std::size(vvr_data));
-                    std::copy(std::cbegin(vvr_data),std::cend(vvr_data),data.data() + pos);
+                    std::copy(std::cbegin(vvr_data), std::cbegin(vvr_data)+data_size, data.data() + pos);
                     pos += data_size;
                 });
         }
@@ -177,14 +191,16 @@ namespace
     bool load_all_Vars(stream_t& stream, context_t& context, common::cdf_repr& cdf)
     {
         std::for_each(begin_VDR<type>(context.gdr), end_VDR<type>(context.gdr),
-            [&](const cdf_VDR_t<type, cdf_version_tag_t, stream_t>& vdr) {
+            [&](const cdf_VDR_t<type, cdf_version_tag_t, stream_t>& vdr)
+            {
                 if (vdr.is_loaded)
                 {
                     auto shape = get_variable_dimensions<type>(vdr, stream, context);
                     uint32_t record_size = var_record_size(shape, vdr.DataType.value);
                     uint32_t record_count = vdr.MaxRec.value + 1;
                     shape.insert(std::cbegin(shape), record_count);
-                    auto data = [&]() {
+                    auto data = [&]()
+                    {
                         if (vdr.CPRorSPRoffset.value
                             == static_cast<decltype(vdr.CPRorSPRoffset.value)>(-1))
                         {
@@ -192,8 +208,7 @@ namespace
                                 return load_uncompressed_data(
                                     stream, vdr, record_size, record_count);
                             else
-                                return load_uncompressed_data(
-                                    stream, vdr, record_size, 1);
+                                return load_uncompressed_data(stream, vdr, record_size, 1);
                         }
                         else
                         {
