@@ -1,30 +1,6 @@
-from skbuild import setup
+#!/usr/bin/env python
 
-with open('README.md') as readme_file:
-    readme = readme_file.read()
+import setuptools
 
-setup(
-    name="pycdfpp",
-    version="0.1.6",
-    description="A modern C++ header only cdf library",
-    author='Alexis Jeandet',
-    author_email='alexis.jeandet@member.fsf.org',
-        classifiers=[
-            'Development Status :: 2 - Pre-Alpha',
-            'Intended Audience :: Developers',
-            'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-            'Natural Language :: English',
-            'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.5',
-            'Programming Language :: Python :: 3.6',
-            'Programming Language :: Python :: 3.7',
-            'Programming Language :: Python :: 3.8',
-        ],
-    license="GNU General Public License v3",
-    long_description=readme,
-    long_description_content_type='text/markdown',
-    keywords='CDF NASA Space Physics Plasma',
-    url='https://github.com/SciQLop/CDFpp',
-    packages=['pycdfpp'],
-    cmake_with_sdist=True
-)
+if __name__ == "__main__":
+    setuptools.setup()
