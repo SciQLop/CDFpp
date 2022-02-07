@@ -302,7 +302,7 @@ struct cdf_GDR_t : cdf_description_record<buffer_t, cdf_GDR_t<version_t, buffer_
     field_t<AFTER(NumAttr), uint32_t> rMaxRec;
     field_t<AFTER(rMaxRec), uint32_t> rNumDims;
     field_t<AFTER(rNumDims), uint32_t> NzVars;
-    field_t<AFTER(NzVars), uint32_t> UIRhead;
+    cdf_offset_field_t<version_t, AFTER(NzVars)> UIRhead;
     unused_field_t<AFTER(UIRhead), uint32_t> rfuC;
     field_t<AFTER(rfuC), uint32_t> LeapSecondLastUpdated;
     unused_field_t<AFTER(LeapSecondLastUpdated), uint32_t> rfuE;
@@ -430,7 +430,7 @@ struct cdf_VDR_t : cdf_description_record<buffer_t, cdf_VDR_t<rz_, version_t, bu
             else
                 return roffset;
         } };
-    table_field_t<uint32_t, cdf_VDR_t> DimVarys { [](auto& vdr) -> std::size_t {
+    table_field_t<int32_t, cdf_VDR_t> DimVarys { [](auto& vdr) -> std::size_t {
                                                      if constexpr (rz_ == cdf_r_z::z)
                                                          return vdr.zNumDims.value;
                                                      else
@@ -439,7 +439,10 @@ struct cdf_VDR_t : cdf_description_record<buffer_t, cdf_VDR_t<rz_, version_t, bu
                                                      }
                                                  },
         [](auto& vdr) -> std::size_t {
-            return vdr.zDimSizes.offset(vdr) + (vdr.zDimSizes.size(vdr) * 4);
+            if constexpr (rz_ == cdf_r_z::z)
+                return vdr.zDimSizes.offset(vdr) + (vdr.zDimSizes.size(vdr) * 4);
+            else
+                return AFTER(Name);
         } };
     table_field_t<uint32_t, cdf_VDR_t> PadValues { [](auto& vdr) -> std::size_t {
                                                       if ((vdr.Flags.value & 2) == 0)
