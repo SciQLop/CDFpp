@@ -4,36 +4,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import math
 import os
-'''
-if os.path.exists("a_cdf.cdf"):
-    os.unlink("a_cdf.cdf")
-cd = pycdf.CDF("a_cdf.cdf",'')
-l=100
-cd["var"] = np.cos(np.arange(0.,(l+1)/l*2.*math.pi,2.*math.pi/l))
-cd["var"].attrs["var_attr"] = "a variable attribute"
-cd["var"].attrs["DEPEND0"] = "epoch"
-cd["epoch"] = [datetime(2019,10,1)+timedelta(seconds=5*i) for i in range(len(cd["var"]))]
-cd["epoch"].attrs["epoch_attr"] = "a variable attribute"
-cd["var2d"] = np.ones((3,4))
-cd["var3d"] = np.ones((4,3,2))
-cd["var3d"].attrs["var3d_attr_multi"] = [10,11]
-cd.attrs["attr"] = "a cdf text attribute"
-cd.attrs["attr_float"] = [[1.,2.,3.],[4.,5.,6.]]
-cd.attrs["attr_int"] = [[1,2,3]]
-cd.attrs["attr_multi"] = [[1, 2],[2.,3.],"hello"]
-cd.attrs["empty"] = []
-for vname,var in cd.items():
-    print(vname,":",var)
-    for aname,attr in var.attrs.items():
-        print("\t",aname,":",attr)
-for aname,attr in cd.attrs.items():
-    print(aname,":")
-    i=0
-    for val in attr:
-        print("\t",pycdf.lib.cdftypenames[attr.type(i)],val)
-        i+=1
-cd.close()
-'''
+
 
 def print_attr(attr):
     print(attr._name.decode(),":")
@@ -68,17 +39,13 @@ def add_varaibles(cd, compress=False):
                           ('epoch', [datetime(2019,10,1)+timedelta(seconds=5*i) for i in range(l+1)]),
                           ('var2d', np.ones((3,4))),
                           ('var3d', np.ones((4,3,2))),
-                          ('var2d_counter', np.array([[1.,2.],[3.,4.]]))]:
+                          ('var2d_counter', np.arange(100, dtype=np.float64).reshape(10,10))]:
         make_var(cd, name=name, compress=compress, values=values)
-    #cd["var"] = np.cos(np.arange(0.,(l+1)/l*2.*math.pi,2.*math.pi/l))
+
     cd["var"].attrs["var_attr"] = "a variable attribute"
     cd["var"].attrs["DEPEND0"] = "epoch"
-    #cd["epoch"] = [datetime(2019,10,1)+timedelta(seconds=5*i) for i in range(len(cd["var"]))]
     cd["epoch"].attrs["epoch_attr"] = "a variable attribute"
-    #cd["var2d"] = np.ones((3,4))
-    #cd["var3d"] = np.ones((4,3,2))
     cd["var3d"].attrs["var3d_attr_multi"] = [10,11]
-    #cd["var2d_counter"] = np.array([[1.,2.],[3.,4.]])
 
 def add_attributes(cd):
     cd.attrs["attr"] = "a cdf text attribute"
@@ -88,7 +55,7 @@ def add_attributes(cd):
     cd.attrs["empty"] = []
 
 
-def make_cdf(name, compress_file=False, compress_var=False):
+def make_cdf(name, compress_file=False, compress_var=False, compression_algo=pycdf.const.GZIP_COMPRESSION):
     if os.path.exists(name):
         os.unlink(name)
     cd = pycdf.CDF(name,'')
@@ -102,3 +69,4 @@ def make_cdf(name, compress_file=False, compress_var=False):
 make_cdf("a_cdf.cdf")
 make_cdf("a_compressed_cdf.cdf", compress_file=True)
 make_cdf("a_cdf_with_compressed_vars.cdf", compress_var=True)
+make_cdf("a_rle_compressed_cdf.cdf", compress_file=True, compression_algo=pycdf.const.RLE_COMPRESSION)
