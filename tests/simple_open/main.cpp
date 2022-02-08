@@ -95,15 +95,17 @@ template <typename T>
 struct cos_gen
 {
     const T step;
-    cos_gen(T step) : step { step } {}
+    cos_gen(T step) : step { step } { }
     std::vector<T> operator()(std::size_t size)
     {
         std::vector<T> values(size);
-        std::generate(std::begin(values), std::end(values), [i = T(0.), step = step]() mutable {
-            auto v = std::cos(i);
-            i += step;
-            return v;
-        });
+        std::generate(std::begin(values), std::end(values),
+            [i = T(0.), step = step]() mutable
+            {
+                auto v = std::cos(i);
+                i += step;
+                return v;
+            });
         return values;
     }
 };
@@ -128,6 +130,53 @@ std::size_t filesize(std::fstream& file)
     file.seekg(0, file.beg);
     return static_cast<std::size_t>(pos);
 }
+
+
+#define CHECK_ATTRIBUTES(cd)                                                                       \
+    REQUIRE(std::size(cd.attributes) == 5);                                                        \
+    REQUIRE(has_attribute(cd, "attr"));                                                            \
+    REQUIRE(compare_attribute_values(cd.attributes["attr"], "a cdf text attribute"));              \
+    REQUIRE(has_attribute(cd, "attr_float"));                                                      \
+    REQUIRE(compare_attribute_values(cd.attributes["attr_float"], std::vector { 1.f, 2.f, 3.f },   \
+        std::vector { 4.f, 5.f, 6.f }));                                                           \
+    REQUIRE(has_attribute(cd, "attr_int"));                                                        \
+    REQUIRE(compare_attribute_values(                                                              \
+        cd.attributes["attr_int"], std::vector { int8_t { 1 }, int8_t { 2 }, int8_t { 3 } }));     \
+    REQUIRE(has_attribute(cd, "attr_multi"));                                                      \
+    REQUIRE(compare_attribute_values(cd.attributes["attr_multi"],                                  \
+        std::vector { int8_t { 1 }, int8_t { 2 } }, std::vector { 2.f, 3.f }, "hello"));           \
+    REQUIRE(has_attribute(cd, "empty"));                                                           \
+    REQUIRE(cd.attributes["empty"].len() == 0UL)
+
+
+#define CHECK_VARIABLES(cd)                                                                        \
+    REQUIRE(std::size(cd.variables) == 5);                                                         \
+    REQUIRE(has_variable(cd, "var"));                                                              \
+    REQUIRE(compare_shape(cd.variables["var"], { 101 }));                                          \
+    REQUIRE(check_variable(                                                                        \
+        cd.variables["var"], { 101 }, cos_gen<double>(3.141592653589793 * 2. / 100.)));            \
+    REQUIRE(compare_attribute_values(                                                              \
+        cd.variables["var"].attributes["var_attr"], "a variable attribute"));                      \
+    REQUIRE(compare_attribute_values(cd.variables["var"].attributes["DEPEND0"], "epoch"));         \
+    REQUIRE(has_variable(cd, "epoch"));                                                            \
+    REQUIRE(compare_shape(cd.variables["epoch"], { 101 }));                                        \
+    REQUIRE(has_variable(cd, "var2d"));                                                            \
+    REQUIRE(compare_shape(cd.variables["var2d"], { 3, 4 }));                                       \
+    REQUIRE(check_variable(cd.variables["var2d"], { 3, 4 }, ones<double>()));                      \
+    REQUIRE(has_variable(cd, "var3d"));                                                            \
+    REQUIRE(compare_shape(cd.variables["var3d"], { 4, 3, 2 }));                                    \
+    REQUIRE(check_variable(cd.variables["var3d"], { 4, 3, 2 }, ones<double>()));                   \
+    REQUIRE(compare_attribute_values(                                                              \
+        cd.variables["var3d"].attributes["var3d_attr_multi"], std::vector { 10., 11. }));          \
+    REQUIRE(has_variable(cd, "var2d_counter"));                                                    \
+    REQUIRE(compare_shape(cd.variables["var2d_counter"], { 10, 10 }));                             \
+    REQUIRE(check_variable(cd.variables["var2d_counter"], { 10, 10 },                              \
+        [](const auto&)                                                                            \
+        {                                                                                          \
+            std::vector<double> result(100);                                                       \
+            std::iota(std::begin(result), std::end(result), 0.);                                   \
+            return result;                                                                         \
+        }))
 
 SCENARIO("Loading a cdf files", "[CDF]")
 {
@@ -156,58 +205,15 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded")
-            {
-                REQUIRE(std::size(cd.attributes) == 5);
-                REQUIRE(has_attribute(cd, "attr"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr"], "a cdf text attribute"));
-                REQUIRE(has_attribute(cd, "attr_float"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr_float"],
-                    std::vector { 1.f, 2.f, 3.f }, std::vector { 4.f, 5.f, 6.f }));
-                REQUIRE(has_attribute(cd, "attr_int"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr_int"],
-                    std::vector { int8_t { 1 }, int8_t { 2 }, int8_t { 3 } }));
-                REQUIRE(has_attribute(cd, "attr_multi"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr_multi"],
-                    std::vector { int8_t { 1 }, int8_t { 2 } }, std::vector { 2.f, 3.f }, "hello"));
-                REQUIRE(has_attribute(cd, "empty"));
-                REQUIRE(cd.attributes["empty"].len() == 0UL);
-            }
-            THEN("All expected variables are loaded")
-            {
-                REQUIRE(std::size(cd.variables) == 5);
-                REQUIRE(has_variable(cd, "var"));
-                REQUIRE(compare_shape(cd.variables["var"], { 101 }));
-                REQUIRE(check_variable(
-                    cd.variables["var"], { 101 }, cos_gen<double>(3.141592653589793 * 2. / 100.)));
-                REQUIRE(compare_attribute_values(
-                    cd.variables["var"].attributes["var_attr"], "a variable attribute"));
-                REQUIRE(
-                    compare_attribute_values(cd.variables["var"].attributes["DEPEND0"], "epoch"));
-                REQUIRE(has_variable(cd, "epoch"));
-                REQUIRE(compare_shape(cd.variables["epoch"], { 101 }));
-                REQUIRE(has_variable(cd, "var2d"));
-                REQUIRE(compare_shape(cd.variables["var2d"], { 3, 4 }));
-                REQUIRE(check_variable(cd.variables["var2d"], { 3, 4 }, ones<double>()));
-                REQUIRE(has_variable(cd, "var3d"));
-                REQUIRE(compare_shape(cd.variables["var3d"], { 4, 3, 2 }));
-                REQUIRE(check_variable(cd.variables["var3d"], { 4, 3, 2 }, ones<double>()));
-                REQUIRE(
-                    compare_attribute_values(cd.variables["var3d"].attributes["var3d_attr_multi"],
-                        std::vector { 10., 11. }));
-
-                REQUIRE(has_variable(cd, "var2d_counter"));
-                REQUIRE(compare_shape(cd.variables["var2d_counter"], { 2, 2 }));
-                REQUIRE(check_variable(cd.variables["var2d_counter"], { 2, 2 }, [](const auto&) {
-                    return std::vector<double> { 1., 2., 3., 4. };
-                }));
-            }
+            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
+            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
         }
         WHEN("In memory data as std::vector is a cdf file")
         {
             auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
             REQUIRE(std::filesystem::exists(path));
-            auto data = [&]() -> std::vector<char> {
+            auto data = [&]() -> std::vector<char>
+            {
                 std::fstream file { path, std::ios::binary | std::ios::in };
                 if (file.is_open())
                 {
@@ -220,14 +226,15 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(data);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded") { REQUIRE(std::size(cd.attributes) == 5); }
-            THEN("All expected variables are loaded") { REQUIRE(std::size(cd.variables) == 5); }
+            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
+            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
         }
         WHEN("In memory data as char* is a cdf file")
         {
             auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
             REQUIRE(std::filesystem::exists(path));
-            auto [data, size] = [&]() {
+            auto [data, size] = [&]()
+            {
                 std::fstream file { path, std::ios::binary | std::ios::in };
                 if (file.is_open())
                 {
@@ -242,56 +249,28 @@ SCENARIO("Loading a cdf files", "[CDF]")
             delete[] data;
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded") { REQUIRE(std::size(cd.attributes) == 5); }
-            THEN("All expected variables are loaded") { REQUIRE(std::size(cd.variables) == 5); }
+            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
+            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
         }
-        WHEN("file exists and is a compressed cdf file")
+        WHEN("file exists and is a compressed cdf file (GZIP)")
         {
             auto path = std::string(DATA_PATH) + "/a_compressed_cdf.cdf";
             REQUIRE(std::filesystem::exists(path));
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded")
-            {
-                REQUIRE(std::size(cd.attributes) == 5);
-                REQUIRE(has_attribute(cd, "attr"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr"], "a cdf text attribute"));
-                REQUIRE(has_attribute(cd, "attr_float"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr_float"],
-                    std::vector { 1.f, 2.f, 3.f }, std::vector { 4.f, 5.f, 6.f }));
-                REQUIRE(has_attribute(cd, "attr_int"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr_int"],
-                    std::vector { int8_t { 1 }, int8_t { 2 }, int8_t { 3 } }));
-                REQUIRE(has_attribute(cd, "attr_multi"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr_multi"],
-                    std::vector { int8_t { 1 }, int8_t { 2 } }, std::vector { 2.f, 3.f }, "hello"));
-                REQUIRE(has_attribute(cd, "empty"));
-                REQUIRE(cd.attributes["empty"].len() == 0UL);
-            }
-            THEN("All expected variables are loaded")
-            {
-                REQUIRE(std::size(cd.variables) == 5);
-                REQUIRE(has_variable(cd, "var"));
-                REQUIRE(compare_shape(cd.variables["var"], { 101 }));
-                REQUIRE(check_variable(
-                    cd.variables["var"], { 101 }, cos_gen<double>(3.141592653589793 * 2. / 100.)));
-                REQUIRE(compare_attribute_values(
-                    cd.variables["var"].attributes["var_attr"], "a variable attribute"));
-                REQUIRE(
-                    compare_attribute_values(cd.variables["var"].attributes["DEPEND0"], "epoch"));
-                REQUIRE(has_variable(cd, "epoch"));
-                REQUIRE(compare_shape(cd.variables["epoch"], { 101 }));
-                REQUIRE(has_variable(cd, "var2d"));
-                REQUIRE(compare_shape(cd.variables["var2d"], { 3, 4 }));
-                REQUIRE(check_variable(cd.variables["var2d"], { 3, 4 }, ones<double>()));
-                REQUIRE(has_variable(cd, "var3d"));
-                REQUIRE(compare_shape(cd.variables["var3d"], { 4, 3, 2 }));
-                REQUIRE(check_variable(cd.variables["var3d"], { 4, 3, 2 }, ones<double>()));
-                REQUIRE(
-                    compare_attribute_values(cd.variables["var3d"].attributes["var3d_attr_multi"],
-                        std::vector { 10., 11. }));
-            }
+            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
+            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
+        }
+        WHEN("file exists and is a compressed cdf file (RLE)")
+        {
+            auto path = std::string(DATA_PATH) + "/a_rle_compressed_cdf.cdf";
+            REQUIRE(std::filesystem::exists(path));
+            auto cd_opt = cdf::io::load(path);
+            REQUIRE(cd_opt != std::nullopt);
+            auto cd = *cd_opt;
+            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
+            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
         }
         WHEN("file exists and is a cdf file with compressed variables")
         {
@@ -300,46 +279,8 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded")
-            {
-                REQUIRE(std::size(cd.attributes) == 5);
-                REQUIRE(has_attribute(cd, "attr"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr"], "a cdf text attribute"));
-                REQUIRE(has_attribute(cd, "attr_float"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr_float"],
-                    std::vector { 1.f, 2.f, 3.f }, std::vector { 4.f, 5.f, 6.f }));
-                REQUIRE(has_attribute(cd, "attr_int"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr_int"],
-                    std::vector { int8_t { 1 }, int8_t { 2 }, int8_t { 3 } }));
-                REQUIRE(has_attribute(cd, "attr_multi"));
-                REQUIRE(compare_attribute_values(cd.attributes["attr_multi"],
-                    std::vector { int8_t { 1 }, int8_t { 2 } }, std::vector { 2.f, 3.f }, "hello"));
-                REQUIRE(has_attribute(cd, "empty"));
-                REQUIRE(cd.attributes["empty"].len() == 0UL);
-            }
-            THEN("All expected variables are loaded")
-            {
-                REQUIRE(std::size(cd.variables) == 5);
-                REQUIRE(has_variable(cd, "var"));
-                REQUIRE(compare_shape(cd.variables["var"], { 101 }));
-                REQUIRE(check_variable(
-                    cd.variables["var"], { 101 }, cos_gen<double>(3.141592653589793 * 2. / 100.)));
-                REQUIRE(compare_attribute_values(
-                    cd.variables["var"].attributes["var_attr"], "a variable attribute"));
-                REQUIRE(
-                    compare_attribute_values(cd.variables["var"].attributes["DEPEND0"], "epoch"));
-                REQUIRE(has_variable(cd, "epoch"));
-                REQUIRE(compare_shape(cd.variables["epoch"], { 101 }));
-                REQUIRE(has_variable(cd, "var2d"));
-                REQUIRE(compare_shape(cd.variables["var2d"], { 3, 4 }));
-                REQUIRE(check_variable(cd.variables["var2d"], { 3, 4 }, ones<double>()));
-                REQUIRE(has_variable(cd, "var3d"));
-                REQUIRE(compare_shape(cd.variables["var3d"], { 4, 3, 2 }));
-                REQUIRE(check_variable(cd.variables["var3d"], { 4, 3, 2 }, ones<double>()));
-                REQUIRE(
-                    compare_attribute_values(cd.variables["var3d"].attributes["var3d_attr_multi"],
-                        std::vector { 10., 11. }));
-            }
+            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
+            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
         }
     }
 }

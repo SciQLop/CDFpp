@@ -18,7 +18,7 @@ variables = {
     'type':pycdfpp.CDF_DOUBLE
 },
 'var2d_counter':{
-    'shape':[2,2],
+    'shape':[10,10],
     'type':pycdfpp.CDF_DOUBLE
 },
 'var3d':{
