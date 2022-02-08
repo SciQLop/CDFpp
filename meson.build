@@ -56,14 +56,21 @@ cdfpp_headers = [
     'include/cdf-io/cdf-io-common.hpp',
     'include/cdf-io/cdf-io-desc-records.hpp',
     'include/cdf-io/cdf-io-variable.hpp',
-    'include/cdf-io/cdf-io-zlib.hpp'
+    'include/cdf-io/cdf-io-zlib.hpp',
+    'include/cdf-io/cdf-io-rle.hpp'
 ]
 
 
 cdfpp_lib = library('CDFpp',
         include_directories: include_directories('include'),
         dependencies: [zlib_dep, date_dep, hedley_dep],
-        extra_files: [cdfpp_headers, 'pyproject.toml', 'README.md', 'setup.py']
+        extra_files: [cdfpp_headers, 'pyproject.toml', 'README.md',
+                      'setup.py', 'tests/resources/make_cdf.py',
+                      'tests/resources/make_cdf_epoch.py',
+                      'tests/resources/make_cdf_epoch16.py',
+                      'tests/resources/make_cdf_tt2000.py',
+                      'tests/python_wrapper/test.py'
+                      ]
         )
 
 cdfpp_dep = declare_dependency(include_directories: include_directories('include'),
