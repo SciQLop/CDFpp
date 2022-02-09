@@ -24,6 +24,14 @@ variables = {
 'var3d':{
     'shape':[4,3,2],
     'type':pycdfpp.CDF_DOUBLE
+},
+'var_string':{
+    'shape':[1],
+    'type':pycdfpp.CDF_CHAR
+},
+'var2d_string':{
+    'shape':[1,2],
+    'type':pycdfpp.CDF_CHAR
 }
 }
 

@@ -8,23 +8,25 @@ jobs:
   build:
     name: build python packages
     runs-on: ubuntu-latest
-    container: jeandet/manylinuxcpp2017
+    container: pypa/manylinux2014_x86_64
     steps:
+      - name: install deps
+        run: yum installl -y libcurl-devel && /opt/python/cp310-cp310/bin/pip install twine
       - uses: actions/checkout@v1
         with:
           submodules: true
-      - name: Build for Python 3.5
-        run: $PYTHON35/bin/python setup.py bdist_wheel -- -Dwith_tests=OFF --
-      - name: Build for Python 3.6
-        run: $PYTHON36/bin/python setup.py bdist_wheel -- -Dwith_tests=OFF --
       - name: Build for Python 3.7
-        run: $PYTHON37/bin/python setup.py bdist_wheel -- -Dwith_tests=OFF --
+        run: /opt/python/cp37-cp37m/bin/python -m build .
       - name: Build for Python 3.8
-        run: $PYTHON38/bin/python setup.py bdist_wheel -- -Dwith_tests=OFF --
+        run: /opt/python/cp38-cp38/bin/python -m build .
+      - name: Build for Python 3.9
+        run: /opt/python/cp39-cp39/bin/python -m build .
+      - name: Build for Python 3.10
+        run: /opt/python/cp310-cp310/bin/python -m build .
       - name: Make wheels universal
-        run: for wheel in $(ls dist); do auditwheel repair dist/$wheel; done
+        run: for wheel in $(ls dist/*.whl); do auditwheel repair $wheel; done
       - name: Publish on PyPi
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        run: $PYTHON38/bin/twine upload wheelhouse/*
+        run: /opt/python/cp310-cp310/bin/twine upload wheelhouse/*

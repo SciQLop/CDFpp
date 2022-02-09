@@ -6,21 +6,14 @@ jobs:
   build:
     name: build an tests
     runs-on: ubuntu-latest
-    container: jeandet/simple_cxx_fedora
     steps:
       - uses: actions/checkout@v1
         with:
           submodules: true
-      - name: Install astropy
-        run: dnf install -y python3-astropy.x86_64
-      - name: Configure with CMake
-        run: cmake -S . -B build_cmake
-      - name: Build (CMake)
-        run: cmake --build build_cmake
-      - name: Run tests (CMake)
-        run: cd build_cmake && ctest -V && cd ..
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y meson libcurl4-openssl-dev python3-astropy lcov g++ ninja-build
       - name: Configure with meson
-        run: meson -Db_coverage=true . build
+        run: meson -Db_coverage=true -Dwith_tests=true . build
       - name: Build (meson)
         run: ninja -C build
       - name: Run tests (meson)
