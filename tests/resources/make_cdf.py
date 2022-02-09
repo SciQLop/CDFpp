@@ -39,9 +39,12 @@ def add_varaibles(cd, compress=False):
                           ('epoch', [datetime(2019,10,1)+timedelta(seconds=5*i) for i in range(l+1)]),
                           ('var2d', np.ones((3,4))),
                           ('var3d', np.ones((4,3,2))),
-                          ('var2d_counter', np.arange(100, dtype=np.float64).reshape(10,10))]:
+                          ('var2d_counter', np.arange(100, dtype=np.float64).reshape(10,10))
+                          ]:
         make_var(cd, name=name, compress=compress, values=values)
 
+    cd.new('var_string', data='This is a string', recVary=False)
+    cd.new('var2d_string', data=['This is a string 1','This is a string 2'], recVary=False)
     cd["var"].attrs["var_attr"] = "a variable attribute"
     cd["var"].attrs["DEPEND0"] = "epoch"
     cd["epoch"].attrs["epoch_attr"] = "a variable attribute"

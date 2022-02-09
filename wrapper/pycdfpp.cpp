@@ -20,9 +20,9 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "repr.hpp"
+#include <cdf-chrono.hpp>
 #include <cdf-data.hpp>
 #include <cdf.hpp>
-#include <cdf-chrono.hpp>
 using namespace cdf;
 
 #include <pybind11/chrono.h>
@@ -54,7 +54,8 @@ std::vector<ssize_t> strides(const Variable& var)
     auto shape = var.shape();
     std::vector<ssize_t> res(std::size(shape));
     std::transform(std::crbegin(shape), std::crend(shape), std::begin(res),
-        [next = sizeof(T)](auto v) mutable {
+        [next = sizeof(T)](auto v) mutable
+        {
             auto res = next;
             next = static_cast<ssize_t>(v * next);
             return res;
@@ -99,9 +100,10 @@ py::array make_array(py::object& obj)
 {
     Variable& var = obj.cast<Variable&>();
 #define ARRAY_T_LAMBDA2(type1, type2)                                                              \
-    [&var, &obj](const std::vector<type2>&) -> py::array {                                         \
-        return py::array_t<type1>(                                                                 \
-            shape_ssize_t(var), strides<type1>(var), var.get<type1>().data(), obj);                \
+    [&var, &obj](const std::vector<type2>&) -> py::array                                           \
+    {                                                                                              \
+        return py::array_t<type2>(                                                                 \
+            shape_ssize_t(var), strides<type1>(var), var.get<type2>().data(), obj);                \
     }
 #define ARRAY_T_LAMBDA(type) ARRAY_T_LAMBDA2(type, type)
 
@@ -117,15 +119,21 @@ py::array make_array(py::object& obj)
 
         ARRAY_T_LAMBDA2(int64_t, tt2000_t), ARRAY_T_LAMBDA2(double, epoch),
 
-        [](const std::vector<epoch16>&) {
+        [&var, &obj](const std::string&) -> py::array {
+            return py::array_t<char>(
+                shape_ssize_t(var), strides<char>(var), var.get<std::string>().data(), obj);
+        },
+        [&var, &obj](const std::vector<std::string>&) -> py::array {
+            return py::array_t<char>(
+                shape_ssize_t(var), strides<char>(var), var.get<std::string>().data(), obj);
+        },
+        [](const std::vector<epoch16>&)
+        {
             throw;
             return py::array {};
         },
-        [](const std::string&) {
-            throw;
-            return py::array {};
-        },
-        [](const cdf_none&) {
+        [](const cdf_none&)
+        {
             throw;
             return py::array {};
         });
@@ -176,15 +184,13 @@ PYBIND11_MODULE(pycdfpp, m)
             [](const CDF& cd, std::string& key) { return cd.variables.count(key) > 0; })
         .def(
             "__iter__",
-            [](const CDF& cd) {
-                return py::make_key_iterator(std::begin(cd.variables), std::end(cd.variables));
-            },
+            [](const CDF& cd)
+            { return py::make_key_iterator(std::begin(cd.variables), std::end(cd.variables)); },
             py::keep_alive<0, 1>())
         .def(
             "items",
-            [](const CDF& cd) {
-                return py::make_iterator(std::begin(cd.variables), std::end(cd.variables));
-            },
+            [](const CDF& cd)
+            { return py::make_iterator(std::begin(cd.variables), std::end(cd.variables)); },
             py::keep_alive<0, 1>())
         .def("__len__", [](const CDF& cd) { return std::size(cd.variables); });
 
@@ -192,7 +198,8 @@ PYBIND11_MODULE(pycdfpp, m)
         .def_property_readonly("name", [](Attribute& attr) { return attr.name; })
         .def("__repr__", __repr__<Attribute>)
         .def("__getitem__",
-            [](Attribute& att, std::size_t index) -> cdf::cdf_values_t {
+            [](Attribute& att, std::size_t index) -> cdf::cdf_values_t
+            {
                 if (index >= att.len())
                     throw std::out_of_range(
                         "Trying to get an attribute value outside of its range");
@@ -215,8 +222,8 @@ PYBIND11_MODULE(pycdfpp, m)
         "load", [](const char* name) { return io::load(name); },
         py::return_value_policy::reference);
 
-    m.def("to_tt2000",[](decltype (std::chrono::system_clock::now()) tp){return cdf::to_tt2000(tp);});
-    m.def("to_timepoint",[](cdf::tt2000_t epoch){return cdf::to_time_point(epoch);});
-    m.def("tt2000_value",[](const cdf::tt2000_t& epoch){ return epoch.value;});
-
+    m.def("to_tt2000",
+        [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_tt2000(tp); });
+    m.def("to_timepoint", [](cdf::tt2000_t epoch) { return cdf::to_time_point(epoch); });
+    m.def("tt2000_value", [](const cdf::tt2000_t& epoch) { return epoch.value; });
 }

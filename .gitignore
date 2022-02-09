@@ -3,3 +3,8 @@ subprojects/*
 !subprojects/*.wrap
 *.kdev4
 CMakeLists.txt.user
+.cache/*
+.cmake/*
+*.user
+*.user.*
+*.ipynb_check*
