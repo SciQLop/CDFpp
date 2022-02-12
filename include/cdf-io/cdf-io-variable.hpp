@@ -141,7 +141,14 @@ namespace
         const cdf_VDR_t<rz_, cdf_version_tag_t, stream_t>& vdr, uint32_t record_size,
         uint32_t record_count)
     {
+
+        if(vdr.DataType.value == cdf::CDF_Types::CDF_CHAR
+                or vdr.DataType.value == cdf::CDF_Types::CDF_UCHAR)
+        {
+            record_size *= vdr.NumElems.value;
+        }
         std::vector<char> data(record_count * record_size);
+
         std::size_t pos { 0UL };
         foreach_vvr<rz_, false>(stream, vdr,
             [&pos, record_size, &data](
@@ -174,7 +181,8 @@ namespace
                     std::size_t data_size
                         = std::min(vvr_records_count * record_size, std::size(data) - pos);
                     CDFPP_ASSERT(data_size <= std::size(vvr_data));
-                    std::copy(std::cbegin(vvr_data), std::cbegin(vvr_data)+data_size, data.data() + pos);
+                    std::copy(std::cbegin(vvr_data), std::cbegin(vvr_data) + data_size,
+                        data.data() + pos);
                     pos += data_size;
                 });
         }

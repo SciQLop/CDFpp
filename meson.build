@@ -42,6 +42,8 @@ pymod = import('python')
 python3 = pymod.find_installation('python3')
 
 cdfpp_headers = [
+    'include/attribute.hpp',
+    'include/variable.hpp',
     'include/cdf.hpp',
     'include/cdf-chrono.hpp',
     'include/cdf-chrono-constants.hpp',

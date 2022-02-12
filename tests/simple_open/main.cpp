@@ -78,18 +78,35 @@ bool compare_shape(const cdf::Variable& variable, std::initializer_list<uint32_t
     return variable.shape() == std::vector<uint32_t> { values };
 }
 
+
+
+template <typename value_type>
+bool check_variable(const cdf::Variable& var, std::initializer_list<uint32_t> expected_shape,
+    std::vector<value_type> ref)
+{
+    auto values = var.get<value_type>();
+    bool is_valid = compare_shape(var, expected_shape);
+    auto diff = std::inner_product(std::cbegin(values), std::cend(values), std::cbegin(ref), 0.,
+        std::plus<value_type>(), std::minus<value_type>());
+    is_valid &= (std::abs(diff) < 1e-9);
+    return is_valid;
+}
+
 template <typename generator_t>
 bool check_variable(
     const cdf::Variable& var, std::initializer_list<uint32_t> expected_shape, generator_t generator)
 {
-    auto values = var.get<double>();
+    using value_type = typename decltype(std::declval<generator_t>()(0UL))::value_type;
+    auto values = var.get<value_type>();
     bool is_valid = compare_shape(var, expected_shape);
     auto ref = generator(std::size(values));
     auto diff = std::inner_product(std::cbegin(values), std::cend(values), std::cbegin(ref), 0.,
-        std::plus<double>(), std::minus<double>());
+        std::plus<value_type>(), std::minus<value_type>());
     is_valid &= (std::abs(diff) < 1e-9);
     return is_valid;
 }
+
+
 
 template <typename T>
 struct cos_gen
@@ -176,7 +193,11 @@ std::size_t filesize(std::fstream& file)
             std::vector<double> result(100);                                                       \
             std::iota(std::begin(result), std::end(result), 0.);                                   \
             return result;                                                                         \
-        }))
+        }));                                                                                       \
+    REQUIRE(check_variable(cd.variables["var_string"], { 16 },                                     \
+        std::vector<char> {                                                                        \
+            'T', 'h', 'i', 's', ' ', 'i', 's', ' ', 'a', ' ', 's', 't', 'r', 'i', 'n', 'g' }))
+
 
 SCENARIO("Loading a cdf files", "[CDF]")
 {
