@@ -187,6 +187,7 @@ inline data_t& data_t::operator=(const data_t& other)
     return *this;
 }
 
+
 template <CDF_Types type, typename endianness_t>
 inline auto load_values(const char* buffer, std::size_t buffer_size)
 {
@@ -197,7 +198,14 @@ inline auto load_values(const char* buffer, std::size_t buffer_size)
         || type == CDF_Types::CDF_UCHAR) // special case for strings
     {
         std::string result(buffer_size, '\0');
-        std::copy_n(buffer, buffer_size, result.data());
+        // Basicaly replace any non ASCII char by '~'
+        std::transform(buffer, +buffer + buffer_size, result.data(),
+            [](const unsigned char c)
+            {
+                if (c < 128)
+                    return c;
+                return static_cast<unsigned char>('~');
+            });
         return result;
     }
     else
@@ -205,7 +213,7 @@ inline auto load_values(const char* buffer, std::size_t buffer_size)
         using raw_type = from_cdf_type_t<type>;
         std::size_t size = buffer_size / sizeof(raw_type);
         std::vector<raw_type> result(size);
-        if(size!=0UL)
+        if (size != 0UL)
             endianness::decode_v<endianness_t>(buffer, buffer_size, result.data());
         return cdf_values_t { std::move(result) };
     }
