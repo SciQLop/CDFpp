@@ -26,11 +26,11 @@ variables = {
     'type':pycdfpp.CDF_DOUBLE
 },
 'var_string':{
-    'shape':[1],
+    'shape':[16],
     'type':pycdfpp.CDF_CHAR
 },
 'var2d_string':{
-    'shape':[1,2],
+    'shape':[2,18],
     'type':pycdfpp.CDF_CHAR
 }
 }

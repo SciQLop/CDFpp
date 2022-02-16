@@ -92,7 +92,6 @@ py::buffer_info make_buffer(cdf::Variable& var)
         [&var](const std::vector<epoch>&) { return impl_make_buffer<double, epoch>(var); },
 
         [](const std::vector<epoch16>&) { return py::buffer_info {}; },
-        [](const std::string&) { return py::buffer_info {}; },
         [](const cdf_none&) { return py::buffer_info {}; });
 }
 
@@ -119,14 +118,6 @@ py::array make_array(py::object& obj)
 
         ARRAY_T_LAMBDA2(int64_t, tt2000_t), ARRAY_T_LAMBDA2(double, epoch),
 
-        [&var, &obj](const std::string&) -> py::array {
-            return py::array_t<char>(
-                shape_ssize_t(var), strides<char>(var), var.get<std::string>().data(), obj);
-        },
-        [&var, &obj](const std::vector<std::string>&) -> py::array {
-            return py::array_t<char>(
-                shape_ssize_t(var), strides<char>(var), var.get<std::string>().data(), obj);
-        },
         [](const std::vector<epoch16>&)
         {
             throw;

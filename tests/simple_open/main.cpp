@@ -33,7 +33,8 @@ template <int index, typename value_type>
 std::enable_if_t<std::is_same_v<value_type, const char*>, bool> impl_compare_attribute_value(
     const cdf::Attribute& attribute, const value_type& value)
 {
-    return attribute.get<std::string>(index) == std::string { value };
+    auto attr_value = attribute.get<char>(index);
+    return std::string { attr_value.data(), std::size(attr_value) } == std::string { value };
 }
 
 template <int index, typename value_type>
@@ -79,7 +80,6 @@ bool compare_shape(const cdf::Variable& variable, std::initializer_list<uint32_t
 }
 
 
-
 template <typename value_type>
 bool check_variable(const cdf::Variable& var, std::initializer_list<uint32_t> expected_shape,
     std::vector<value_type> ref)
@@ -105,8 +105,6 @@ bool check_variable(
     is_valid &= (std::abs(diff) < 1e-9);
     return is_valid;
 }
-
-
 
 template <typename T>
 struct cos_gen

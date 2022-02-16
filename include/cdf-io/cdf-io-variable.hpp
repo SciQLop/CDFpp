@@ -61,6 +61,11 @@ namespace
                         return vary;
                     });
             }
+            if (vdr.DataType.value == cdf::CDF_Types::CDF_CHAR
+                or vdr.DataType.value == cdf::CDF_Types::CDF_UCHAR)
+            {
+                sizes.push_back(vdr.NumElems.value);
+            }
             return sizes;
         }
         else
@@ -141,14 +146,7 @@ namespace
         const cdf_VDR_t<rz_, cdf_version_tag_t, stream_t>& vdr, uint32_t record_size,
         uint32_t record_count)
     {
-
-        if(vdr.DataType.value == cdf::CDF_Types::CDF_CHAR
-                or vdr.DataType.value == cdf::CDF_Types::CDF_UCHAR)
-        {
-            record_size *= vdr.NumElems.value;
-        }
         std::vector<char> data(record_count * record_size);
-
         std::size_t pos { 0UL };
         foreach_vvr<rz_, false>(stream, vdr,
             [&pos, record_size, &data](
@@ -206,7 +204,10 @@ namespace
                     auto shape = get_variable_dimensions<type>(vdr, stream, context);
                     uint32_t record_size = var_record_size(shape, vdr.DataType.value);
                     uint32_t record_count = vdr.MaxRec.value + 1;
-                    shape.insert(std::cbegin(shape), record_count);
+                    if(vdr.DataType.value!=CDF_Types::CDF_CHAR and vdr.DataType.value!=CDF_Types::CDF_UCHAR)
+                    {
+                        shape.insert(std::cbegin(shape), record_count);
+                    }
                     auto data = [&]()
                     {
                         if (vdr.CPRorSPRoffset.value
