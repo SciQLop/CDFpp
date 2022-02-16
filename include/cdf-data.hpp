@@ -56,7 +56,7 @@ struct cdf_none
 using cdf_values_t = std::variant<cdf_none, std::vector<char>, std::vector<uint8_t>,
     std::vector<uint16_t>, std::vector<uint32_t>, std::vector<int8_t>, std::vector<int16_t>,
     std::vector<int32_t>, std::vector<int64_t>, std::vector<float>, std::vector<double>,
-    std::vector<tt2000_t>, std::vector<epoch>, std::vector<epoch16>, std::string>;
+    std::vector<tt2000_t>, std::vector<epoch>, std::vector<epoch16>>;
 
 struct data_t
 {
@@ -197,7 +197,7 @@ inline auto load_values(const char* buffer, std::size_t buffer_size)
     if constexpr (type == CDF_Types::CDF_CHAR
         || type == CDF_Types::CDF_UCHAR) // special case for strings
     {
-        std::string result(buffer_size, '\0');
+        std::vector<char> result(buffer_size, '\0');
         // Basicaly replace any non ASCII char by '~'
         std::transform(buffer, +buffer + buffer_size, result.data(),
             [](const unsigned char c)
