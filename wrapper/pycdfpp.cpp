@@ -36,8 +36,65 @@ using py_array = std::variant<py::array_t<double>, py::array_t<float>, py::array
     py::array_t<uint16_t>, py::array_t<uint8_t>, py::array_t<int64_t>, py::array_t<int32_t>,
     py::array_t<int16_t>, py::array_t<int8_t>, py::array_t<char>>;
 
+using py_cdf_data_t = std::variant<std::string, std::vector<char>, std::vector<uint8_t>,
+    std::vector<uint16_t>, std::vector<uint32_t>, std::vector<int8_t>, std::vector<int16_t>,
+    std::vector<int32_t>, std::vector<int64_t>, std::vector<float>, std::vector<double>,
+    std::vector<tt2000_t>, std::vector<epoch>, std::vector<epoch16>>;
+
 namespace
 {
+
+py_cdf_data_t to_py_cdf_data(const cdf::data_t& data)
+{
+    switch (data.type())
+    {
+        case cdf::CDF_Types::CDF_BYTE:
+        case cdf::CDF_Types::CDF_INT1:
+            return data.get<int8_t>();
+            break;
+        case cdf::CDF_Types::CDF_UINT1:
+            return data.get<uint8_t>();
+            break;
+        case cdf::CDF_Types::CDF_INT2:
+            return data.get<int16_t>();
+            break;
+        case cdf::CDF_Types::CDF_INT4:
+            return data.get<int32_t>();
+            break;
+        case cdf::CDF_Types::CDF_INT8:
+            return data.get<int64_t>();
+            break;
+        case cdf::CDF_Types::CDF_UINT2:
+            return data.get<uint16_t>();
+            break;
+        case cdf::CDF_Types::CDF_UINT4:
+            return data.get<uint32_t>();
+            break;
+        case cdf::CDF_Types::CDF_DOUBLE:
+        case cdf::CDF_Types::CDF_REAL8:
+            return data.get<double>();
+            break;
+        case cdf::CDF_Types::CDF_FLOAT:
+        case cdf::CDF_Types::CDF_REAL4:
+            return data.get<float>();
+            break;
+        case cdf::CDF_Types::CDF_UCHAR:
+        {
+            auto v = data.get<unsigned char>();
+            return std::string { reinterpret_cast<char*>(v.data()), std::size(v) };
+        }
+        break;
+        case cdf::CDF_Types::CDF_CHAR:
+        {
+            auto v = data.get<char>();
+            return std::string { v.data(), std::size(v) };
+        }
+        break;
+        default:
+            break;
+    }
+    return {};
+}
 
 std::vector<ssize_t> shape_ssize_t(const Variable& var)
 {
@@ -189,14 +246,14 @@ PYBIND11_MODULE(pycdfpp, m)
         .def_property_readonly("name", [](Attribute& attr) { return attr.name; })
         .def("__repr__", __repr__<Attribute>)
         .def("__getitem__",
-            [](Attribute& att, std::size_t index) -> cdf::cdf_values_t
+            [](Attribute& att, std::size_t index) -> py_cdf_data_t
             {
-                if (index >= att.len())
+                if (index >= att.size())
                     throw std::out_of_range(
                         "Trying to get an attribute value outside of its range");
-                return att[index].values();
+                return to_py_cdf_data(att[index]);
             })
-        .def("__len__", [](const Attribute& att) { return att.len(); });
+        .def("__len__", [](const Attribute& att) { return att.size(); });
 
     py::class_<Variable>(m, "Variable", py::buffer_protocol())
         .def("__repr__", __repr__<Variable>)

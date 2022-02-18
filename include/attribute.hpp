@@ -77,7 +77,7 @@ struct Attribute
         data = new_data;
         return *this;
     }
-    inline std::size_t len() const { return std::size(data); }
+    inline std::size_t size() const { return std::size(data); }
     inline data_t& operator[](std::size_t index) { return data[index]; }
 
     template <typename... Ts>
@@ -85,6 +85,21 @@ struct Attribute
 
     template <typename... Ts>
     friend void visit(const Attribute& attr, Ts... lambdas);
+
+    auto begin() { return data.begin(); }
+    auto end() { return data.end(); }
+
+    auto begin() const { return data.begin(); }
+    auto end() const { return data.end(); }
+
+    auto cbegin() const { return data.cbegin(); }
+    auto cend() const { return data.cend(); }
+
+    auto& back() { return data.back(); }
+    const auto& back() const { return data.back(); }
+
+    auto& front() { return data.front(); }
+    const auto& front() const { return data.front(); }
 
 private:
     attr_data_t data;

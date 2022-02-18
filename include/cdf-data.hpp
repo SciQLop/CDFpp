@@ -151,14 +151,7 @@ inline decltype(auto) data_t::get() const
 template <typename T, typename type>
 inline decltype(auto) _get_impl(T* self)
 {
-    if constexpr (std::is_same_v<type, std::string>)
-    {
-        return std::get<type>(self->p_values);
-    }
-    else
-    {
-        return std::get<std::vector<type>>(self->p_values);
-    }
+    return std::get<std::vector<type>>(self->p_values);
 }
 
 template <typename type>
