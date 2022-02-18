@@ -161,7 +161,7 @@ std::size_t filesize(std::fstream& file)
     REQUIRE(compare_attribute_values(cd.attributes["attr_multi"],                                  \
         std::vector { int8_t { 1 }, int8_t { 2 } }, std::vector { 2.f, 3.f }, "hello"));           \
     REQUIRE(has_attribute(cd, "empty"));                                                           \
-    REQUIRE(cd.attributes["empty"].len() == 0UL)
+    REQUIRE(std::size(cd.attributes["empty"]) == 0UL)
 
 
 #define CHECK_VARIABLES(cd)                                                                        \

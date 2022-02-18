@@ -59,7 +59,8 @@ cdfpp_headers = [
     'include/cdf-io/cdf-io-desc-records.hpp',
     'include/cdf-io/cdf-io-variable.hpp',
     'include/cdf-io/cdf-io-zlib.hpp',
-    'include/cdf-io/cdf-io-rle.hpp'
+    'include/cdf-io/cdf-io-rle.hpp',
+    'wrapper/repr.hpp'
 ]
 
 cdfpp_extra_files = [

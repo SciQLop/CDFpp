@@ -32,50 +32,140 @@ using namespace cdf;
 
 namespace py = pybind11;
 
-namespace
-{
+inline std::ostream& operator<<(std::ostream& os, const cdf::data_t& data);
+
+template <typename collection_t>
+constexpr bool is_char_like_v
+    = std::is_same_v<int8_t,
+          std::remove_cv_t<std::remove_reference_t<decltype(*std::cbegin(std::declval<
+              collection_t>()))>>> or std::is_same_v<uint8_t, std::remove_cv_t<std::remove_reference_t<decltype(*std::cbegin(std::declval<collection_t>()))>>>;
 
 template <class input_t, class item_t>
-std::ostream& stream_collection(std::ostream& os, const input_t& input, const item_t& sep)
+inline std::ostream& stream_collection(std::ostream& os, const input_t& input, const item_t& sep)
 {
     if (std::size(input))
     {
         if (std::size(input) > 1)
         {
-            std::for_each(std::cbegin(input), --std::cend(input),
-                [&sep, &os](const auto& item) { os << item << sep; });
+            if constexpr (is_char_like_v<input_t>)
+            {
+                std::for_each(std::cbegin(input), --std::cend(input),
+                    [&sep, &os](const auto& item) { os << int { item } << sep; });
+            }
+            else
+            {
+                std::for_each(std::cbegin(input), --std::cend(input),
+                    [&sep, &os](const auto& item) { os << item << sep; });
+            }
         }
-        os << input.back();
+        if constexpr (is_char_like_v<input_t>)
+        {
+            os << int { input.back() };
+        }
+        else
+        {
+            os << input.back();
+        }
     }
     return os;
 }
+
+inline std::ostream& operator<<(std::ostream& os, const cdf::data_t& data)
+{
+    switch (data.type())
+    {
+        case cdf::CDF_Types::CDF_BYTE:
+        case cdf::CDF_Types::CDF_INT1:
+            os << "[ ";
+            stream_collection(os, data.get<int8_t>(), ", ");
+            os << " ]";
+            break;
+        case cdf::CDF_Types::CDF_UINT1:
+            os << "[ ";
+            stream_collection(os, data.get<uint8_t>(), ", ");
+            os << " ]";
+            break;
+        case cdf::CDF_Types::CDF_INT2:
+            os << "[ ";
+            stream_collection(os, data.get<int16_t>(), ", ");
+            os << " ]";
+            break;
+        case cdf::CDF_Types::CDF_INT4:
+            os << "[ ";
+            stream_collection(os, data.get<int32_t>(), ", ");
+            os << " ]";
+            break;
+        case cdf::CDF_Types::CDF_INT8:
+            os << "[ ";
+            stream_collection(os, data.get<int64_t>(), ", ");
+            os << " ]";
+            break;
+        case cdf::CDF_Types::CDF_UINT2:
+            os << "[ ";
+            stream_collection(os, data.get<uint16_t>(), ", ");
+            os << " ]";
+            break;
+        case cdf::CDF_Types::CDF_UINT4:
+            os << "[ ";
+            stream_collection(os, data.get<uint32_t>(), ", ");
+            os << " ]";
+            break;
+        case cdf::CDF_Types::CDF_DOUBLE:
+        case cdf::CDF_Types::CDF_REAL8:
+            os << "[ ";
+            stream_collection(os, data.get<double>(), ", ");
+            os << " ]";
+            break;
+        case cdf::CDF_Types::CDF_FLOAT:
+        case cdf::CDF_Types::CDF_REAL4:
+            os << "[ ";
+            stream_collection(os, data.get<float>(), ", ");
+            os << " ]";
+            break;
+        case cdf::CDF_Types::CDF_UCHAR:
+        {
+            os << "\"";
+            auto v = data.get<unsigned char>();
+            std::string sv { reinterpret_cast<char*>(v.data()), std::size(v) };
+            os << sv;
+            os << "\"";
+        }
+        break;
+        case cdf::CDF_Types::CDF_CHAR:
+        {
+            os << "\"";
+            auto v = data.get<char>();
+            std::string sv { v.data(), std::size(v) };
+            os << sv;
+            os << "\"";
+        }
+        break;
+        default:
+            break;
+    }
+
+    return os;
 }
 
-
-std::ostream& operator<<(std::ostream& os, const cdf::Attribute& attribute)
+inline std::ostream& operator<<(std::ostream& os, const cdf::Attribute& attribute)
 {
-#define PRINT_LAMBDA(type)                                                                         \
-    [&os](const std::vector<type>& data) { stream_collection(os, data, ", "); }
-
-    os << attribute.name << ": ";
-    cdf::visit(
-        attribute, PRINT_LAMBDA(double), PRINT_LAMBDA(float), PRINT_LAMBDA(uint32_t),
-        PRINT_LAMBDA(uint16_t), PRINT_LAMBDA(uint8_t), PRINT_LAMBDA(int64_t), PRINT_LAMBDA(int32_t),
-        PRINT_LAMBDA(int16_t), PRINT_LAMBDA(int8_t),
-
-        PRINT_LAMBDA(char),
-        [&os](const std::vector<tt2000_t>&) { os << "CDF_TT2000: (unprinted)"; },
-        [&os](const std::vector<epoch>&) { os << "CDF_EPOCH: (unprinted)"; },
-
-        [&os](const std::vector<epoch16>&) { os << "CDF_EPOCH16: (unprinted)"; },
-        [&os](const std::string& data) { os << data; },
-        [&os](const cdf_none&) { os << "CDF_NONE"; });
-    os << std::endl;
+    if (std::size(attribute) == 1
+        and (attribute.front().type() == cdf::CDF_Types::CDF_CHAR
+            or attribute.front().type() == cdf::CDF_Types::CDF_UCHAR))
+    {
+        os << attribute.name << ": " << attribute.front() << std::endl;
+    }
+    else
+    {
+        os << attribute.name << ": [ ";
+        stream_collection(os, attribute, ", ");
+        os << " ]" << std::endl;
+    }
     return os;
 }
 
 
-std::ostream& operator<<(std::ostream& os, const cdf::Variable& var)
+inline std::ostream& operator<<(std::ostream& os, const cdf::Variable& var)
 {
     os << var.name() << ": (";
     stream_collection(os, var.shape(), ", ");
@@ -83,7 +173,7 @@ std::ostream& operator<<(std::ostream& os, const cdf::Variable& var)
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
+inline std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
 {
     os << "CDF:" << std::endl << "\nAttributes:\n";
     std::for_each(std::cbegin(cdf_file.attributes), std::cend(cdf_file.attributes),
@@ -98,7 +188,7 @@ std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
 
 
 template <typename T>
-std::string __repr__(T& obj)
+inline std::string __repr__(T& obj)
 {
     std::stringstream sstr;
     sstr << obj;
