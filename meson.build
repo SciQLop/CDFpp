@@ -60,7 +60,8 @@ cdfpp_headers = [
     'include/cdf-io/cdf-io-variable.hpp',
     'include/cdf-io/cdf-io-zlib.hpp',
     'include/cdf-io/cdf-io-rle.hpp',
-    'wrapper/repr.hpp'
+    'wrapper/repr.hpp',
+    'wrapper/buffers.hpp'
 ]
 
 cdfpp_extra_files = [

@@ -19,6 +19,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "buffers.hpp"
 #include "repr.hpp"
 #include <cdf-chrono.hpp>
 #include <cdf-data.hpp>
@@ -32,11 +33,7 @@ using namespace cdf;
 
 namespace py = pybind11;
 
-using py_array = std::variant<py::array_t<double>, py::array_t<float>, py::array_t<uint32_t>,
-    py::array_t<uint16_t>, py::array_t<uint8_t>, py::array_t<int64_t>, py::array_t<int32_t>,
-    py::array_t<int16_t>, py::array_t<int8_t>, py::array_t<char>>;
-
-using py_cdf_data_t = std::variant<std::string, std::vector<char>, std::vector<uint8_t>,
+using py_cdf_attr_data_t = std::variant<std::string, std::vector<char>, std::vector<uint8_t>,
     std::vector<uint16_t>, std::vector<uint32_t>, std::vector<int8_t>, std::vector<int16_t>,
     std::vector<int32_t>, std::vector<int64_t>, std::vector<float>, std::vector<double>,
     std::vector<tt2000_t>, std::vector<epoch>, std::vector<epoch16>>;
@@ -44,7 +41,7 @@ using py_cdf_data_t = std::variant<std::string, std::vector<char>, std::vector<u
 namespace
 {
 
-py_cdf_data_t to_py_cdf_data(const cdf::data_t& data)
+py_cdf_attr_data_t to_py_cdf_data(const cdf::data_t& data)
 {
     switch (data.type())
     {
@@ -96,95 +93,22 @@ py_cdf_data_t to_py_cdf_data(const cdf::data_t& data)
     return {};
 }
 
-std::vector<ssize_t> shape_ssize_t(const Variable& var)
+py::object to_datetime64(py::array_t<epoch> input)
 {
-    auto shape = var.shape();
-    std::vector<ssize_t> res(std::size(shape));
-    std::transform(std::cbegin(shape), std::cend(shape), std::begin(res),
-        [](auto v) { return static_cast<ssize_t>(v); });
-    return res;
-}
+    using namespace pybind11::literals;
+    static_assert(
+        std::is_same_v<std::chrono::nanoseconds, decltype(cdf::to_time_point(epoch {}))::duration>,
+        " Expecting nanoseconds from cdf::to_time_point function");
 
-template <typename T>
-std::vector<ssize_t> strides(const Variable& var)
-{
-    auto shape = var.shape();
-    std::vector<ssize_t> res(std::size(shape));
-    std::transform(std::crbegin(shape), std::crend(shape), std::begin(res),
-        [next = sizeof(T)](auto v) mutable
-        {
-            auto res = next;
-            next = static_cast<ssize_t>(v * next);
-            return res;
-        });
-    std::reverse(std::begin(res), std::end(res)); // if column major
-    return res;
-}
+    py::buffer_info in_buff = input.request();
+    auto result = py::array_t<uint64_t>(in_buff.shape);
+    py::buffer_info res_buff = result.request(true);
+    epoch* in_ptr = static_cast<epoch*>(in_buff.ptr);
+    int64_t* res_ptr = static_cast<int64_t*>(res_buff.ptr);
 
-template <typename T, typename U = T>
-py::buffer_info impl_make_buffer(cdf::Variable& var)
-{
-    return py::buffer_info(var.get<U>().data(), /* Pointer to buffer */
-        sizeof(T), /* Size of one scalar */
-        py::format_descriptor<T>::format(),
-        static_cast<ssize_t>(std::size(var.shape())), /* Number of dimensions */
-        shape_ssize_t(var), strides<T>(var));
-}
-
-py::buffer_info make_buffer(cdf::Variable& var)
-{
-#define BUFFER_LAMBDA(type) [&var](const std::vector<type>&) { return impl_make_buffer<type>(var); }
-
-    return cdf::visit(
-        var, BUFFER_LAMBDA(double), BUFFER_LAMBDA(float),
-
-        BUFFER_LAMBDA(uint32_t), BUFFER_LAMBDA(uint16_t), BUFFER_LAMBDA(uint8_t),
-
-        BUFFER_LAMBDA(int64_t), BUFFER_LAMBDA(int32_t), BUFFER_LAMBDA(int16_t),
-        BUFFER_LAMBDA(int8_t),
-
-        BUFFER_LAMBDA(char),
-
-        [&var](const std::vector<tt2000_t>&) { return impl_make_buffer<int64_t, tt2000_t>(var); },
-        [&var](const std::vector<epoch>&) { return impl_make_buffer<double, epoch>(var); },
-
-        [](const std::vector<epoch16>&) { return py::buffer_info {}; },
-        [](const cdf_none&) { return py::buffer_info {}; });
-}
-
-py::array make_array(py::object& obj)
-{
-    Variable& var = obj.cast<Variable&>();
-#define ARRAY_T_LAMBDA2(type1, type2)                                                              \
-    [&var, &obj](const std::vector<type2>&) -> py::array                                           \
-    {                                                                                              \
-        return py::array_t<type2>(                                                                 \
-            shape_ssize_t(var), strides<type1>(var), var.get<type2>().data(), obj);                \
-    }
-#define ARRAY_T_LAMBDA(type) ARRAY_T_LAMBDA2(type, type)
-
-    return cdf::visit(
-        var, ARRAY_T_LAMBDA(double), ARRAY_T_LAMBDA(float),
-
-        ARRAY_T_LAMBDA(uint32_t), ARRAY_T_LAMBDA(uint16_t), ARRAY_T_LAMBDA(uint8_t),
-
-        ARRAY_T_LAMBDA(int64_t), ARRAY_T_LAMBDA(int32_t), ARRAY_T_LAMBDA(int16_t),
-        ARRAY_T_LAMBDA(int8_t),
-
-        ARRAY_T_LAMBDA(char),
-
-        ARRAY_T_LAMBDA2(int64_t, tt2000_t), ARRAY_T_LAMBDA2(double, epoch),
-
-        [](const std::vector<epoch16>&)
-        {
-            throw;
-            return py::array {};
-        },
-        [](const cdf_none&)
-        {
-            throw;
-            return py::array {};
-        });
+    for (py::ssize_t idx = 0; idx < in_buff.shape[0]; idx++)
+        res_ptr[idx] = cdf::to_time_point(in_ptr[idx]).time_since_epoch().count();
+    return py::cast(&result).attr("astype")("datetime64[ns]");
 }
 
 }
@@ -200,6 +124,8 @@ PYBIND11_MODULE(pycdfpp, m)
     py::class_<tt2000_t>(m, "tt2000");
     py::class_<epoch>(m, "epoch").def("to_datetime", [](const epoch&) {});
     py::class_<epoch16>(m, "epoch16");
+
+    m.def("to_datetime64", to_datetime64);
 
     py::enum_<CDF_Types>(m, "CDF_Types")
         .value("CDF_BYTE", CDF_Types::CDF_BYTE)
@@ -246,7 +172,7 @@ PYBIND11_MODULE(pycdfpp, m)
         .def_property_readonly("name", [](Attribute& attr) { return attr.name; })
         .def("__repr__", __repr__<Attribute>)
         .def("__getitem__",
-            [](Attribute& att, std::size_t index) -> py_cdf_data_t
+            [](Attribute& att, std::size_t index) -> py_cdf_attr_data_t
             {
                 if (index >= att.size())
                     throw std::out_of_range(
@@ -262,9 +188,8 @@ PYBIND11_MODULE(pycdfpp, m)
         .def_property_readonly("type", &Variable::type)
         .def_property_readonly("shape", &Variable::shape)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
-        .def(
-            "as_array", [](py::object& obj) -> py::array { return make_array(obj); },
-            py::return_value_policy::reference_internal);
+        .def_property_readonly(
+            "values", make_values_view, py::return_value_policy::reference_internal);
 
     m.def(
         "load", [](const char* name) { return io::load(name); },
