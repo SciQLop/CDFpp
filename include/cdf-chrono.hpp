@@ -21,9 +21,9 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "cdf-chrono-constants.hpp"
+#include "cdf-debug.hpp"
 #include "cdf-enums.hpp"
 #include "cdf-leap-seconds.h"
-#include "cdf-debug.hpp"
 CDFPP_DIAGNOSTIC_PUSH
 CDFPP_DIAGNOSTIC_DISABLE_DEPRECATED
 #include "date/date.h"
@@ -42,7 +42,8 @@ template <class Clock, class Duration = typename Clock::duration>
 std::chrono::time_point<Clock, Duration> apply_leap_seconds(
     const std::chrono::time_point<Clock, Duration>& tp)
 {
-    const int64_t leap = [&]() {
+    const int64_t leap = [&]()
+    {
         auto lower = std::lower_bound(std::cbegin(leap_seconds::leap_seconds_tt2000),
             std::cend(leap_seconds::leap_seconds_tt2000), tp,
             [](const auto& item, const auto& tp) { return item.first <= tp; });
@@ -55,7 +56,8 @@ std::chrono::time_point<Clock, Duration> apply_leap_seconds(
 
 tt2000_t remove_leap_seconds(const tt2000_t& ep)
 {
-    const int64_t leap = [&ep]() {
+    const int64_t leap = [&ep]()
+    {
         auto upper = std::upper_bound(std::cbegin(leap_seconds::leap_seconds_tt2000_reverse),
             std::cend(leap_seconds::leap_seconds_tt2000_reverse), ep.value + 1000'000'000,
             [](const auto v, const auto& item) { return v <= item.first.value; });
@@ -102,9 +104,9 @@ auto to_time_point(const epoch& ep)
 
 auto to_time_point(const epoch16& ep)
 {
-    double ms = ep.seconds * 1000. - constants::mseconds_0AD_to_1970, ns;
-    ns = std::modf(ms, &ms) * 1000000. + ep.picoseconds / 1000.;
-    return constants::_1970 + milliseconds(int64_t(ms)) + nanoseconds(int64_t(ns));
+    double s = ep.seconds - constants::seconds_0AD_to_1970, ns;
+    ns = ep.picoseconds / 1000.;
+    return constants::_1970 + seconds(int64_t(s)) + nanoseconds(int64_t(ns));
 }
 
 

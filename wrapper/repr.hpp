@@ -21,6 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include <cdf-data.hpp>
+#include <cdf-chrono.hpp>
 #include <cdf.hpp>
 #include <sstream>
 #include <string>
@@ -183,6 +184,24 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
         [&os](const auto& item) { os << "\t" << item.second; });
     os << std::endl;
 
+    return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const epoch& time)
+{
+    os << cdf::to_time_point(time) << std::endl;
+    return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const epoch16& time)
+{
+    os << cdf::to_time_point(time) << std::endl;
+    return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const tt2000_t& time)
+{
+    os << cdf::to_time_point(time) << std::endl;
     return os;
 }
 

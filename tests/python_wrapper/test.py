@@ -9,6 +9,14 @@ variables = {
     'shape':[101],
     'type':pycdfpp.CDF_EPOCH
 },
+'tt2000':{
+    'shape':[101],
+    'type':pycdfpp.CDF_TIME_TT2000
+},
+'epoch16':{
+    'shape':[101],
+    'type':pycdfpp.CDF_EPOCH16
+},
 'var':{
     'shape':[101],
     'type':pycdfpp.CDF_DOUBLE
