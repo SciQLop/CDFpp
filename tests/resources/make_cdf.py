@@ -5,6 +5,10 @@ import numpy as np
 import math
 import os
 
+pycdf.lib.set_backward(False)
+
+def make_time_list(l:int=100):
+    return [datetime(1970,1,1)+timedelta(days=180*i) for i in range(l+1)]
 
 def print_attr(attr):
     print(attr._name.decode(),":")
@@ -36,7 +40,7 @@ def make_var(cdf_file, name, compress, values):
 def add_varaibles(cd, compress=False):
     l=100
     for name,values in [('var', np.cos(np.arange(0.,(l+1)/l*2.*math.pi,2.*math.pi/l))),
-                          ('epoch', [datetime(2019,10,1)+timedelta(seconds=5*i) for i in range(l+1)]),
+                          ('epoch', make_time_list(l)),
                           ('var2d', np.ones((3,4))),
                           ('var3d', np.ones((4,3,2))),
                           ('var2d_counter', np.arange(100, dtype=np.float64).reshape(10,10))
@@ -45,6 +49,8 @@ def add_varaibles(cd, compress=False):
 
     cd.new('var_string', data='This is a string', recVary=False)
     cd.new('var2d_string', data=['This is a string 1','This is a string 2'], recVary=False)
+    cd.new('epoch16', type=pycdf.const.CDF_EPOCH16, data=make_time_list(100))
+    cd.new('tt2000', type=pycdf.const.CDF_TIME_TT2000, data=make_time_list(100))
     cd["var"].attrs["var_attr"] = "a variable attribute"
     cd["var"].attrs["DEPEND0"] = "epoch"
     cd["epoch"].attrs["epoch_attr"] = "a variable attribute"

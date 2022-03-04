@@ -14,8 +14,17 @@
 #include <catch.hpp>
 #endif
 
+#include "cdf-debug.hpp"
+
+CDFPP_DIAGNOSTIC_PUSH
+CDFPP_DIAGNOSTIC_DISABLE_DEPRECATED
+#include "date/date.h"
+CDFPP_DIAGNOSTIC_POP
+#include <chrono>
+
 
 #include "attribute.hpp"
+#include "cdf-chrono.hpp"
 #include "cdf-file.hpp"
 #include "cdf-io/cdf-io.hpp"
 
@@ -106,6 +115,23 @@ bool check_variable(
     return is_valid;
 }
 
+template <typename time_t>
+bool check_time_variable(const cdf::Variable& var, std::initializer_list<uint32_t> expected_shape)
+{
+    using namespace date;
+    using namespace std::chrono;
+    auto values = std::vector<decltype(cdf::to_time_point(time_t {}))>();
+    std::transform(std::cbegin(var.get<time_t>()), std::cend(var.get<time_t>()),
+        std::back_inserter(values), [](const time_t& v) { return cdf::to_time_point(v); });
+    bool is_valid = compare_shape(var, expected_shape);
+    auto ref = std::vector<decltype(cdf::to_time_point(time_t {}))>(std::size(values));
+    std::generate(std::begin(ref), std::end(ref),
+        [i = 0]() mutable { return cdf::constants::_1970 + days(i * 180) + 0ns; });
+    std::inner_product(std::begin(ref), std::end(ref), std::begin(values), is_valid,
+        std::logical_or<>(), std::equal_to<>());
+    return is_valid;
+}
+
 template <typename T>
 struct cos_gen
 {
@@ -165,7 +191,7 @@ std::size_t filesize(std::fstream& file)
 
 
 #define CHECK_VARIABLES(cd)                                                                        \
-    REQUIRE(std::size(cd.variables) == 7);                                                         \
+    REQUIRE(std::size(cd.variables) == 9);                                                         \
     REQUIRE(has_variable(cd, "var"));                                                              \
     REQUIRE(compare_shape(cd.variables["var"], { 101 }));                                          \
     REQUIRE(check_variable(                                                                        \
@@ -175,6 +201,13 @@ std::size_t filesize(std::fstream& file)
     REQUIRE(compare_attribute_values(cd.variables["var"].attributes["DEPEND0"], "epoch"));         \
     REQUIRE(has_variable(cd, "epoch"));                                                            \
     REQUIRE(compare_shape(cd.variables["epoch"], { 101 }));                                        \
+    REQUIRE(check_time_variable<cdf::epoch>(cd.variables["epoch"], { 101 }));                      \
+    REQUIRE(has_variable(cd, "epoch16"));                                                          \
+    REQUIRE(compare_shape(cd.variables["epoch16"], { 101 }));                                      \
+    REQUIRE(check_time_variable<cdf::epoch16>(cd.variables["epoch16"], { 101 }));                  \
+    REQUIRE(has_variable(cd, "tt2000"));                                                           \
+    REQUIRE(compare_shape(cd.variables["tt2000"], { 101 }));                                       \
+    REQUIRE(check_time_variable<cdf::tt2000_t>(cd.variables["tt2000"], { 101 }));                  \
     REQUIRE(has_variable(cd, "var2d"));                                                            \
     REQUIRE(compare_shape(cd.variables["var2d"], { 3, 4 }));                                       \
     REQUIRE(check_variable(cd.variables["var2d"], { 3, 4 }, ones<double>()));                      \
