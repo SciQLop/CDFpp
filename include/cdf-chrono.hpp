@@ -80,9 +80,13 @@ template <class Clock, class Duration = typename Clock::duration>
 epoch16 to_epoch16(const std::chrono::time_point<Clock, Duration>& tp)
 {
     using namespace std::chrono;
-    return epoch16 { duration_cast<seconds>(tp.time_since_epoch()).count()
-            + constants::seconds_0AD_to_1970,
-        duration_cast<nanoseconds>(tp.time_since_epoch()).count() * 1000. };
+    auto se = static_cast<double>(duration_cast<seconds>(tp.time_since_epoch()).count());
+    auto s = se
+        - static_cast<double>(duration_cast<seconds>(constants::_0AD.time_since_epoch()).count());
+    auto ps = (static_cast<double>(duration_cast<nanoseconds>(tp.time_since_epoch()).count())
+                  - (se * 1e9))
+        * 1000;
+    return epoch16 { s, ps };
 }
 
 template <class Clock, class Duration = typename Clock::duration>
@@ -104,9 +108,12 @@ auto to_time_point(const epoch& ep)
 
 auto to_time_point(const epoch16& ep)
 {
-    double s = ep.seconds - constants::seconds_0AD_to_1970, ns;
+    double s = ep.seconds
+        + static_cast<double>(duration_cast<seconds>(constants::_0AD.time_since_epoch()).count()),
+           ns;
     ns = ep.picoseconds / 1000.;
-    return constants::_1970 + seconds(int64_t(s)) + nanoseconds(int64_t(ns));
+    return constants::_1970 + seconds(static_cast<int64_t>(s))
+        + nanoseconds(static_cast<int64_t>(ns));
 }
 
 

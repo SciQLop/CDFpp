@@ -116,13 +116,25 @@ inline auto transform(const py::array_t<T>& input, const function_t& f)
 template <typename time_t>
 inline py::object array_to_datetime64(const py::array_t<time_t>& input)
 {
-    static_assert(std::is_same_v<std::chrono::nanoseconds,
-                      typename decltype(cdf::to_time_point(std::declval<time_t>()))::duration>,
-        " Expecting nanoseconds from cdf::to_time_point function");
+    using period = typename decltype(cdf::to_time_point(std::declval<time_t>()))::duration::period;
+    constexpr auto dtype = []() constexpr
+    {
+        if constexpr (std::is_same_v<period, std::pico>)
+            return "datetime64[ns]";
+        if constexpr (std::is_same_v<period, std::nano>)
+            return "datetime64[ns]";
+        if constexpr (std::is_same_v<period, std::micro>)
+            return "datetime64[us]";
+        if constexpr (std::is_same_v<period, std::milli>)
+            return "datetime64[ms]";
+        if constexpr (std::is_same_v<period, std::ratio<1>>)
+            return "datetime64[s]";
+    }
+    ();
 
     auto result = transform<time_t>(
         input, [](const time_t& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
-    return py::cast(&result).attr("astype")("datetime64[ns]");
+    return py::cast(&result).attr("astype")(dtype);
 }
 
 inline py::object var_to_datetime64(const Variable& input)
@@ -159,15 +171,61 @@ inline py::object var_to_datetime64(const Variable& input)
     return {};
 }
 
+
+inline std::vector<decltype(to_time_point(epoch {}))> var_to_datetime(const Variable& input)
+{
+    switch (input.type())
+    {
+        case cdf::CDF_Types::CDF_EPOCH:
+        {
+            std::vector<decltype(to_time_point(epoch {}))> result(input.len());
+            std::transform(std::cbegin(input.get<epoch>()), std::cend(input.get<epoch>()),
+                std::begin(result),
+                std::ptr_fun<const epoch&, decltype(to_time_point(epoch {}))>(to_time_point));
+            return result;
+        }
+        break;
+        case cdf::CDF_Types::CDF_EPOCH16:
+        {
+            std::vector<decltype(to_time_point(epoch16 {}))> result(input.len());
+            std::transform(std::cbegin(input.get<epoch16>()), std::cend(input.get<epoch16>()),
+                std::begin(result),
+                std::ptr_fun<const epoch16&, decltype(to_time_point(epoch16 {}))>(to_time_point));
+            return result;
+        }
+        break;
+        case cdf::CDF_Types::CDF_TIME_TT2000:
+        {
+            std::vector<decltype(to_time_point(tt2000_t {}))> result(input.len());
+            std::transform(std::cbegin(input.get<tt2000_t>()), std::cend(input.get<tt2000_t>()),
+                std::begin(result),
+                std::ptr_fun<const tt2000_t&, decltype(to_time_point(tt2000_t {}))>(to_time_point));
+            return result;
+        }
+        break;
+        default:
+            throw std::out_of_range("Only supports cdf time types");
+            break;
+    }
+    return {};
+}
+
 }
 
 PYBIND11_MODULE(pycdfpp, m)
 {
     m.doc() = "pycdfpp module";
 
-    py::class_<tt2000_t>(m, "tt2000_t").def("__repr__", __repr__<tt2000_t>);
-    py::class_<epoch>(m, "epoch").def("__repr__", __repr__<epoch>);
-    py::class_<epoch16>(m, "epoch16").def("__repr__", __repr__<epoch16>);
+    py::class_<tt2000_t>(m, "tt2000_t")
+        .def_readwrite("value", &tt2000_t::value)
+        .def("__repr__", __repr__<tt2000_t>);
+    py::class_<epoch>(m, "epoch")
+        .def_readwrite("value", &epoch::value)
+        .def("__repr__", __repr__<epoch>);
+    py::class_<epoch16>(m, "epoch16")
+        .def_readwrite("seconds", &epoch16::seconds)
+        .def_readwrite("picoseconds", &epoch16::picoseconds)
+        .def("__repr__", __repr__<epoch16>);
 
     PYBIND11_NUMPY_DTYPE(tt2000_t, value);
     PYBIND11_NUMPY_DTYPE(epoch, value);
@@ -184,6 +242,10 @@ PYBIND11_MODULE(pycdfpp, m)
         std::ptr_fun<const epoch16&, decltype(to_time_point(epoch16 {}))>(to_time_point));
     m.def("to_datetime",
         std::ptr_fun<const tt2000_t&, decltype(to_time_point(tt2000_t {}))>(to_time_point));
+
+    m.def("to_datetime", var_to_datetime);
+
+    m.def("print_datetime", [](decltype(to_time_point(tt2000_t {})) tp){std::cout << tp << "\n";});
 
     m.def("to_tt2000",
         [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_tt2000(tp); });
