@@ -127,8 +127,8 @@ bool check_time_variable(const cdf::Variable& var, std::initializer_list<uint32_
     auto ref = std::vector<decltype(cdf::to_time_point(time_t {}))>(std::size(values));
     std::generate(std::begin(ref), std::end(ref),
         [i = 0]() mutable { return cdf::constants::_1970 + days(i * 180) + 0ns; });
-    std::inner_product(std::begin(ref), std::end(ref), std::begin(values), is_valid,
-        std::logical_or<>(), std::equal_to<>());
+    is_valid &= std::inner_product(std::begin(ref), std::end(ref), std::begin(values), is_valid,
+        std::logical_and<>(), std::equal_to<>());
     return is_valid;
 }
 
