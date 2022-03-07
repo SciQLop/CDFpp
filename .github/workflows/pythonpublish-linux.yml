@@ -8,7 +8,7 @@ jobs:
   build:
     name: build python packages
     runs-on: ubuntu-latest
-    container: pypa/manylinux2014_x86_64
+    container: quay.io/pypa/manylinux2014_x86_64
     steps:
       - name: install deps
         run: yum installl -y libcurl-devel && /opt/python/cp310-cp310/bin/pip install twine
@@ -29,4 +29,4 @@ jobs:
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        run: /opt/python/cp310-cp310/bin/twine upload wheelhouse/*
+        run: /opt/python/cp310-cp310/bin/twine upload --skip-existing wheelhouse/*

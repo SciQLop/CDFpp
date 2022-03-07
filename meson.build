@@ -71,7 +71,11 @@ cdfpp_extra_files = [
     'tests/resources/make_cdf_epoch.py',
     'tests/resources/make_cdf_epoch16.py',
     'tests/resources/make_cdf_tt2000.py',
-    'tests/python_wrapper/test.py'
+    'tests/python_wrapper/test.py',
+    '.github/workflows/ccpp.yml',
+    '.github/workflows/pythonpublish-linux.yml',
+    '.github/workflows/pythonpublish-osx.yml',
+    '.github/workflows/pythonpublish-win.yml'
 ]
 
 
