@@ -245,7 +245,8 @@ PYBIND11_MODULE(pycdfpp, m)
 
     m.def("to_datetime", var_to_datetime);
 
-    m.def("print_datetime", [](decltype(to_time_point(tt2000_t {})) tp){std::cout << tp << "\n";});
+    m.def(
+        "print_datetime", [](decltype(to_time_point(tt2000_t {})) tp) { std::cout << tp << "\n"; });
 
     m.def("to_tt2000",
         [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_tt2000(tp); });
@@ -256,6 +257,10 @@ PYBIND11_MODULE(pycdfpp, m)
     m.def("to_epoch16",
         [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_epoch16(tp); });
 
+
+    py::enum_<cdf_majority>(m, "CDF_majority")
+        .value("row", cdf_majority::row)
+        .value("column", cdf_majority::column);
 
     py::enum_<CDF_Types>(m, "CDF_Types")
         .value("CDF_BYTE", CDF_Types::CDF_BYTE)
@@ -280,6 +285,7 @@ PYBIND11_MODULE(pycdfpp, m)
 
     py::class_<CDF>(m, "CDF")
         .def_readonly("attributes", &CDF::attributes, py::return_value_policy::reference)
+        .def_property_readonly("majority", [](const CDF& cdf){return cdf.majority;})
         .def("__repr__", __repr__<CDF>)
         .def(
             "__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; },
@@ -317,6 +323,7 @@ PYBIND11_MODULE(pycdfpp, m)
         .def_property_readonly("name", &Variable::name)
         .def_property_readonly("type", &Variable::type)
         .def_property_readonly("shape", &Variable::shape)
+        .def_property_readonly("majority", &Variable::majority)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
         .def_property_readonly(
             "values", make_values_view, py::return_value_policy::reference_internal);

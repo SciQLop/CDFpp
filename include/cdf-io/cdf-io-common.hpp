@@ -69,6 +69,14 @@ auto is_nrv(const T& vdr) noexcept -> decltype(vdr.Flags.value, true)
     return (vdr.Flags.value & 1) == 0;
 }
 
+template <typename T>
+auto majority(const T& cdr)
+{
+    if (cdr.Flags.value & 1)
+        return cdf_majority::row;
+    return cdf_majority::column;
+}
+
 template <typename src_endianess_t, typename buffer_t, typename container_t>
 void load_values(buffer_t& buffer, std::size_t offset, container_t& output)
 {
@@ -159,6 +167,7 @@ struct blk_iterator
 
 struct cdf_repr
 {
+    cdf_majority majority;
     std::unordered_map<std::string, Variable> variables;
     std::unordered_map<std::string, Attribute> attributes;
     std::unordered_map<std::size_t, std::unordered_map<std::string, Attribute>> var_attributes;
@@ -189,8 +198,9 @@ void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name
 void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
     Variable::var_data_t&& data, Variable::shape_t&& shape)
 {
-    repr.variables[name] = Variable { name, number, std::move(data), std::move(shape) };
-    repr.variables[name].attributes = [&]() -> decltype(Variable::attributes) {
+    repr.variables[name] = Variable { name, number, std::move(data), std::move(shape) , repr.majority};
+    repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
+    {
         auto attrs = repr.var_attributes.extract(number);
         if (!attrs.empty())
             return attrs.mapped();

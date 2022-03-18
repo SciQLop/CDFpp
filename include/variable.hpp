@@ -24,9 +24,9 @@
 #include "cdf-data.hpp"
 #include "cdf-enums.hpp"
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 #include <vector>
-#include <optional>
 
 namespace cdf
 {
@@ -40,8 +40,13 @@ struct Variable
     Variable(const Variable&) = default;
     Variable& operator=(const Variable&) = default;
     Variable& operator=(Variable&&) = default;
-    Variable(const std::string& name, std::size_t number, var_data_t&& data, shape_t&& shape)
-            : p_name { name }, p_number { number }, p_data { std::move(data) }, p_shape { shape }
+    Variable(const std::string& name, std::size_t number, var_data_t&& data, shape_t&& shape,
+        cdf_majority majority)
+            : p_name { name }
+            , p_number { number }
+            , p_data { std::move(data) }
+            , p_shape { shape }
+            , p_majority { majority }
     {
     }
 
@@ -95,6 +100,8 @@ struct Variable
 
     CDF_Types type() const { return p_data.type(); }
 
+    cdf_majority majority() { return p_majority; }
+
     template <typename... Ts>
     friend auto visit(Variable& var, Ts... lambdas);
 
@@ -103,6 +110,7 @@ private:
     std::optional<std::size_t> p_number;
     var_data_t p_data;
     shape_t p_shape;
+    cdf_majority p_majority;
 };
 
 template <typename... Ts>

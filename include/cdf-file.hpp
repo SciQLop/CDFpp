@@ -23,12 +23,15 @@
 #include "attribute.hpp"
 #include "variable.hpp"
 #include <string>
+#include "cdf-enums.hpp"
 #include <unordered_map>
+
 
 namespace cdf
 {
 struct CDF
 {
+    cdf_majority majority;
     std::unordered_map<std::string, Variable> variables;
     std::unordered_map<std::string, Attribute> attributes;
     const Variable& operator[](const std::string& name) const { return variables.at(name); }
