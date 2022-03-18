@@ -59,6 +59,7 @@ namespace
         common::magic_numbers_t magic;
         cdf_CDR_t<version_t, buffer_t> cdr;
         cdf_GDR_t<version_t, buffer_t> gdr;
+        cdf_majority majority;
         buffer_t& buffer;
         bool is_compressed;
         bool ok = false;
@@ -67,7 +68,10 @@ namespace
         {
             magic = get_magic(buffer);
             if (common::is_cdf(magic) && cdr.load(CDRoffset) && gdr.load(cdr.GDRoffset.value))
+            {
                 ok = true;
+                majority = common::majority(cdr);
+            }
         }
         inline cdf_encoding encoding() { return cdr.Encoding.value; }
     };
@@ -75,6 +79,7 @@ namespace
     CDF from_repr(common::cdf_repr&& repr)
     {
         CDF cdf;
+        cdf.majority = repr.majority;
         cdf.attributes = std::move(repr.attributes);
         cdf.variables = std::move(repr.variables);
         return cdf;
@@ -84,6 +89,7 @@ namespace
     std::optional<CDF> impl_parse_cdf(cdf_headers_t& cdf_headers)
     {
         common::cdf_repr repr;
+        repr.majority = cdf_headers.majority;
         if (!cdf_headers.ok)
             return std::nullopt;
         if (!attribute::load_all<typename cdf_headers_t::version_tag>(cdf_headers, repr))

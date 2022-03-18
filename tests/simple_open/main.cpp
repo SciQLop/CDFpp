@@ -337,5 +337,15 @@ SCENARIO("Loading a cdf files", "[CDF]")
             THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
             THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
         }
+        WHEN("file exists and is a column major cdf file")
+        {
+            auto path = std::string(DATA_PATH) + "/a_col_major_cdf.cdf";
+            REQUIRE(std::filesystem::exists(path));
+            auto cd_opt = cdf::io::load(path);
+            REQUIRE(cd_opt != std::nullopt);
+            auto cd = *cd_opt;
+            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
+            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
+        }
     }
 }

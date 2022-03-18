@@ -33,6 +33,12 @@ enum class cdf_r_z
     z = 1
 };
 
+enum class cdf_majority
+{
+    column = 0,
+    row = 1
+};
+
 enum class cdf_record_type : int32_t
 {
     CDR = 1,

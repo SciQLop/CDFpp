@@ -64,10 +64,11 @@ def add_attributes(cd):
     cd.attrs["empty"] = []
 
 
-def make_cdf(name, compress_file=False, compress_var=False, compression_algo=pycdf.const.GZIP_COMPRESSION):
+def make_cdf(name, compress_file=False, compress_var=False, compression_algo=pycdf.const.GZIP_COMPRESSION, row_major=True):
     if os.path.exists(name):
         os.unlink(name)
     cd = pycdf.CDF(name,'')
+    cd.col_major(not row_major)
     add_varaibles(cd, compress=compress_var)
     add_attributes(cd)
     print_cdf(cd)
@@ -76,6 +77,7 @@ def make_cdf(name, compress_file=False, compress_var=False, compression_algo=pyc
     cd.close()
 
 make_cdf("a_cdf.cdf")
+make_cdf("a_col_major_cdf.cdf", row_major=False)
 make_cdf("a_compressed_cdf.cdf", compress_file=True)
 make_cdf("a_cdf_with_compressed_vars.cdf", compress_var=True)
 make_cdf("a_rle_compressed_cdf.cdf", compress_file=True, compression_algo=pycdf.const.RLE_COMPRESSION)

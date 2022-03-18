@@ -174,9 +174,18 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::Variable& var)
     return os;
 }
 
+inline std::ostream& operator<<(std::ostream& os, const cdf_majority& majority)
+{
+    if(majority==cdf_majority::row)
+        os << "majority: row";
+    else
+        os << "majority: row";
+    return os;
+}
+
 inline std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
 {
-    os << "CDF:" << std::endl << "\nAttributes:\n";
+    os << "CDF:\n" << cdf_file.majority <<"\n\nAttributes:\n";
     std::for_each(std::cbegin(cdf_file.attributes), std::cend(cdf_file.attributes),
         [&os](const auto& item) { os << "\t" << item.second; });
     os << "\nVariables:\n";
