@@ -124,14 +124,6 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::data_t& data)
             os << " ]";
             break;
         case cdf::CDF_Types::CDF_UCHAR:
-        {
-            os << "\"";
-            auto v = data.get<unsigned char>();
-            std::string sv { reinterpret_cast<char*>(v.data()), std::size(v) };
-            os << sv;
-            os << "\"";
-        }
-        break;
         case cdf::CDF_Types::CDF_CHAR:
         {
             os << "\"";
