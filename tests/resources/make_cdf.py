@@ -43,7 +43,8 @@ def add_varaibles(cd, compress=False):
                           ('epoch', make_time_list(l)),
                           ('var2d', np.ones((3,4))),
                           ('var3d', np.ones((4,3,2))),
-                          ('var2d_counter', np.arange(100, dtype=np.float64).reshape(10,10))
+                          ('var2d_counter', np.arange(100, dtype=np.float64).reshape(10,10)),
+                          ('var3d_counter', np.arange(3**3, dtype=np.float64).reshape(3,3,3))
                           ]:
         make_var(cd, name=name, compress=compress, values=values)
 

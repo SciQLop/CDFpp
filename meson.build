@@ -50,6 +50,7 @@ cdfpp_headers = [
     'include/cdf-data.hpp',
     'include/cdf-debug.hpp',
     'include/cdf-endianness.hpp',
+    'include/cdf-majority-swap.hpp',
     'include/cdf-enums.hpp',
     'include/cdf-file.hpp',
     'include/cdf-io/cdf-io.hpp',
@@ -97,20 +98,27 @@ python3.extension_module('pycdfpp', 'wrapper/pycdfpp.cpp',
                         )
 
 install_headers(
-['./include/attribute.hpp',
- './include/cdf-endianness.hpp',
- './include/cdf-enums.hpp',
- './include/variable.hpp',
- './include/cdf-data.hpp',
- './include/cdf-file.hpp',
- './include/cdf-io/cdf-io-buffers.hpp',
- './include/cdf-io/cdf-io-attribute.hpp',
- './include/cdf-io/cdf-io-zlib.hpp',
- './include/cdf-io/cdf-io-desc-records.hpp',
- './include/cdf-io/cdf-io-common.hpp',
- './include/cdf-io/cdf-io.hpp',
- './include/cdf-io/cdf-io-variable.hpp',
- './include/cdf.hpp']
+[
+    'include/attribute.hpp',
+    'include/variable.hpp',
+    'include/cdf.hpp',
+    'include/cdf-chrono.hpp',
+    'include/cdf-chrono-constants.hpp',
+    'include/cdf-data.hpp',
+    'include/cdf-debug.hpp',
+    'include/cdf-endianness.hpp',
+    'include/cdf-majority-swap.hpp',
+    'include/cdf-enums.hpp',
+    'include/cdf-file.hpp',
+    'include/cdf-io/cdf-io.hpp',
+    'include/cdf-io/cdf-io-attribute.hpp',
+    'include/cdf-io/cdf-io-buffers.hpp',
+    'include/cdf-io/cdf-io-common.hpp',
+    'include/cdf-io/cdf-io-desc-records.hpp',
+    'include/cdf-io/cdf-io-variable.hpp',
+    'include/cdf-io/cdf-io-zlib.hpp',
+    'include/cdf-io/cdf-io-rle.hpp'
+]
   , subdir : 'cdfpp')
 
 pkg = import('pkgconfig')
@@ -125,7 +133,7 @@ if get_option('with_tests')
     catch_dep = dependency('catch2', main : true, fallback : ['catch2', 'catch2_dep'])
 
 
-    foreach test:['endianness','simple_open', 'zlib']
+    foreach test:['endianness','simple_open', 'zlib', 'majority']
         exe = executable('test-'+test,'tests/'+test+'/main.cpp',
                         dependencies:[catch_dep, cdfpp_dep],
                         install: false
