@@ -29,6 +29,10 @@ variables = {
     'shape':[10,10],
     'type':pycdfpp.CDF_DOUBLE
 },
+'var3d_counter':{
+    'shape':[3,3,3],
+    'type':pycdfpp.CDF_DOUBLE
+},
 'var3d':{
     'shape':[4,3,2],
     'type':pycdfpp.CDF_DOUBLE

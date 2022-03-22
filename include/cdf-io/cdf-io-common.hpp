@@ -22,6 +22,7 @@
 ----------------------------------------------------------------------------*/
 #include "../attribute.hpp"
 #include "../cdf-endianness.hpp"
+#include "../cdf-majority-swap.hpp"
 #include "../variable.hpp"
 #include <functional>
 #include <tuple>
@@ -198,7 +199,12 @@ void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name
 void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
     Variable::var_data_t&& data, Variable::shape_t&& shape)
 {
-    repr.variables[name] = Variable { name, number, std::move(data), std::move(shape) , repr.majority};
+    repr.variables[name]
+        = Variable { name, number, std::move(data), std::move(shape), repr.majority };
+    if (repr.majority == cdf_majority::column)
+    {
+        majority::swap(repr.variables[name]);
+    }
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
     {
         auto attrs = repr.var_attributes.extract(number);
