@@ -19,15 +19,16 @@ List of features and roadmap:
 - [x] read uncompressed variables
 - [x] read variable attributes
 - [x] loads cdf files from memory (std::vector<char> or char*)
+- [x] handles both row and column major files
 - [ ] read variables with nested VXRs
-- [x] read compressed file
-- [x] read compressed variables
+- [x] read compressed file (GZip, RLE)
+- [x] read compressed variables (GZip, RLE)
 - [ ] write uncompressed headers
 - [ ] write uncompressed attributes
 - [ ] write uncompressed variables
 - [ ] write compressed attributes
 - [ ] write compressed file variables
-- [ ] handle leap seconds
+- [x] handle leap seconds
 - [x] Python wrappers
 - [ ] Documentation
 - [ ] Examples
@@ -59,7 +60,7 @@ sudo ninja install
 ```python
 from pycdfpp import pycdfpp
 cdf = pycdfpp.load("some_cdf.cdf")
-cdf_var_data = cdf["var_name"].as_array() #builds a numpy array
+cdf_var_data = cdf["var_name"].values #builds a numpy view or a list of strings
 attribute_name_first_value = cdf.attributes['attribute_name'][0]
 ```
 
