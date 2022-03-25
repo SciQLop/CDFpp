@@ -174,7 +174,7 @@ std::optional<CDF> load(const std::vector<char>& data)
     }
     return std::nullopt;
 }
-std::optional<CDF> load(char* data, std::size_t size)
+std::optional<CDF> load(const char* data, std::size_t size)
 {
     if (size != 0 && data != nullptr)
     {

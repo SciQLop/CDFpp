@@ -85,28 +85,40 @@ namespace _private
 
 namespace majority
 {
-    template <typename shape_t, typename data_t>
+    template <typename shape_t, typename data_t,
+        bool is_string = std::is_same_v<typename data_t::value_type, char>>
     void swap(data_t& data, const shape_t& shape)
     {
         const auto dimensions = std::size(shape);
         // Basically a variable with shape=2 is a variable with 1D records
-        if (dimensions > 2)
+        if (dimensions > 2 or (is_string and dimensions > 2))
         {
-            const std::size_t records_count = shape[0];
-            const std::vector<std::size_t> record_shape(std::cbegin(shape) + 1, std::cend(shape));
+            const std::size_t records_count = is_string ? 1 : shape[0];
+            const std::vector<std::size_t> record_shape(
+                std::cbegin(shape) + (is_string ? 0 : 1), std::cend(shape) - (is_string ? 1 : 0));
             const auto access_patern = _private::generate_access_pattern(record_shape);
 
-            std::vector<typename data_t::value_type> temporary_record(std::size(access_patern));
+            std::vector<typename data_t::value_type> temporary_record(
+                std::size(access_patern) * (is_string ? shape.back() : 1));
 
             for (auto record = 0UL; record < records_count; record++)
             {
                 auto offset = record * std::size(access_patern);
                 for (const auto& swap_pair : access_patern)
                 {
-                    temporary_record[swap_pair.src] = data[offset + swap_pair.dest];
+                    if constexpr (is_string)
+                    {
+                        std::memcpy(temporary_record.data() + (swap_pair.src * shape.back()),
+                            data.data() + offset + (swap_pair.dest * shape.back()), shape.back());
+                    }
+                    else
+                    {
+                        temporary_record[swap_pair.src] = data[offset + swap_pair.dest];
+                    }
                 }
                 std::memcpy(data.data() + offset, temporary_record.data(),
-                    sizeof(typename data_t::value_type) * std::size(access_patern));
+                    (is_string ? shape.back() : sizeof(typename data_t::value_type))
+                        * std::size(access_patern));
             }
         }
     }

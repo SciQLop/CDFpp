@@ -120,18 +120,18 @@ bool check_time_variable(const cdf::Variable& var, std::initializer_list<uint32_
 {
     using namespace date;
     using namespace std::chrono;
-    auto offset=0;
-    if constexpr (std::is_same_v<time_t,cdf::tt2000_t >)
-        offset=5;//skip 1971 issue with tt2000
+    auto offset = 0;
+    if constexpr (std::is_same_v<time_t, cdf::tt2000_t>)
+        offset = 5; // skip 1971 issue with tt2000
     auto values = std::vector<decltype(cdf::to_time_point(time_t {}))>();
     std::transform(std::cbegin(var.get<time_t>()), std::cend(var.get<time_t>()),
         std::back_inserter(values), [](const time_t& v) { return cdf::to_time_point(v); });
     bool is_valid = compare_shape(var, expected_shape);
     auto ref = std::vector<decltype(cdf::to_time_point(time_t {}))>(std::size(values));
     std::generate(std::begin(ref), std::end(ref),
-        [i = 0]() mutable { return cdf::constants::_1970 + days(i++ * 180) + 0ns;});
-    is_valid &= std::inner_product(std::begin(ref)+offset, std::end(ref), std::begin(values)+offset, is_valid,
-        std::logical_and<>(), std::equal_to<>());
+        [i = 0]() mutable { return cdf::constants::_1970 + days(i++ * 180) + 0ns; });
+    is_valid &= std::inner_product(std::begin(ref) + offset, std::end(ref),
+        std::begin(values) + offset, is_valid, std::logical_and<>(), std::equal_to<>());
     return is_valid;
 }
 
@@ -194,7 +194,7 @@ std::size_t filesize(std::fstream& file)
 
 
 #define CHECK_VARIABLES(cd)                                                                        \
-    REQUIRE(std::size(cd.variables) == 10);                                                         \
+    REQUIRE(std::size(cd.variables) == 11);                                                        \
     REQUIRE(has_variable(cd, "var"));                                                              \
     REQUIRE(compare_shape(cd.variables["var"], { 101 }));                                          \
     REQUIRE(check_variable(                                                                        \

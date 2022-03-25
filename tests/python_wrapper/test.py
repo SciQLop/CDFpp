@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import math
 import unittest
+from glob import glob
 import pycdfpp
 
 os.environ['TZ'] = 'UTC'
@@ -59,44 +60,58 @@ variables = {
     'shape':[2,18],
     'type':pycdfpp.CDF_CHAR,
     'values': ['This is a string 1','This is a string 2']
+},
+'var3d_string':{
+    'shape':[2,2,9],
+    'type':pycdfpp.CDF_CHAR,
+    'values': [['value[00]','value[01]'],['value[10]','value[11]']]
 }
 }
 
 attributes = ['attr', 'attr_float', 'attr_int', 'attr_multi', 'empty']
 
+def load_bytes(fname):
+    with open(fname,'rb') as f:
+        return f.read()
+
 class PycdfTest(unittest.TestCase):
     def setUp(self):
-        self.cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/a_cdf.cdf')
-        self.assertIsNotNone(self.cdf)
+        files = glob(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/a_*.cdf')
+        self.cdfs = list(map(pycdfpp.load, files)) + list(map(lambda f: pycdfpp.load(load_bytes(f)), files))
+        for cdf in self.cdfs:
+            self.assertIsNotNone(cdf)
 
     def tearDown(self):
         pass
 
     def test_has_all_expected_vars(self):
-        for name in variables:
-            self.assertTrue(name in self.cdf)
+        for cdf in self.cdfs:
+            for name in variables:
+                self.assertTrue(name in cdf)
 
     def test_has_all_expected_attributes(self):
-        for name in attributes:
-            self.assertTrue(name in self.cdf.attributes)
+        for cdf in self.cdfs:
+            for name in attributes:
+                self.assertTrue(name in cdf.attributes)
 
     def test_access_attribute_data_outside_of_range(self):
-        attr = self.cdf.attributes['attr_int']
+        attr = self.cdfs[0].attributes['attr_int']
         with self.assertRaises(IndexError):
             attr[len(attr)]
 
     def test_vars_have_expected_type_and_shape(self):
-        for name,var in self.cdf.items():
-            self.assertTrue(name in variables)
-            v_exp = variables[name]
-            self.assertEqual(v_exp['shape'], var.shape)
-            self.assertEqual(v_exp['type'], var.type)
-            if var.type in [pycdfpp.CDF_EPOCH, pycdfpp.CDF_EPOCH16]:
-                self.assertTrue(np.all(v_exp['values'] == pycdfpp.to_datetime(var)))
-            elif var.type == pycdfpp.CDF_TIME_TT2000:
-                self.assertTrue(np.all(v_exp['values'][5:] == pycdfpp.to_datetime(var)[5:]))
-            else:
-                self.assertTrue(np.all(v_exp['values'] == var.values))
+        for cdf in self.cdfs:
+            for name,var in cdf.items():
+                self.assertTrue(name in variables)
+                v_exp = variables[name]
+                self.assertEqual(v_exp['shape'], var.shape)
+                self.assertEqual(v_exp['type'], var.type)
+                if var.type in [pycdfpp.CDF_EPOCH, pycdfpp.CDF_EPOCH16]:
+                    self.assertTrue(np.all(v_exp['values'] == pycdfpp.to_datetime(var)), f"Broken var: {name}")
+                elif var.type == pycdfpp.CDF_TIME_TT2000:
+                    self.assertTrue(np.all(v_exp['values'][5:] == pycdfpp.to_datetime(var)[5:]), f"Broken var: {name}")
+                else:
+                    self.assertTrue(np.all(v_exp['values'] == var.values), f"Broken var: {name}, values: {var.values}")
 
 
 if __name__ == '__main__':

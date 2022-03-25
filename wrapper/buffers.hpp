@@ -69,34 +69,52 @@ py::buffer_info make_buffer(cdf::Variable& var, bool readonly = true)
         shape_ssize_t(var), strides<T>(var), readonly);
 }
 
-template <typename data_t, typename raw_t=data_t>
+template <typename data_t, typename raw_t = data_t>
 py::memoryview make_view(cdf::Variable& variable, bool readonly = true)
 {
-    return py::memoryview::from_buffer(reinterpret_cast<raw_t*>(variable.get<data_t>().data()), shape_ssize_t(variable),
-        strides<data_t>(variable), readonly);
+    return py::memoryview::from_buffer(reinterpret_cast<raw_t*>(variable.get<data_t>().data()),
+        shape_ssize_t(variable), strides<data_t>(variable), readonly);
 }
 
-template <typename data_t, typename raw_t=data_t>
+template <typename data_t, typename raw_t = data_t>
 py::array make_array(Variable& variable, py::object& obj, bool readonly = true)
 {
-    return py::array_t<data_t>(shape_ssize_t(variable), strides<data_t>(variable), variable.get<data_t>().data(), obj);
+    return py::array_t<data_t>(
+        shape_ssize_t(variable), strides<data_t>(variable), variable.get<data_t>().data(), obj);
 }
 
-template<typename char_type>
-std::variant<py::array, std::string_view,std::vector<std::string_view>> make_str_view(Variable& variable)
+template <typename char_type>
+std::variant<py::array, std::string_view, std::vector<std::string_view>,
+    std::vector<std::vector<std::string_view>>>
+make_str_view(Variable& variable)
 {
-    const auto& shape=variable.shape();
+    const auto& shape = variable.shape();
     char* buffer = reinterpret_cast<char*>(variable.get<char_type>().data());
-    if(std::size(shape)==1)
+    if (std::size(shape) == 1)
     {
-        return std::string_view{buffer, shape[0]};
+        return std::string_view { buffer, shape[0] };
     }
-    if(std::size(shape)==2)
+    if (std::size(shape) == 2)
     {
         std::vector<std::string_view> result(shape[0]);
-        for(std::size_t index=0;index<shape[0];index++)
+        for (std::size_t index = 0; index < shape[0]; index++)
         {
-            result[index] = std::string_view{buffer+(index*shape[1]), shape[1]};
+            result[index] = std::string_view { buffer + (index * shape[1]), shape[1] };
+        }
+        return result;
+    }
+    if (std::size(shape) == 3)
+    {
+        std::vector<std::vector<std::string_view>> result(shape[0]);
+        auto buffer_offset = 0UL;
+        for (std::size_t i = 0; i < shape[0]; i++)
+        {
+            result[i].resize(shape[1]);
+            for (std::size_t j = 0; j < shape[1]; j++)
+            {
+                result[i][j] = std::string_view { buffer + buffer_offset, shape[2] };
+                buffer_offset += shape[2];
+            }
         }
         return result;
     }
@@ -115,7 +133,9 @@ py::buffer_info impl_make_buffer(cdf::Variable& var)
 
 }
 
-std::variant<py::array, std::string_view,std::vector<std::string_view>> make_values_view(py::object& obj)
+std::variant<py::array, std::string_view, std::vector<std::string_view>,
+    std::vector<std::vector<std::string_view>>>
+make_values_view(py::object& obj)
 {
     Variable& variable = obj.cast<Variable&>();
     switch (variable.type())
@@ -125,7 +145,7 @@ std::variant<py::array, std::string_view,std::vector<std::string_view>> make_val
         case cdf::CDF_Types::CDF_UCHAR:
             return _details::make_str_view<unsigned char>(variable);
         case cdf::CDF_Types::CDF_INT1:
-            return _details::make_array<int8_t>(variable,obj);
+            return _details::make_array<int8_t>(variable, obj);
         case cdf::CDF_Types::CDF_INT2:
             return _details::make_array<int16_t>(variable, obj);
         case cdf::CDF_Types::CDF_INT4:
@@ -220,8 +240,7 @@ py::buffer_info make_buffer(cdf::Variable& variable)
             return _details::impl_make_buffer<epoch16>(variable);
         case cdf::CDF_Types::CDF_TIME_TT2000:
             return _details::impl_make_buffer<tt2000_t, int64_t>(variable);
-    default:
-        return py::buffer_info{};
+        default:
+            return py::buffer_info {};
     }
-
 }

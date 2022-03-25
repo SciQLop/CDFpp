@@ -30,6 +30,7 @@ using namespace cdf;
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/iostream.h>
 
 namespace py = pybind11;
 
@@ -280,7 +281,7 @@ PYBIND11_MODULE(pycdfpp, m)
 
     py::class_<CDF>(m, "CDF")
         .def_readonly("attributes", &CDF::attributes, py::return_value_policy::reference)
-        .def_property_readonly("majority", [](const CDF& cdf){return cdf.majority;})
+        .def_property_readonly("majority", [](const CDF& cdf) { return cdf.majority; })
         .def("__repr__", __repr__<CDF>)
         .def(
             "__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; },
@@ -324,6 +325,15 @@ PYBIND11_MODULE(pycdfpp, m)
             "values", make_values_view, py::return_value_policy::reference_internal);
 
     m.def(
-        "load", [](const char* name) { return io::load(name); },
+        "load",
+        [](py::bytes& buffer)
+        {
+            py::buffer_info info(py::buffer(buffer).request());
+            return io::load(static_cast<char*>(info.ptr), static_cast<std::size_t>(info.size));
+        },
+        py::return_value_policy::reference);
+
+    m.def(
+        "load", [](const char* name) {return io::load(name); },
         py::return_value_policy::reference);
 }
