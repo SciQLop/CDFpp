@@ -19,7 +19,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include <cdf-chrono.hpp>
+#include <chrono/cdf-chrono.hpp>
 #include <cdf-data.hpp>
 #include <cdf.hpp>
 using namespace cdf;

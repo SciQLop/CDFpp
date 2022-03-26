@@ -21,24 +21,14 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "cdf-debug.hpp"
-CDFPP_DIAGNOSTIC_PUSH
-CDFPP_DIAGNOSTIC_DISABLE_DEPRECATED
-#include "date/date.h"
-CDFPP_DIAGNOSTIC_POP
 #include <chrono>
 
 
 namespace cdf::chrono::constants
 {
-using namespace date;
 using namespace std::chrono;
-constexpr auto _0AD = sys_days { 0_y / January / 1 } + 0h;
-constexpr auto _1900 = sys_days { 1900_y / January / 1 } + 0h;
-constexpr auto _1970 = sys_days { 1970_y / January / 1 } + 0h;
-// see https://en.wikipedia.org/wiki/Epoch_(astronomy)#Julian_Dates_and_J2000
-constexpr auto _J2000 = sys_days { 2000_y / January / 1 } + 11h + 58min + 55s + 816ms;
-constexpr double seconds_0AD_to_1970 = duration_cast<seconds>(_1970 - _0AD).count();
-constexpr double mseconds_0AD_to_1970 = duration_cast<milliseconds>(_1970 - _0AD).count();
-constexpr int64_t seconds_1970_to_J2000 = duration_cast<seconds>(_J2000 - _1970).count();
-constexpr int64_t seconds_1900_to_J2000 = duration_cast<seconds>(_J2000 - _1900).count();
+constexpr auto epoch_offset_miliseconds = 62167219200000.0;
+constexpr auto epoch_offset_seconds = 62167219200.0;
+constexpr auto tt2000_offset = 946727967816000000;
+
 }

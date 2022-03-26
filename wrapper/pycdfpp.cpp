@@ -21,7 +21,7 @@
 ----------------------------------------------------------------------------*/
 #include "buffers.hpp"
 #include "repr.hpp"
-#include <cdf-chrono.hpp>
+#include <chrono/cdf-chrono.hpp>
 #include <cdf-data.hpp>
 #include <cdf.hpp>
 using namespace cdf;
