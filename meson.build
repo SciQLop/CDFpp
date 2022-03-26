@@ -34,7 +34,6 @@ endif
 
 
 pybind11_dep = dependency('pybind11', required : true, fallback:['pybind11','pybind11_dep'])
-date_dep = dependency('date', required : true, fallback:['hinnant-date','date_dep'])
 zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
 hedley_dep = dependency('hedley', main : true, fallback : ['hedley', 'hedley_dep'])
 
@@ -45,8 +44,9 @@ cdfpp_headers = [
     'include/attribute.hpp',
     'include/variable.hpp',
     'include/cdf.hpp',
-    'include/cdf-chrono.hpp',
-    'include/cdf-chrono-constants.hpp',
+    'include/chrono/cdf-chrono.hpp',
+    'include/chrono/cdf-chrono-constants.hpp',
+    'include/chrono/cdf-leap-seconds.h',
     'include/cdf-data.hpp',
     'include/cdf-debug.hpp',
     'include/cdf-endianness.hpp',
@@ -79,13 +79,13 @@ cdfpp_extra_files = [
 
 cdfpp_lib = library('CDFpp',
         include_directories: include_directories('include'),
-        dependencies: [zlib_dep, date_dep, hedley_dep],
+        dependencies: [zlib_dep, hedley_dep],
         extra_files: [cdfpp_headers, cdfpp_extra_files]
         )
 
 cdfpp_dep = declare_dependency(include_directories: include_directories('include'),
                                 link_with:cdfpp_lib,
-                                dependencies: [zlib_dep, date_dep, hedley_dep])
+                                dependencies: [zlib_dep, hedley_dep])
 
 
 
@@ -99,8 +99,9 @@ install_headers(
     'include/attribute.hpp',
     'include/variable.hpp',
     'include/cdf.hpp',
-    'include/cdf-chrono.hpp',
-    'include/cdf-chrono-constants.hpp',
+    'include/chrono/cdf-chrono.hpp',
+    'include/chrono/cdf-chrono-constants.hpp',
+    'include/chrono/cdf-leap-seconds.h',
     'include/cdf-data.hpp',
     'include/cdf-debug.hpp',
     'include/cdf-endianness.hpp',

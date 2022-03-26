@@ -21,10 +21,11 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include <cdf-data.hpp>
-#include <cdf-chrono.hpp>
+#include <chrono/cdf-chrono.hpp>
 #include <cdf.hpp>
 #include <sstream>
 #include <string>
+#include <chrono>
 using namespace cdf;
 
 #include <pybind11/numpy.h>
@@ -185,6 +186,12 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
         [&os](const auto& item) { os << "\t" << item.second; });
     os << std::endl;
 
+    return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const std::chrono::time_point<std::chrono::system_clock>& tp)
+{
+    os << std::chrono::system_clock::to_time_t(tp);
     return os;
 }
 

@@ -15,16 +15,11 @@
 #endif
 
 #include "cdf-debug.hpp"
-
-CDFPP_DIAGNOSTIC_PUSH
-CDFPP_DIAGNOSTIC_DISABLE_DEPRECATED
-#include "date/date.h"
-CDFPP_DIAGNOSTIC_POP
 #include <chrono>
 
 
 #include "attribute.hpp"
-#include "cdf-chrono.hpp"
+#include "chrono/cdf-chrono.hpp"
 #include "cdf-file.hpp"
 #include "cdf-io/cdf-io.hpp"
 
@@ -118,7 +113,6 @@ bool check_variable(
 template <typename time_t>
 bool check_time_variable(const cdf::Variable& var, std::initializer_list<uint32_t> expected_shape)
 {
-    using namespace date;
     using namespace std::chrono;
     auto offset = 0;
     if constexpr (std::is_same_v<time_t, cdf::tt2000_t>)
@@ -129,7 +123,7 @@ bool check_time_variable(const cdf::Variable& var, std::initializer_list<uint32_
     bool is_valid = compare_shape(var, expected_shape);
     auto ref = std::vector<decltype(cdf::to_time_point(time_t {}))>(std::size(values));
     std::generate(std::begin(ref), std::end(ref),
-        [i = 0]() mutable { return cdf::constants::_1970 + days(i++ * 180) + 0ns; });
+        [i = 0]() mutable { return time_point<system_clock>{} + hours(24 * (i++ * 180)) + 0ns; });
     is_valid &= std::inner_product(std::begin(ref) + offset, std::end(ref),
         std::begin(values) + offset, is_valid, std::logical_and<>(), std::equal_to<>());
     return is_valid;
