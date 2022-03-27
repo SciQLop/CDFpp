@@ -138,13 +138,13 @@ data_t load_values(
 template <CDF_Types type>
 inline decltype(auto) data_t::get()
 {
-    return std::get<std::vector<from_cdf_type_t<type>>>(p_values);
+    return std::get<std::vector<from_cdf_type_t<type>>>(this->p_values);
 }
 
 template <CDF_Types type>
 inline decltype(auto) data_t::get() const
 {
-    return std::get<std::vector<from_cdf_type_t<type>>>(p_values);
+    return std::get<std::vector<from_cdf_type_t<type>>>(this->p_values);
 }
 
 
@@ -169,14 +169,14 @@ inline decltype(auto) data_t::get() const
 
 inline data_t& data_t::operator=(data_t&& other)
 {
-    std::swap(p_values, other.p_values);
-    std::swap(p_type, other.p_type);
+    std::swap(this->p_values, other.p_values);
+    std::swap(this->p_type, other.p_type);
     return *this;
 }
 inline data_t& data_t::operator=(const data_t& other)
 {
-    p_values = other.p_values;
-    p_type = other.p_type;
+    this->p_values = other.p_values;
+    this->p_type = other.p_type;
     return *this;
 }
 
