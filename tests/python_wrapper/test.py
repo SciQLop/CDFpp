@@ -110,8 +110,10 @@ class PycdfTest(unittest.TestCase):
                     self.assertTrue(np.all(v_exp['values'] == pycdfpp.to_datetime(var)), f"Broken var: {name}")
                 elif var.type == pycdfpp.CDF_TIME_TT2000:
                     self.assertTrue(np.all(v_exp['values'][5:] == pycdfpp.to_datetime(var)[5:]), f"Broken var: {name}")
+                elif var.type == pycdfpp.CDF_DOUBLE:
+                    self.assertTrue(np.allclose(v_exp['values'], var.values, rtol=1e-10, atol=0.), f"Broken var: {name}, values: {var.values}")
                 else:
-                    self.assertTrue(np.all(v_exp['values'] == var.values), f"Broken var: {name}, values: {var.values}")
+                    self.assertTrue(np.all(v_exp['values']== var.values), f"Broken var: {name}, values: {var.values}")
 
 
 if __name__ == '__main__':
