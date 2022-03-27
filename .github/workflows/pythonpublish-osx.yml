@@ -21,7 +21,7 @@ jobs:
           architecture: x64
       - run: |
           pip install twine
-          python -m build .
+          CC=gcc-11 CXX=g++-11 python -m build .
       - name: Publish on PyPi
         env:
           TWINE_USERNAME: __token__
