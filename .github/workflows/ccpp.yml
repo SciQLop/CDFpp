@@ -1,17 +1,17 @@
-name: C/C++ CI
+name: Tests Linux with coverage
 
 on: [push]
 
 jobs:
   build:
-    name: build an tests
+    name: build an tests with coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
         with:
           submodules: true
       - name: Install dependencies
-        run: sudo apt update && sudo apt install -y meson libcurl4-openssl-dev python3-astropy lcov g++ ninja-build
+        run: sudo apt update && sudo apt install -y meson python3-numpy lcov g++ ninja-build
       - name: Configure with meson
         run: meson -Db_coverage=true -Dwith_tests=true . build
       - name: Build (meson)

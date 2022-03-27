@@ -1,5 +1,5 @@
 [build-system]
-requires = ["mesonpep517", "ninja", "astropy"]
+requires = ["mesonpep517", "ninja"]
 build-backend = "mesonpep517.buildapi"
 
 

@@ -71,6 +71,7 @@ cdfpp_extra_files = [
     'setup.py', 'tests/resources/make_cdf.py',
     'tests/python_wrapper/test.py',
     '.github/workflows/ccpp.yml',
+    '.github/workflows/tests.yml',
     '.github/workflows/pythonpublish-linux.yml',
     '.github/workflows/pythonpublish-osx.yml',
     '.github/workflows/pythonpublish-win.yml'
