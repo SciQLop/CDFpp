@@ -1,0 +1,23 @@
+name: All OS test matrix
+
+on: [push]
+
+jobs:
+  build:
+    name: All OS test matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        python-version: ['3.7', '3.8', '3.9', '3.10']
+    steps:
+      - uses: actions/checkout@v1
+      - name: Build python wheel
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+      - run: |
+          pip install --upgrade meson ninja numpy
+          meson -Dwith_tests=true . build
+          ninja test -C build
