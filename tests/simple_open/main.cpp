@@ -303,7 +303,7 @@ SCENARIO("Loading a cdf files", "[CDF]")
                     file.read(data, static_cast<int64_t>(size));
                     return std::make_tuple(data, size);
                 }
-                return std::make_tuple(static_cast<char*>(nullptr), 0UL);
+                return std::make_tuple(static_cast<char*>(nullptr), std::size_t{0UL});
             }();
             auto cd_opt = cdf::io::load(data, size);
             delete[] data;
