@@ -22,6 +22,8 @@
 #include "cdf-file.hpp"
 #include "cdf-io/cdf-io.hpp"
 
+#include "tests_config.hpp"
+
 bool file_exists(const std::string& path)
 {
     if (auto file = fopen(path.c_str(), "r")) {
