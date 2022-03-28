@@ -11,7 +11,7 @@ jobs:
     container: quay.io/pypa/manylinux2014_x86_64
     steps:
       - name: install deps
-        run: yum installl -y libcurl-devel && /opt/python/cp310-cp310/bin/pip install twine
+        run: /opt/python/cp310-cp310/bin/pip install twine
       - uses: actions/checkout@v1
         with:
           submodules: true

@@ -20,7 +20,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: x64
       - run: |
-          pip install --upgrade twine build ninja
+          pip install --upgrade twine build ninja meson
           python -m build .
       - name: Publish on PyPi
         env:

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["mesonpep517", "ninja"]
+requires = ["mesonpep517", "ninja>=1.8.2", "meson"]
 build-backend = "mesonpep517.buildapi"
 
 
@@ -7,21 +7,22 @@ build-backend = "mesonpep517.buildapi"
 description="A modern C++ header only cdf library"
 author = "Alexis Jeandet"
 author-email = "alexis.jeandet@member.fsf.org"
-summary = "greeter"
+summary = "A simple to use CDF files reader"
 [project]
-  [urls]
-    homepage = "https://github.com/SciQLop/CDFpp"
-  license = "GNU General Public License v3"
-  readme = "README.md"
+requires-python=">=3.7"
+license = "GNU General Public License v3"
+readme = "README.md"
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Natural Language :: English",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.5",
-    "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
 ]
 dependencies = []
+[project.urls]
+homepage = "https://github.com/SciQLop/CDFpp"
