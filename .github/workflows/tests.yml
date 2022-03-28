@@ -24,10 +24,12 @@ jobs:
         run: |
           pip install --upgrade meson ninja numpy
           CC=gcc-11 CXX=g++-11 meson -Dbuildtype=release -Dwith_tests=true . build
+          ninja --verbose -C build
           ninja test -C build
       - name: build and test (Linux/Windows)
         if: matrix.os != 'macos-latest'
         run: |
           pip install --upgrade meson ninja numpy
           meson -Dbuildtype=release -Dwith_tests=true . build
+          ninja --verbose -C build
           ninja test -C build
