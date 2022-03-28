@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cstdint>
-#include <filesystem>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -22,6 +21,16 @@
 #include "chrono/cdf-chrono.hpp"
 #include "cdf-file.hpp"
 #include "cdf-io/cdf-io.hpp"
+
+bool file_exists(const std::string& path)
+{
+    if (auto file = fopen(path.c_str(), "r")) {
+            fclose(file);
+            return true;
+        } else {
+            return false;
+        }
+}
 
 bool has_attribute(const cdf::CDF& cd, const std::string& name)
 {
@@ -243,14 +252,14 @@ SCENARIO("Loading a cdf files", "[CDF]")
             THEN("Loading file returns nullopt")
             {
                 auto path = std::string(DATA_PATH) + "/not_a_cdf.cdf";
-                REQUIRE(std::filesystem::exists(path));
+                REQUIRE(file_exists(path));
                 REQUIRE(cdf::io::load(path) == std::nullopt);
             }
         }
         WHEN("file exists and is a cdf file")
         {
             auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
-            REQUIRE(std::filesystem::exists(path));
+            REQUIRE(file_exists(path));
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
@@ -260,7 +269,7 @@ SCENARIO("Loading a cdf files", "[CDF]")
         WHEN("In memory data as std::vector is a cdf file")
         {
             auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
-            REQUIRE(std::filesystem::exists(path));
+            REQUIRE(file_exists(path));
             auto data = [&]() -> std::vector<char>
             {
                 std::fstream file { path, std::ios::binary | std::ios::in };
@@ -281,7 +290,7 @@ SCENARIO("Loading a cdf files", "[CDF]")
         WHEN("In memory data as char* is a cdf file")
         {
             auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
-            REQUIRE(std::filesystem::exists(path));
+            REQUIRE(file_exists(path));
             auto [data, size] = [&]()
             {
                 std::fstream file { path, std::ios::binary | std::ios::in };
@@ -304,7 +313,7 @@ SCENARIO("Loading a cdf files", "[CDF]")
         WHEN("file exists and is a compressed cdf file (GZIP)")
         {
             auto path = std::string(DATA_PATH) + "/a_compressed_cdf.cdf";
-            REQUIRE(std::filesystem::exists(path));
+            REQUIRE(file_exists(path));
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
@@ -314,7 +323,7 @@ SCENARIO("Loading a cdf files", "[CDF]")
         WHEN("file exists and is a compressed cdf file (RLE)")
         {
             auto path = std::string(DATA_PATH) + "/a_rle_compressed_cdf.cdf";
-            REQUIRE(std::filesystem::exists(path));
+            REQUIRE(file_exists(path));
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
@@ -324,7 +333,7 @@ SCENARIO("Loading a cdf files", "[CDF]")
         WHEN("file exists and is a cdf file with compressed variables")
         {
             auto path = std::string(DATA_PATH) + "/a_cdf_with_compressed_vars.cdf";
-            REQUIRE(std::filesystem::exists(path));
+            REQUIRE(file_exists(path));
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
@@ -334,7 +343,7 @@ SCENARIO("Loading a cdf files", "[CDF]")
         WHEN("file exists and is a column major cdf file")
         {
             auto path = std::string(DATA_PATH) + "/a_col_major_cdf.cdf";
-            REQUIRE(std::filesystem::exists(path));
+            REQUIRE(file_exists(path));
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
