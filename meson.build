@@ -26,7 +26,6 @@ configure_file(input : 'config.h.in',
                install_dir : 'cdfpp',
                configuration : conf_data)
 
-add_global_arguments('-DDATA_PATH="@0@/tests/resources"'.format(meson.current_source_dir()), language : 'cpp')
 cpp = meson.get_compiler('cpp')
 if('clang'==cpp.get_id())
     add_global_arguments('-fsized-deallocation', language : 'cpp')
@@ -129,21 +128,19 @@ pkg.generate(cdfpp_lib,
              description : 'An header only modern C++ CDF library.')
 
 if get_option('with_tests')
+
+    configure_file(output : 'tests_config.hpp',
+      configuration : {
+        'DATA_PATH' : '"' + meson.current_source_dir() / 'tests/resources' + '"'
+      }
+    )
+
     catch_dep = dependency('catch2', main : true, fallback : ['catch2', 'catch2_dep'])
 
 
-    foreach test:['endianness','simple_open', 'zlib', 'majority']
+    foreach test:['endianness','simple_open', 'zlib', 'majority', 'chrono']
         exe = executable('test-'+test,'tests/'+test+'/main.cpp',
                         dependencies:[catch_dep, cdfpp_dep],
-                        install: false
-                        )
-        test(test, exe)
-    endforeach
-
-    foreach test:['chrono']
-        exe = executable('test-'+test,'tests/'+test+'/main.cpp',
-                        dependencies:[catch_dep, cdfpp_dep, pybind11_dep, python3.dependency(embed:true)],
-                        cpp_args: ['-DDATA_PATH="@0@/tests/resources"'.format(meson.current_source_dir())],
                         install: false
                         )
         test(test, exe)
