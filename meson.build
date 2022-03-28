@@ -83,14 +83,20 @@ cdfpp_lib = library('CDFpp',
         extra_files: [cdfpp_headers, cdfpp_extra_files]
         )
 
+if build_machine.system() == 'windows'
+    link_args = ['-static-libstdc++','-static-libgcc','-static']
+else
+    link_args = []
+endif
+
 cdfpp_dep = declare_dependency(include_directories: include_directories('include'),
-                                link_with:cdfpp_lib,
                                 dependencies: [zlib_dep, hedley_dep])
 
 
 
 python3.extension_module('pycdfpp', 'wrapper/pycdfpp.cpp',
                          dependencies: [cdfpp_dep, pybind11_dep,python3.dependency()],
+                         link_args: link_args,
                          install: true
                         )
 
