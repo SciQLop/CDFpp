@@ -20,8 +20,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: x64
       - run: |
-          pip install twine
-          CC=gcc-11 CXX=g++-11 python -m build .
+          pip install --upgrade twine build ninja meson==0.61.4
+          CC=gcc-11 CXX=g++-11 python -m build . --config-setting=--setup-args="-Dbuildtype=release"
       - name: Publish on PyPi
         env:
           TWINE_USERNAME: __token__
