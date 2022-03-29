@@ -179,20 +179,32 @@ void add_global_attribute(cdf_repr& repr, const std::string& name, Attribute::at
     repr.attributes[name] = Attribute { name, std::move(data) };
 }
 
-void add_var_attribute(cdf_repr& repr, std::size_t variable_index, const std::string& name,
-    Attribute::attr_data_t&& data)
+void add_var_attribute(cdf_repr& repr, const std::vector<uint32_t>& variable_indexes,
+    const std::string& name, Attribute::attr_data_t&& data)
 {
-    repr.var_attributes[variable_index][name] = Attribute { name, std::move(data) };
+    assert(std::size(data) == std::size(variable_indexes));
+    std::unordered_map<uint32_t, std::unordered_map<std::string, Attribute::attr_data_t>> storage;
+    for (auto index = 0UL; index < std::size(data); index++)
+    {
+        storage[variable_indexes[index]][name].push_back(data[index]);
+    }
+    for (auto& [v_index, attr] : storage)
+    {
+        for (auto& [attr_name, attr_data] : attr)
+        {
+            repr.var_attributes[v_index][attr_name] = Attribute { attr_name, std::move(attr_data) };
+        }
+    }
 }
 
 void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name,
-    Attribute::attr_data_t&& data, std::size_t variable_index = 0)
+    Attribute::attr_data_t&& data, const std::vector<uint32_t>& variable_indexes)
 {
     if (scope == cdf_attr_scope::global || scope == cdf_attr_scope::global_assumed)
         add_global_attribute(repr, name, std::move(data));
     else if (scope == cdf_attr_scope::variable || scope == cdf_attr_scope::variable_assumed)
     {
-        add_var_attribute(repr, variable_index, name, std::move(data));
+        add_var_attribute(repr, variable_indexes, name, std::move(data));
     }
 }
 

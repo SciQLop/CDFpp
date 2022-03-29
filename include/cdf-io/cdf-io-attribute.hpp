@@ -30,7 +30,7 @@ namespace cdf::io::attribute
 template <cdf_r_z type, typename cdf_version_tag_t, typename ADR_t, typename stream_t,
     typename context_t>
 Attribute::attr_data_t load_data(
-    context_t& context, const ADR_t& ADR, stream_t& buffer, uint32_t& var_num)
+    context_t& context, const ADR_t& ADR, stream_t& buffer, std::vector<uint32_t>& var_num)
 {
     Attribute::attr_data_t values;
     std::for_each(begin_AEDR<type>(ADR), end_AEDR<type>(ADR), [&](auto& AEDR) {
@@ -38,7 +38,7 @@ Attribute::attr_data_t load_data(
         auto data = buffer.read(AEDR.offset + AEDR.Values.offset, AEDR.NumElements * element_size);
         values.emplace_back(
             load_values(data.data(), std::size(data), AEDR.DataType.value, context.encoding()));
-        var_num = AEDR.Num.value;
+        var_num.push_back(AEDR.Num.value);
     });
     return values;
 }
@@ -49,17 +49,21 @@ bool load_all(context_t& context, common::cdf_repr& repr)
     std::for_each(begin_ADR(context.gdr), end_ADR(context.gdr), [&](auto& ADR) {
         if (ADR.is_loaded)
         {
-            uint32_t var_num = 0;
+            std::vector<uint32_t> var_nums;
             Attribute::attr_data_t data = [&]() -> Attribute::attr_data_t {
                 if (ADR.AzEDRhead != 0)
                     return load_data<cdf_r_z::z, cdf_version_tag_t>(
-                        context, ADR, context.buffer, var_num);
+                        context, ADR, context.buffer, var_nums);
                 else if (ADR.AgrEDRhead != 0)
                     return load_data<cdf_r_z::r, cdf_version_tag_t>(
-                        context, ADR, context.buffer, var_num);
+                        context, ADR, context.buffer, var_nums);
                 return {};
             }();
-            common::add_attribute(repr, ADR.scope.value, ADR.Name.value, std::move(data), var_num);
+            common::add_attribute(repr, ADR.scope.value, ADR.Name.value, std::move(data), var_nums);
+        }
+        else
+        {
+            throw std::runtime_error("Can't read Attribute Descriptor Record");
         }
     });
     return true;
