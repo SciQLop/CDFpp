@@ -57,11 +57,22 @@ sudo ninja install
 
 ## Python
 
+Basic example from a local file:
 ```python
-from pycdfpp import pycdfpp
+import pycdfpp
 cdf = pycdfpp.load("some_cdf.cdf")
 cdf_var_data = cdf["var_name"].values #builds a numpy view or a list of strings
 attribute_name_first_value = cdf.attributes['attribute_name'][0]
+```
+
+Note that you can also load in memory files:
+```python
+import pycdfpp
+import requests
+import matplotlib.pyplot as plt
+tha_l2_fgm = pycdfpp.load(requests.get("https://spdf.gsfc.nasa.gov/pub/data/themis/tha/l2/fgm/2016/tha_l2_fgm_20160101_v01.cdf").content)
+plt.plot(tha_l2_fgm["tha_fgl_gsm"])
+plt.show()
 ```
 
 ## C++
