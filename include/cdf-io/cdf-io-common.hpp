@@ -29,6 +29,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
+#include <assert.h>
 
 namespace cdf::io::common
 {
