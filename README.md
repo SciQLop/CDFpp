@@ -20,7 +20,7 @@ List of features and roadmap:
 - [x] read variable attributes
 - [x] loads cdf files from memory (std::vector<char> or char*)
 - [x] handles both row and column major files
-- [ ] read variables with nested VXRs
+- [x] read variables with nested VXRs
 - [x] read compressed file (GZip, RLE)
 - [x] read compressed variables (GZip, RLE)
 - [ ] write uncompressed headers

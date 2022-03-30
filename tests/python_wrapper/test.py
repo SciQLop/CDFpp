@@ -35,6 +35,12 @@ variables = {
     'values':np.cos(np.arange(0.,(101)/100*2.*math.pi,2.*math.pi/100)),
     'attributes':{'var_attr':["a variable attribute"], "DEPEND0":["epoch"]}
 },
+'zeros':{
+    'shape':[2048],
+    'type':pycdfpp.CDF_DOUBLE,
+    'values':np.zeros(2048),
+    'attributes':{'attr1':["attr1_value"]}
+},
 'var2d':{
     'shape':[3,4],
     'type':pycdfpp.CDF_DOUBLE,

@@ -1,7 +1,7 @@
 project(
   'pycdfpp',
   'cpp',
-  version : '0.2.1',
+  version : '0.2.2',
   default_options : ['warning_level=3', 'cpp_std=c++17'],
   license : 'GPL3'
 )
@@ -56,6 +56,7 @@ cdfpp_headers = [
     'include/attribute.hpp',
     'include/variable.hpp',
     'include/cdf.hpp',
+    'include/cdf-helpers.hpp',
     'include/chrono/cdf-chrono.hpp',
     'include/chrono/cdf-chrono-constants.hpp',
     'include/chrono/cdf-leap-seconds.h',
@@ -113,6 +114,7 @@ install_headers(
     'include/attribute.hpp',
     'include/variable.hpp',
     'include/cdf.hpp',
+    'include/cdf-helpers.hpp',
     'include/chrono/cdf-chrono.hpp',
     'include/chrono/cdf-chrono-constants.hpp',
     'include/chrono/cdf-leap-seconds.h',

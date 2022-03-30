@@ -23,6 +23,7 @@
 #include "cdf-debug.hpp"
 #include "cdf-endianness.hpp"
 #include "cdf-enums.hpp"
+#include "cdf-helpers.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <string>
@@ -31,22 +32,6 @@
 
 namespace cdf
 {
-
-namespace _private
-{
-    template <typename... Ts>
-    struct Visitor : Ts...
-    {
-        Visitor(const Ts&... args) : Ts(args)... { }
-        using Ts::operator()...;
-    };
-
-    template <typename... Ts>
-    auto make_visitor(Ts... lambdas)
-    {
-        return Visitor<Ts...>(lambdas...);
-    }
-}
 
 struct cdf_none
 {
@@ -114,13 +99,13 @@ private:
 template <typename... Ts>
 auto visit(data_t& data, Ts... lambdas)
 {
-    return std::visit(_private::make_visitor(lambdas...), data.p_values);
+    return std::visit(helpers::make_visitor(lambdas...), data.p_values);
 }
 
 template <typename... Ts>
 auto visit(const data_t& data, Ts... lambdas)
 {
-    return std::visit(_private::make_visitor(lambdas...), data.p_values);
+    return std::visit(helpers::make_visitor(lambdas...), data.p_values);
 }
 
 template <CDF_Types type, typename endianness_t>

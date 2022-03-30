@@ -170,6 +170,17 @@ struct ones
     }
 };
 
+template <typename T>
+struct zeros
+{
+    std::vector<T> operator()(std::size_t size)
+    {
+        std::vector<T> values(size);
+        std::generate(std::begin(values), std::end(values), []() mutable { return T(0); });
+        return values;
+    }
+};
+
 std::size_t filesize(std::fstream& file)
 {
     file.seekg(0, file.beg);
@@ -199,7 +210,7 @@ std::size_t filesize(std::fstream& file)
 
 
 #define CHECK_VARIABLES(cd)                                                                        \
-    REQUIRE(std::size(cd.variables) == 11);                                                        \
+    REQUIRE(std::size(cd.variables) == 12);                                                        \
     REQUIRE(has_variable(cd, "var"));                                                              \
     REQUIRE(compare_shape(cd.variables["var"], { 101 }));                                          \
     REQUIRE(check_variable(                                                                        \
@@ -219,6 +230,8 @@ std::size_t filesize(std::fstream& file)
     REQUIRE(has_variable(cd, "var2d"));                                                            \
     REQUIRE(compare_shape(cd.variables["var2d"], { 3, 4 }));                                       \
     REQUIRE(check_variable(cd.variables["var2d"], { 3, 4 }, ones<double>()));                      \
+    REQUIRE(compare_shape(cd.variables["zeros"], { 2048 }));                                       \
+    REQUIRE(check_variable(cd.variables["zeros"], { 2048 }, zeros<double>()));                      \
     REQUIRE(has_variable(cd, "var3d"));                                                            \
     REQUIRE(compare_shape(cd.variables["var3d"], { 4, 3, 2 }));                                    \
     REQUIRE(check_variable(cd.variables["var3d"], { 4, 3, 2 }, ones<double>()));                   \
