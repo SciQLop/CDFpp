@@ -150,8 +150,8 @@ namespace
                 using vvr_t = typename decltype(cvvr_or_vvr)::vvr_t;
                 using vxr_t = typename decltype(cvvr_or_vvr)::vxr_t;
                 using cvvr_t = typename decltype(cvvr_or_vvr)::cvvr_t;
-                visit(
-                    cvvr_or_vvr,
+
+                cvvr_or_vvr.visit(
                     [&stream, &data, &pos, record_count, record_size](const vvr_t& vvr) -> void {
                         load_vvr_data<cdf_version_tag_t, stream_t>(
                             stream, vvr, record_count, record_size, pos, data);

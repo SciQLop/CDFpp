@@ -612,9 +612,9 @@ struct cdf_mutable_variable_record_t
         return false;
     }
     template <typename... Ts>
-    friend auto visit(const cdf_mutable_variable_record_t& record, Ts... lambdas)
+    auto visit(Ts... lambdas) const
     {
-        return std::visit(helpers::make_visitor(lambdas...),record.actual_record);
+        return std::visit(helpers::make_visitor(lambdas...),actual_record);
     }
 };
 
