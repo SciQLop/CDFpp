@@ -75,6 +75,27 @@ plt.plot(tha_l2_fgm["tha_fgl_gsm"])
 plt.show()
 ```
 
+Datetimes handling:
+```python
+import pycdfpp
+import os
+# Due to an issue with pybind11 you have to force your timezone to UTC for 
+# datetime conversion (not necessary for numpy datetime64)
+os.environ['TZ']='UTC'
+
+mms2_fgm_srvy = pycdfpp.load("mms2_fgm_srvy_l2_20200201_v5.230.0.cdf")
+
+# to convert any CDF variable holding any time type to python datetime:
+epoch_dt = pycdfpp.to_datetime(mms2_fgm_srvy["Epoch"])
+
+# same with numpy datetime64:
+epoch_dt64 = pycdfpp.to_datetime64(mms2_fgm_srvy["Epoch"])
+
+# note that using datetime64 is ~100x faster than datetime (~2ns/element on an average laptop)
+
+```
+
+
 ## C++
 ```cpp
 #include "cdf-io/cdf-io.hpp"
