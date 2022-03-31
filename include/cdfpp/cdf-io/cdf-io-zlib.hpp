@@ -153,8 +153,10 @@ namespace _internal
     std::vector<T> flate(U& input, int flush, int compression_lvl = Z_BEST_COMPRESSION)
     {
         std::vector<T> result;
-        impl_flate<in_de, zlib_or_gzip_t>(input, result, flush, compression_lvl);
-        return result;
+        if(impl_flate<in_de, zlib_or_gzip_t>(input, result, flush, compression_lvl))
+            return result;
+        else
+            throw std::runtime_error{"Failed to decompress data"};
     }
 
     template <typename in_de, typename zlib_or_gzip_t, typename T, typename U>

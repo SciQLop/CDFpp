@@ -23,7 +23,7 @@ configure_file(input : 'config.h.in',
                output : 'config.h',
                format : 'cmake',
                install : true,
-               install_dir : 'cdfpp',
+               install_dir : 'include/cdfpp',
                configuration : conf_data)
 
 cpp = meson.get_compiler('cpp')
@@ -53,28 +53,29 @@ pymod = import('python')
 python3 = pymod.find_installation('python3')
 
 cdfpp_headers = [
-    'include/attribute.hpp',
-    'include/variable.hpp',
-    'include/cdf.hpp',
-    'include/cdf-helpers.hpp',
-    'include/chrono/cdf-chrono.hpp',
-    'include/chrono/cdf-chrono-constants.hpp',
-    'include/chrono/cdf-leap-seconds.h',
-    'include/cdf-data.hpp',
-    'include/cdf-debug.hpp',
-    'include/cdf-endianness.hpp',
-    'include/cdf-majority-swap.hpp',
-    'include/cdf-enums.hpp',
-    'include/cdf-file.hpp',
-    'include/cdf-io/cdf-io.hpp',
-    'include/cdf-io/cdf-io-attribute.hpp',
-    'include/cdf-io/cdf-io-buffers.hpp',
-    'include/cdf-io/cdf-io-common.hpp',
-    'include/cdf-io/cdf-io-desc-records.hpp',
-    'include/cdf-io/cdf-io-variable.hpp',
-    'include/cdf-io/cdf-io-zlib.hpp',
-    'include/cdf-io/cdf-io-rle.hpp',
+    'include/cdfpp/attribute.hpp',
+    'include/cdfpp/variable.hpp',
+    'include/cdfpp/cdf.hpp',
+    'include/cdfpp/cdf-helpers.hpp',
+    'include/cdfpp/chrono/cdf-chrono.hpp',
+    'include/cdfpp/chrono/cdf-chrono-constants.hpp',
+    'include/cdfpp/chrono/cdf-leap-seconds.h',
+    'include/cdfpp/cdf-data.hpp',
+    'include/cdfpp/cdf-debug.hpp',
+    'include/cdfpp/cdf-endianness.hpp',
+    'include/cdfpp/cdf-majority-swap.hpp',
+    'include/cdfpp/cdf-enums.hpp',
+    'include/cdfpp/cdf-file.hpp',
+    'include/cdfpp/cdf-io/cdf-io.hpp',
+    'include/cdfpp/cdf-io/cdf-io-attribute.hpp',
+    'include/cdfpp/cdf-io/cdf-io-buffers.hpp',
+    'include/cdfpp/cdf-io/cdf-io-common.hpp',
+    'include/cdfpp/cdf-io/cdf-io-desc-records.hpp',
+    'include/cdfpp/cdf-io/cdf-io-variable.hpp',
+    'include/cdfpp/cdf-io/cdf-io-zlib.hpp',
+    'include/cdfpp/cdf-io/cdf-io-rle.hpp',
     'wrapper/repr.hpp',
+    'wrapper/chrono.hpp',
     'wrapper/buffers.hpp'
 ]
 
@@ -108,32 +109,38 @@ python3.extension_module('pycdfpp', 'wrapper/pycdfpp.cpp',
                          link_args: link_args,
                          install: true
                         )
+install_headers(
+[
+    'include/cdfpp/attribute.hpp',
+    'include/cdfpp/variable.hpp',
+    'include/cdfpp/cdf.hpp',
+    'include/cdfpp/cdf-helpers.hpp',
+    'include/cdfpp/cdf-data.hpp',
+    'include/cdfpp/cdf-debug.hpp',
+    'include/cdfpp/cdf-endianness.hpp',
+    'include/cdfpp/cdf-majority-swap.hpp',
+    'include/cdfpp/cdf-enums.hpp',
+    'include/cdfpp/cdf-file.hpp',
+], subdir:'cdfpp')
 
 install_headers(
 [
-    'include/attribute.hpp',
-    'include/variable.hpp',
-    'include/cdf.hpp',
-    'include/cdf-helpers.hpp',
-    'include/chrono/cdf-chrono.hpp',
-    'include/chrono/cdf-chrono-constants.hpp',
-    'include/chrono/cdf-leap-seconds.h',
-    'include/cdf-data.hpp',
-    'include/cdf-debug.hpp',
-    'include/cdf-endianness.hpp',
-    'include/cdf-majority-swap.hpp',
-    'include/cdf-enums.hpp',
-    'include/cdf-file.hpp',
-    'include/cdf-io/cdf-io.hpp',
-    'include/cdf-io/cdf-io-attribute.hpp',
-    'include/cdf-io/cdf-io-buffers.hpp',
-    'include/cdf-io/cdf-io-common.hpp',
-    'include/cdf-io/cdf-io-desc-records.hpp',
-    'include/cdf-io/cdf-io-variable.hpp',
-    'include/cdf-io/cdf-io-zlib.hpp',
-    'include/cdf-io/cdf-io-rle.hpp'
-]
-  , subdir : 'cdfpp')
+    'include/cdfpp/chrono/cdf-chrono.hpp',
+    'include/cdfpp/chrono/cdf-chrono-constants.hpp',
+    'include/cdfpp/chrono/cdf-leap-seconds.h',
+], subdir:'cdfpp/chrono')
+
+install_headers(
+[
+    'include/cdfpp/cdf-io/cdf-io.hpp',
+    'include/cdfpp/cdf-io/cdf-io-attribute.hpp',
+    'include/cdfpp/cdf-io/cdf-io-buffers.hpp',
+    'include/cdfpp/cdf-io/cdf-io-common.hpp',
+    'include/cdfpp/cdf-io/cdf-io-desc-records.hpp',
+    'include/cdfpp/cdf-io/cdf-io-variable.hpp',
+    'include/cdfpp/cdf-io/cdf-io-zlib.hpp',
+    'include/cdfpp/cdf-io/cdf-io-rle.hpp'
+], subdir:'cdfpp/cdf-io')
 
 pkg = import('pkgconfig')
 pkg.generate(cdfpp_lib,

@@ -13,25 +13,28 @@
 #include <catch.hpp>
 #endif
 
-#include "cdf-debug.hpp"
 #include <chrono>
 
 
-#include "attribute.hpp"
-#include "chrono/cdf-chrono.hpp"
-#include "cdf-file.hpp"
-#include "cdf-io/cdf-io.hpp"
+#include "cdfpp/attribute.hpp"
+#include "cdfpp/cdf-debug.hpp"
+#include "cdfpp/cdf-file.hpp"
+#include "cdfpp/cdf-io/cdf-io.hpp"
+#include "cdfpp/chrono/cdf-chrono.hpp"
 
 #include "tests_config.hpp"
 
 bool file_exists(const std::string& path)
 {
-    if (auto file = fopen(path.c_str(), "r")) {
-            fclose(file);
-            return true;
-        } else {
-            return false;
-        }
+    if (auto file = fopen(path.c_str(), "r"))
+    {
+        fclose(file);
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 bool has_attribute(const cdf::CDF& cd, const std::string& name)
@@ -134,7 +137,7 @@ bool check_time_variable(const cdf::Variable& var, std::initializer_list<uint32_
     bool is_valid = compare_shape(var, expected_shape);
     auto ref = std::vector<decltype(cdf::to_time_point(time_t {}))>(std::size(values));
     std::generate(std::begin(ref), std::end(ref),
-        [i = 0]() mutable { return time_point<system_clock>{} + hours(24 * (i++ * 180)) + 0ns; });
+        [i = 0]() mutable { return time_point<system_clock> {} + hours(24 * (i++ * 180)) + 0ns; });
     is_valid &= std::inner_product(std::begin(ref) + offset, std::end(ref),
         std::begin(values) + offset, is_valid, std::logical_and<>(), std::equal_to<>());
     return is_valid;
@@ -231,7 +234,7 @@ std::size_t filesize(std::fstream& file)
     REQUIRE(compare_shape(cd.variables["var2d"], { 3, 4 }));                                       \
     REQUIRE(check_variable(cd.variables["var2d"], { 3, 4 }, ones<double>()));                      \
     REQUIRE(compare_shape(cd.variables["zeros"], { 2048 }));                                       \
-    REQUIRE(check_variable(cd.variables["zeros"], { 2048 }, zeros<double>()));                      \
+    REQUIRE(check_variable(cd.variables["zeros"], { 2048 }, zeros<double>()));                     \
     REQUIRE(has_variable(cd, "var3d"));                                                            \
     REQUIRE(compare_shape(cd.variables["var3d"], { 4, 3, 2 }));                                    \
     REQUIRE(check_variable(cd.variables["var3d"], { 4, 3, 2 }, ones<double>()));                   \
@@ -316,7 +319,7 @@ SCENARIO("Loading a cdf files", "[CDF]")
                     file.read(data, static_cast<int64_t>(size));
                     return std::make_tuple(data, size);
                 }
-                return std::make_tuple(static_cast<char*>(nullptr), std::size_t{0UL});
+                return std::make_tuple(static_cast<char*>(nullptr), std::size_t { 0UL });
             }();
             auto cd_opt = cdf::io::load(data, size);
             delete[] data;

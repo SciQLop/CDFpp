@@ -20,12 +20,13 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include <cdf-data.hpp>
-#include <chrono/cdf-chrono.hpp>
-#include <cdf.hpp>
+#include <cdfpp/cdf-data.hpp>
+#include <cdfpp/cdf.hpp>
+#include <cdfpp/chrono/cdf-chrono.hpp>
+#include <chrono>
 #include <sstream>
 #include <string>
-#include <chrono>
+#include <iomanip>
 using namespace cdf;
 
 #include <pybind11/numpy.h>
@@ -41,6 +42,34 @@ constexpr bool is_char_like_v
     = std::is_same_v<int8_t,
           std::remove_cv_t<std::remove_reference_t<decltype(*std::cbegin(std::declval<
               collection_t>()))>>> or std::is_same_v<uint8_t, std::remove_cv_t<std::remove_reference_t<decltype(*std::cbegin(std::declval<collection_t>()))>>>;
+
+
+inline std::ostream& operator<<(
+    std::ostream& os, const std::chrono::time_point<std::chrono::system_clock>& tp)
+{
+    const auto time_t = std::chrono::system_clock::to_time_t(tp);
+
+    os << std::put_time(std::gmtime(&time_t), "%FT%T%z");
+    return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const epoch& time)
+{
+    os << cdf::to_time_point(time) << std::endl;
+    return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const epoch16& time)
+{
+   os << cdf::to_time_point(time) << std::endl;
+    return os;
+}
+
+inline std::ostream& operator<<(std::ostream& os, const tt2000_t& time)
+{
+    os << cdf::to_time_point(time) << std::endl;
+    return os;
+}
 
 template <class input_t, class item_t>
 inline std::ostream& stream_collection(std::ostream& os, const input_t& input, const item_t& sep)
@@ -124,6 +153,21 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::data_t& data)
             stream_collection(os, data.get<float>(), ", ");
             os << " ]";
             break;
+        case cdf::CDF_Types::CDF_EPOCH:
+            os << "[ ";
+            stream_collection(os, data.get<epoch>(), ", ");
+            os << " ]";
+            break;
+        case cdf::CDF_Types::CDF_EPOCH16:
+            os << "[ ";
+            stream_collection(os, data.get<epoch16>(), ", ");
+            os << " ]";
+            break;
+        case cdf::CDF_Types::CDF_TIME_TT2000:
+            os << "[ ";
+            stream_collection(os, data.get<tt2000_t>(), ", ");
+            os << " ]";
+            break;
         case cdf::CDF_Types::CDF_UCHAR:
         case cdf::CDF_Types::CDF_CHAR:
         {
@@ -169,7 +213,7 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::Variable& var)
 
 inline std::ostream& operator<<(std::ostream& os, const cdf_majority& majority)
 {
-    if(majority==cdf_majority::row)
+    if (majority == cdf_majority::row)
         os << "majority: row";
     else
         os << "majority: row";
@@ -178,7 +222,7 @@ inline std::ostream& operator<<(std::ostream& os, const cdf_majority& majority)
 
 inline std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
 {
-    os << "CDF:\n" << cdf_file.majority <<"\n\nAttributes:\n";
+    os << "CDF:\n" << cdf_file.majority << "\n\nAttributes:\n";
     std::for_each(std::cbegin(cdf_file.attributes), std::cend(cdf_file.attributes),
         [&os](const auto& item) { os << "\t" << item.second; });
     os << "\nVariables:\n";
@@ -186,30 +230,6 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
         [&os](const auto& item) { os << "\t" << item.second; });
     os << std::endl;
 
-    return os;
-}
-
-inline std::ostream& operator<<(std::ostream& os, const std::chrono::time_point<std::chrono::system_clock>& tp)
-{
-    os << std::chrono::system_clock::to_time_t(tp);
-    return os;
-}
-
-inline std::ostream& operator<<(std::ostream& os, const epoch& time)
-{
-    os << cdf::to_time_point(time) << std::endl;
-    return os;
-}
-
-inline std::ostream& operator<<(std::ostream& os, const epoch16& time)
-{
-    os << cdf::to_time_point(time) << std::endl;
-    return os;
-}
-
-inline std::ostream& operator<<(std::ostream& os, const tt2000_t& time)
-{
-    os << cdf::to_time_point(time) << std::endl;
     return os;
 }
 

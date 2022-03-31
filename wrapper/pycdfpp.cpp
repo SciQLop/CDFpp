@@ -19,18 +19,19 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "chrono.hpp"
 #include "buffers.hpp"
 #include "repr.hpp"
-#include <chrono/cdf-chrono.hpp>
-#include <cdf-data.hpp>
-#include <cdf.hpp>
+#include <cdfpp/cdf-data.hpp>
+#include <cdfpp/cdf.hpp>
+#include <cdfpp/chrono/cdf-chrono.hpp>
 using namespace cdf;
 
 #include <pybind11/chrono.h>
+#include <pybind11/iostream.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <pybind11/iostream.h>
 
 namespace py = pybind11;
 
@@ -76,6 +77,15 @@ inline py_cdf_attr_data_t to_py_cdf_data(const cdf::data_t& data)
         case cdf::CDF_Types::CDF_REAL4:
             return data.get<float>();
             break;
+        case cdf::CDF_Types::CDF_EPOCH:
+            return data.get<epoch>();
+            break;
+        case cdf::CDF_Types::CDF_EPOCH16:
+            return data.get<epoch16>();
+            break;
+        case cdf::CDF_Types::CDF_TIME_TT2000:
+            return data.get<tt2000_t>();
+            break;
         case cdf::CDF_Types::CDF_UCHAR:
         case cdf::CDF_Types::CDF_CHAR:
         {
@@ -84,127 +94,13 @@ inline py_cdf_attr_data_t to_py_cdf_data(const cdf::data_t& data)
         }
         break;
         default:
+            throw std::runtime_error { std::string { "Unsupported CDF type " }
+                + std::to_string(static_cast<int>(data.type())) };
             break;
     }
     return {};
 }
 
-
-template <typename time_t, typename function_t>
-inline auto transform(time_t* input, std::size_t count, const function_t& f)
-{
-    auto result = py::array_t<uint64_t>(count);
-    py::buffer_info res_buff = result.request(true);
-    int64_t* res_ptr = static_cast<int64_t*>(res_buff.ptr);
-    std::transform(input, input + count, res_ptr, f);
-    return result;
-}
-
-template <typename time_t, typename T, typename function_t>
-inline auto transform(const py::array_t<T>& input, const function_t& f)
-{
-    py::buffer_info in_buff = input.request();
-    time_t* in_ptr = static_cast<time_t*>(in_buff.ptr);
-    return transform(in_ptr, in_buff.shape[0], f);
-}
-
-
-template <typename time_t>
-inline py::object array_to_datetime64(const py::array_t<time_t>& input)
-{
-    using period = typename decltype(cdf::to_time_point(std::declval<time_t>()))::duration::period;
-    constexpr auto dtype = []() constexpr
-    {
-        if constexpr (std::is_same_v<period, std::pico>)
-            return "datetime64[ns]";
-        if constexpr (std::is_same_v<period, std::nano>)
-            return "datetime64[ns]";
-        if constexpr (std::is_same_v<period, std::micro>)
-            return "datetime64[us]";
-        if constexpr (std::is_same_v<period, std::milli>)
-            return "datetime64[ms]";
-        if constexpr (std::is_same_v<period, std::ratio<1>>)
-            return "datetime64[s]";
-    }
-    ();
-
-    auto result = transform<time_t>(
-        input, [](const time_t& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
-    return py::cast(&result).attr("astype")(dtype);
-}
-
-inline py::object var_to_datetime64(const Variable& input)
-{
-    switch (input.type())
-    {
-        case cdf::CDF_Types::CDF_EPOCH:
-        {
-            auto result = transform(input.get<cdf::CDF_Types::CDF_EPOCH>().data(), input.shape()[0],
-                [](const epoch& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
-            return py::cast(&result).attr("astype")("datetime64[ns]");
-        }
-        break;
-        case cdf::CDF_Types::CDF_EPOCH16:
-        {
-            auto result = transform(input.get<cdf::CDF_Types::CDF_EPOCH16>().data(),
-                input.shape()[0],
-                [](const epoch16& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
-            return py::cast(&result).attr("astype")("datetime64[ns]");
-        }
-        break;
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-        {
-            auto result = transform(input.get<cdf::CDF_Types::CDF_TIME_TT2000>().data(),
-                input.shape()[0],
-                [](const tt2000_t& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
-            return py::cast(&result).attr("astype")("datetime64[ns]");
-        }
-        break;
-        default:
-            throw std::out_of_range("Only supports cdf time types");
-            break;
-    }
-    return {};
-}
-
-
-inline std::vector<decltype(to_time_point(epoch {}))> var_to_datetime(const Variable& input)
-{
-    switch (input.type())
-    {
-        case cdf::CDF_Types::CDF_EPOCH:
-        {
-            std::vector<decltype(to_time_point(epoch {}))> result(input.len());
-            std::transform(std::cbegin(input.get<epoch>()), std::cend(input.get<epoch>()),
-                std::begin(result),
-                std::ptr_fun<const epoch&, decltype(to_time_point(epoch {}))>(to_time_point));
-            return result;
-        }
-        break;
-        case cdf::CDF_Types::CDF_EPOCH16:
-        {
-            std::vector<decltype(to_time_point(epoch16 {}))> result(input.len());
-            std::transform(std::cbegin(input.get<epoch16>()), std::cend(input.get<epoch16>()),
-                std::begin(result),
-                std::ptr_fun<const epoch16&, decltype(to_time_point(epoch16 {}))>(to_time_point));
-            return result;
-        }
-        break;
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-        {
-            std::vector<decltype(to_time_point(tt2000_t {}))> result(input.len());
-            std::transform(std::cbegin(input.get<tt2000_t>()), std::cend(input.get<tt2000_t>()),
-                std::begin(result),
-                std::ptr_fun<const tt2000_t&, decltype(to_time_point(tt2000_t {}))>(to_time_point));
-            return result;
-        }
-        break;
-        default:
-            throw std::out_of_range("Only supports cdf time types");
-            break;
-    }
-    return {};
-}
 
 }
 
@@ -230,19 +126,22 @@ PYBIND11_MODULE(pycdfpp, m)
     m.def("to_datetime64", array_to_datetime64<epoch>);
     m.def("to_datetime64", array_to_datetime64<epoch16>);
     m.def("to_datetime64", array_to_datetime64<tt2000_t>);
+    m.def("to_datetime64", vector_to_datetime64<epoch>);
+    m.def("to_datetime64", vector_to_datetime64<epoch16>);
+    m.def("to_datetime64", vector_to_datetime64<tt2000_t>);
     m.def("to_datetime64", var_to_datetime64);
 
+    m.def("to_datetime", vector_to_datetime<epoch>);
+    m.def("to_datetime", vector_to_datetime<epoch16>);
+    m.def("to_datetime", vector_to_datetime<tt2000_t>);
     m.def("to_datetime",
-        std::ptr_fun<const epoch&, decltype(to_time_point(epoch {}))>(to_time_point));
+        static_cast<decltype(to_time_point(epoch {}))(*)(const epoch&)>(to_time_point));
     m.def("to_datetime",
-        std::ptr_fun<const epoch16&, decltype(to_time_point(epoch16 {}))>(to_time_point));
+        static_cast<decltype(to_time_point(epoch16 {}))(*)(const epoch16&)>(to_time_point));
     m.def("to_datetime",
-        std::ptr_fun<const tt2000_t&, decltype(to_time_point(tt2000_t {}))>(to_time_point));
+        static_cast<decltype(to_time_point(tt2000_t {}))(*)(const tt2000_t&)>(to_time_point));
 
     m.def("to_datetime", var_to_datetime);
-
-    m.def(
-        "print_datetime", [](decltype(to_time_point(tt2000_t {})) tp) { std::cout << tp << "\n"; });
 
     m.def("to_tt2000",
         [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_tt2000(tp); });
@@ -334,6 +233,6 @@ PYBIND11_MODULE(pycdfpp, m)
         py::return_value_policy::reference);
 
     m.def(
-        "load", [](const char* name) {return io::load(name); },
+        "load", [](const char* name) { return io::load(name); },
         py::return_value_policy::reference);
 }

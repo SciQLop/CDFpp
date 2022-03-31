@@ -4,7 +4,7 @@
 #else
 #include <catch.hpp>
 #endif
-#include "cdf-io/cdf-io-zlib.hpp"
+#include "cdfpp/cdf-io/cdf-io-zlib.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <random>

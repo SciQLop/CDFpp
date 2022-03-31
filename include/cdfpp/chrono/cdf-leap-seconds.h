@@ -21,7 +21,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "cdf-debug.hpp"
+#include "cdfpp/cdf-debug.hpp"
 #include <chrono>
 #include <utility>
 #include <array>

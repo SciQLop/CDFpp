@@ -1,4 +1,4 @@
-#include "cdf-io/cdf-io.hpp"
+#include "cdfpp/cdf-io/cdf-io.hpp"
 #include <iostream>
 
 std::ostream& operator<<(std::ostream& os, const cdf::Variable::shape_t& shape)
@@ -14,6 +14,8 @@ std::ostream& operator<<(std::ostream& os, const cdf::Variable::shape_t& shape)
 
 int main(int argc, char** argv)
 {
+    (void)argc;
+    (void)argv;
     auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
     // cdf::io::load returns a optional<CDF>
     if (const auto my_cdf = cdf::io::load(path); my_cdf)

@@ -19,9 +19,9 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include <chrono/cdf-chrono.hpp>
-#include <cdf-data.hpp>
-#include <cdf.hpp>
+#include <cdfpp/cdf-data.hpp>
+#include <cdfpp/cdf.hpp>
+#include <cdfpp/chrono/cdf-chrono.hpp>
 using namespace cdf;
 
 #include <pybind11/chrono.h>
@@ -77,7 +77,7 @@ py::memoryview make_view(cdf::Variable& variable, bool readonly = true)
 }
 
 template <typename data_t, typename raw_t = data_t>
-py::array make_array(Variable& variable, py::object& obj, bool readonly = true)
+py::array make_array(Variable& variable, py::object& obj)
 {
     return py::array_t<data_t>(
         shape_ssize_t(variable), strides<data_t>(variable), variable.get<data_t>().data(), obj);
@@ -171,7 +171,12 @@ make_values_view(py::object& obj)
             return _details::make_array<epoch16, long double>(variable, obj);
         case cdf::CDF_Types::CDF_TIME_TT2000:
             return _details::make_array<tt2000_t, int64_t>(variable, obj);
+        default:
+            throw std::runtime_error { std::string { "Unsupported CDF type " }
+                + std::to_string(static_cast<int>(variable.type())) };
+            break;
     }
+    return {};
 }
 
 py::memoryview make_view(cdf::Variable& variable)
@@ -205,6 +210,10 @@ py::memoryview make_view(cdf::Variable& variable)
             return _details::make_view<epoch16, long double>(variable);
         case cdf::CDF_Types::CDF_TIME_TT2000:
             return _details::make_view<tt2000_t, int64_t>(variable);
+        default:
+            throw std::runtime_error { std::string { "Unsupported CDF type " }
+                + std::to_string(static_cast<int>(variable.type())) };
+            break;
     }
 }
 
@@ -241,6 +250,8 @@ py::buffer_info make_buffer(cdf::Variable& variable)
         case cdf::CDF_Types::CDF_TIME_TT2000:
             return _details::impl_make_buffer<tt2000_t, int64_t>(variable);
         default:
-            return py::buffer_info {};
+            throw std::runtime_error { std::string { "Unsupported CDF type " }
+                + std::to_string(static_cast<int>(variable.type())) };
+            break;
     }
 }

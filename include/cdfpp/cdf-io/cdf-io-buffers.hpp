@@ -20,9 +20,9 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "attribute.hpp"
-#include "cdf-data.hpp"
-#include "cdf-enums.hpp"
+#include "cdfpp/attribute.hpp"
+#include "cdfpp/cdf-data.hpp"
+#include "cdfpp/cdf-enums.hpp"
 #include <cassert>
 #include <cstdint>
 #include <fstream>

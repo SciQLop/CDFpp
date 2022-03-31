@@ -8,7 +8,7 @@
 #include <catch.hpp>
 #endif
 
-#include "chrono/cdf-chrono.hpp"
+#include "cdfpp/chrono/cdf-chrono.hpp"
 #include "test_values.hpp"
 
 

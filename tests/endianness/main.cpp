@@ -4,7 +4,7 @@
 #else
 #include <catch.hpp>
 #endif
-#include "cdf-endianness.hpp"
+#include "cdfpp/cdf-endianness.hpp"
 #include <cstdint>
 
 

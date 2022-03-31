@@ -21,8 +21,8 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "cdf-chrono-constants.hpp"
-#include "cdf-debug.hpp"
-#include "cdf-enums.hpp"
+#include "cdfpp/cdf-debug.hpp"
+#include "cdfpp/cdf-enums.hpp"
 #include "cdf-leap-seconds.h"
 #include <array>
 #include <chrono>
