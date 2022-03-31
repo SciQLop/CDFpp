@@ -1,7 +1,9 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![CPP17](https://img.shields.io/badge/Language-C++17-blue.svg)]()
 [![All OS test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/SciQLop/CDFpp/actions/workflows/tests.yml)
+[![Discover on MyBinder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SciQLop/CDFpp/master?labpath=examples/notebooks)
 [![Coverage](https://codecov.io/gh/SciQLop/CDFpp/coverage.svg?branch=master)](https://codecov.io/gh/SciQLop/CDFpp/branch/master)
+
 
 # CDFpp (CDF++)
 A NASA's [CDF](https://cdf.gsfc.nasa.gov/) modern C++ library. 
