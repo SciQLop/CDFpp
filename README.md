@@ -1,8 +1,6 @@
-[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-Ready--to--Code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/SciQLop/CDFpp) 
-
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![CPP17](https://img.shields.io/badge/Language-C++17-blue.svg)]()
-[![CI](https://github.com/SciQLop/CDFpp/workflows/C//C++%20CI/badge.svg)](https://github.com/SciQLop/CDFpp/actions?query=workflow%3A%22C%2FC%2B%2B+CI%22)
+[![All OS test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/SciQLop/CDFpp/actions/workflows/tests.yml)
 [![Coverage](https://codecov.io/gh/SciQLop/CDFpp/coverage.svg?branch=master)](https://codecov.io/gh/SciQLop/CDFpp/branch/master)
 
 # CDFpp (CDF++)
