@@ -23,6 +23,6 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
 ]
-dependencies = []
+dependencies = ['numpy']
 [project.urls]
 homepage = "https://github.com/SciQLop/CDFpp"
