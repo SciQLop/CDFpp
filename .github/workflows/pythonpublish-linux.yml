@@ -14,7 +14,7 @@ jobs:
         run: |
             yum install -y ninja-build
             /opt/python/cp310-cp310/bin/pip install --user --upgrade "meson<=0.61.4" "twine"
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v3
         with:
           submodules: true
       - name: Build for Python 3.7
@@ -33,6 +33,10 @@ jobs:
         run: |
             /opt/python/cp310-cp310/bin/pip install --user --upgrade "meson<=0.61.4" "ninja"
             /opt/python/cp310-cp310/bin/python -m build . --config-setting=--setup-args="-Dbuildtype=release"
+      - name: Build for Python 3.11
+        run: |
+            /opt/python/cp311-cp311/bin/pip install --user --upgrade "meson<=0.61.4" "ninja"
+            /opt/python/cp311-cp311/bin/python -m build . --config-setting=--setup-args="-Dbuildtype=release"
       - name: Make wheels universal
         run: for wheel in $(ls dist/*.whl); do auditwheel repair $wheel; done
       - name: Publish on PyPi
