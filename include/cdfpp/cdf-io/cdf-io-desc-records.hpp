@@ -440,12 +440,12 @@ struct cdf_VDR_t : cdf_description_record<buffer_t, cdf_VDR_t<rz_, version_t, bu
                 return vdr.rNumDims;
             }
         },
-        [](auto& vdr) -> std::size_t
+        [this](auto& vdr) -> std::size_t
         {
             if constexpr (rz_ == cdf_r_z::z)
                 return vdr.zDimSizes.offset(vdr) + (vdr.zDimSizes.size(vdr) * 4);
             else
-                return AFTER(Name);
+                return AFTER(this->Name);
         } };
     table_field_t<uint32_t, cdf_VDR_t> PadValues { [](auto& vdr) -> std::size_t
         {
