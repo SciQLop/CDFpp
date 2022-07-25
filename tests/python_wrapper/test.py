@@ -65,6 +65,18 @@ variables = {
     'values': np.ones((4,3,2)),
     'attributes':{"var3d_attr_multi":[[10,11]]}
 },
+'empty_var_recvary_string':{
+    'shape':[0,16],
+    'type':pycdfpp.CDF_CHAR,
+    'values': [],
+    'attributes':{}
+},
+'var_recvary_string':{
+    'shape':[3,3],
+    'type':pycdfpp.CDF_CHAR,
+    'values': ['001', '002', '003'],
+    'attributes':{}
+},
 'var_string':{
     'shape':[16],
     'type':pycdfpp.CDF_CHAR,

@@ -242,8 +242,8 @@ namespace
                     auto shape = get_variable_dimensions<type>(vdr, stream, context);
                     uint32_t record_size = var_record_size(shape, vdr.DataType.value);
                     uint32_t record_count = common::is_nrv(vdr) ? 1 : (vdr.MaxRec.value + 1);
-                    if (vdr.DataType.value != CDF_Types::CDF_CHAR
-                        and vdr.DataType.value != CDF_Types::CDF_UCHAR)
+                    if ((vdr.DataType.value != CDF_Types::CDF_CHAR
+                            and vdr.DataType.value != CDF_Types::CDF_UCHAR) or !common::is_nrv(vdr))
                     {
                         shape.insert(std::cbegin(shape), record_count);
                     }

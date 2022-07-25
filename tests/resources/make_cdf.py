@@ -31,29 +31,32 @@ def print_cdf(cd):
     print_vars(cd)
     print_attrs(cd)
 
-def make_var(cdf_file, name, compress, values, attributes=None):
+def make_var(cdf_file, name, compress, values, attributes=None, dtype=pycdf.const.CDF_DOUBLE):
     if compress:
-        var = cdf_file.new(name, data=values, compress=pycdf.const.GZIP_COMPRESSION, compress_param=9)
+        var = cdf_file.new(name, data=values, type=dtype, compress=pycdf.const.GZIP_COMPRESSION, compress_param=9)
     else:
-        var = cdf_file.new(name, data=values)
+        var = cdf_file.new(name, data=values, type=dtype)
     if attributes:
         var.attrs = attributes
 
 def add_varaibles(cd, compress=False):
     l=100
-    for name,values, attrs in [('var', np.cos(np.arange(0.,(l+1)/l*2.*math.pi,2.*math.pi/l)), {'var_attr':"a variable attribute","DEPEND0":"epoch"}),
-                          ('epoch', make_time_list(l), {'attr1':"attr1_value"}),
-                          ('zeros', np.zeros(2048), {'attr1':"attr1_value"}),
-                          ('var2d', np.ones((3,4)), {'attr1':"attr1_value", 'attr2':"attr2_value"}),
-                          ('var3d', np.ones((4,3,2)), {"var3d_attr_multi":[10,11]}),
-                          ('var2d_counter', np.arange(100, dtype=np.float64).reshape(10,10), None),
-                          ('var3d_counter', np.arange(3**3, dtype=np.float64).reshape(3,3,3), {'attr1':"attr1_value", 'attr2':"attr2_value"})
+    for name, values, attrs, dtype in [
+                          ('var', np.cos(np.arange(0.,(l+1)/l*2.*math.pi,2.*math.pi/l)), {'var_attr':"a variable attribute","DEPEND0":"epoch"}, pycdf.const.CDF_DOUBLE),
+                          ('epoch', make_time_list(l), {'attr1':"attr1_value"}, pycdf.const.CDF_EPOCH),
+                          ('zeros', np.zeros(2048), {'attr1':"attr1_value"}, pycdf.const.CDF_DOUBLE),
+                          ('var2d', np.ones((3,4)), {'attr1':"attr1_value", 'attr2':"attr2_value"}, pycdf.const.CDF_DOUBLE),
+                          ('var3d', np.ones((4,3,2)), {"var3d_attr_multi":[10,11]}, pycdf.const.CDF_DOUBLE),
+                          ('var2d_counter', np.arange(100, dtype=np.float64).reshape(10,10), None, pycdf.const.CDF_DOUBLE),
+                          ('var3d_counter', np.arange(3**3, dtype=np.float64).reshape(3,3,3), {'attr1':"attr1_value", 'attr2':"attr2_value"}, pycdf.const.CDF_DOUBLE)
                           ]:
-        make_var(cd, name=name, compress=compress, values=values, attributes=attrs)
+        make_var(cd, name=name, compress=compress, values=values, attributes=attrs, dtype=dtype)
 
     cd.new('var_string', data='This is a string', recVary=False)
     cd.new('var2d_string', data=['This is a string 1','This is a string 2'], recVary=False)
     cd.new('var3d_string', data=[['value[00]','value[01]'],['value[10]','value[11]']], recVary=False)
+    cd.new('empty_var_recvary_string', type=pycdf.const.CDF_CHAR, recVary=True,n_elements=16)
+    cd.new('var_recvary_string',data=['001','002','003'], type=pycdf.const.CDF_CHAR, recVary=True,n_elements=3)
     cd.new('epoch16', type=pycdf.const.CDF_EPOCH16, data=make_time_list(100))
     cd.new('tt2000', type=pycdf.const.CDF_TIME_TT2000, data=make_time_list(100))
     cd["epoch"].attrs["epoch_attr"] = "a variable attribute"
