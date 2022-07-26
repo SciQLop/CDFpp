@@ -13,30 +13,30 @@ jobs:
       - name: install deps
         run: |
             yum install -y ninja-build
-            /opt/python/cp310-cp310/bin/pip install --user --upgrade "meson<=0.61.4" "twine"
+            /opt/python/cp310-cp310/bin/pip install --user --upgrade "meson" "twine"
       - uses: actions/checkout@v3
         with:
           submodules: true
       - name: Build for Python 3.7
         run: |
-            /opt/python/cp37-cp37m/bin/pip install --user --upgrade "meson<=0.61.4" "ninja"
-            /opt/python/cp37-cp37m/bin/python -m build . --config-setting=--setup-args="-Dbuildtype=release"
+            /opt/python/cp37-cp37m/bin/pip install --user --upgrade "meson" "ninja"
+            /opt/python/cp37-cp37m/bin/python -m build .
       - name: Build for Python 3.8
         run: |
-            /opt/python/cp38-cp38/bin/pip install --user --upgrade "meson<=0.61.4" "ninja"
-            /opt/python/cp38-cp38/bin/python -m build . --config-setting=--setup-args="-Dbuildtype=release"
+            /opt/python/cp38-cp38/bin/pip install --user --upgrade "meson" "ninja"
+            /opt/python/cp38-cp38/bin/python -m build .
       - name: Build for Python 3.9
         run: |
-            /opt/python/cp39-cp39/bin/pip install --user --upgrade "meson<=0.61.4" "ninja"
-            /opt/python/cp39-cp39/bin/python -m build . --config-setting=--setup-args="-Dbuildtype=release"
+            /opt/python/cp39-cp39/bin/pip install --user --upgrade "meson" "ninja"
+            /opt/python/cp39-cp39/bin/python -m build .
       - name: Build for Python 3.10
         run: |
-            /opt/python/cp310-cp310/bin/pip install --user --upgrade "meson<=0.61.4" "ninja"
-            /opt/python/cp310-cp310/bin/python -m build . --config-setting=--setup-args="-Dbuildtype=release"
+            /opt/python/cp310-cp310/bin/pip install --user --upgrade "meson" "ninja"
+            /opt/python/cp310-cp310/bin/python -m build .
       - name: Build for Python 3.11
         run: |
-            /opt/python/cp311-cp311/bin/pip install --user --upgrade "meson<=0.61.4" "ninja"
-            /opt/python/cp311-cp311/bin/python -m build . --config-setting=--setup-args="-Dbuildtype=release"
+            /opt/python/cp311-cp311/bin/pip install --user --upgrade "meson" "ninja"
+            /opt/python/cp311-cp311/bin/python -m build .
       - name: Make wheels universal
         run: for wheel in $(ls dist/*.whl); do auditwheel repair $wheel; done
       - name: Publish on PyPi

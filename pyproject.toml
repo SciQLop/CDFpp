@@ -1,16 +1,14 @@
 [build-system]
-requires = ["git+https://github.com/jeandet/mesonpep517@windows_fix_dump-pep425tags", "wheel", "ninja>=1.8.2", "meson<=0.61.4"]
-build-backend = "mesonpep517.buildapi"
+build-backend = 'mesonpy'
+requires = ['meson-python', 'numpy']
 
-
-[tool.mesonpep517.metadata]
-description="A modern C++ header only cdf library"
-author = "Alexis Jeandet"
-author-email = "alexis.jeandet@member.fsf.org"
-summary = "A simple to use CDF files reader"
 [project]
+name = "pycdfpp"
+description="A modern C++ header only cdf library"
+authors = [{name="Alexis Jeandet", email="alexis.jeandet@member.fsf.org"}]
+summary = "A simple to use CDF files reader"
 requires-python=">=3.7"
-license = "GNU General Public License v3"
+license = {file="COPYING"}
 readme = "README.md"
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -24,5 +22,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 dependencies = ['numpy']
+dynamic = [
+  'version',
+]
 [project.urls]
 homepage = "https://github.com/SciQLop/CDFpp"

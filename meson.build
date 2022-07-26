@@ -88,13 +88,13 @@ cdfpp_extra_files = [
     '.github/workflows/pythonpublish-win.yml'
 ]
 
-
-cdfpp_lib = library('CDFpp',
-        include_directories: include_directories('include'),
-        dependencies: [zlib_dep, hedley_dep],
-        extra_files: [cdfpp_headers, cdfpp_extra_files]
-        )
-
+if get_option('show_extra_files')
+    cdfpp_lib = static_library('CDFpp',
+            include_directories: include_directories('include'),
+            dependencies: [zlib_dep, hedley_dep],
+            extra_files: [cdfpp_headers, cdfpp_extra_files]
+            )
+endif
 
 cdfpp_dep = declare_dependency(include_directories: include_directories('include'),
                                 dependencies: [zlib_dep, hedley_dep])
@@ -139,13 +139,6 @@ install_headers(
     'include/cdfpp/cdf-io/cdf-io-rle.hpp'
 ], subdir:'cdfpp/cdf-io')
 
-pkg = import('pkgconfig')
-pkg.generate(cdfpp_lib,
-             subdirs : meson.project_name(),
-             version : meson.project_version(),
-             name : meson.project_name(),
-             filebase : meson.project_name(),
-             description : 'An header only modern C++ CDF library.')
 
 if get_option('with_tests')
 

@@ -1,1 +1,2 @@
 option('with_tests', type : 'boolean', value : false, description : 'Disable tests build.')
+option('show_extra_files', type : 'boolean', value : false, description : 'adds dummy lib to show extra files into an IDE.')
