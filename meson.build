@@ -1,7 +1,7 @@
 project(
   'pycdfpp',
   'cpp',
-  version : '0.3.1',
+  version : '0.3.2',
   default_options : ['warning_level=3', 'cpp_std=c++17'],
   license : 'GPL3'
 )
@@ -13,15 +13,13 @@ endif
 
 
 conf_data = configuration_data()
-conf_data.set('version', meson.project_version())
+conf_data.set_quoted('CDFPP_VERSION', meson.project_version())
 if(target_machine.endian() == 'big')
     conf_data.set('CDFpp_BIG_ENDIAN', true)
 else
     conf_data.set('CDFpp_LITTLE_ENDIAN', true)
 endif
-configure_file(input : 'config.h.in',
-               output : 'config.h',
-               format : 'cmake',
+configure_file(output : 'config.h',
                install : true,
                install_dir : 'include/cdfpp',
                configuration : conf_data)
@@ -80,7 +78,6 @@ cdfpp_headers = [
 ]
 
 cdfpp_extra_files = [
-    'meson_options.txt',
     'pyproject.toml', 'README.md',
     'setup.py', 'tests/resources/make_cdf.py',
     'tests/python_wrapper/test.py',

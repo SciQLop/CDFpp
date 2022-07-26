@@ -1,2 +1,0 @@
-#cmakedefine CDFpp_BIG_ENDIAN
-#cmakedefine CDFpp_LITTLE_ENDIAN

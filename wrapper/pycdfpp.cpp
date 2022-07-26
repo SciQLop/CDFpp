@@ -25,6 +25,7 @@
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
+#include <config.h>
 using namespace cdf;
 
 #include <pybind11/chrono.h>
@@ -107,6 +108,7 @@ inline py_cdf_attr_data_t to_py_cdf_data(const cdf::data_t& data)
 PYBIND11_MODULE(pycdfpp, m)
 {
     m.doc() = "pycdfpp module";
+    m.attr("__version__") = CDFPP_VERSION;
 
     py::class_<tt2000_t>(m, "tt2000_t")
         .def_readwrite("value", &tt2000_t::value)
