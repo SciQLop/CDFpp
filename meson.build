@@ -1,7 +1,7 @@
 project(
   'pycdfpp',
   'cpp',
-  version : '0.3.2',
+  version : '0.3.4',
   default_options : ['warning_level=3', 'cpp_std=c++17'],
   license : 'GPL3'
 )
