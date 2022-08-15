@@ -25,14 +25,14 @@ jobs:
           pip install --upgrade meson ninja numpy meson-python build wheel
           CC=gcc-11 CXX=g++-11 meson -Dbuildtype=release -Dwith_tests=true . build
           ninja --verbose -C build
-          CC=gcc-11 CXX=g++-11 python -m build --no-isolation -w .
+          CC=gcc-11 CXX=g++-11 python build_wheel.py
       - name: build (Linux/Windows)
         if: matrix.os != 'macos-latest'
         run: |
           pip install --upgrade meson ninja numpy meson-python build wheel
           meson -Dbuildtype=release -Dwith_tests=true . build
           ninja --verbose -C build
-          python -m build --no-isolation -w .
+          python build_wheel.py
       - name: upload windows package
         uses: actions/upload-artifact@v3
         with:
