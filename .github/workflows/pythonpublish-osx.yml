@@ -20,9 +20,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: x64
       - run: |
-          pip install --upgrade twine build ninja meson
-          CC=gcc-11 CXX=g++-11 python -m build .
-          for f in dist/pycdfpp-*-any.whl; do mv $f "$(echo $f | sed s/any/macosx_10_15_x86_64/)"; done
+          pip install --upgrade twine build ninja meson numpy wheel meson-python
+          CC=gcc-11 CXX=g++-11 python -m build --no-isolation -w .
       - name: Publish on PyPi
         env:
           TWINE_USERNAME: __token__

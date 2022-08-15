@@ -20,9 +20,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: x64
       - run: |
-          pip install --upgrade twine build ninja wheel meson
-          python -m build .
-          for f in dist/pycdfpp-*-any.whl; do mv $f "$(echo $f | sed s/any/win_amd64/)"; done
+          pip install --upgrade twine build ninja wheel meson numpy meson-python
+          python -m build --no-isolation -w .
       - name: Publish on PyPi
         env:
           TWINE_USERNAME: __token__
