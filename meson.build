@@ -2,7 +2,7 @@ project(
   'pycdfpp',
   'cpp',
   version : '0.3.4',
-  default_options : ['warning_level=3', 'cpp_std=c++17'],
+  default_options : ['warning_level=3', 'cpp_std=c++17', 'default_library=static'],
   license : 'GPL3'
 )
 
@@ -37,7 +37,7 @@ if build_machine.system() == 'windows'
     link_args = ['-static-libstdc++','-static-libgcc','-static']
     zlib_dep = meson.get_compiler('cpp').find_library('z', static: true, required:false)
     if not zlib_dep.found()
-        zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
+        zlib_dep = dependency('zlib', main : true, static: true)
     endif
 else
     link_args = []
@@ -82,7 +82,9 @@ cdfpp_extra_files = [
     'setup.py', 'tests/resources/make_cdf.py',
     'tests/python_wrapper/test.py',
     '.github/workflows/ccpp.yml',
-    '.github/workflows/tests.yml',
+    '.github/workflows/tests-osx.yml',
+    '.github/workflows/tests-linux.yml',
+    '.github/workflows/tests-windows.yml',
     '.github/workflows/pythonpublish-linux.yml',
     '.github/workflows/pythonpublish-osx.yml',
     '.github/workflows/pythonpublish-win.yml'
@@ -183,3 +185,8 @@ if get_option('with_tests')
                         )
     endforeach
 endif
+
+
+summary({'C': meson.get_compiler('c').cmd_array(),
+        'C++': meson.get_compiler('cpp').cmd_array()
+        }, section: 'Compilers')

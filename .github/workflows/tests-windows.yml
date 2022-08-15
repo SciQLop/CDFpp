@@ -1,0 +1,42 @@
+name: Windows test matrix
+
+on: [push]
+
+jobs:
+  build:
+    name: Windows test matrix
+    # Stick to 2019 which ships with mingw 8.1.0 (chocolatey), since latest version misses zlib :/
+    runs-on: windows-2019
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11-dev']
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build python wheel
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+#      - name: remove windows crap
+#        run: Remove-Item -Path "C:\Strawberry" -Force -Recurse
+#      - name: install missing zlib
+#            run: |
+#              choco uninstall -y -f mingw
+#              choco install -y mingw --version=8.1.0
+      - name: build (Windows)
+        run: |
+          pip install --upgrade meson ninja numpy meson-python build wheel
+          meson -Dbuildtype=release -Dwith_tests=true . build
+          ninja --verbose -C build
+          python build_wheel.py
+      - name: upload package
+        uses: actions/upload-artifact@v3
+        with:
+          name: pycdfpp windows ${{ matrix.python-version }}
+          path: dist/*
+      - name: run tests
+        run: |
+          ninja test -C build
+

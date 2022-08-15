@@ -1,16 +1,15 @@
-name: All OS test matrix
+name: MacOs test matrix
 
 on: [push]
 
 jobs:
   build:
-    name: All OS test matrix
-    runs-on: ${{ matrix.os }}
+    name: MacOs test matrix
+    runs-on: macos-latest
     continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
         python-version: ['3.7', '3.8', '3.9', '3.10', '3.11-dev']
     steps:
       - uses: actions/checkout@v3
@@ -19,24 +18,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-      - name: build (OSX)
-        if: matrix.os == 'macos-latest'
+      - name: build
         run: |
           pip install --upgrade meson ninja numpy meson-python build wheel
           CC=gcc-11 CXX=g++-11 meson -Dbuildtype=release -Dwith_tests=true . build
           ninja --verbose -C build
           CC=gcc-11 CXX=g++-11 python build_wheel.py
-      - name: build (Linux/Windows)
-        if: matrix.os != 'macos-latest'
-        run: |
-          pip install --upgrade meson ninja numpy meson-python build wheel
-          meson -Dbuildtype=release -Dwith_tests=true . build
-          ninja --verbose -C build
-          python build_wheel.py
-      - name: upload windows package
+      - name: upload package
         uses: actions/upload-artifact@v3
         with:
-          name: pycdfpp ${{matrix.os}} ${{ matrix.python-version }}
+          name: pycdfpp MacOs ${{ matrix.python-version }}
           path: dist/*
       - name: run tests
         run: |

@@ -12,7 +12,6 @@ jobs:
     steps:
       - name: install deps
         run: |
-            yum install -y ninja-build
             /opt/python/cp310-cp310/bin/pip install --upgrade "meson" "twine"
       - uses: actions/checkout@v3
         with:
