@@ -28,15 +28,20 @@ jobs:
             python scripts/build_wheel.py
       - name: Make wheels universal
         run: for wheel in $(ls dist/*.whl); do auditwheel repair $wheel; done
+      - name: Save packages as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: pycdfpp-linux-${{ matrix.python-version }}
+          path: wheelhouse/*
       - name: Publish on PyPi
         if: ${{ github.event.release.published }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        run: /github/home/.local/bin/twine upload --skip-existing wheelhouse/*
-      - name: Publish on PyPi
+        run: twine upload --skip-existing wheelhouse/*
+      - name: Publish on PyPi (test)
         if: ${{ !github.event.release.published }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
-        run: twine upload --repository testpypi --skip-existing dist/*.whl
+        run: twine upload --repository testpypi --skip-existing wheelhouse/*

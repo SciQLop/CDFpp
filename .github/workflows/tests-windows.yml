@@ -30,17 +30,6 @@ jobs:
           pip install --upgrade meson ninja numpy meson-python build wheel twine
           meson -Dbuildtype=release -Dwith_tests=true . build
           ninja --verbose -C build
-          python scripts/build_wheel.py
-      - name: Save packages as artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: pycdfpp windows ${{ matrix.python-version }}
-          path: dist/*
-      - name: Publish on PyPi (test instance)
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
-        run: twine upload --repository testpypi --skip-existing dist/*.whl
       - name: run tests
         run: |
           ninja test -C build

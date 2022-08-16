@@ -3,6 +3,7 @@ name: Python packages OSX
 on:
   release:
     types: [published]
+  push:
 
 jobs:
   build:
@@ -22,8 +23,20 @@ jobs:
       - run: |
           pip install --upgrade twine build ninja meson numpy wheel meson-python
           CC=gcc-11 CXX=g++-11 python scripts/build_wheel.py
+      - name: Save packages as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: pycdfpp-MacOs-${{ matrix.python-version }}
+          path: dist/*
       - name: Publish on PyPi
+        if: ${{ github.event.release.published }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
-        run: twine upload --skip-existing dist/*.whl
+        run: twine upload --skip-existing dist/*
+      - name: Publish on PyPi (test)
+        if: ${{ !github.event.release.published }}
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
+        run: twine upload --repository testpypi --skip-existing dist/*.whl
