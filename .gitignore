@@ -8,3 +8,4 @@ CMakeLists.txt.user
 *.user
 *.user.*
 *.ipynb_check*
+version.txt

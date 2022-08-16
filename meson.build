@@ -1,6 +1,7 @@
 project(
   'pycdfpp',
   'cpp',
+  meson_version: '>= 0.63.0',
   version : run_command('scripts/version.py',
                         capture:true,
                         env:{'SRC_ROOT':meson.project_source_root()}
@@ -85,7 +86,7 @@ cdfpp_extra_files = [
     'setup.py', 'tests/resources/make_cdf.py',
     'scripts/build_wheel.py',
     'tests/python_wrapper/test.py',
-    '.github/workflows/ccpp.yml',
+    '.github/workflows/tests-with-coverage.yml',
     '.github/workflows/tests-osx.yml',
     '.github/workflows/tests-linux.yml',
     '.github/workflows/tests-windows.yml',
