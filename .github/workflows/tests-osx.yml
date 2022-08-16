@@ -6,7 +6,7 @@ jobs:
   build:
     name: MacOs test matrix
     runs-on: macos-latest
-    continue-on-error: true
+    continue-on-error: false
     strategy:
       fail-fast: false
       matrix:
@@ -20,7 +20,7 @@ jobs:
           architecture: x64
       - name: build
         run: |
-          pip install --upgrade meson ninja numpy meson-python build wheel
+          pip install --upgrade meson ninja numpy meson-python build wheel twine
           CC=gcc-11 CXX=g++-11 meson -Dbuildtype=release -Dwith_tests=true . build
           ninja --verbose -C build
           CC=gcc-11 CXX=g++-11 python scripts/build_wheel.py

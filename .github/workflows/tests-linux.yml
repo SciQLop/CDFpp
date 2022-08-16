@@ -6,7 +6,7 @@ jobs:
   build:
     name: Linux test matrix
     runs-on: ubuntu-latest
-    continue-on-error: true
+    continue-on-error: false
     strategy:
       fail-fast: false
       matrix:

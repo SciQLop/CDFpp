@@ -7,7 +7,7 @@ jobs:
     name: Windows test matrix
     # Stick to 2019 which ships with mingw 8.1.0 (chocolatey), since latest version misses zlib :/
     runs-on: windows-2019
-    continue-on-error: true
+    continue-on-error: false
     strategy:
       fail-fast: false
       matrix:
@@ -27,7 +27,7 @@ jobs:
 #              choco install -y mingw --version=8.1.0
       - name: build (Windows)
         run: |
-          pip install --upgrade meson ninja numpy meson-python build wheel
+          pip install --upgrade meson ninja numpy meson-python build wheel twine
           meson -Dbuildtype=release -Dwith_tests=true . build
           ninja --verbose -C build
           python scripts/build_wheel.py
