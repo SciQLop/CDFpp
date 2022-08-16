@@ -82,9 +82,12 @@ cdfpp_headers = [
 ]
 
 cdfpp_extra_files = [
-    'pyproject.toml', 'README.md',
-    'setup.py', 'tests/resources/make_cdf.py',
+    'pyproject.toml',
+    'README.md',
+    '.bumpversion.cfg',
+    'version.txt',
     'scripts/build_wheel.py',
+    'tests/resources/make_cdf.py',
     'tests/python_wrapper/test.py',
     '.github/workflows/tests-with-coverage.yml',
     '.github/workflows/tests-osx.yml',
