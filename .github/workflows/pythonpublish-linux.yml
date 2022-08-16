@@ -19,23 +19,23 @@ jobs:
       - name: Build for Python 3.7
         run: |
             /opt/python/cp37-cp37m/bin/pip install --upgrade "meson" "ninja" "numpy" "meson-python" "build" "wheel"
-            /opt/python/cp37-cp37m/bin/python build_wheel.py
+            /opt/python/cp37-cp37m/bin/python scripts/build_wheel.py
       - name: Build for Python 3.8
         run: |
             /opt/python/cp38-cp38/bin/pip install --upgrade "meson" "ninja" "numpy" "meson-python" "build" "wheel"
-            /opt/python/cp38-cp38/bin/python build_wheel.py
+            /opt/python/cp38-cp38/bin/python scripts/build_wheel.py
       - name: Build for Python 3.9
         run: |
             /opt/python/cp39-cp39/bin/pip install --upgrade "meson" "ninja" "numpy" "meson-python" "build" "wheel"
-            /opt/python/cp39-cp39/bin/python build_wheel.py
+            /opt/python/cp39-cp39/bin/python scripts/build_wheel.py
       - name: Build for Python 3.10
         run: |
             /opt/python/cp310-cp310/bin/pip install --upgrade "meson" "ninja" "numpy" "meson-python" "build" "wheel"
-            /opt/python/cp310-cp310/bin/python build_wheel.py
+            /opt/python/cp310-cp310/bin/python scripts/build_wheel.py
       - name: Build for Python 3.11
         run: |
             /opt/python/cp311-cp311/bin/pip install --upgrade "meson" "ninja" "numpy" "meson-python" "build" "wheel"
-            /opt/python/cp311-cp311/bin/python build_wheel.py
+            /opt/python/cp311-cp311/bin/python scripts/build_wheel.py
       - name: Make wheels universal
         run: for wheel in $(ls dist/*.whl); do auditwheel repair $wheel; done
       - name: Publish on PyPi

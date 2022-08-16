@@ -1,7 +1,10 @@
 project(
   'pycdfpp',
   'cpp',
-  version : '0.3.4',
+  version : run_command('scripts/version.py',
+                        capture:true,
+                        env:{'SRC_ROOT':meson.project_source_root()}
+                        ).stdout().strip() ,
   default_options : ['warning_level=3', 'cpp_std=c++17', 'default_library=static'],
   license : 'GPL3'
 )
@@ -80,6 +83,7 @@ cdfpp_headers = [
 cdfpp_extra_files = [
     'pyproject.toml', 'README.md',
     'setup.py', 'tests/resources/make_cdf.py',
+    'scripts/build_wheel.py',
     'tests/python_wrapper/test.py',
     '.github/workflows/ccpp.yml',
     '.github/workflows/tests-osx.yml',

@@ -21,7 +21,7 @@ jobs:
           architecture: x64
       - run: |
           pip install --upgrade twine build ninja wheel meson numpy meson-python
-          python build_wheel.py
+          python scripts/build_wheel.py
       - name: Publish on PyPi
         env:
           TWINE_USERNAME: __token__

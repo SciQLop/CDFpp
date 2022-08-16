@@ -21,7 +21,7 @@ jobs:
           architecture: x64
       - run: |
           pip install --upgrade twine build ninja meson numpy wheel meson-python
-          CC=gcc-11 CXX=g++-11 python build_wheel.py
+          CC=gcc-11 CXX=g++-11 python scripts/build_wheel.py
       - name: Publish on PyPi
         env:
           TWINE_USERNAME: __token__
