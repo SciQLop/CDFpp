@@ -45,6 +45,9 @@ if build_machine.system() == 'windows'
     endif
 else
     link_args = []
+    if build_machine.system() == 'darwin'
+        link_args = ['-static-libstdc++','-static-libgcc','-static']
+     endif
     zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
 endif
 
