@@ -29,13 +29,12 @@ jobs:
           name: pycdfpp-MacOs-${{ matrix.python-version }}
           path: dist/*
       - name: Publish on PyPi
-        if: ${{ github.event.release.published }}
+        if: github.event.release
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
         run: twine upload --skip-existing dist/*
       - name: Publish on PyPi (test)
-        if: ${{ !github.event.release.published }}
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TEST_PASSWORD }}
