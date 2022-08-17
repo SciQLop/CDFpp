@@ -83,6 +83,12 @@ variables = {
     'values': 'This is a string',
     'attributes':{}
 },
+'var_string_uchar':{
+    'shape':[16],
+    'type':pycdfpp.CDF_UCHAR,
+    'values': 'This is a string',
+    'attributes':{}
+},
 'var2d_string':{
     'shape':[2,18],
     'type':pycdfpp.CDF_CHAR,

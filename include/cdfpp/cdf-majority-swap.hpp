@@ -132,8 +132,10 @@ namespace majority
                 swap(var.get<int8_t>(), var.shape());
                 break;
             case CDF_Types::CDF_CHAR:
+                swap(var.get<CDF_Types::CDF_CHAR>(), var.shape());
+                break;
             case CDF_Types::CDF_UCHAR:
-                swap(var.get<char>(), var.shape());
+                swap(var.get<CDF_Types::CDF_UCHAR>(), var.shape());
                 break;
             case CDF_Types::CDF_UINT1:
                 swap(var.get<unsigned char>(), var.shape());

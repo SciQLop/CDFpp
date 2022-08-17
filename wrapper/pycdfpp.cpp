@@ -88,6 +88,11 @@ inline py_cdf_attr_data_t to_py_cdf_data(const cdf::data_t& data)
             return data.get<tt2000_t>();
             break;
         case cdf::CDF_Types::CDF_UCHAR:
+        {
+            auto v = data.get<cdf::CDF_Types::CDF_UCHAR>();
+            return std::string { reinterpret_cast<char*>(v.data()), std::size(v) };
+        }
+        break;
         case cdf::CDF_Types::CDF_CHAR:
         {
             auto v = data.get<char>();

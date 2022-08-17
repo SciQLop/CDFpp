@@ -175,7 +175,7 @@ inline auto load_values(const char* buffer, std::size_t buffer_size)
     if constexpr (type == CDF_Types::CDF_CHAR
         || type == CDF_Types::CDF_UCHAR) // special case for strings
     {
-        std::vector<char> result(buffer_size, '\0');
+        std::vector<from_cdf_type_t<type>> result(buffer_size, '\0');
         // Basicaly replace any non ASCII char by '~'
         std::transform(buffer, +buffer + buffer_size, result.data(),
             [](const unsigned char c)

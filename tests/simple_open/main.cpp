@@ -213,7 +213,7 @@ std::size_t filesize(std::fstream& file)
 
 
 #define CHECK_VARIABLES(cd)                                                                        \
-    REQUIRE(std::size(cd.variables) == 14);                                                        \
+    REQUIRE(std::size(cd.variables) == 15);                                                        \
     REQUIRE(has_variable(cd, "var"));                                                              \
     REQUIRE(compare_shape(cd.variables["var"], { 101 }));                                          \
     REQUIRE(check_variable(                                                                        \
@@ -251,6 +251,9 @@ std::size_t filesize(std::fstream& file)
         }));                                                                                       \
     REQUIRE(check_variable(cd.variables["var_string"], { 16 },                                     \
         std::vector<char> {                                                                        \
+            'T', 'h', 'i', 's', ' ', 'i', 's', ' ', 'a', ' ', 's', 't', 'r', 'i', 'n', 'g' }));    \
+    REQUIRE(check_variable(cd.variables["var_string_uchar"], { 16 },                               \
+        std::vector<unsigned char> {                                                               \
             'T', 'h', 'i', 's', ' ', 'i', 's', ' ', 'a', ' ', 's', 't', 'r', 'i', 'n', 'g' }))
 
 
@@ -281,8 +284,14 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
-            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
+            THEN("All expected attributes are loaded")
+            {
+                CHECK_ATTRIBUTES(cd);
+            }
+            THEN("All expected variables are loaded")
+            {
+                CHECK_VARIABLES(cd);
+            }
         }
         WHEN("In memory data as std::vector is a cdf file")
         {
@@ -302,8 +311,14 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(data);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
-            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
+            THEN("All expected attributes are loaded")
+            {
+                CHECK_ATTRIBUTES(cd);
+            }
+            THEN("All expected variables are loaded")
+            {
+                CHECK_VARIABLES(cd);
+            }
         }
         WHEN("In memory data as char* is a cdf file")
         {
@@ -325,8 +340,14 @@ SCENARIO("Loading a cdf files", "[CDF]")
             delete[] data;
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
-            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
+            THEN("All expected attributes are loaded")
+            {
+                CHECK_ATTRIBUTES(cd);
+            }
+            THEN("All expected variables are loaded")
+            {
+                CHECK_VARIABLES(cd);
+            }
         }
         WHEN("file exists and is a compressed cdf file (GZIP)")
         {
@@ -335,8 +356,14 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
-            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
+            THEN("All expected attributes are loaded")
+            {
+                CHECK_ATTRIBUTES(cd);
+            }
+            THEN("All expected variables are loaded")
+            {
+                CHECK_VARIABLES(cd);
+            }
         }
         WHEN("file exists and is a compressed cdf file (RLE)")
         {
@@ -345,8 +372,14 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
-            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
+            THEN("All expected attributes are loaded")
+            {
+                CHECK_ATTRIBUTES(cd);
+            }
+            THEN("All expected variables are loaded")
+            {
+                CHECK_VARIABLES(cd);
+            }
         }
         WHEN("file exists and is a cdf file with compressed variables")
         {
@@ -355,8 +388,14 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
-            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
+            THEN("All expected attributes are loaded")
+            {
+                CHECK_ATTRIBUTES(cd);
+            }
+            THEN("All expected variables are loaded")
+            {
+                CHECK_VARIABLES(cd);
+            }
         }
         WHEN("file exists and is a column major cdf file")
         {
@@ -365,8 +404,14 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("All expected attributes are loaded") { CHECK_ATTRIBUTES(cd); }
-            THEN("All expected variables are loaded") { CHECK_VARIABLES(cd); }
+            THEN("All expected attributes are loaded")
+            {
+                CHECK_ATTRIBUTES(cd);
+            }
+            THEN("All expected variables are loaded")
+            {
+                CHECK_VARIABLES(cd);
+            }
         }
     }
 }

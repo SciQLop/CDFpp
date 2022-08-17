@@ -52,6 +52,7 @@ def add_varaibles(cd, compress=False):
                           ]:
         make_var(cd, name=name, compress=compress, values=values, attributes=attrs, dtype=dtype)
 
+    cd.new('var_string_uchar', type=pycdf.const.CDF_UCHAR, data='This is a string', recVary=False)
     cd.new('var_string', data='This is a string', recVary=False)
     cd.new('var2d_string', data=['This is a string 1','This is a string 2'], recVary=False)
     cd.new('var3d_string', data=[['value[00]','value[01]'],['value[10]','value[11]']], recVary=False)

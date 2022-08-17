@@ -141,9 +141,11 @@ make_values_view(py::object& obj)
     switch (variable.type())
     {
         case cdf::CDF_Types::CDF_CHAR:
-            return _details::make_str_view<char>(variable);
+            return _details::make_str_view<cdf::from_cdf_type_t<cdf::CDF_Types::CDF_CHAR>>(
+                variable);
         case cdf::CDF_Types::CDF_UCHAR:
-            return _details::make_str_view<unsigned char>(variable);
+            return _details::make_str_view<cdf::from_cdf_type_t<cdf::CDF_Types::CDF_UCHAR>>(
+                variable);
         case cdf::CDF_Types::CDF_INT1:
             return _details::make_array<int8_t>(variable, obj);
         case cdf::CDF_Types::CDF_INT2:
