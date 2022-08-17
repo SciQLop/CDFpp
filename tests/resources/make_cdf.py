@@ -44,6 +44,7 @@ def add_varaibles(cd, compress=False):
     for name, values, attrs, dtype in [
                           ('var', np.cos(np.arange(0.,(l+1)/l*2.*math.pi,2.*math.pi/l)), {'var_attr':"a variable attribute","DEPEND0":"epoch"}, pycdf.const.CDF_DOUBLE),
                           ('epoch', make_time_list(l), {'attr1':"attr1_value"}, pycdf.const.CDF_EPOCH),
+                          ('bytes', np.ones(10), {'attr1':"attr1_value"}, pycdf.const.CDF_BYTE),
                           ('zeros', np.zeros(2048), {'attr1':"attr1_value"}, pycdf.const.CDF_DOUBLE),
                           ('var2d', np.ones((3,4)), {'attr1':"attr1_value", 'attr2':"attr2_value"}, pycdf.const.CDF_DOUBLE),
                           ('var3d', np.ones((4,3,2)), {"var3d_attr_multi":[10,11]}, pycdf.const.CDF_DOUBLE),

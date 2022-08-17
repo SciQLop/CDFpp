@@ -155,8 +155,9 @@ make_values_view(py::object& obj)
         case cdf::CDF_Types::CDF_INT8:
             return _details::make_array<int64_t>(variable, obj);
         case cdf::CDF_Types::CDF_UINT1:
-        case cdf::CDF_Types::CDF_BYTE:
             return _details::make_array<uint8_t>(variable, obj);
+        case cdf::CDF_Types::CDF_BYTE:
+            return _details::make_array<cdf::from_cdf_type_t<cdf::CDF_Types::CDF_BYTE>>(variable, obj);
         case cdf::CDF_Types::CDF_UINT2:
             return _details::make_array<uint16_t>(variable, obj);
         case cdf::CDF_Types::CDF_UINT4:
@@ -194,8 +195,9 @@ py::memoryview make_view(cdf::Variable& variable)
         case cdf::CDF_Types::CDF_INT8:
             return _details::make_view<int64_t>(variable);
         case cdf::CDF_Types::CDF_UINT1:
-        case cdf::CDF_Types::CDF_BYTE:
             return _details::make_view<uint8_t>(variable);
+        case cdf::CDF_Types::CDF_BYTE:
+            return _details::make_view<cdf::from_cdf_type_t<cdf::CDF_Types::CDF_BYTE>>(variable);
         case cdf::CDF_Types::CDF_UINT2:
             return _details::make_view<uint16_t>(variable);
         case cdf::CDF_Types::CDF_UINT4:

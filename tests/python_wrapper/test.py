@@ -41,6 +41,12 @@ variables = {
     'values':np.zeros(2048),
     'attributes':{'attr1':["attr1_value"]}
 },
+'bytes':{
+    'shape':[10],
+    'type':pycdfpp.CDF_BYTE,
+    'values':np.ones(10),
+    'attributes':{'attr1':["attr1_value"]}
+},
 'var2d':{
     'shape':[3,4],
     'type':pycdfpp.CDF_DOUBLE,
