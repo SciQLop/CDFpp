@@ -87,28 +87,6 @@ inline py::object array_to_datetime64(const py::array_t<time_t>& input)
             [](const time_t& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
         return py::cast(&result).attr("astype")(dtype);
     }
-    else
-    {
-        auto v = new int64_t;
-        std::cout << input.nbytes() << std::endl;
-        std::cout << input.size() << std::endl;
-        if constexpr (std::is_same_v<time_t, tt2000_t>)
-        {
-            std::cout << input.at().value << std::endl;
-            std::cout << "is tt2000_t" << std::endl;
-        }
-        if constexpr (std::is_same_v<time_t, epoch>)
-        {
-            std::cout << input.at().value << std::endl;
-            std::cout << "is epoch" << std::endl;
-        }
-        if constexpr (std::is_same_v<time_t, epoch16>)
-        {
-            std::cout << input.at().seconds << std::endl;
-            std::cout << "is epoch16" << std::endl;
-        }
-        return py::array(py::dtype(dtype), {}, {}, v);
-    }
     return py::none();
 }
 
