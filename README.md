@@ -4,8 +4,8 @@
 [![Windows test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml/badge.svg?branch=main)](https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml)
 [![Linux test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests-linux.yml/badge.svg?branch=main)](https://github.com/SciQLop/CDFpp/actions/workflows/tests-linux.yml)
 [![MacOs test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml/badge.svg?branch=main)](https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml)
-[![Discover on MyBinder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SciQLop/CDFpp/master?labpath=examples/notebooks)
-[![Coverage](https://codecov.io/gh/SciQLop/CDFpp/coverage.svg?branch=master)](https://codecov.io/gh/SciQLop/CDFpp/branch/master)
+[![Discover on MyBinder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SciQLop/CDFpp/main?labpath=examples/notebooks)
+[![Coverage](https://codecov.io/gh/SciQLop/CDFpp/coverage.svg?branch=main)](https://codecov.io/gh/SciQLop/CDFpp/branch/main)
 
 
 # CDFpp (CDF++)
