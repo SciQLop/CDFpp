@@ -165,8 +165,30 @@ inline data_t& data_t::operator=(const data_t& other)
     return *this;
 }
 
+// https://stackoverflow.com/questions/4059775/convert-iso-8859-1-strings-to-utf-8-in-c-c
+template <typename T>
+std::vector<T> iso_8859_1_to_utf8(const char* buffer, std::size_t buffer_size)
+{
+    std::vector<T> out;
+    out.reserve(buffer_size);
+    std::for_each(buffer, buffer + buffer_size,
+        [&out](const uint8_t c)
+        {
+            if (c < 0x80)
+            {
+                out.push_back(c);
+            }
+            else
+            {
+                out.push_back(0xc0 | c >> 6);
+                out.push_back(0x80 | (c & 0x3f));
+            }
+        });
+    return out;
+}
 
-template <CDF_Types type, typename endianness_t>
+
+template <CDF_Types type, typename endianness_t, bool latin1_to_utf8_conv>
 inline auto load_values(const char* buffer, std::size_t buffer_size)
 {
 
@@ -175,16 +197,17 @@ inline auto load_values(const char* buffer, std::size_t buffer_size)
     if constexpr (type == CDF_Types::CDF_CHAR
         || type == CDF_Types::CDF_UCHAR) // special case for strings
     {
-        std::vector<from_cdf_type_t<type>> result(buffer_size, '\0');
-        // Basicaly replace any non ASCII char by '~'
-        std::transform(buffer, +buffer + buffer_size, result.data(),
-            [](const unsigned char c)
-            {
-                if (c < 128)
-                    return c;
-                return static_cast<unsigned char>('~');
-            });
-        return result;
+        if constexpr (latin1_to_utf8_conv)
+        {
+            return iso_8859_1_to_utf8<from_cdf_type_t<type>>(buffer, buffer_size);
+        }
+        else
+        {
+            std::vector<from_cdf_type_t<type>> result(buffer_size, '\0');
+            std::transform(buffer, buffer + buffer_size, std::begin(result),
+                [](const auto c) { return static_cast<from_cdf_type_t<type>>(c); });
+            return result;
+        }
     }
     else
     {
@@ -197,6 +220,7 @@ inline auto load_values(const char* buffer, std::size_t buffer_size)
     }
 }
 
+template <bool iso_8859_1_to_utf8>
 inline data_t load_values(
     const char* buffer, std::size_t buffer_size, CDF_Types type, cdf_encoding encoding)
 {
@@ -204,12 +228,16 @@ inline data_t load_values(
 #define DATA_FROM_T(type)                                                                          \
     case CDF_Types::type:                                                                          \
         if (endianness::is_big_endian_encoding(encoding))                                          \
-            return data_t { load_values<CDF_Types::type, endianness::big_endian_t>(                \
-                                buffer, buffer_size),                                              \
-                CDF_Types::type };                                                                 \
-        return data_t { load_values<CDF_Types::type, endianness::little_endian_t>(                 \
-                            buffer, buffer_size),                                                  \
-            CDF_Types::type };
+            return data_t {                                                                        \
+                load_values<CDF_Types::type, endianness::big_endian_t, iso_8859_1_to_utf8>(        \
+                    buffer, buffer_size),                                                          \
+                CDF_Types::type                                                                    \
+            };                                                                                     \
+        return data_t {                                                                            \
+            load_values<CDF_Types::type, endianness::little_endian_t, iso_8859_1_to_utf8>(         \
+                buffer, buffer_size),                                                              \
+            CDF_Types::type                                                                        \
+        };
 
     switch (type)
     {

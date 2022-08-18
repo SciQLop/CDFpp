@@ -231,7 +231,8 @@ namespace
             * std::accumulate(std::cbegin(shape), std::cend(shape), 1, std::multiplies<uint32_t>());
     }
 
-    template <cdf_r_z type, typename cdf_version_tag_t, typename stream_t, typename context_t>
+    template <cdf_r_z type, typename cdf_version_tag_t, typename stream_t,
+        typename context_t>
     bool load_all_Vars(stream_t& stream, context_t& context, common::cdf_repr& cdf)
     {
         std::for_each(begin_VDR<type>(context.gdr), end_VDR<type>(context.gdr),
@@ -243,7 +244,8 @@ namespace
                     uint32_t record_size = var_record_size(shape, vdr.DataType.value);
                     uint32_t record_count = common::is_nrv(vdr) ? 1 : (vdr.MaxRec.value + 1);
                     if ((vdr.DataType.value != CDF_Types::CDF_CHAR
-                            and vdr.DataType.value != CDF_Types::CDF_UCHAR) or !common::is_nrv(vdr))
+                            and vdr.DataType.value != CDF_Types::CDF_UCHAR)
+                        or !common::is_nrv(vdr))
                     {
                         shape.insert(std::cbegin(shape), record_count);
                     }
@@ -261,7 +263,7 @@ namespace
                     }();
 
                     common::add_variable(cdf, vdr.Name.value, vdr.Num.value,
-                        load_values(
+                        load_values<false>(
                             data.data(), std::size(data), vdr.DataType.value, context.encoding()),
                         std::move(shape));
                 }
@@ -273,8 +275,10 @@ namespace
 template <typename cdf_version_tag_t, typename context_t>
 bool load_all(context_t& context, common::cdf_repr& cdf)
 {
-    return load_all_Vars<cdf_r_z::r, cdf_version_tag_t>(context.buffer, context, cdf)
-        & load_all_Vars<cdf_r_z::z, cdf_version_tag_t>(context.buffer, context, cdf);
+    return load_all_Vars<cdf_r_z::r, cdf_version_tag_t>(
+               context.buffer, context, cdf)
+        & load_all_Vars<cdf_r_z::z, cdf_version_tag_t>(
+            context.buffer, context, cdf);
 }
 
 }

@@ -130,9 +130,9 @@ PYBIND11_MODULE(pycdfpp, m)
     PYBIND11_NUMPY_DTYPE(epoch, value);
     PYBIND11_NUMPY_DTYPE(epoch16, seconds, picoseconds);
 
-    m.def("to_datetime64", array_to_datetime64<epoch>, py::arg{}.noconvert());
-    m.def("to_datetime64", array_to_datetime64<epoch16>, py::arg{}.noconvert());
-    m.def("to_datetime64", array_to_datetime64<tt2000_t>, py::arg{}.noconvert());
+    m.def("to_datetime64", array_to_datetime64<epoch>, py::arg {}.noconvert());
+    m.def("to_datetime64", array_to_datetime64<epoch16>, py::arg {}.noconvert());
+    m.def("to_datetime64", array_to_datetime64<tt2000_t>, py::arg {}.noconvert());
     m.def("to_datetime64", scalar_to_datetime64<epoch>);
     m.def("to_datetime64", scalar_to_datetime64<epoch16>);
     m.def("to_datetime64", scalar_to_datetime64<tt2000_t>);
@@ -235,14 +235,19 @@ PYBIND11_MODULE(pycdfpp, m)
 
     m.def(
         "load",
-        [](py::bytes& buffer)
+        [](py::bytes& buffer, bool iso_8859_1_to_utf8)
         {
             py::buffer_info info(py::buffer(buffer).request());
-            return io::load(static_cast<char*>(info.ptr), static_cast<std::size_t>(info.size));
+            return io::load(static_cast<char*>(info.ptr), static_cast<std::size_t>(info.size),
+                iso_8859_1_to_utf8);
         },
+        py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false,
         py::return_value_policy::reference);
 
     m.def(
-        "load", [](const char* name) { return io::load(name); },
+        "load",
+        [](const char* fname, bool iso_8859_1_to_utf8)
+        { return io::load(std::string { fname }, iso_8859_1_to_utf8); },
+        py::arg("fname"), py::arg("iso_8859_1_to_utf8") = false,
         py::return_value_policy::reference);
 }

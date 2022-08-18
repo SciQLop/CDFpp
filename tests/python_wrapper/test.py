@@ -128,6 +128,21 @@ def compare_attributes(attrs, ref):
     return True
 
 
+class PycdfEncodingTest(unittest.TestCase):
+    def test_can_load_and_repr_utf8(self):
+        cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/testutf8.cdf')
+        str(cdf)
+        self.assertEqual(list(cdf.attributes["utf8"]), ['ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ'])
+
+    def test_can_load_and_repr_latin1_with_hack(self):
+        cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/wi_l2-30min_sms-stics-afm-magnetosphere_00000000_v01.cdf')
+        with self.assertRaises(UnicodeDecodeError):
+            str(cdf)
+        cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/wi_l2-30min_sms-stics-afm-magnetosphere_00000000_v01.cdf', True)
+        str(cdf)
+        self.assertIn('4ïÂ°', cdf.attributes['TEXT'][0])
+
+
 class PycdfTest(unittest.TestCase):
     def setUp(self):
         files = glob(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/a_*.cdf')

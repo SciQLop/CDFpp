@@ -585,22 +585,23 @@ struct cdf_mutable_variable_record_t
     bool load_from(buffer_t& buffer, std::size_t offset)
     {
         actual_record = std::monostate {};
-        if(load_fields(buffer, offset, record_size, record_type))
+        if (load_fields(buffer, offset, record_size, record_type))
         {
             switch (record_type.value)
             {
                 case cdf_record_type::CVVR:
-                    actual_record.template emplace<cvvr_t>( buffer );
+                    actual_record.template emplace<cvvr_t>(buffer);
                     std::get<cvvr_t>(actual_record).load(offset);
                     return true;
                     break;
                 case cdf_record_type::VVR:
-                    actual_record.template emplace<vvr_t>( buffer );;
+                    actual_record.template emplace<vvr_t>(buffer);
+                    ;
                     std::get<vvr_t>(actual_record).load(offset);
                     return true;
-                break;
+                    break;
                 case cdf_record_type::VXR:
-                    actual_record.template emplace<vxr_t>( buffer );
+                    actual_record.template emplace<vxr_t>(buffer);
                     std::get<vxr_t>(actual_record).load(offset);
                     return true;
                     break;
@@ -614,7 +615,7 @@ struct cdf_mutable_variable_record_t
     template <typename... Ts>
     auto visit(Ts... lambdas) const
     {
-        return std::visit(helpers::make_visitor(lambdas...),actual_record);
+        return std::visit(helpers::make_visitor(lambdas...), actual_record);
     }
 };
 
@@ -652,7 +653,7 @@ struct cdf_CPR_t : cdf_description_record<buffer_t, cdf_CPR_t<version_t, buffer_
     field_t<AFTER(header), cdf_compression_type> cType;
     field_t<AFTER(cType), uint32_t> rfuA;
     field_t<AFTER(rfuA), uint32_t> pCount;
-    table_field_t<uint32_t, cdf_CPR_t> cParms { [offset = AFTER(pCount)](auto& cpr) -> std::size_t
+    table_field_t<uint32_t, cdf_CPR_t> cParms { [](auto& cpr) -> std::size_t
         { return cpr.pCount.value; },
         [offset = AFTER(pCount)]([[maybe_unused]] auto& cpr) -> std::size_t { return offset; } };
 
