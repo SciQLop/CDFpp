@@ -17,25 +17,30 @@ There are also Java and Python implementations which are not usable in C++.
 
 List of features and roadmap:
 
-- [x] read uncompressed file headers
-- [x] read uncompressed attributes
-- [x] read uncompressed variables
-- [x] read variable attributes
-- [x] loads cdf files from memory (std::vector<char> or char*)
-- [x] handles both row and column major files
-- [x] read variables with nested VXRs
-- [x] read compressed file (GZip, RLE)
-- [x] read compressed variables (GZip, RLE)
-- [ ] write uncompressed headers
-- [ ] write uncompressed attributes
-- [ ] write uncompressed variables
-- [ ] write compressed attributes
-- [ ] write compressed file variables
-- [x] handle leap seconds
-- [x] Python wrappers
-- [ ] Documentation
-- [ ] Examples
-- [ ] Benchmarks
+- CDF reading
+    - [x] read uncompressed file headers
+    - [x] read uncompressed attributes
+    - [x] read uncompressed variables
+    - [x] read variable attributes
+    - [x] loads cdf files from memory (std::vector<char> or char*)
+    - [x] handles both row and column major files
+    - [x] read variables with nested VXRs
+    - [x] read compressed file (GZip, RLE)
+    - [x] read compressed variables (GZip, RLE)
+    - [x] read UTF-8 encoded files
+    - [x] read ISO 8859-1(Latin-1) encoded files (converts to UTF-8 on the fly)
+- CDF writing
+    - [ ] write uncompressed headers
+    - [ ] write uncompressed attributes
+    - [ ] write uncompressed variables
+    - [ ] write compressed attributes
+    - [ ] write compressed file variables
+- General features
+    - [x] handle leap seconds
+    - [x] Python wrappers
+    - [ ] Documentation
+    - [ ] Examples
+    - [ ] Benchmarks
 
 If you want to understand how it works, how to use the code or what works, you may have to read tests.
 
