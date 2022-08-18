@@ -55,7 +55,7 @@ std::vector<ssize_t> strides(const Variable& var)
             next = static_cast<ssize_t>(v * next);
             return res;
         });
-    std::reverse(std::begin(res), std::end(res)); // if column major
+    std::reverse(std::begin(res), std::end(res));
     return res;
 }
 
@@ -69,57 +69,64 @@ py::buffer_info make_buffer(cdf::Variable& var, bool readonly = true)
         shape_ssize_t(var), strides<T>(var), readonly);
 }
 
-template <typename data_t, typename raw_t = data_t>
-py::memoryview make_view(cdf::Variable& variable, bool readonly = true)
-{
-    return py::memoryview::from_buffer(reinterpret_cast<raw_t*>(variable.get<data_t>().data()),
-        shape_ssize_t(variable), strides<data_t>(variable), readonly);
-}
-
-template <typename data_t, typename raw_t = data_t>
+template <CDF_Types data_t>
 py::array make_array(Variable& variable, py::object& obj)
 {
-    return py::array_t<data_t>(
-        shape_ssize_t(variable), strides<data_t>(variable), variable.get<data_t>().data(), obj);
+    static_assert(data_t != CDF_Types::CDF_CHAR and data_t != CDF_Types::CDF_UCHAR);
+    return py::array_t<from_cdf_type_t<data_t>>(shape_ssize_t(variable),
+        strides<from_cdf_type_t<data_t>>(variable), variable.get<from_cdf_type_t<data_t>>().data(),
+        obj);
 }
 
-template <typename char_type>
-std::variant<py::array, std::string_view, std::vector<std::string_view>,
-    std::vector<std::vector<std::string_view>>>
-make_str_view(Variable& variable)
+template <typename T, typename size_type>
+static inline std::string_view make_string_view(T* data, size_type len)
 {
-    const auto& shape = variable.shape();
-    char* buffer = reinterpret_cast<char*>(variable.get<char_type>().data());
-    if (std::size(shape) == 1)
-    {
-        return std::string_view { buffer, shape[0] };
-    }
-    if (std::size(shape) == 2)
-    {
-        std::vector<std::string_view> result(shape[0]);
-        for (std::size_t index = 0; index < shape[0]; index++)
-        {
-            result[index] = std::string_view { buffer + (index * shape[1]), shape[1] };
-        }
-        return result;
-    }
-    if (std::size(shape) == 3)
-    {
-        std::vector<std::vector<std::string_view>> result(shape[0]);
-        auto buffer_offset = 0UL;
-        for (std::size_t i = 0; i < shape[0]; i++)
-        {
-            result[i].resize(shape[1]);
-            for (std::size_t j = 0; j < shape[1]; j++)
-            {
-                result[i][j] = std::string_view { buffer + buffer_offset, shape[2] };
-                buffer_offset += shape[2];
-            }
-        }
-        return result;
-    }
-    return {};
+    return std::string_view(reinterpret_cast<const char*>(data),
+        static_cast<std::string_view::size_type>(len));
 }
+
+template <typename T>
+py::object make_list(const T* data, decltype(std::declval<Variable>().shape()) shape)
+{
+    if (std::size(shape) > 2)
+    {
+        py::list res {};
+        std::size_t offset = 0;
+        auto inner_shape = decltype(shape) { std::begin(shape) + 1, std::end(shape) };
+        std::size_t jump = std::accumulate(
+            std::cbegin(inner_shape), std::cend(inner_shape), 1UL, std::multiplies<std::size_t>());
+        for (auto i = 0UL; i < shape[0]; i++)
+        {
+            res.append(make_list(data+offset, inner_shape));
+            offset += jump;
+        }
+        return res;
+    }
+    if(std::size(shape)==2)
+    {
+        py::list res {};
+        std::size_t offset = 0;
+        for (auto i = 0UL; i < shape[0]; i++)
+        {
+            res.append(make_string_view(data + offset,shape[1]));
+            offset += shape[1];
+        }
+        return res;
+    }
+    if(std::size(shape)==1)
+    {
+        return py::str(make_string_view(data ,shape[0]));
+    }
+    return py::none();
+}
+
+template <CDF_Types data_t>
+py::object make_list(Variable& variable)
+{
+    static_assert(data_t == CDF_Types::CDF_CHAR or data_t == CDF_Types::CDF_UCHAR);
+    return make_list(variable.get<from_cdf_type_t<data_t>>().data(), variable.shape());
+}
+
 
 template <typename T, typename U = T>
 py::buffer_info impl_make_buffer(cdf::Variable& var)
@@ -131,94 +138,64 @@ py::buffer_info impl_make_buffer(cdf::Variable& var)
         shape_ssize_t(var), strides<T>(var), true);
 }
 
+template <CDF_Types T>
+py::buffer_info impl_make_buffer(cdf::Variable& var)
+{
+    using U = cdf::from_cdf_type_t<T>;
+    return py::buffer_info(var.get<T>().data(), /* Pointer to buffer */
+        sizeof(U), /* Size of one scalar */
+        py::format_descriptor<U>::format(),
+        static_cast<ssize_t>(std::size(var.shape())), /* Number of dimensions */
+        shape_ssize_t(var), strides<U>(var), true);
 }
 
-std::variant<py::array, std::string_view, std::vector<std::string_view>,
-    std::vector<std::vector<std::string_view>>>
-make_values_view(py::object& obj)
+}
+
+py::object make_values_view(py::object& obj)
 {
     Variable& variable = obj.cast<Variable&>();
     switch (variable.type())
     {
         case cdf::CDF_Types::CDF_CHAR:
-            return _details::make_str_view<cdf::from_cdf_type_t<cdf::CDF_Types::CDF_CHAR>>(
-                variable);
+            return _details::make_list<cdf::CDF_Types::CDF_CHAR>(variable);
         case cdf::CDF_Types::CDF_UCHAR:
-            return _details::make_str_view<cdf::from_cdf_type_t<cdf::CDF_Types::CDF_UCHAR>>(
-                variable);
+            return _details::make_list<cdf::CDF_Types::CDF_UCHAR>(variable);
         case cdf::CDF_Types::CDF_INT1:
-            return _details::make_array<int8_t>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_INT1>(variable, obj);
         case cdf::CDF_Types::CDF_INT2:
-            return _details::make_array<int16_t>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_INT2>(variable, obj);
         case cdf::CDF_Types::CDF_INT4:
-            return _details::make_array<int32_t>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_INT4>(variable, obj);
         case cdf::CDF_Types::CDF_INT8:
-            return _details::make_array<int64_t>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_INT8>(variable, obj);
         case cdf::CDF_Types::CDF_UINT1:
-            return _details::make_array<uint8_t>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_UINT1>(variable, obj);
         case cdf::CDF_Types::CDF_BYTE:
-            return _details::make_array<cdf::from_cdf_type_t<cdf::CDF_Types::CDF_BYTE>>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_BYTE>(variable, obj);
         case cdf::CDF_Types::CDF_UINT2:
-            return _details::make_array<uint16_t>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_UINT2>(variable, obj);
         case cdf::CDF_Types::CDF_UINT4:
-            return _details::make_array<uint32_t>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_UINT4>(variable, obj);
         case cdf::CDF_Types::CDF_FLOAT:
+            return _details::make_array<CDF_Types::CDF_FLOAT>(variable, obj);
         case cdf::CDF_Types::CDF_REAL4:
-            return _details::make_array<float>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_REAL4>(variable, obj);
         case cdf::CDF_Types::CDF_DOUBLE:
+            return _details::make_array<CDF_Types::CDF_DOUBLE>(variable, obj);
         case cdf::CDF_Types::CDF_REAL8:
-            return _details::make_array<double>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_REAL8>(variable, obj);
         case cdf::CDF_Types::CDF_EPOCH:
-            return _details::make_array<epoch, double>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_EPOCH>(variable, obj);
         case cdf::CDF_Types::CDF_EPOCH16:
-            return _details::make_array<epoch16, long double>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_EPOCH16>(variable, obj);
         case cdf::CDF_Types::CDF_TIME_TT2000:
-            return _details::make_array<tt2000_t, int64_t>(variable, obj);
+            return _details::make_array<CDF_Types::CDF_TIME_TT2000>(variable, obj);
         default:
             throw std::runtime_error { std::string { "Unsupported CDF type " }
                 + std::to_string(static_cast<int>(variable.type())) };
             break;
     }
     return {};
-}
-
-py::memoryview make_view(cdf::Variable& variable)
-{
-    switch (variable.type())
-    {
-        case cdf::CDF_Types::CDF_INT1:
-            return _details::make_view<int8_t>(variable);
-        case cdf::CDF_Types::CDF_INT2:
-            return _details::make_view<int16_t>(variable);
-        case cdf::CDF_Types::CDF_INT4:
-            return _details::make_view<int32_t>(variable);
-        case cdf::CDF_Types::CDF_INT8:
-            return _details::make_view<int64_t>(variable);
-        case cdf::CDF_Types::CDF_UINT1:
-            return _details::make_view<uint8_t>(variable);
-        case cdf::CDF_Types::CDF_BYTE:
-            return _details::make_view<cdf::from_cdf_type_t<cdf::CDF_Types::CDF_BYTE>>(variable);
-        case cdf::CDF_Types::CDF_UINT2:
-            return _details::make_view<uint16_t>(variable);
-        case cdf::CDF_Types::CDF_UINT4:
-            return _details::make_view<uint32_t>(variable);
-        case cdf::CDF_Types::CDF_FLOAT:
-        case cdf::CDF_Types::CDF_REAL4:
-            return _details::make_view<float>(variable);
-        case cdf::CDF_Types::CDF_DOUBLE:
-        case cdf::CDF_Types::CDF_REAL8:
-            return _details::make_view<double>(variable);
-        case cdf::CDF_Types::CDF_EPOCH:
-            return _details::make_view<epoch, double>(variable);
-        case cdf::CDF_Types::CDF_EPOCH16:
-            return _details::make_view<epoch16, long double>(variable);
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-            return _details::make_view<tt2000_t, int64_t>(variable);
-        default:
-            throw std::runtime_error { std::string { "Unsupported CDF type " }
-                + std::to_string(static_cast<int>(variable.type())) };
-            break;
-    }
 }
 
 py::buffer_info make_buffer(cdf::Variable& variable)
