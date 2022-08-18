@@ -173,6 +173,16 @@ class PycdfTest(unittest.TestCase):
                     arr_from_buffer = np.array(var)
                     self.assertTrue(np.all(arr_from_buffer==var.values))
 
+    def test_everything_have_repr(self):
+        for cdf in self.cdfs:
+            self.assertIsNotNone(str(cdf))
+            for attr in cdf.attributes.items():
+                self.assertIsNotNone(str(attr))
+            for _,var in cdf.items():
+                self.assertIsNotNone(str(var))
+                for __,attr in var.attributes.items():
+                    self.assertIsNotNone(str(attr))
+
     def test_vars_have_expected_type_and_shape(self):
         for cdf in self.cdfs:
             for name,var in cdf.items():
