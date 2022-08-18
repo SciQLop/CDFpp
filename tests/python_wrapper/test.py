@@ -154,18 +154,24 @@ class PycdfTest(unittest.TestCase):
             attr[len(attr)]
 
     def test_datetime_conversions(self):
-        for cd in self.cdfs:
+        for cdf in self.cdfs:
             for f in (pycdfpp.to_datetime, pycdfpp.to_datetime64):
                 for var in ('epoch', 'epoch16', 'tt2000'):
-                    whole_var = f(cd[var])
-                    values = f(cd[var].values)
-                    one_by_one = [f(v) for v in cd[var].values]
+                    whole_var = f(cdf[var])
+                    values = f(cdf[var].values)
+                    one_by_one = [f(v) for v in cdf[var].values]
                     self.assertIsNotNone(whole_var)
                     self.assertIsNotNone(values)
                     self.assertIsNotNone(one_by_one)
                     self.assertTrue(np.all(whole_var==values))
                     self.assertTrue(np.all(whole_var==one_by_one))
 
+    def test_non_string_vars_implements_buffer_protocol(self):
+        for cdf in self.cdfs:
+            for name,var in cdf.items():
+                if var.type not in (pycdfpp.CDF_CHAR, pycdfpp.CDF_UCHAR):
+                    arr_from_buffer = np.array(var)
+                    self.assertTrue(np.all(arr_from_buffer==var.values))
 
     def test_vars_have_expected_type_and_shape(self):
         for cdf in self.cdfs:

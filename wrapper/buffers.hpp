@@ -59,16 +59,6 @@ std::vector<ssize_t> strides(const Variable& var)
     return res;
 }
 
-template <typename T, typename U = T>
-py::buffer_info make_buffer(cdf::Variable& var, bool readonly = true)
-{
-    return py::buffer_info(var.get<U>().data(), /* Pointer to buffer */
-        sizeof(T), /* Size of one scalar */
-        py::format_descriptor<T>::format(),
-        static_cast<ssize_t>(std::size(var.shape())), /* Number of dimensions */
-        shape_ssize_t(var), strides<T>(var), readonly);
-}
-
 template <CDF_Types data_t>
 py::array make_array(Variable& variable, py::object& obj)
 {
@@ -125,17 +115,6 @@ py::object make_list(Variable& variable)
 {
     static_assert(data_t == CDF_Types::CDF_CHAR or data_t == CDF_Types::CDF_UCHAR);
     return make_list(variable.get<from_cdf_type_t<data_t>>().data(), variable.shape());
-}
-
-
-template <typename T, typename U = T>
-py::buffer_info impl_make_buffer(cdf::Variable& var)
-{
-    return py::buffer_info(var.get<U>().data(), /* Pointer to buffer */
-        sizeof(T), /* Size of one scalar */
-        py::format_descriptor<T>::format(),
-        static_cast<ssize_t>(std::size(var.shape())), /* Number of dimensions */
-        shape_ssize_t(var), strides<T>(var), true);
 }
 
 template <CDF_Types T>
@@ -201,35 +180,37 @@ py::object make_values_view(py::object& obj)
 py::buffer_info make_buffer(cdf::Variable& variable)
 {
 
+    using namespace cdf;
     switch (variable.type())
     {
-        case cdf::CDF_Types::CDF_INT1:
-            return _details::impl_make_buffer<int8_t>(variable);
-        case cdf::CDF_Types::CDF_INT2:
-            return _details::impl_make_buffer<int16_t>(variable);
-        case cdf::CDF_Types::CDF_INT4:
-            return _details::impl_make_buffer<int32_t>(variable);
-        case cdf::CDF_Types::CDF_INT8:
-            return _details::impl_make_buffer<int64_t>(variable);
-        case cdf::CDF_Types::CDF_UINT1:
-        case cdf::CDF_Types::CDF_BYTE:
-            return _details::impl_make_buffer<uint8_t>(variable);
-        case cdf::CDF_Types::CDF_UINT2:
-            return _details::impl_make_buffer<uint16_t>(variable);
-        case cdf::CDF_Types::CDF_UINT4:
-            return _details::impl_make_buffer<uint32_t>(variable);
-        case cdf::CDF_Types::CDF_FLOAT:
-        case cdf::CDF_Types::CDF_REAL4:
-            return _details::impl_make_buffer<float>(variable);
-        case cdf::CDF_Types::CDF_DOUBLE:
-        case cdf::CDF_Types::CDF_REAL8:
-            return _details::impl_make_buffer<double>(variable);
-        case cdf::CDF_Types::CDF_EPOCH:
-            return _details::impl_make_buffer<epoch>(variable);
-        case cdf::CDF_Types::CDF_EPOCH16:
-            return _details::impl_make_buffer<epoch16>(variable);
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-            return _details::impl_make_buffer<tt2000_t, int64_t>(variable);
+        case CDF_Types::CDF_INT1:
+            return _details::impl_make_buffer<CDF_Types::CDF_INT1>(variable);
+        case CDF_Types::CDF_INT2:
+            return _details::impl_make_buffer<CDF_Types::CDF_INT2>(variable);
+        case CDF_Types::CDF_INT4:
+            return _details::impl_make_buffer<CDF_Types::CDF_INT4>(variable);
+        case CDF_Types::CDF_INT8:
+            return _details::impl_make_buffer<CDF_Types::CDF_INT8>(variable);
+        case CDF_Types::CDF_BYTE:
+            return _details::impl_make_buffer<CDF_Types::CDF_BYTE>(variable);
+        case CDF_Types::CDF_UINT1:
+            return _details::impl_make_buffer<CDF_Types::CDF_UINT1>(variable);
+        case CDF_Types::CDF_UINT2:
+            return _details::impl_make_buffer<CDF_Types::CDF_UINT2>(variable);
+        case CDF_Types::CDF_UINT4:
+            return _details::impl_make_buffer<CDF_Types::CDF_UINT4>(variable);
+        case CDF_Types::CDF_FLOAT:
+        case CDF_Types::CDF_REAL4:
+            return _details::impl_make_buffer<CDF_Types::CDF_FLOAT>(variable);
+        case CDF_Types::CDF_DOUBLE:
+        case CDF_Types::CDF_REAL8:
+            return _details::impl_make_buffer<CDF_Types::CDF_DOUBLE>(variable);
+        case CDF_Types::CDF_EPOCH:
+            return _details::impl_make_buffer<CDF_Types::CDF_EPOCH>(variable);
+        case CDF_Types::CDF_EPOCH16:
+            return _details::impl_make_buffer<CDF_Types::CDF_EPOCH16>(variable);
+        case CDF_Types::CDF_TIME_TT2000:
+            return _details::impl_make_buffer<CDF_Types::CDF_TIME_TT2000>(variable);
         default:
             throw std::runtime_error { std::string { "Unsupported CDF type " }
                 + std::to_string(static_cast<int>(variable.type())) };

@@ -61,6 +61,7 @@ sudo ninja install
 ## Python
 
 Basic example from a local file:
+
 ```python
 import pycdfpp
 cdf = pycdfpp.load("some_cdf.cdf")
@@ -69,6 +70,7 @@ attribute_name_first_value = cdf.attributes['attribute_name'][0]
 ```
 
 Note that you can also load in memory files:
+
 ```python
 import pycdfpp
 import requests
@@ -78,7 +80,27 @@ plt.plot(tha_l2_fgm["tha_fgl_gsm"])
 plt.show()
 ```
 
+Buffer protocol support:
+
+```python
+import pycdfpp
+import requests
+import xarray as xr
+import matplotlib.pyplot as plt
+
+tha_l2_fgm = pycdfpp.load(requests.get("https://spdf.gsfc.nasa.gov/pub/data/themis/tha/l2/fgm/2016/tha_l2_fgm_20160101_v01.cdf").content)
+xr.DataArray(tha_l2_fgm['tha_fgl_gsm'], dims=['time', 'components'], coords={'time':tha_l2_fgm['tha_fgl_time'].values, 'components':['x', 'y', 'z']}).plot.line(x='time')
+plt.show()
+
+# Works with matplotlib directly too
+
+plt.plot(tha_l2_fgm['tha_fgl_time'], tha_l2_fgm['tha_fgl_gsm'])
+plt.show()
+
+```
+
 Datetimes handling:
+
 ```python
 import pycdfpp
 import os
