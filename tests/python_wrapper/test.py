@@ -153,6 +153,20 @@ class PycdfTest(unittest.TestCase):
         with self.assertRaises(IndexError):
             attr[len(attr)]
 
+    def test_datetime_conversions(self):
+        for cd in self.cdfs:
+            for f in (pycdfpp.to_datetime, pycdfpp.to_datetime64):
+                for var in ('epoch', 'epoch16', 'tt2000'):
+                    whole_var = f(cd[var])
+                    values = f(cd[var].values)
+                    one_by_one = [f(v) for v in cd[var].values]
+                    self.assertIsNotNone(whole_var)
+                    self.assertIsNotNone(values)
+                    self.assertIsNotNone(one_by_one)
+                    self.assertTrue(np.all(whole_var==values))
+                    self.assertTrue(np.all(whole_var==one_by_one))
+
+
     def test_vars_have_expected_type_and_shape(self):
         for cdf in self.cdfs:
             for name,var in cdf.items():

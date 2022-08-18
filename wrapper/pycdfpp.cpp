@@ -19,8 +19,8 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "chrono.hpp"
 #include "buffers.hpp"
+#include "chrono.hpp"
 #include "repr.hpp"
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf.hpp>
@@ -130,9 +130,12 @@ PYBIND11_MODULE(pycdfpp, m)
     PYBIND11_NUMPY_DTYPE(epoch, value);
     PYBIND11_NUMPY_DTYPE(epoch16, seconds, picoseconds);
 
-    m.def("to_datetime64", array_to_datetime64<epoch>);
-    m.def("to_datetime64", array_to_datetime64<epoch16>);
-    m.def("to_datetime64", array_to_datetime64<tt2000_t>);
+    m.def("to_datetime64", array_to_datetime64<epoch>, py::arg{}.noconvert());
+    m.def("to_datetime64", array_to_datetime64<epoch16>, py::arg{}.noconvert());
+    m.def("to_datetime64", array_to_datetime64<tt2000_t>, py::arg{}.noconvert());
+    m.def("to_datetime64", scalar_to_datetime64<epoch>);
+    m.def("to_datetime64", scalar_to_datetime64<epoch16>);
+    m.def("to_datetime64", scalar_to_datetime64<tt2000_t>);
     m.def("to_datetime64", vector_to_datetime64<epoch>);
     m.def("to_datetime64", vector_to_datetime64<epoch16>);
     m.def("to_datetime64", vector_to_datetime64<tt2000_t>);
@@ -142,11 +145,11 @@ PYBIND11_MODULE(pycdfpp, m)
     m.def("to_datetime", vector_to_datetime<epoch16>);
     m.def("to_datetime", vector_to_datetime<tt2000_t>);
     m.def("to_datetime",
-        static_cast<decltype(to_time_point(epoch {}))(*)(const epoch&)>(to_time_point));
+        static_cast<decltype(to_time_point(epoch {})) (*)(const epoch&)>(to_time_point));
     m.def("to_datetime",
-        static_cast<decltype(to_time_point(epoch16 {}))(*)(const epoch16&)>(to_time_point));
+        static_cast<decltype(to_time_point(epoch16 {})) (*)(const epoch16&)>(to_time_point));
     m.def("to_datetime",
-        static_cast<decltype(to_time_point(tt2000_t {}))(*)(const tt2000_t&)>(to_time_point));
+        static_cast<decltype(to_time_point(tt2000_t {})) (*)(const tt2000_t&)>(to_time_point));
 
     m.def("to_datetime", var_to_datetime);
 

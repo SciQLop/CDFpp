@@ -61,29 +61,64 @@ inline auto transform(const std::vector<T>& input, const function_t& f)
     return result;
 }
 
+template <typename time_t>
+constexpr auto time_t_to_dtype()
+{
+    using period = typename decltype(cdf::to_time_point(std::declval<time_t>()))::duration::period;
+    if constexpr (std::is_same_v<period, std::pico>)
+        return "datetime64[ps]";
+    if constexpr (std::is_same_v<period, std::nano>)
+        return "datetime64[ns]";
+    if constexpr (std::is_same_v<period, std::micro>)
+        return "datetime64[us]";
+    if constexpr (std::is_same_v<period, std::milli>)
+        return "datetime64[ms]";
+    if constexpr (std::is_same_v<period, std::ratio<1>>)
+        return "datetime64[s]";
+}
 
 template <typename time_t>
 inline py::object array_to_datetime64(const py::array_t<time_t>& input)
 {
-    using period = typename decltype(cdf::to_time_point(std::declval<time_t>()))::duration::period;
-    constexpr auto dtype = []() constexpr
+    constexpr auto dtype = time_t_to_dtype<time_t>();
+    if (input.ndim() > 0)
     {
-        if constexpr (std::is_same_v<period, std::pico>)
-            return "datetime64[ns]";
-        if constexpr (std::is_same_v<period, std::nano>)
-            return "datetime64[ns]";
-        if constexpr (std::is_same_v<period, std::micro>)
-            return "datetime64[us]";
-        if constexpr (std::is_same_v<period, std::milli>)
-            return "datetime64[ms]";
-        if constexpr (std::is_same_v<period, std::ratio<1>>)
-            return "datetime64[s]";
+        auto result = transform<time_t>(input,
+            [](const time_t& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
+        return py::cast(&result).attr("astype")(dtype);
     }
-    ();
+    else
+    {
+        auto v = new int64_t;
+        std::cout << input.nbytes() << std::endl;
+        std::cout << input.size() << std::endl;
+        if constexpr (std::is_same_v<time_t, tt2000_t>)
+        {
+            std::cout << input.at().value << std::endl;
+            std::cout << "is tt2000_t" << std::endl;
+        }
+        if constexpr (std::is_same_v<time_t, epoch>)
+        {
+            std::cout << input.at().value << std::endl;
+            std::cout << "is epoch" << std::endl;
+        }
+        if constexpr (std::is_same_v<time_t, epoch16>)
+        {
+            std::cout << input.at().seconds << std::endl;
+            std::cout << "is epoch16" << std::endl;
+        }
+        return py::array(py::dtype(dtype), {}, {}, v);
+    }
+    return py::none();
+}
 
-    auto result = transform<time_t>(
-        input, [](const time_t& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
-    return py::cast(&result).attr("astype")(dtype);
+template <typename time_t>
+inline py::object scalar_to_datetime64(const time_t& input)
+{
+    constexpr auto dtype = time_t_to_dtype<time_t>();
+    auto v = new int64_t;
+    *v = cdf::to_time_point(input).time_since_epoch().count();
+    return py::array(py::dtype(dtype), {}, {}, v);
 }
 
 template <typename time_t>
