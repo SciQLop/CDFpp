@@ -74,6 +74,7 @@ inline std::ostream& operator<<(std::ostream& os, const tt2000_t& time)
 template <class input_t, class item_t>
 inline std::ostream& stream_collection(std::ostream& os, const input_t& input, const item_t& sep)
 {
+    os << "[ ";
     if (std::size(input))
     {
         if (std::size(input) > 1)
@@ -98,86 +99,76 @@ inline std::ostream& stream_collection(std::ostream& os, const input_t& input, c
             os << input.back();
         }
     }
+    os << " ]";
+    return os;
+}
+
+template <class input_t>
+inline std::ostream& stream_string_like(std::ostream& os, const input_t& input)
+{
+    os << "\"";
+    std::string_view sv { reinterpret_cast<const char*>(input.data()), std::size(input) };
+    os << sv;
+    os << "\"";
     return os;
 }
 
 inline std::ostream& operator<<(std::ostream& os, const cdf::data_t& data)
 {
+    using namespace cdf;
     switch (data.type())
     {
-        case cdf::CDF_Types::CDF_BYTE:
-        case cdf::CDF_Types::CDF_INT1:
-            os << "[ ";
-            stream_collection(os, data.get<int8_t>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_BYTE:
+            stream_collection(os, data.get<CDF_Types::CDF_BYTE>(), ", ");
             break;
-        case cdf::CDF_Types::CDF_UINT1:
-            os << "[ ";
-            stream_collection(os, data.get<uint8_t>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_INT1:
+            stream_collection(os, data.get<CDF_Types::CDF_INT1>(), ", ");
             break;
-        case cdf::CDF_Types::CDF_INT2:
-            os << "[ ";
-            stream_collection(os, data.get<int16_t>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_UINT1:
+            stream_collection(os, data.get<CDF_Types::CDF_UINT1>(), ", ");
             break;
-        case cdf::CDF_Types::CDF_INT4:
-            os << "[ ";
-            stream_collection(os, data.get<int32_t>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_INT2:
+            stream_collection(os, data.get<CDF_Types::CDF_INT2>(), ", ");
             break;
-        case cdf::CDF_Types::CDF_INT8:
-            os << "[ ";
-            stream_collection(os, data.get<int64_t>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_INT4:
+            stream_collection(os, data.get<CDF_Types::CDF_INT4>(), ", ");
             break;
-        case cdf::CDF_Types::CDF_UINT2:
-            os << "[ ";
-            stream_collection(os, data.get<uint16_t>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_INT8:
+            stream_collection(os, data.get<CDF_Types::CDF_INT8>(), ", ");
             break;
-        case cdf::CDF_Types::CDF_UINT4:
-            os << "[ ";
-            stream_collection(os, data.get<uint32_t>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_UINT2:
+            stream_collection(os, data.get<CDF_Types::CDF_UINT2>(), ", ");
             break;
-        case cdf::CDF_Types::CDF_DOUBLE:
-        case cdf::CDF_Types::CDF_REAL8:
-            os << "[ ";
-            stream_collection(os, data.get<double>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_UINT4:
+            stream_collection(os, data.get<CDF_Types::CDF_UINT4>(), ", ");
             break;
-        case cdf::CDF_Types::CDF_FLOAT:
-        case cdf::CDF_Types::CDF_REAL4:
-            os << "[ ";
-            stream_collection(os, data.get<float>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_DOUBLE:
+            stream_collection(os, data.get<CDF_Types::CDF_DOUBLE>(), ", ");
             break;
-        case cdf::CDF_Types::CDF_EPOCH:
-            os << "[ ";
-            stream_collection(os, data.get<epoch>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_REAL8:
+            stream_collection(os, data.get<CDF_Types::CDF_REAL8>(), ", ");
             break;
-        case cdf::CDF_Types::CDF_EPOCH16:
-            os << "[ ";
-            stream_collection(os, data.get<epoch16>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_FLOAT:
+            stream_collection(os, data.get<CDF_Types::CDF_FLOAT>(), ", ");
             break;
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-            os << "[ ";
-            stream_collection(os, data.get<tt2000_t>(), ", ");
-            os << " ]";
+        case CDF_Types::CDF_REAL4:
+            stream_collection(os, data.get<CDF_Types::CDF_REAL4>(), ", ");
+            break;
+        case CDF_Types::CDF_EPOCH:
+            stream_collection(os, data.get<CDF_Types::CDF_EPOCH>(), ", ");
+            break;
+        case CDF_Types::CDF_EPOCH16:
+            stream_collection(os, data.get<CDF_Types::CDF_EPOCH16>(), ", ");
+            break;
+        case CDF_Types::CDF_TIME_TT2000:
+            stream_collection(os, data.get<CDF_Types::CDF_TIME_TT2000>(), ", ");
             break;
         case cdf::CDF_Types::CDF_UCHAR:
+            stream_string_like(os, data.get<CDF_Types::CDF_UCHAR>());
+            break;
         case cdf::CDF_Types::CDF_CHAR:
-        {
-            os << "\"";
-            auto v = data.get<char>();
-            std::string sv { v.data(), std::size(v) };
-            os << sv;
-            os << "\"";
-        }
-        break;
+            stream_string_like(os, data.get<CDF_Types::CDF_CHAR>());
+            break;
         default:
             break;
     }
