@@ -37,12 +37,15 @@ endif
 pybind11_dep = dependency('pybind11', required : true, fallback:['pybind11','pybind11_dep'])
 hedley_dep = dependency('hedley', main : true, fallback : ['hedley', 'hedley_dep'])
 
-if build_machine.system() == 'windows' or build_machine.system() == 'darwin'
+if build_machine.system() == 'windows'
     link_args = ['-static-libstdc++','-static-libgcc','-static']
     zlib_dep = meson.get_compiler('cpp').find_library('z', static: true, required:false)
     if not zlib_dep.found()
         zlib_dep = dependency('zlib', main : true, static: true)
     endif
+elif build_machine.system() == 'darwin'
+    link_args = ['-static-libstdc++','-static-libgcc']
+    zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
 else
     link_args = []
     zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
