@@ -1,37 +1,46 @@
 macos_instance:
   image: ghcr.io/cirruslabs/macos-monterey-base:latest
 
-task:
-  name: build wheel for Python ${PYTHON_VERSION}
-  alias: wheel
-  env:
-    PATH: ~/.pyenv/shims:${PATH}
-    matrix:
-      - PYTHON_VERSION: 3.10.4
-      - PYTHON_VERSION: 3.9.13
-      - PYTHON_VERSION: 3.8.10
-  script: |
+build_script_template: &BUILD_SCRIPT_TEMPLATE
+  build_script: |
     brew install gcc@11 pyenv
     pyenv install ${PYTHON_VERSION}
     pyenv local ${PYTHON_VERSION}
     pip3 install meson build wheel twine
     CC=gcc-11 CXX=g++-11 python3 scripts/build_wheel.py
-
-publish_task:
-  only_if: $CIRRUS_RELEASE != ''
-  environment:
-      TWINE_PASSWORD: ENCRYPTED[!7bc03c3f6669a219ca28bf887e2e44110caf139ef9586119b9c589c10074fbbd0b8abd3a6fe01480dad5dbef9b2330bb!]
-      TWINE_USERNAME: __token__
-  depends_on: wheel
-  script: |
     twine upload --skip-existing dist/*
 
-testpypi_publish_task:
-  only_if: $CIRRUS_RELEASE == ''
-  depends_on: wheel
+
+task:
+  name: build release wheel for Python ${PYTHON_VERSION}
+  only_if: $CIRRUS_RELEASE != ''
   environment:
-      TWINE_PASSWORD: ENCRYPTED[!8eaf98f5cf6092969efc4029358a2cb8819bdd8c5f17b98781a3b9e8ce7430f1004edb3a68afb322efa14097b8f10585!]
-      TWINE_USERNAME: __token__
-  script: |
-    twine upload --repository testpypi --skip-existing dist/*.whl
+    TWINE_PASSWORD: ENCRYPTED[!7bc03c3f6669a219ca28bf887e2e44110caf139ef9586119b9c589c10074fbbd0b8abd3a6fe01480dad5dbef9b2330bb!]
+    TWINE_USERNAME: __token__
+    TWINE_REPOSITORY: pypi
+    PATH: ~/.pyenv/shims:${PATH}
+    matrix:
+      - PYTHON_VERSION: 3.10.4
+      - PYTHON_VERSION: 3.9.13
+      - PYTHON_VERSION: 3.8.10
+  binaries_artifacts:
+    path: "dist/*"
+  << : *BUILD_SCRIPT_TEMPLATE
+
+task:
+  name: build test wheel for Python ${PYTHON_VERSION}
+  only_if: $CIRRUS_RELEASE == ''
+  environment:
+    TWINE_PASSWORD: ENCRYPTED[!8eaf98f5cf6092969efc4029358a2cb8819bdd8c5f17b98781a3b9e8ce7430f1004edb3a68afb322efa14097b8f10585!]
+    TWINE_USERNAME: __token__
+    TWINE_REPOSITORY: testpypi
+    PATH: ~/.pyenv/shims:${PATH}
+    matrix:
+      - PYTHON_VERSION: 3.10.4
+      - PYTHON_VERSION: 3.9.13
+      - PYTHON_VERSION: 3.8.10
+  binaries_artifacts:
+    path: "dist/*"
+  << : *BUILD_SCRIPT_TEMPLATE
+
 
