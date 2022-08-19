@@ -10,6 +10,8 @@ build_script_template: &BUILD_SCRIPT_TEMPLATE
     CC=gcc-11 CXX=g++-11 python3 scripts/build_wheel.py
     twine upload --skip-existing dist/*
 
+env:
+  GITHUB_TOKEN: ENCRYPTED[b5d25acd3412fce54a451c9da6175903eaf78a047a033f7b6e39296326b13535d3490dbbe0c4dc158e373e9bb22fa7e1]
 
 task:
   name: build release wheel for Python ${PYTHON_VERSION}
