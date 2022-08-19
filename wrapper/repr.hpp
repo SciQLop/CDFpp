@@ -43,16 +43,29 @@ constexpr bool is_char_like_v
           std::remove_cv_t<std::remove_reference_t<decltype(*std::cbegin(std::declval<
               collection_t>()))>>> or std::is_same_v<uint8_t, std::remove_cv_t<std::remove_reference_t<decltype(*std::cbegin(std::declval<collection_t>()))>>>;
 
+template <int widtw>
+std::ostream& fixed_width(std::ostream& os)
+{
+    return os << std::setprecision(widtw) << std::setw(widtw) << std::setfill('0');
+};
 
 inline std::ostream& operator<<(
     std::ostream& os, const std::chrono::time_point<std::chrono::system_clock>& tp)
 {
     const auto time_t = std::chrono::system_clock::to_time_t(tp);
-
-    os << std::put_time(std::gmtime(&time_t), "%FT%T.") << std::setprecision(6) << std::setw(6)
-       << std::setfill('0')
-       << (std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()) % 1000000)
+    const auto tt = std::gmtime(&time_t);
+    const auto us
+        = (std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()) % 1000000)
               .count();
+    // clang-format off
+    os << fixed_width<4> << tt->tm_year + 1900 << '-'
+       << fixed_width<2> << tt->tm_mon + 1     << '-'
+       << fixed_width<2> << tt->tm_mday        << 'T'
+       << fixed_width<2> << tt->tm_hour        << ':'
+       << fixed_width<2> << tt->tm_min         << ':'
+       << fixed_width<2> << tt->tm_sec         << '.'
+       << fixed_width<6> << us;
+    // clang-format on
     return os;
 }
 
