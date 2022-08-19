@@ -1,11 +1,12 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![CPP17](https://img.shields.io/badge/Language-C++17-blue.svg)]()
 [![PyPi](https://img.shields.io/pypi/v/pycdfpp.svg)](https://pypi.python.org/pypi/pycdfpp)
-[![Windows test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml/badge.svg?branch=main)](https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml)
+[![Windows(x86_64) test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml/badge.svg?branch=main)](https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml)
 [![Linux test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests-linux.yml/badge.svg?branch=main)](https://github.com/SciQLop/CDFpp/actions/workflows/tests-linux.yml)
-[![MacOs test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml/badge.svg?branch=main)](https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml)
-[![Discover on MyBinder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SciQLop/CDFpp/main?labpath=examples/notebooks)
+[![MacOs(x86_64) test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml/badge.svg?branch=main)](https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml)
+[![MacOs(ARM64) test matrix](https://api.cirrus-ci.com/github/SciQLop/CDFpp.svg)](https://cirrus-ci.com/github/SciQLop/CDFpp)
 [![Coverage](https://codecov.io/gh/SciQLop/CDFpp/coverage.svg?branch=main)](https://codecov.io/gh/SciQLop/CDFpp/branch/main)
+[![Discover on MyBinder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SciQLop/CDFpp/main?labpath=examples/notebooks)
 
 
 # CDFpp (CDF++)
