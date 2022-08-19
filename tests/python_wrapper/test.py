@@ -181,6 +181,13 @@ class PycdfTest(unittest.TestCase):
                     self.assertTrue(np.all(whole_var==values))
                     self.assertTrue(np.all(whole_var==one_by_one))
 
+                for attr in ('epoch', 'epoch16', 'tt2000'):
+                    whole_attr = f(cdf.attributes[attr][0])
+                    one_by_one = [f(v) for v in cdf.attributes[attr][0]]
+                    self.assertIsNotNone(whole_attr)
+                    self.assertIsNotNone(one_by_one)
+                    self.assertTrue(np.all(whole_attr==one_by_one))
+
     def test_non_string_vars_implements_buffer_protocol(self):
         for cdf in self.cdfs:
             for name,var in cdf.items():

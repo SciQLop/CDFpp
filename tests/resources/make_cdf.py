@@ -69,6 +69,12 @@ def add_attributes(cd):
     cd.attrs["attr_int"] = [[1,2,3]]
     cd.attrs["attr_multi"] = [[1, 2],[2.,3.],"hello"]
     cd.attrs["empty"] = []
+    cd.attrs["epoch"] = []
+    cd.attrs["epoch"].new(data=make_time_list(10), type=pycdf.const.CDF_EPOCH)
+    cd.attrs["epoch16"] = []
+    cd.attrs["epoch16"].new(data=make_time_list(10), type=pycdf.const.CDF_EPOCH16)
+    cd.attrs["tt2000"] = []
+    cd.attrs["tt2000"].new(data=make_time_list(10), type=pycdf.const.CDF_TIME_TT2000)
 
 
 def make_cdf(name, compress_file=False, compress_var=False, compression_algo=pycdf.const.GZIP_COMPRESSION, row_major=True):

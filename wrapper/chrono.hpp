@@ -102,21 +102,7 @@ inline py::object scalar_to_datetime64(const time_t& input)
 template <typename time_t>
 inline py::object vector_to_datetime64(const std::vector<time_t>& input)
 {
-    using period = typename decltype(cdf::to_time_point(std::declval<time_t>()))::duration::period;
-    constexpr auto dtype = []() constexpr
-    {
-        if constexpr (std::is_same_v<period, std::pico>)
-            return "datetime64[ns]";
-        if constexpr (std::is_same_v<period, std::nano>)
-            return "datetime64[ns]";
-        if constexpr (std::is_same_v<period, std::micro>)
-            return "datetime64[us]";
-        if constexpr (std::is_same_v<period, std::milli>)
-            return "datetime64[ms]";
-        if constexpr (std::is_same_v<period, std::ratio<1>>)
-            return "datetime64[s]";
-    }
-    ();
+    constexpr auto dtype = time_t_to_dtype<time_t>();
 
     auto result = transform<time_t>(
         input, [](const time_t& v) { return cdf::to_time_point(v).time_since_epoch().count(); });

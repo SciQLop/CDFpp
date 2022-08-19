@@ -136,9 +136,9 @@ PYBIND11_MODULE(pycdfpp, m)
     m.def("to_datetime64", scalar_to_datetime64<epoch>);
     m.def("to_datetime64", scalar_to_datetime64<epoch16>);
     m.def("to_datetime64", scalar_to_datetime64<tt2000_t>);
-    m.def("to_datetime64", vector_to_datetime64<epoch>);
-    m.def("to_datetime64", vector_to_datetime64<epoch16>);
-    m.def("to_datetime64", vector_to_datetime64<tt2000_t>);
+    m.def("to_datetime64", vector_to_datetime64<epoch>, py::arg {}.noconvert());
+    m.def("to_datetime64", vector_to_datetime64<epoch16>, py::arg {}.noconvert());
+    m.def("to_datetime64", vector_to_datetime64<tt2000_t>, py::arg {}.noconvert());
     m.def("to_datetime64", var_to_datetime64);
 
     m.def("to_datetime", vector_to_datetime<epoch>);

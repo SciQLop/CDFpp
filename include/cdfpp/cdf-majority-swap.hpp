@@ -81,7 +81,7 @@ namespace _private
         return access_patern;
     }
 
-};
+}
 
 namespace majority
 {
@@ -176,5 +176,5 @@ namespace majority
                 break;
         }
     }
-};
-};
+}
+}

@@ -196,7 +196,7 @@ std::size_t filesize(std::fstream& file)
 
 
 #define CHECK_ATTRIBUTES(cd)                                                                       \
-    REQUIRE(std::size(cd.attributes) == 5);                                                        \
+    REQUIRE(std::size(cd.attributes) == 8);                                                        \
     REQUIRE(has_attribute(cd, "attr"));                                                            \
     REQUIRE(compare_attribute_values(cd.attributes["attr"], "a cdf text attribute"));              \
     REQUIRE(has_attribute(cd, "attr_float"));                                                      \
@@ -209,7 +209,8 @@ std::size_t filesize(std::fstream& file)
     REQUIRE(compare_attribute_values(cd.attributes["attr_multi"],                                  \
         std::vector { int8_t { 1 }, int8_t { 2 } }, std::vector { 2.f, 3.f }, "hello"));           \
     REQUIRE(has_attribute(cd, "empty"));                                                           \
-    REQUIRE(std::size(cd.attributes["empty"]) == 0UL)
+    REQUIRE(std::size(cd.attributes["empty"]) == 0UL);                                             \
+    REQUIRE(has_attribute(cd, "epoch"))
 
 
 #define CHECK_VARIABLES(cd)                                                                        \
@@ -236,7 +237,7 @@ std::size_t filesize(std::fstream& file)
     REQUIRE(compare_shape(cd.variables["zeros"], { 2048 }));                                       \
     REQUIRE(check_variable(cd.variables["zeros"], { 2048 }, zeros<double>()));                     \
     REQUIRE(compare_shape(cd.variables["bytes"], { 10 }));                                         \
-    REQUIRE(check_variable(cd.variables["bytes"], { 10 }, ones<int8_t>()));                       \
+    REQUIRE(check_variable(cd.variables["bytes"], { 10 }, ones<int8_t>()));                        \
     REQUIRE(has_variable(cd, "var3d"));                                                            \
     REQUIRE(compare_shape(cd.variables["var3d"], { 4, 3, 2 }));                                    \
     REQUIRE(check_variable(cd.variables["var3d"], { 4, 3, 2 }, ones<double>()));                   \
