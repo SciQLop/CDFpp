@@ -24,9 +24,9 @@
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
 #include <chrono>
+#include <iomanip>
 #include <sstream>
 #include <string>
-#include <iomanip>
 using namespace cdf;
 
 #include <pybind11/numpy.h>
@@ -49,7 +49,10 @@ inline std::ostream& operator<<(
 {
     const auto time_t = std::chrono::system_clock::to_time_t(tp);
 
-    os << std::put_time(std::gmtime(&time_t), "%FT%T%z");
+    os << std::put_time(std::gmtime(&time_t), "%FT%T.") << std::setprecision(6) << std::setw(6)
+       << std::setfill('0')
+       << (std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()) % 1000000)
+              .count();
     return os;
 }
 
@@ -61,7 +64,7 @@ inline std::ostream& operator<<(std::ostream& os, const epoch& time)
 
 inline std::ostream& operator<<(std::ostream& os, const epoch16& time)
 {
-   os << cdf::to_time_point(time) << std::endl;
+    os << cdf::to_time_point(time) << std::endl;
     return os;
 }
 

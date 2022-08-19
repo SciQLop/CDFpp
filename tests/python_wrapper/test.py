@@ -143,6 +143,20 @@ class PycdfEncodingTest(unittest.TestCase):
         self.assertIn('4ïÂ°', cdf.attributes['TEXT'][0])
 
 
+class PycdfDatetimeReprTest(unittest.TestCase):
+    def test_can_repr_the_exact_expected_value_no_matter_what_TZ(self):
+        backup_TZ=os.environ.get("TZ", None)
+        for tz in ("UTC", "CEST", "JST", "Pacific/Niue"):
+            os.environ["TZ"] = tz
+            cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/testutf8.cdf')
+            self.assertEqual(str(cdf.attributes['epTestDate'][0][0]).strip(), '2004-05-13T15:08:11.022033')
+            self.assertEqual(str(cdf.attributes['TestDate'][0][0]).strip(), '2002-04-25T00:00:00.000000')
+            self.assertEqual(str(cdf.attributes['TestDate'][1][0]).strip(), '2008-02-04T06:08:10.012014')
+        if backup_TZ is None:
+            os.environ.pop("TZ")
+        else:
+            os.environ["TZ"] = backup_TZ
+
 class PycdfTest(unittest.TestCase):
     def setUp(self):
         files = glob(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/a_*.cdf')
