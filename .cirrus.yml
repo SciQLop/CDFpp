@@ -2,11 +2,15 @@ macos_instance:
   image: ghcr.io/cirruslabs/macos-monterey-base:latest
 
 task:
+  env:
+    PATH: ~/.pyenv/shims:${PATH}
+    matrix:
+      - PYTHON_VERSION: 3.10.4
+      - PYTHON_VERSION: 3.9.13
   script: |
     brew install gcc@11 pyenv
-    pyenv install 3.10.4
-    export PATH="~/.pyenv/shims:${PATH}"
-    pyenv local 3.10.4
+    pyenv install ${PYTHON_VERSION}
+    pyenv local ${PYTHON_VERSION}
     pip3 install meson build wheel twine
     CC=gcc-11 CXX=g++-11 python3 scripts/build_wheel.py
 
