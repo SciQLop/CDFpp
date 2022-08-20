@@ -1,12 +1,37 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![CPP17](https://img.shields.io/badge/Language-C++17-blue.svg)]()
 [![PyPi](https://img.shields.io/pypi/v/pycdfpp.svg)](https://pypi.python.org/pypi/pycdfpp)
-[![Windows(x86_64) test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml/badge.svg?branch=main)](https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml)
-[![Linux test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests-linux.yml/badge.svg?branch=main)](https://github.com/SciQLop/CDFpp/actions/workflows/tests-linux.yml)
-[![MacOs(x86_64) test matrix](https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml/badge.svg?branch=main)](https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml)
-[![MacOs(ARM64) test matrix](https://api.cirrus-ci.com/github/SciQLop/CDFpp.svg)](https://cirrus-ci.com/github/SciQLop/CDFpp)
 [![Coverage](https://codecov.io/gh/SciQLop/CDFpp/coverage.svg?branch=main)](https://codecov.io/gh/SciQLop/CDFpp/branch/main)
 [![Discover on MyBinder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SciQLop/CDFpp/main?labpath=examples/notebooks)
+
+# Python packages
+
+| Linux x86_64 | Windows x86_64  | MacOs x86_64  | MacOs ARM64  |
+| --- | --- | --- | --- |
+| [![linux_x86_64][1]][2] | [![windows_x86_64][3]][4] | [![macos_x86_64][5]][6] | [![macos_arm64][7]][8] |
+
+[1]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-linux.yml/badge.svg
+[2]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-linux.yml
+[3]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-win.yml/badge.svg
+[4]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-win.yml
+[5]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-osx.yml/badge.svg
+[6]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-osx.yml
+[7]: https://api.cirrus-ci.com/github/SciQLop/CDFpp.svg
+[8]: https://cirrus-ci.com/github/SciQLop/CDFpp
+
+
+# Unit Tests
+
+| Linux x86_64  | Windows x86_64 | MacOs x86_64  |
+| --- | --- | --- |
+| [![linux_x86_64][9]][10] | [![windows_x86_64][11]][12] | [![macos_x86_64][13]][14] |
+
+[9]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-linux.yml/badge.svg?branch=main
+[10]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-linux.yml
+[11]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml/badge.svg?branch=main
+[12]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml
+[13]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml/badge.svg?branch=main
+[14]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml
 
 
 # CDFpp (CDF++)
