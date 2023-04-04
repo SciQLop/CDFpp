@@ -23,7 +23,7 @@ if(target_machine.endian() == 'big')
 else
     conf_data.set('CDFpp_LITTLE_ENDIAN', true)
 endif
-configure_file(output : 'config.h',
+configure_file(output : 'cdfpp_config.h',
                install : true,
                install_dir : 'include/cdfpp',
                configuration : conf_data)
@@ -112,7 +112,7 @@ if get_option('show_extra_files')
             )
 endif
 
-cdfpp_dep = declare_dependency(include_directories: include_directories('include'),
+cdfpp_dep = declare_dependency(include_directories: [include_directories('include'), meson.current_build_dir()],
                                 dependencies: [zlib_dep, hedley_dep])
 
 

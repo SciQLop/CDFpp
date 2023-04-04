@@ -25,7 +25,7 @@
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
-#include <config.h>
+#include <cdfpp_config.h>
 using namespace cdf;
 
 #include <pybind11/chrono.h>
