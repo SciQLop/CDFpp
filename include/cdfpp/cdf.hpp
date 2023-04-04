@@ -24,6 +24,7 @@
 #include "cdf-file.hpp"
 #include "cdf-io/cdf-io.hpp"
 #include "variable.hpp"
+#include "cdf-repr.hpp"
 #include <optional>
 
 namespace cdf

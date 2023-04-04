@@ -67,6 +67,7 @@ cdfpp_headers = [
     'include/cdfpp/chrono/cdf-chrono.hpp',
     'include/cdfpp/chrono/cdf-chrono-constants.hpp',
     'include/cdfpp/chrono/cdf-leap-seconds.h',
+    'include/cdfpp/cdf-repr.hpp',
     'include/cdfpp/cdf-data.hpp',
     'include/cdfpp/cdf-debug.hpp',
     'include/cdfpp/cdf-endianness.hpp',
@@ -81,7 +82,6 @@ cdfpp_headers = [
     'include/cdfpp/cdf-io/cdf-io-variable.hpp',
     'include/cdfpp/cdf-io/cdf-io-zlib.hpp',
     'include/cdfpp/cdf-io/cdf-io-rle.hpp',
-    'wrapper/repr.hpp',
     'wrapper/chrono.hpp',
     'wrapper/buffers.hpp'
 ]
@@ -126,6 +126,7 @@ install_headers(
 [
     'include/cdfpp/attribute.hpp',
     'include/cdfpp/variable.hpp',
+    'include/cdfpp/cdf-repr.hpp',
     'include/cdfpp/cdf.hpp',
     'include/cdfpp/cdf-helpers.hpp',
     'include/cdfpp/cdf-data.hpp',

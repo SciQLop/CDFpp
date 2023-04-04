@@ -30,12 +30,6 @@
 #include <string>
 using namespace cdf;
 
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-
-namespace py = pybind11;
-
 inline std::ostream& operator<<(std::ostream& os, const cdf::data_t& data);
 
 template <typename collection_t>
