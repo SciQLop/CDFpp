@@ -191,6 +191,7 @@ PYBIND11_MODULE(pycdfpp, m)
     py::class_<CDF>(m, "CDF")
         .def_readonly("attributes", &CDF::attributes, py::return_value_policy::reference)
         .def_property_readonly("majority", [](const CDF& cdf) { return cdf.majority; })
+        .def_property_readonly("distribution_version", [](const CDF& cdf) { return cdf.distribution_version; })
         .def("__repr__", __repr__<CDF>)
         .def(
             "__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; },

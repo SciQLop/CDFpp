@@ -1,10 +1,12 @@
 [wrap-file]
-directory = hedley-11
+directory = hedley-15
+source_url = https://codeload.github.com/nemequ/hedley/tar.gz/v15
+source_filename = hedley-15.tar.gz
+source_hash = e91c71b58f59d08c7b8289be8f687866863d934dfaa528e4be30b178139ae863
+patch_filename = hedley_15-1_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/hedley_15-1/get_patch
+patch_hash = 4fe21441ad90dce22fc2e88b4c2b164ab65682c15858ec710a2b206a5bbe5272
+wrapdb_version = 15-1
 
-source_url = https://codeload.github.com/nemequ/hedley/tar.gz/v11
-source_filename = hedley-11.tar.gz
-source_hash = 7a8cc16a66afc1ac22c4b99b7b798fc4326d217dd4f97facb43181e84fa82f88
-
-patch_url = https://wrapdb.mesonbuild.com/v1/projects/hedley/11/1/get_zip
-patch_filename = hedley-11-1-wrap.zip
-patch_hash = 500bb2ac5dd47d10769db41f89b25af81ce34e5f80e1eb048ec99f89def35f6f
+[provide]
+hedley = hedley_dep

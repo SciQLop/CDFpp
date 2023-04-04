@@ -167,6 +167,10 @@ class PycdfTest(unittest.TestCase):
     def tearDown(self):
         pass
 
+    def test_cdflib_version(self):
+        for cdf in self.cdfs:
+            self.assertEqual(cdf.distribution_version, (3,8,0))
+
     def test_has_all_expected_vars(self):
         for cdf in self.cdfs:
             for name in variables:

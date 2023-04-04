@@ -60,6 +60,8 @@ namespace
         cdf_CDR_t<version_t, buffer_t> cdr;
         cdf_GDR_t<version_t, buffer_t> gdr;
         cdf_majority majority;
+        std::tuple<uint32_t, uint32_t, uint32_t> distribution_version;
+
         buffer_t& buffer;
         bool is_compressed;
         bool ok = false;
@@ -71,6 +73,7 @@ namespace
             {
                 ok = true;
                 majority = common::majority(cdr);
+                distribution_version = { cdr.Version, cdr.Release, cdr.Increment };
             }
         }
         inline cdf_encoding encoding() { return cdr.Encoding.value; }
@@ -80,6 +83,7 @@ namespace
     {
         CDF cdf;
         cdf.majority = repr.majority;
+        cdf.distribution_version = repr.distribution_version;
         cdf.attributes = std::move(repr.attributes);
         cdf.variables = std::move(repr.variables);
         return cdf;
@@ -90,9 +94,11 @@ namespace
     {
         common::cdf_repr repr;
         repr.majority = cdf_headers.majority;
+        repr.distribution_version = { cdf_headers.distribution_version };
         if (!cdf_headers.ok)
             return std::nullopt;
-        if (!attribute::load_all<typename cdf_headers_t::version_tag, iso_8859_1_to_utf8>(cdf_headers, repr))
+        if (!attribute::load_all<typename cdf_headers_t::version_tag, iso_8859_1_to_utf8>(
+                cdf_headers, repr))
             return std::nullopt;
         if (!variable::load_all<typename cdf_headers_t::version_tag>(cdf_headers, repr))
             return std::nullopt;

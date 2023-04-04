@@ -4,11 +4,12 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <tuple>
 
 
-#define CATCH_CONFIG_MAIN
-#if __has_include(<catch2/catch.hpp>)
-#include <catch2/catch.hpp>
+#if __has_include(<catch2/catch_all.hpp>)
+#include <catch2/catch_all.hpp>
+#include <catch2/catch_test_macros.hpp>
 #else
 #include <catch.hpp>
 #endif
@@ -194,6 +195,10 @@ std::size_t filesize(std::fstream& file)
     return static_cast<std::size_t>(pos);
 }
 
+#define CHECK_CDF_FILE(cd, expected_version, expected_majority)                                        \
+    REQUIRE(cd.distribution_version == expected_version);                                                       \
+    REQUIRE(cd.majority == expected_majority);
+
 
 #define CHECK_ATTRIBUTES(cd)                                                                       \
     REQUIRE(std::size(cd.attributes) == 8);                                                        \
@@ -287,6 +292,11 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
+            THEN("Version and majority are retrieved")
+            {
+                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+            }
             THEN("All expected attributes are loaded")
             {
                 CHECK_ATTRIBUTES(cd);
@@ -314,6 +324,11 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(data);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
+            THEN("Version and majority are retrieved")
+            {
+                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+            }
             THEN("All expected attributes are loaded")
             {
                 CHECK_ATTRIBUTES(cd);
@@ -343,6 +358,11 @@ SCENARIO("Loading a cdf files", "[CDF]")
             delete[] data;
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
+            THEN("Version and majority are retrieved")
+            {
+                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+            }
             THEN("All expected attributes are loaded")
             {
                 CHECK_ATTRIBUTES(cd);
@@ -359,6 +379,11 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
+            THEN("Version and majority are retrieved")
+            {
+                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+            }
             THEN("All expected attributes are loaded")
             {
                 CHECK_ATTRIBUTES(cd);
@@ -375,6 +400,11 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
+            THEN("Version and majority are retrieved")
+            {
+                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+            }
             THEN("All expected attributes are loaded")
             {
                 CHECK_ATTRIBUTES(cd);
@@ -391,6 +421,11 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
+            THEN("Version and majority are retrieved")
+            {
+                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+            }
             THEN("All expected attributes are loaded")
             {
                 CHECK_ATTRIBUTES(cd);
@@ -407,6 +442,11 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
+            THEN("Version and majority are retrieved")
+            {
+                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::column);
+            }
             THEN("All expected attributes are loaded")
             {
                 CHECK_ATTRIBUTES(cd);

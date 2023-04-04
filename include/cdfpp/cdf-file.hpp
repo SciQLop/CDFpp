@@ -21,9 +21,10 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "attribute.hpp"
+#include "cdf-enums.hpp"
+#include "cdf-io/cdf-io-common.hpp"
 #include "variable.hpp"
 #include <string>
-#include "cdf-enums.hpp"
 #include <unordered_map>
 
 
@@ -32,6 +33,7 @@ namespace cdf
 struct CDF
 {
     cdf_majority majority;
+    std::tuple<uint32_t,uint32_t,uint32_t> distribution_version;
     std::unordered_map<std::string, Variable> variables;
     std::unordered_map<std::string, Attribute> attributes;
     const Variable& operator[](const std::string& name) const { return variables.at(name); }

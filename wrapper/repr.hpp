@@ -24,6 +24,7 @@
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
 #include <chrono>
+#include <fmt/core.h>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -40,8 +41,11 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::data_t& data);
 template <typename collection_t>
 constexpr bool is_char_like_v
     = std::is_same_v<int8_t,
-          std::remove_cv_t<std::remove_reference_t<decltype(*std::cbegin(std::declval<
-              collection_t>()))>>> or std::is_same_v<uint8_t, std::remove_cv_t<std::remove_reference_t<decltype(*std::cbegin(std::declval<collection_t>()))>>>;
+          std::remove_cv_t<
+              std::remove_reference_t<decltype(*std::cbegin(std::declval<collection_t>()))>>>
+    or std::is_same_v<uint8_t,
+        std::remove_cv_t<
+            std::remove_reference_t<decltype(*std::cbegin(std::declval<collection_t>()))>>>;
 
 template <int widtw>
 std::ostream& fixed_width(std::ostream& os)
@@ -229,7 +233,11 @@ inline std::ostream& operator<<(std::ostream& os, const cdf_majority& majority)
 
 inline std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
 {
-    os << "CDF:\n" << cdf_file.majority << "\n\nAttributes:\n";
+    os << "CDF:\n"
+       << fmt::format("version: {}.{}.{}\n", std::get<0>(cdf_file.distribution_version),
+              std::get<1>(cdf_file.distribution_version),
+              std::get<2>(cdf_file.distribution_version))
+       << cdf_file.majority << "\n\nAttributes:\n";
     std::for_each(std::cbegin(cdf_file.attributes), std::cend(cdf_file.attributes),
         [&os](const auto& item) { os << "\t" << item.second; });
     os << "\nVariables:\n";

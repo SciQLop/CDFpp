@@ -34,8 +34,10 @@ if('clang'==cpp.get_id())
 endif
 
 
-pybind11_dep = dependency('pybind11', required : true, fallback:['pybind11','pybind11_dep'])
-hedley_dep = dependency('hedley', main : true, fallback : ['hedley', 'hedley_dep'])
+pybind11_dep = dependency('pybind11')
+hedley_dep = dependency('hedley')
+fmt_dep = dependency('fmt')
+
 
 if build_machine.system() == 'windows'
     link_args = ['-static-libstdc++','-static-libgcc','-static']
@@ -116,7 +118,7 @@ cdfpp_dep = declare_dependency(include_directories: include_directories('include
 
 
 python3.extension_module('pycdfpp', 'wrapper/pycdfpp.cpp',
-                         dependencies: [cdfpp_dep, pybind11_dep,python3.dependency()],
+                         dependencies: [cdfpp_dep, fmt_dep, pybind11_dep,python3.dependency()],
                          link_args: link_args,
                          install: true
                         )
@@ -162,7 +164,7 @@ if get_option('with_tests')
       }
     )
 
-    catch_dep = dependency('catch2', main : true, fallback : ['catch2', 'catch2_dep'])
+    catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
 
 
     foreach test:['endianness','simple_open', 'zlib', 'majority', 'chrono']

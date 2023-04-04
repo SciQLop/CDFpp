@@ -24,23 +24,29 @@
 #include "../cdf-endianness.hpp"
 #include "../cdf-majority-swap.hpp"
 #include "../variable.hpp"
+#include <assert.h>
 #include <functional>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
-#include <assert.h>
 
 namespace cdf::io::common
 {
 using magic_numbers_t = std::pair<uint32_t, uint32_t>;
+using version_t = std::pair<uint8_t, uint8_t>;
 
-bool is_v3x(const magic_numbers_t& magic)
+inline version_t cdf_version(const magic_numbers_t& magic)
 {
-    return ((magic.first >> 12) & 0xff) >= 0x30;
+    return { (magic.first >> 16) & 0xf, (magic.first >> 12) & 0xf };
 }
 
-bool is_cdf(const magic_numbers_t& magic_numbers) noexcept
+inline bool is_v3x(const magic_numbers_t& magic)
+{
+    return cdf_version(magic).first >= 3;
+}
+
+inline bool is_cdf(const magic_numbers_t& magic_numbers) noexcept
 {
     return (((magic_numbers.first & 0xfff00000) == 0xCDF00000)
                && (magic_numbers.second == 0xCCCC0001 || magic_numbers.second == 0x0000FFFF))
@@ -170,6 +176,7 @@ struct blk_iterator
 struct cdf_repr
 {
     cdf_majority majority;
+    std::tuple<uint32_t, uint32_t, uint32_t> distribution_version;
     std::unordered_map<std::string, Variable> variables;
     std::unordered_map<std::string, Attribute> attributes;
     std::unordered_map<std::size_t, std::unordered_map<std::string, Attribute>> var_attributes;
