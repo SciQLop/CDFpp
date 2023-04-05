@@ -112,7 +112,13 @@ if get_option('show_extra_files')
             )
 endif
 
-cdfpp_dep = declare_dependency(include_directories: [include_directories('include'), meson.current_build_dir()],
+if meson.is_subproject()
+    cdfpp_dep_inc = include_directories(['include', meson.current_build_dir()])
+else
+    cdfpp_dep_inc = include_directories('include')
+endif
+
+cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
                                 dependencies: [zlib_dep, hedley_dep])
 
 
