@@ -24,7 +24,7 @@ jobs:
       - name: Build for Python ${{ matrix.python-version }}
         run: |
             git config --global --add safe.directory '*'
-            pip install --upgrade "meson" "ninja" "numpy" "meson-python" "build" "wheel" "twine" "auditwheel"
+            pip install --upgrade "meson" "ninja" "numpy" "meson-python==0.12.1" "build" "wheel" "twine" "auditwheel"
             python scripts/build_wheel.py
       - name: Make wheels universal
         run: for wheel in $(ls dist/*.whl); do auditwheel repair $wheel; done

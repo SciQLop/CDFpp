@@ -1,6 +1,6 @@
 [build-system]
 build-backend = 'mesonpy'
-requires = ['meson-python', 'numpy']
+requires = ['meson-python==0.12.1', 'numpy']
 
 [project]
 name = "pycdfpp"
