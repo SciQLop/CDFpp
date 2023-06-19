@@ -21,8 +21,8 @@
 ----------------------------------------------------------------------------*/
 #include "buffers.hpp"
 #include "chrono.hpp"
-#include <cdfpp/cdf-repr.hpp>
 #include <cdfpp/cdf-data.hpp>
+#include <cdfpp/cdf-repr.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
 #include <cdfpp_config.h>
@@ -189,13 +189,15 @@ PYBIND11_MODULE(pycdfpp, m)
         .export_values();
 
     py::class_<CDF>(m, "CDF")
-        .def_readonly("attributes", &CDF::attributes, py::return_value_policy::reference)
+        .def_readonly("attributes", &CDF::attributes, py::return_value_policy::reference,
+            py::keep_alive<0, 1>())
         .def_property_readonly("majority", [](const CDF& cdf) { return cdf.majority; })
-        .def_property_readonly("distribution_version", [](const CDF& cdf) { return cdf.distribution_version; })
+        .def_property_readonly(
+            "distribution_version", [](const CDF& cdf) { return cdf.distribution_version; })
         .def("__repr__", __repr__<CDF>)
         .def(
             "__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; },
-            py::return_value_policy::reference)
+            py::return_value_policy::reference_internal)
         .def("__contains__",
             [](const CDF& cd, std::string& key) { return cd.variables.count(key) > 0; })
         .def(
@@ -213,14 +215,16 @@ PYBIND11_MODULE(pycdfpp, m)
     py::class_<Attribute>(m, "Attribute")
         .def_property_readonly("name", [](Attribute& attr) { return attr.name; })
         .def("__repr__", __repr__<Attribute>)
-        .def("__getitem__",
+        .def(
+            "__getitem__",
             [](Attribute& att, std::size_t index) -> py_cdf_attr_data_t
             {
                 if (index >= att.size())
                     throw std::out_of_range(
                         "Trying to get an attribute value outside of its range");
                 return to_py_cdf_data(att[index]);
-            })
+            },
+            py::return_value_policy::reference_internal)
         .def("__len__", [](const Attribute& att) { return att.size(); });
 
     py::class_<Variable>(m, "Variable", py::buffer_protocol())
@@ -231,8 +235,8 @@ PYBIND11_MODULE(pycdfpp, m)
         .def_property_readonly("shape", &Variable::shape)
         .def_property_readonly("majority", &Variable::majority)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
-        .def_property_readonly(
-            "values", make_values_view, py::return_value_policy::reference_internal);
+        .def_property_readonly("values", make_values_view,
+            py::return_value_policy::reference_internal);
 
     m.def(
         "load",
