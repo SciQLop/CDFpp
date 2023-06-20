@@ -85,9 +85,34 @@ jobs:
           name: wheels
           path: dist/*.whl
 
+  test_wheels:
+    needs: [build_osx_and_windows, build_linux]
+    strategy:
+      matrix:
+        os: [macos-11, windows-2019, ubuntu-latest]
+        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - name: install wheel (Windows)
+        if: runner.os != 'Windows'
+        run: |
+          pip install --find-links $GITHUB_WORKSPACE/dist pycdfpp
+      - name: install wheel (Unix)
+        if: runner.os == 'Windows'
+        run: |
+          pip install --find-links $env:GITHUB_WORKSPACE\dist pycdfpp
 
   upload_pypi:
-    needs: [build_osx_and_windows, build_linux, build_sdist]
+    needs: [build_osx_and_windows, build_linux, build_sdist, test_wheels]
     runs-on: ubuntu-latest
     # upload to PyPI only on github releases
     if: github.event_name == 'release' && github.event.action == 'published'
@@ -107,7 +132,7 @@ jobs:
           skip-existing: true
 
   upload_test_pypi:
-    needs: [build_osx_and_windows, build_linux, build_sdist]
+    needs: [build_osx_and_windows, build_linux, build_sdist, test_wheels]
     runs-on: ubuntu-latest
     # upload to test PyPI on github pushes
     if: github.event_name == 'push'
