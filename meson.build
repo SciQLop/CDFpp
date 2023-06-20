@@ -95,13 +95,8 @@ cdfpp_extra_files = [
     'scripts/build_wheel.py',
     'tests/resources/make_cdf.py',
     'tests/python_wrapper/test.py',
-    '.github/workflows/tests-with-coverage.yml',
-    '.github/workflows/tests-osx.yml',
-    '.github/workflows/tests-linux.yml',
-    '.github/workflows/tests-windows.yml',
-    '.github/workflows/pythonpublish-linux.yml',
-    '.github/workflows/pythonpublish-osx.yml',
-    '.github/workflows/pythonpublish-win.yml'
+    '.github/workflows/CI.yml',
+    '.github/workflows/tests-with-coverage.yml'
 ]
 
 if get_option('show_extra_files')

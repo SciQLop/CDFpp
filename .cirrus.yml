@@ -4,6 +4,7 @@ macos_instance:
 build_script_template: &BUILD_SCRIPT_TEMPLATE
   build_script: |
     brew install gcc@11 pyenv
+    brew update && brew upgrade pyenv
     pyenv install ${PYTHON_VERSION}
     pyenv local ${PYTHON_VERSION}
     pip3 install meson build wheel twine
@@ -21,9 +22,10 @@ task:
     TWINE_USERNAME: __token__
     PATH: ~/.pyenv/shims:${PATH}
     matrix:
-      - PYTHON_VERSION: 3.10.4
+      - PYTHON_VERSION: 3.11
+      - PYTHON_VERSION: 3.10.6
       - PYTHON_VERSION: 3.9.13
-      - PYTHON_VERSION: 3.8.10
+      - PYTHON_VERSION: 3.8.13
   << : *BUILD_SCRIPT_TEMPLATE
   upload_script: |
     #!/usr/bin/env bash
@@ -31,26 +33,14 @@ task:
     #https://github.com/joseluisq/paket/blob/5708e9b56ee9a3f871ca1ae8c679350083064069/.cirrus.yml
     set -e
 
-    brew install jq
-
     if [[ "$GITHUB_TOKEN" == "" ]]; then
       echo "GitHub access token GITHUB_TOKEN env is not provided!"
       exit 1
     fi
 
-    RETRIES=0
-    until [ $RETRIES -eq 20 ]
-    do
-      echo "Finding the GitHub release associated with '$CIRRUS_TAG' tag..."
-      CIRRUS_RELEASE=$(curl -sL -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/$CIRRUS_REPO_FULL_NAME/releases | jq -c "[ .[] | select( .tag_name | contains(\"$CIRRUS_TAG\")) ] | .[0]" | jq -r '.id')
-      [[ "$CIRRUS_RELEASE" != "null" ]] && break
-      RETRIES=$((RETRIES+1))
-      sleep 30
-    done
-
     echo $CIRRUS_RELEASE $CIRRUS_TAG
 
-    if [[ "$CIRRUS_RELEASE" == "null" ]]; then
+    if [[ "$CIRRUS_RELEASE" == "" ]]; then
         echo "This is not a release, will push to test.pypi"
         export TWINE_REPOSITORY=testpypi
         export TWINE_PASSWORD=$TESTPYPI_PASSWORD
@@ -74,9 +64,10 @@ task:
     TWINE_REPOSITORY: testpypi
     PATH: ~/.pyenv/shims:${PATH}
     matrix:
-      - PYTHON_VERSION: 3.10.4
-      - PYTHON_VERSION: 3.9.13
-      - PYTHON_VERSION: 3.8.10
+    - PYTHON_VERSION: 3.11
+    - PYTHON_VERSION: 3.10.6
+    - PYTHON_VERSION: 3.9.13
+    - PYTHON_VERSION: 3.8.13
   << : *BUILD_SCRIPT_TEMPLATE
   upload_script:
     twine upload --skip-existing dist/*

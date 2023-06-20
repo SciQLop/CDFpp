@@ -1,0 +1,128 @@
+name: GH Actions
+
+on:
+  release:
+    types: [published]
+  push:
+  pull_request:
+
+jobs:
+  build_sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          architecture: x64
+      - name: Build sdist
+        run: |
+            python -m pip install --upgrade "meson" "ninja" "numpy" "meson-python==0.12.1" "build" "wheel" "twine" "auditwheel"
+            python -m build -n --sdist .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: source
+          path: dist/*.tar.gz
+
+  build_linux:
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux2014_x86_64
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['cp37-cp37m', 'cp38-cp38', 'cp39-cp39', 'cp310-cp310', 'cp311-cp311']
+    steps:
+      - name: add Python dir to path
+        run: |
+            echo "/opt/python/${{ matrix.python-version }}/bin" >> $GITHUB_PATH
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Build for Python ${{ matrix.python-version }}
+        run: |
+            git config --global --add safe.directory '*'
+            pip install --upgrade "meson" "ninja" "numpy" "meson-python==0.12.1" "build" "wheel" "twine" "auditwheel"
+            python scripts/build_wheel.py
+      - name: Make wheels universal
+        run: for wheel in $(ls dist/*.whl); do auditwheel repair $wheel; done
+      - name: Save packages as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: wheelhouse/*.whl
+
+  build_osx_and_windows:
+    strategy:
+      matrix:
+        os: [macos-11, windows-2019]
+        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+      - name: install dependencies
+        run: |
+          pip install --upgrade twine build ninja wheel meson numpy meson-python==0.12.1
+      - name: bulid package for MacOs
+        if: runner.os != 'Windows'
+        run: |
+          CC=gcc-11 CXX=g++-11 python scripts/build_wheel.py
+      - name: bulid package for Windows
+        if: runner.os == 'Windows'
+        run: |
+          python scripts/build_wheel.py
+      - name: Save packages as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist/*.whl
+
+
+  upload_pypi:
+    needs: [build_osx_and_windows, build_linux, build_sdist]
+    runs-on: ubuntu-latest
+    # upload to PyPI only on github releases
+    if: github.event_name == 'release' && github.event.action == 'published'
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: source
+          path: dist
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_PASSWORD }}
+          skip-existing: true
+
+  upload_test_pypi:
+    needs: [build_osx_and_windows, build_linux, build_sdist]
+    runs-on: ubuntu-latest
+    # upload to test PyPI on github pushes
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: source
+          path: dist
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_TEST_PASSWORD }}
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
