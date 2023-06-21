@@ -95,6 +95,7 @@ cdfpp_extra_files = [
     'scripts/build_wheel.py',
     'tests/resources/make_cdf.py',
     'tests/python_wrapper/test.py',
+    'tests/full_corpus/test_full_corpus.py',
     '.github/workflows/CI.yml',
     '.github/workflows/tests-with-coverage.yml'
 ]
@@ -180,6 +181,13 @@ if get_option('with_tests')
     test('python_wrapper_test', python3,
         args:[meson.current_source_dir()+'/tests/python_wrapper/test.py'],
         env:['PYTHONPATH='+meson.current_build_dir()],
+        workdir:meson.current_build_dir())
+
+
+    test('full_corpus_test', python3,
+        args:[meson.current_source_dir()+'/tests/full_corpus/test_full_corpus.py'],
+        env:['PYTHONPATH='+meson.current_build_dir()],
+        timeout: 300,
         workdir:meson.current_build_dir())
 
     python_wrapper_cpp = executable('python_wrapper_cpp','tests/python_wrapper_cpp/main.cpp',
