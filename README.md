@@ -10,12 +10,12 @@
 | --- | --- | --- | --- |
 | [![linux_x86_64][1]][2] | [![windows_x86_64][3]][4] | [![macos_x86_64][5]][6] | [![macos_arm64][7]][8] |
 
-[1]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-linux.yml/badge.svg
-[2]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-linux.yml
-[3]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-win.yml/badge.svg
-[4]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-win.yml
-[5]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-osx.yml/badge.svg
-[6]: https://github.com/SciQLop/CDFpp/actions/workflows/pythonpublish-osx.yml
+[1]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=release
+[2]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
+[3]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=release
+[4]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
+[5]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=release
+[6]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
 [7]: https://api.cirrus-ci.com/github/SciQLop/CDFpp.svg
 [8]: https://cirrus-ci.com/github/SciQLop/CDFpp
 
@@ -26,12 +26,12 @@
 | --- | --- | --- |
 | [![linux_x86_64][9]][10] | [![windows_x86_64][11]][12] | [![macos_x86_64][13]][14] |
 
-[9]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-linux.yml/badge.svg?branch=main
-[10]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-linux.yml
-[11]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml/badge.svg?branch=main
-[12]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-windows.yml
-[13]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml/badge.svg?branch=main
-[14]: https://github.com/SciQLop/CDFpp/actions/workflows/tests-osx.yml
+[9]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=push
+[10]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
+[11]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=push
+[12]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
+[13]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=push
+[14]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
 
 
 # CDFpp (CDF++)
