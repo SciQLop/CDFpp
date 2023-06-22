@@ -52,18 +52,23 @@ inline std::ostream& operator<<(
 {
     const auto time_t = std::chrono::system_clock::to_time_t(tp);
     const auto tt = std::gmtime(&time_t);
-    const auto us
-        = (std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch()) % 1000000)
-              .count();
-    // clang-format off
-    os << fixed_width<4> << tt->tm_year + 1900 << '-'
-       << fixed_width<2> << tt->tm_mon + 1     << '-'
-       << fixed_width<2> << tt->tm_mday        << 'T'
-       << fixed_width<2> << tt->tm_hour        << ':'
-       << fixed_width<2> << tt->tm_min         << ':'
-       << fixed_width<2> << tt->tm_sec         << '.'
-       << fixed_width<6> << us;
-    // clang-format on
+    if (tt)
+    {
+        const auto us
+            = (std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch())
+                % 1000000)
+                  .count();
+        // clang-format off
+        os << fixed_width<4> << tt->tm_year + 1900 << '-'
+           << fixed_width<2> << tt->tm_mon + 1     << '-'
+           << fixed_width<2> << tt->tm_mday        << 'T'
+           << fixed_width<2> << tt->tm_hour        << ':'
+           << fixed_width<2> << tt->tm_min         << ':'
+           << fixed_width<2> << tt->tm_sec         << '.'
+           << fixed_width<6> << us;
+        // clang-format on
+    }
+
     return os;
 }
 
