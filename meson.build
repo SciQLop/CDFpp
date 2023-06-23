@@ -10,6 +10,8 @@ project(
   license : 'GPL3'
 )
 
+subdir('pycdfpp')
+
 if get_option('buildtype').contains('debug')
     add_project_arguments('-DCDFPP_ENABLE_ASSERT', language : ['cpp'])
     add_project_arguments('-DCDFPP_HEDLEY', language : ['cpp'])
@@ -100,13 +102,13 @@ cdfpp_extra_files = [
     '.github/workflows/tests-with-coverage.yml'
 ]
 
-if get_option('show_extra_files')
-    cdfpp_lib = static_library('CDFpp',
-            include_directories: include_directories('include'),
-            dependencies: [zlib_dep, hedley_dep],
-            extra_files: [cdfpp_headers, cdfpp_extra_files]
-            )
-endif
+#if get_option('show_extra_files')
+#    cdfpp_lib = static_library('CDFpp',
+#            include_directories: include_directories('include'),
+#            dependencies: [zlib_dep, hedley_dep],
+#            extra_files: [cdfpp_headers, cdfpp_extra_files]
+#            )
+#endif
 
 if meson.is_subproject()
     cdfpp_dep_inc = include_directories(['include', meson.current_build_dir()])
@@ -122,8 +124,11 @@ cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
 python3.extension_module('pycdfpp', 'wrapper/pycdfpp.cpp',
                          dependencies: [cdfpp_dep, fmt_dep, pybind11_dep,python3.dependency()],
                          link_args: link_args,
-                         install: true
+                         install: true,
+                         extra_files:[cdfpp_headers, cdfpp_extra_files]
                         )
+python3.install_sources(pycdfpp_python_sources, pure: false, subdir: 'pycdfpp')
+
 install_headers(
 [
     'include/cdfpp/attribute.hpp',
