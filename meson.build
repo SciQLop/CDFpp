@@ -1,6 +1,6 @@
 project(
   'pycdfpp',
-  'cpp',
+  'cpp','c',
   meson_version: '>= 0.63.0',
   version : run_command('scripts/version.py',
                         capture:true,
@@ -10,8 +10,6 @@ project(
   license : 'GPL3'
 )
 
-subdir('pycdfpp')
-
 if get_option('buildtype').contains('debug')
     add_project_arguments('-DCDFPP_ENABLE_ASSERT', language : ['cpp'])
     add_project_arguments('-DCDFPP_HEDLEY', language : ['cpp'])
@@ -20,6 +18,11 @@ endif
 
 conf_data = configuration_data()
 conf_data.set_quoted('CDFPP_VERSION', meson.project_version())
+
+if get_option('use_libdeflate')
+    conf_data.set('CDFpp_USE_LIBDEFLATE', true)
+endif
+
 if(target_machine.endian() == 'big')
     conf_data.set('CDFpp_BIG_ENDIAN', true)
 else
@@ -40,28 +43,29 @@ pybind11_dep = dependency('pybind11')
 hedley_dep = dependency('hedley')
 fmt_dep = dependency('fmt')
 
-
 if build_machine.system() == 'windows'
     link_args = ['-static-libstdc++','-static-libgcc','-static']
-    zlib_dep = meson.get_compiler('cpp').find_library('z', static: true, required:false)
-    if not zlib_dep.found()
-        zlib_dep = dependency('zlib', main : true, static: true)
-    endif
 elif build_machine.system() == 'darwin'
     link_args = ['-static-libstdc++','-static-libgcc']
-    zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
 else
     link_args = []
-    zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
+endif
+
+if get_option('use_libdeflate')
+    zlib_dep = dependency('libdeflate')
+else
+    if build_machine.system() == 'windows'
+        zlib_dep = meson.get_compiler('cpp').find_library('z', static: true, required:false)
+        if not zlib_dep.found()
+            zlib_dep = dependency('zlib', main : true, static: true)
+        endif
+    else
+        zlib_dep = dependency('zlib', main : true, fallback : ['zlib', 'zlib_dep'])
+    endif
 endif
 
 
-
-
-pymod = import('python')
-python3 = pymod.find_installation('python3')
-
-cdfpp_headers = [
+cdfpp_headers = files(
     'include/cdfpp/attribute.hpp',
     'include/cdfpp/variable.hpp',
     'include/cdfpp/cdf.hpp',
@@ -82,13 +86,15 @@ cdfpp_headers = [
     'include/cdfpp/cdf-io/cdf-io-common.hpp',
     'include/cdfpp/cdf-io/cdf-io-desc-records.hpp',
     'include/cdfpp/cdf-io/cdf-io-variable.hpp',
+    'include/cdfpp/cdf-io/cdf-io-decompression.hpp',
     'include/cdfpp/cdf-io/cdf-io-zlib.hpp',
+    'include/cdfpp/cdf-io/cdf-io-libdeflate.hpp',
     'include/cdfpp/cdf-io/cdf-io-rle.hpp',
-    'wrapper/chrono.hpp',
-    'wrapper/buffers.hpp'
-]
+    'pycdfpp/chrono.hpp',
+    'pycdfpp/buffers.hpp'
+)
 
-cdfpp_extra_files = [
+cdfpp_extra_files = files(
     'pyproject.toml',
     'README.md',
     '.bumpversion.cfg',
@@ -100,34 +106,19 @@ cdfpp_extra_files = [
     'tests/full_corpus/test_full_corpus.py',
     '.github/workflows/CI.yml',
     '.github/workflows/tests-with-coverage.yml'
-]
+)
 
-#if get_option('show_extra_files')
-#    cdfpp_lib = static_library('CDFpp',
-#            include_directories: include_directories('include'),
-#            dependencies: [zlib_dep, hedley_dep],
-#            extra_files: [cdfpp_headers, cdfpp_extra_files]
-#            )
-#endif
 
-if meson.is_subproject()
-    cdfpp_dep_inc = include_directories(['include', meson.current_build_dir()])
-else
-    cdfpp_dep_inc = include_directories('include')
-endif
+cdfpp_dep_inc = include_directories('include', '.')
+
 
 cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
                                 dependencies: [zlib_dep, hedley_dep])
 
 
+subdir('pycdfpp')
 
-python3.extension_module('pycdfpp', 'wrapper/pycdfpp.cpp',
-                         dependencies: [cdfpp_dep, fmt_dep, pybind11_dep,python3.dependency()],
-                         link_args: link_args,
-                         install: true,
-                         extra_files:[cdfpp_headers, cdfpp_extra_files]
-                        )
-python3.install_sources(pycdfpp_python_sources, pure: false, subdir: 'pycdfpp')
+
 
 install_headers(
 [
@@ -175,7 +166,7 @@ if get_option('with_tests')
     catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
 
 
-    foreach test:['endianness','simple_open', 'zlib', 'majority', 'chrono']
+    foreach test:['endianness','simple_open', 'majority', 'chrono']
         exe = executable('test-'+test,'tests/'+test+'/main.cpp',
                         dependencies:[catch_dep, cdfpp_dep],
                         install: false

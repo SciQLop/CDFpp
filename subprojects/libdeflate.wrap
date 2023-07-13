@@ -1,0 +1,7 @@
+[wrap-git]
+url=https://github.com/jeandet/libdeflate
+revision=meson
+depth=1
+
+[provide]
+libdeflate=libdeflate_dep

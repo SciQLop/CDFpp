@@ -26,10 +26,9 @@
 #include "cdf-io-attribute.hpp"
 #include "cdf-io-buffers.hpp"
 #include "cdf-io-common.hpp"
+#include "cdf-io-decompression.hpp"
 #include "cdf-io-desc-records.hpp"
-#include "cdf-io-rle.hpp"
 #include "cdf-io-variable.hpp"
-#include "cdf-io-zlib.hpp"
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -114,11 +113,12 @@ namespace
             {
                 cdf_CPR_t<cdf_version_tag_t, buffer_t> CPR { buffer };
                 CPR.load(CCR.CPRoffset.value);
+                std::vector<char> data(8UL + CCR.uSize);
+                buffer.read(data.data(), 0, 8);
                 if (CPR.cType.value == cdf_compression_type::gzip_compression)
                 {
-                    std::vector<char> data(8UL);
-                    buffer.read(data.data(), 0, 8);
-                    zlib::gzinflate(CCR.data.value, data);
+                    decompression::gzinflate(
+                        CCR.data.value, data.data() + 8UL, std::size(data) - 8UL);
                     buffers::array_adapter decompressed_buffer(data);
                     cdf_headers_t<cdf_version_tag_t, decltype(decompressed_buffer)> cdf_headers {
                         decompressed_buffer
@@ -127,9 +127,9 @@ namespace
                 }
                 else if (CPR.cType.value == cdf_compression_type::rle_compression)
                 {
-                    std::vector<char> data(8UL);
-                    buffer.read(data.data(), 0, 8);
-                    rle::deflate(CCR.data.value, data);
+
+                    decompression::rleinflate(
+                        CCR.data.value, data.data() + 8UL, std::size(data) - 8UL);
                     buffers::array_adapter decompressed_buffer(data);
                     cdf_headers_t<cdf_version_tag_t, decltype(decompressed_buffer)> cdf_headers {
                         decompressed_buffer

@@ -1,7 +1,7 @@
 #pragma once
 /*------------------------------------------------------------------------------
 -- This file is a part of the CDFpp library
--- Copyright (C) 2019, Plasma Physics Laboratory - CNRS
+-- Copyright (C) 2023, Plasma Physics Laboratory - CNRS
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -26,46 +26,35 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <libdeflate.h>
 #include <type_traits>
 #include <vector>
-#define ZLIB_CONST
-#include <zlib.h>
 
-
-namespace cdf::io::zlib
+namespace cdf::io::libdeflate
 {
 namespace _internal
 {
 
-    // Taken from:
-    //   https://github.com/qpdf/qpdf/blob/master/libqpdf/Pl_Flate.cc
     CDF_WARN_UNUSED_RESULT std::size_t impl_inflate(
         const std::vector<char>& input, char* output, const std::size_t output_size)
     {
 
-        z_stream fstream;
-        fstream.zalloc = Z_NULL;
-        fstream.zfree = Z_NULL;
-        fstream.opaque = Z_NULL;
-        fstream.avail_in = std::size(input);
-        fstream.next_in = reinterpret_cast<const Bytef*>(input.data());
-        fstream.avail_out = output_size;
-        fstream.next_out = reinterpret_cast<Bytef*>(output);
-
-        if (Z_OK != inflateInit2(&fstream, 32 + MAX_WBITS))
-            return 0;
-
-        auto ret = inflate(&fstream, Z_FINISH);
-        inflateEnd(&fstream);
-
-        if (ret == Z_STREAM_END)
+        auto decompressor = libdeflate_alloc_decompressor();
+        std::size_t length;
+        auto result = libdeflate_gzip_decompress(
+            decompressor, input.data(), std::size(input), output, output_size, &length);
+        libdeflate_free_decompressor(decompressor);
+        if (result == LIBDEFLATE_SUCCESS)
+        {
             return output_size;
+        }
         else
+        {
             return 0;
+        }
     }
 
 }
-
 
 std::size_t gzinflate(const std::vector<char>& input, char* output, const std::size_t output_size)
 {

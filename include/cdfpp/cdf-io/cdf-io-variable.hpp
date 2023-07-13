@@ -25,9 +25,8 @@
 #include "../cdf-endianness.hpp"
 #include "../variable.hpp"
 #include "cdf-io-common.hpp"
+#include "cdf-io-decompression.hpp"
 #include "cdf-io-desc-records.hpp"
-#include "cdf-io-rle.hpp"
-#include "cdf-io-zlib.hpp"
 #include <cstdint>
 #include <numeric>
 
@@ -111,27 +110,20 @@ namespace
         const std::size_t vvr_records_count, const uint32_t record_size, std::size_t& pos,
         const cdf_compression_type compression_type, std::vector<char>& data)
     {
-        std::vector<char> vvr_data;
         if (compression_type == cdf_compression_type::gzip_compression)
         {
-            zlib::gzinflate(cvvr.data.value, vvr_data);
+            pos += decompression::gzinflate(
+                cvvr.data.value, data.data() + pos, std::size(data) - pos);
         }
         else
         {
             if (compression_type == cdf_compression_type::rle_compression)
             {
-                rle::deflate(cvvr.data.value, vvr_data);
+                pos += decompression::rleinflate(
+                    cvvr.data.value, data.data() + pos, std::size(data) - pos);
             }
             else
                 throw std::runtime_error { "Unsuported variable compression algorithm" };
-        }
-        if (std::size(vvr_data))
-        {
-            std::size_t data_size
-                = std::min(vvr_records_count * record_size, std::size(data) - pos);
-            CDFPP_ASSERT(data_size <= std::size(vvr_data));
-            std::copy(std::cbegin(vvr_data), std::cbegin(vvr_data) + data_size, data.data() + pos);
-            pos += data_size;
         }
     }
 
@@ -231,8 +223,7 @@ namespace
             * std::accumulate(std::cbegin(shape), std::cend(shape), 1, std::multiplies<uint32_t>());
     }
 
-    template <cdf_r_z type, typename cdf_version_tag_t, typename stream_t,
-        typename context_t>
+    template <cdf_r_z type, typename cdf_version_tag_t, typename stream_t, typename context_t>
     bool load_all_Vars(stream_t& stream, context_t& context, common::cdf_repr& cdf)
     {
         std::for_each(begin_VDR<type>(context.gdr), end_VDR<type>(context.gdr),
@@ -275,10 +266,8 @@ namespace
 template <typename cdf_version_tag_t, typename context_t>
 bool load_all(context_t& context, common::cdf_repr& cdf)
 {
-    return load_all_Vars<cdf_r_z::r, cdf_version_tag_t>(
-               context.buffer, context, cdf)
-        & load_all_Vars<cdf_r_z::z, cdf_version_tag_t>(
-            context.buffer, context, cdf);
+    return load_all_Vars<cdf_r_z::r, cdf_version_tag_t>(context.buffer, context, cdf)
+        & load_all_Vars<cdf_r_z::z, cdf_version_tag_t>(context.buffer, context, cdf);
 }
 
 }
