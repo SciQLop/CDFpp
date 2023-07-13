@@ -35,26 +35,28 @@ namespace _internal
 
 }
 
-inline bool deflate(const std::vector<char>& input, std::vector<char>& result)
+inline std::size_t inflate(const std::vector<char>& input, char* output)
 {
-    result.reserve(std::size(input));
-    auto cursor = std::cbegin(input);
-    while (cursor != std::cend(input))
+    auto output_cursor = output;
+    auto input_cursor = std::cbegin(input);
+    while (input_cursor != std::cend(input))
     {
-        auto value = *cursor;
+        auto value = *input_cursor;
         if (value == 0)
         {
-            cursor++;
-            std::size_t count = static_cast<unsigned char>(*cursor)+ 1;
-            std::generate_n(std::back_inserter(result), count, []()constexpr{return 0;});
+            input_cursor++;
+            std::size_t count = static_cast<unsigned char>(*input_cursor) + 1;
+            std::generate_n(output_cursor, count, []() constexpr { return 0; });
+            output_cursor += count;
         }
         else
         {
-            result.push_back(value);
+            *output_cursor = value;
+            output_cursor++;
         }
-        cursor++;
+        input_cursor++;
     }
-    return true;
+    return output_cursor - output;
 }
 
 

@@ -1,7 +1,7 @@
 #pragma once
 /*------------------------------------------------------------------------------
 -- This file is a part of the CDFpp library
--- Copyright (C) 2019, Plasma Physics Laboratory - CNRS
+-- Copyright (C) 2023, Plasma Physics Laboratory - CNRS
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -21,57 +21,45 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "../cdf-debug.hpp"
+#include "../cdf-enums.hpp"
 #include <cdfpp_config.h>
-
-#include <algorithm>
-#include <cstdint>
-#include <iostream>
-#include <type_traits>
 #include <vector>
-#define ZLIB_CONST
-#include <zlib.h>
+#ifdef CDFpp_USE_LIBDEFLATE
+#include "cdf-io-libdeflate.hpp"
+#else
+#include "cdf-io-zlib.hpp"
+#endif
 
+#include "cdf-io-rle.hpp"
 
-namespace cdf::io::zlib
+namespace cdf::io::decompression
 {
-namespace _internal
+
+
+inline std::size_t rleinflate(
+    const std::vector<char>& input, char* output, const std::size_t output_size)
 {
-
-    // Taken from:
-    //   https://github.com/qpdf/qpdf/blob/master/libqpdf/Pl_Flate.cc
-    CDF_WARN_UNUSED_RESULT std::size_t impl_inflate(
-        const std::vector<char>& input, char* output, const std::size_t output_size)
-    {
-
-        z_stream fstream;
-        fstream.zalloc = Z_NULL;
-        fstream.zfree = Z_NULL;
-        fstream.opaque = Z_NULL;
-        fstream.avail_in = std::size(input);
-        fstream.next_in = reinterpret_cast<const Bytef*>(input.data());
-        fstream.avail_out = output_size;
-        fstream.next_out = reinterpret_cast<Bytef*>(output);
-
-        if (Z_OK != inflateInit2(&fstream, 32 + MAX_WBITS))
-            return 0;
-
-        auto ret = inflate(&fstream, Z_FINISH);
-        inflateEnd(&fstream);
-
-        if (ret == Z_STREAM_END)
-            return output_size;
-        else
-            return 0;
-    }
-
+    (void)output_size;
+    return rle::inflate(input, output);
 }
 
 
 std::size_t gzinflate(const std::vector<char>& input, char* output, const std::size_t output_size)
 {
-    using namespace _internal;
-    return impl_inflate(input, output, output_size);
+#ifdef CDFpp_USE_LIBDEFLATE
+    return libdeflate::gzinflate(input, output, output_size);
+#else
+    return zlib::gzinflate(input, output, output_size);
+#endif
 }
 
+template <cdf_compression_type type>
+std::size_t inflate(const std::vector<char>& input, char* output, const std::size_t output_size)
+{
+    if constexpr (type == cdf_compression_type::gzip_compression)
+        return gzinflate(input, output, output_size);
+    if constexpr (type == cdf_compression_type::rle_compression)
+        return rleinflate(input, output, output_size);
+}
 
 }

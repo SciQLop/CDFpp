@@ -33,6 +33,7 @@ namespace cdf
 struct CDF
 {
     cdf_majority majority;
+    cdf_compression_type compression;
     std::tuple<uint32_t,uint32_t,uint32_t> distribution_version;
     std::unordered_map<std::string, Variable> variables;
     std::unordered_map<std::string, Attribute> attributes;
