@@ -108,13 +108,25 @@ namespace
     using uint_t = typename uint<s>::type;
 
 
-    inline uint8_t bswap(uint8_t v) { return v; }
-    inline uint16_t bswap(uint16_t v) { return bswap16(v); }
-    inline uint32_t bswap(uint32_t v) { return bswap32(v); }
-    inline uint64_t bswap(uint64_t v) { return bswap64(v); }
+    inline uint8_t bswap(uint8_t v)
+    {
+        return v;
+    }
+    inline uint16_t bswap(uint16_t v)
+    {
+        return bswap16(v);
+    }
+    inline uint32_t bswap(uint32_t v)
+    {
+        return bswap32(v);
+    }
+    inline uint64_t bswap(uint64_t v)
+    {
+        return bswap64(v);
+    }
 
     template <typename T, std::size_t s = sizeof(T)>
-    T byte_swap(T value)
+    inline T byte_swap(T value)
     {
         using int_repr_t = uint_t<s>;
         int_repr_t result = bswap(*reinterpret_cast<int_repr_t*>(&value));
@@ -144,13 +156,21 @@ inline void decode_v(const char* input, std::size_t size, value_t* output)
     using casted_buffer_t = uint_t<sizeof(value_t)>;
     CDFPP_ASSERT(input != nullptr);
     CDFPP_ASSERT(output != nullptr);
-    std::memcpy(output, input, size);
-    if constexpr (not std::is_same_v<host_endianness_t, src_endianess_t>)
+    if (size > 0)
     {
-        std::size_t buffer_size = size / sizeof(value_t);
-        casted_buffer_t* casted_buffer = reinterpret_cast<casted_buffer_t*>(output);
-        std::transform(casted_buffer, casted_buffer + buffer_size, casted_buffer,
-            [](const auto& v) { return byte_swap(v); });
+        if (reinterpret_cast<const void*>(output) != reinterpret_cast<const void*>(input))
+        {
+            std::memcpy(output, input, size);
+        }
+        if constexpr (not std::is_same_v<host_endianness_t, src_endianess_t>)
+        {
+            std::size_t buffer_size = size / sizeof(value_t);
+            casted_buffer_t* casted_buffer = reinterpret_cast<casted_buffer_t*>(output);
+            for (auto i = 0UL; i < buffer_size; i++)
+            {
+                casted_buffer[i] = byte_swap(casted_buffer[i]);
+            }
+        }
     }
 }
 

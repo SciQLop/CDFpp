@@ -37,10 +37,12 @@ Attribute::attr_data_t load_data(
         [&](auto& AEDR)
         {
             std::size_t element_size = cdf_type_size(CDF_Types { AEDR.DataType.value });
-            auto data
-                = buffer.read(AEDR.offset + AEDR.Values.offset, AEDR.NumElements * element_size);
+            data_t data = new_data_container(
+                AEDR.NumElements * element_size, CDF_Types { AEDR.DataType.value });
+            buffer.read(data.bytes_ptr(), AEDR.offset + AEDR.Values.offset,
+                AEDR.NumElements * element_size);
             values.emplace_back(
-                load_values<iso_8859_1_to_utf8>(data.data(), std::size(data), AEDR.DataType.value, context.encoding()));
+                load_values<iso_8859_1_to_utf8>(std::move(data), context.encoding()));
             var_num.push_back(AEDR.Num.value);
         });
     return values;
