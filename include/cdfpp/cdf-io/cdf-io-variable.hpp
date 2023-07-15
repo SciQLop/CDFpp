@@ -96,31 +96,28 @@ namespace
     template <typename cdf_version_tag_t, typename buffer_t>
     inline void load_vvr_data(buffer_t& stream, const cdf_VVR_t<cdf_version_tag_t, buffer_t>& vvr,
         const std::size_t vvr_records_count, const uint32_t record_size, std::size_t& pos,
-        std::vector<char>& data)
+        char* data, std::size_t data_len)
     {
-        std::size_t data_size = std::min(vvr_records_count * record_size, std::size(data) - pos);
-        CDFPP_ASSERT(data_size <= vvr.data_size());
-        load_vvr_data<cdf_version_tag_t>(stream, data_size, vvr, data.data() + pos);
-        pos += data_size;
+        std::size_t vvr_data_size = std::min(vvr_records_count * record_size, data_len - pos);
+        load_vvr_data<cdf_version_tag_t>(stream, vvr_data_size, vvr, data + pos);
+        pos += vvr_data_size;
     }
 
 
     template <typename cdf_version_tag_t, typename buffer_t>
     inline void load_cvvr_data(const cdf_CVVR_t<cdf_version_tag_t, buffer_t>& cvvr,
-        const std::size_t vvr_records_count, const uint32_t record_size, std::size_t& pos,
-        const cdf_compression_type compression_type, std::vector<char>& data)
+        std::size_t& pos, const cdf_compression_type compression_type, char* data,
+        std::size_t data_len)
     {
         if (compression_type == cdf_compression_type::gzip_compression)
         {
-            pos += decompression::gzinflate(
-                cvvr.data.value, data.data() + pos, std::size(data) - pos);
+            pos += decompression::gzinflate(cvvr.data.value, data + pos, data_len - pos);
         }
         else
         {
             if (compression_type == cdf_compression_type::rle_compression)
             {
-                pos += decompression::rleinflate(
-                    cvvr.data.value, data.data() + pos, std::size(data) - pos);
+                pos += decompression::rleinflate(cvvr.data.value, data + pos, data_len - pos);
             }
             else
                 throw std::runtime_error { "Unsuported variable compression algorithm" };
@@ -128,7 +125,7 @@ namespace
     }
 
     template <bool maybe_compressed, typename cdf_version_tag_t, typename stream_t>
-    void load_var_data(stream_t& stream, std::vector<char>& data, std::size_t& pos,
+    void load_var_data(stream_t& stream, char* data, std::size_t data_len, std::size_t& pos,
         const cdf_VXR_t<cdf_version_tag_t, stream_t>& vxr, uint32_t record_size,
         const cdf_compression_type compression_type)
     {
@@ -144,26 +141,28 @@ namespace
                 using cvvr_t = typename decltype(cvvr_or_vvr)::cvvr_t;
 
                 cvvr_or_vvr.visit(
-                    [&stream, &data, &pos, record_count, record_size](const vvr_t& vvr) -> void {
+                    [&stream, &data, data_len, &pos, record_count, record_size](
+                        const vvr_t& vvr) -> void
+                    {
                         load_vvr_data<cdf_version_tag_t, stream_t>(
-                            stream, vvr, record_count, record_size, pos, data);
+                            stream, vvr, record_count, record_size, pos, data, data_len);
                     },
-                    [&stream, &data, &pos, record_size, compression_type](vxr_t vxr) -> void
+                    [&stream, &data, data_len, &pos, record_size, compression_type](
+                        vxr_t vxr) -> void
                     {
                         load_var_data<maybe_compressed, cdf_version_tag_t, stream_t>(
-                            stream, data, pos, vxr, record_size, compression_type);
+                            stream, data, data_len, pos, vxr, record_size, compression_type);
                         while (vxr.VXRnext.value)
                         {
                             vxr.load(vxr.VXRnext.value);
                             load_var_data<maybe_compressed, cdf_version_tag_t, stream_t>(
-                                stream, data, pos, vxr, record_size, compression_type);
+                                stream, data, data_len, pos, vxr, record_size, compression_type);
                         }
                     },
-                    [&stream, &data, &pos, record_count, record_size, compression_type](
-                        const cvvr_t& cvvr) -> void
-                    {
+                    [&stream, &data, data_len, &pos, record_count, record_size, compression_type](
+                        const cvvr_t& cvvr) -> void {
                         load_cvvr_data<cdf_version_tag_t, stream_t>(
-                            cvvr, record_count, record_size, pos, compression_type, data);
+                            cvvr, pos, compression_type, data, data_len);
                     },
                     [](const std::monostate&) -> void {
                         throw std::runtime_error {
@@ -175,11 +174,12 @@ namespace
     }
 
     template <bool maybe_compressed, cdf_r_z rz_, typename cdf_version_tag_t, typename stream_t>
-    std::vector<char> load_var_data(stream_t& stream,
-        const cdf_VDR_t<rz_, cdf_version_tag_t, stream_t>& vdr, uint32_t record_size,
-        uint32_t record_count)
+    data_t load_var_data(stream_t& stream, const cdf_VDR_t<rz_, cdf_version_tag_t, stream_t>& vdr,
+        uint32_t record_size, uint32_t record_count)
     {
-        std::vector<char> data(record_count * record_size);
+        data_t data = new_data_container(
+            static_cast<std::size_t>(record_count) * static_cast<std::size_t>(record_size),
+            vdr.DataType.value);
         std::size_t pos { 0UL };
         cdf_VXR_t<cdf_version_tag_t, stream_t> vxr { stream };
         const auto compression_type = [&]()
@@ -195,7 +195,8 @@ namespace
         }();
         if (vdr.VXRhead.value != 0 && vxr.load(vdr.VXRhead.value))
         {
-            load_var_data<maybe_compressed>(stream, data, pos, vxr, record_size, compression_type);
+            load_var_data<maybe_compressed>(stream, data.bytes_ptr(), record_count * record_size,
+                pos, vxr, record_size, compression_type);
             if (vxr.VXRnext.value)
             {
                 do
@@ -203,8 +204,8 @@ namespace
                     vxr.load(vxr.VXRnext.value);
                     if (vxr.is_loaded)
                     {
-                        load_var_data<maybe_compressed>(
-                            stream, data, pos, vxr, record_size, compression_type);
+                        load_var_data<maybe_compressed>(stream, data.bytes_ptr(),
+                            record_count * record_size, pos, vxr, record_size, compression_type);
                     }
                     else
                     {
@@ -240,22 +241,23 @@ namespace
                     {
                         shape.insert(std::cbegin(shape), record_count);
                     }
-                    auto data = [&]()
-                    {
-                        if (common::is_compressed(vdr))
-                        {
-                            return load_var_data<true>(stream, vdr, record_size, record_count);
-                        }
-                        else
-                        {
-                            return load_var_data<false>(stream, vdr, record_size, record_count);
-                        }
-                        return std::vector<char> {};
-                    }();
-
                     common::add_variable(cdf, vdr.Name.value, vdr.Num.value,
                         load_values<false>(
-                            data.data(), std::size(data), vdr.DataType.value, context.encoding()),
+                            [&]()
+                            {
+                                if (common::is_compressed(vdr))
+                                {
+                                    return load_var_data<true>(
+                                        stream, vdr, record_size, record_count);
+                                }
+                                else
+                                {
+                                    return load_var_data<false>(
+                                        stream, vdr, record_size, record_count);
+                                }
+                                return data_t {};
+                            }(),
+                            context.encoding()),
                         std::move(shape));
                 }
             });
