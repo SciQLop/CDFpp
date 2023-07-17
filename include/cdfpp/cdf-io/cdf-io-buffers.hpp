@@ -105,7 +105,7 @@ struct stream_adapter
         p_fsize = filesize(this->stream);
     }
 
-    void _fill_buffer(std::size_t offset, std::size_t size)
+    void _fill_buffer(const std::size_t offset, const std::size_t size)
     {
         assert((offset + size) <= p_fsize);
         stream.seekg(offset);
@@ -116,20 +116,22 @@ struct stream_adapter
     }
 
     template <typename T>
-    auto impl_read(T& array, std::size_t offset, std::size_t size) -> decltype(array.data(), void())
+    auto impl_read(T& array, const std::size_t offset, const std::size_t size)
+        -> decltype(array.data(), void())
     {
         stream.seekg(offset);
         stream.read(array.data(), size);
     }
 
     template <typename T>
-    auto impl_read(T& array, std::size_t offset, std::size_t size) -> decltype(*array, void())
+    auto impl_read(T& array, const std::size_t offset, const std::size_t size)
+        -> decltype(*array, void())
     {
         stream.seekg(offset);
         stream.read(array, size);
     }
 
-    auto read(std::size_t offset, std::size_t size)
+    auto read(const std::size_t offset, const std::size_t size)
     {
         if (!p_buffer || !contains(*p_buffer, offset, size))
             _fill_buffer(offset, size);
@@ -137,19 +139,19 @@ struct stream_adapter
     }
 
     template <std::size_t size>
-    auto read(std::size_t offset)
+    auto read(const std::size_t offset)
     {
         if (!p_buffer || !contains(*p_buffer, offset, size))
             _fill_buffer(offset, size);
         return p_buffer->view(offset, size);
     }
 
-    void read(char* data, std::size_t offset, std::size_t size)
+    void read(char* dest, const std::size_t offset, const std::size_t size)
     {
         if (!p_buffer || !contains(*p_buffer, offset, size))
             _fill_buffer(offset, size);
         auto view = p_buffer->view(offset, size);
-        std::copy_n(view.cbegin(), size, data);
+        std::copy_n(view.cbegin(), size, dest);
     }
     bool is_valid() { return stream.is_open(); }
 };
@@ -205,18 +207,19 @@ struct array_adapter
     }
 
     template <bool owns = takes_ownership>
-    array_adapter(array_t&& array, typename std::enable_if<owns>::type* = 0)
+    array_adapter(array_t&& array,
+        typename std::enable_if<owns or std::is_rvalue_reference_v<array_t>>::type* = 0)
             : with_ownership<array_t> { std::move(array) }, size { std::size(this->array) }
     {
     }
 
     template <typename T>
-    void impl_read(T& output_array, std::size_t offset, std::size_t size)
+    void impl_read(T& output_array, const std::size_t offset, const std::size_t size)
     {
         std::copy_n(begin(this->array) + offset, size, begin(output_array));
     }
 
-    std::vector<char> read(std::size_t offset, std::size_t size)
+    std::vector<char> read(const std::size_t offset, const std::size_t size)
     {
         std::vector<char> buffer(size);
         impl_read(buffer, offset, size);
@@ -224,14 +227,14 @@ struct array_adapter
     }
 
     template <std::size_t size>
-    std::array<char, size> read(std::size_t offset)
+    std::array<char, size> read(const std::size_t offset)
     {
         std::array<char, size> buffer;
         impl_read(buffer, offset, size);
         return buffer;
     }
 
-    void read(char* data, std::size_t offset, std::size_t size) { impl_read(data, offset, size); }
+    void read(char* dest, std::size_t offset, std::size_t size) { impl_read(dest, offset, size); }
     bool is_valid() { return size != 0; }
 };
 
@@ -258,7 +261,8 @@ struct mmap_adapter
                 auto ptr = static_cast<char*>(
                     mmap(nullptr, fileInfo.st_size, PROT_READ, MAP_SHARED, fd, 0UL));
                 mapped_file = std::shared_ptr<char> { ptr,
-                    [fd = this->fd, size = fileInfo.st_size](char* ptr) {
+                    [fd = this->fd, size = fileInfo.st_size](char* ptr)
+                    {
                         munmap(ptr, size);
                         close(fd);
                     } };
@@ -266,32 +270,71 @@ struct mmap_adapter
         }
     }
 
-    array_view read(std::size_t offset, std::size_t size)
+    array_view read(const std::size_t offset, const std::size_t size)
     {
         return array_view { mapped_file, size, offset };
     }
 
     template <std::size_t size>
-    array_view read(std::size_t offset)
+    array_view read(const std::size_t offset)
     {
         return array_view { mapped_file, size, offset };
     }
 
-    void read(char* data, std::size_t offset, std::size_t size)
+    void read(char* dest, const std::size_t offset, const std::size_t size)
     {
-        std::copy_n(mapped_file.get() + offset, size, data);
+        std::copy_n(mapped_file.get() + offset, size, dest);
     }
 
     bool is_valid() { return fd != -1 && mapped_file != nullptr; }
 };
 #endif
 
-auto make_file_adapter(const std::string& path)
+template <class buffer_t>
+struct shared_buffer_t
+{
+
+    shared_buffer_t(std::shared_ptr<buffer_t>&& buffer) : p_buffer { std::move(buffer) } { }
+
+    shared_buffer_t(const shared_buffer_t& other) { p_buffer = other.p_buffer; }
+    shared_buffer_t(shared_buffer_t&& other) { p_buffer = std::move(other.p_buffer); }
+
+    template <class... Types>
+    inline auto read(Types&&... args)
+    {
+        return p_buffer->read(std::forward<Types>(args)...);
+    }
+
+    template <std::size_t size>
+    inline auto read(const std::size_t offset)
+    {
+        return p_buffer->template read<size>(offset);
+    }
+
+    inline bool is_valid() { return p_buffer->is_valid(); }
+
+private:
+    std::shared_ptr<buffer_t> p_buffer;
+};
+
+template <typename array_t, class... Types>
+inline auto make_shared_array_adapter(array_t&& array, Types&&... args)
+{
+    if constexpr (std::is_rvalue_reference_v<decltype(std::forward<array_t>(array))>)
+        return shared_buffer_t(std::make_shared<array_adapter<array_t,true>>(
+            std::forward<array_t>(array), std::forward<Types>(args)...));
+    else
+        return shared_buffer_t(std::make_shared<array_adapter<array_t>>(
+            std::forward<array_t>(array), std::forward<Types>(args)...));
+}
+
+inline auto make_shared_file_adapter(const std::string& path)
 {
 #if __has_include(<sys/mman.h>)
-    return mmap_adapter { path };
+    return shared_buffer_t(std::make_shared<mmap_adapter>(path));
 #else
-    return stream_adapter { std::fstream { path, std::ios::in | std::ios::binary } };
+    return shared_buffer_t(
+        std::make_shared<stream_adapter>(std::fstream { path, std::ios::in | std::ios::binary }));
 #endif
 }
 

@@ -50,24 +50,24 @@ namespace
         return { magic1, magic2 };
     }
 
-    template <typename version_t, typename buffer_t>
+    template <typename buffer_t, typename version_t>
     struct cdf_headers_t
     {
         inline static constexpr bool v3 = is_v3_v<version_t>;
         using version_tag = version_t;
         common::magic_numbers_t magic;
+        buffer_t buffer;
         cdf_CDR_t<version_t, buffer_t> cdr;
         cdf_GDR_t<version_t, buffer_t> gdr;
         cdf_majority majority;
         std::tuple<uint32_t, uint32_t, uint32_t> distribution_version;
 
-        buffer_t& buffer;
         bool is_compressed;
         bool ok = false;
-        cdf_headers_t(buffer_t& buffer, std::size_t CDRoffset = 8)
-                : cdr { buffer }, gdr { buffer }, buffer { buffer }
+        cdf_headers_t(buffer_t&& buff, version_t, std::size_t CDRoffset = 8)
+                : buffer { std::move(buff) }, cdr { buffer }, gdr { buffer }
         {
-            magic = get_magic(buffer);
+            magic = get_magic(this->buffer);
             if (common::is_cdf(magic) && cdr.load(CDRoffset) && gdr.load(cdr.GDRoffset.value))
             {
                 ok = true;
@@ -77,6 +77,9 @@ namespace
         }
         inline cdf_encoding encoding() { return cdr.Encoding.value; }
     };
+
+    // template <typename version_t, typename buffer_t>
+    // cdf_headers_t(buffer_t&&, version_t) -> cdf_headers_t<buffer_t, version_t>;
 
     CDF from_repr(common::cdf_repr&& repr)
     {
@@ -89,7 +92,7 @@ namespace
     }
 
     template <bool iso_8859_1_to_utf8, typename cdf_headers_t>
-    std::optional<CDF> impl_parse_cdf(cdf_headers_t& cdf_headers)
+    std::optional<CDF> impl_parse_cdf(cdf_headers_t& cdf_headers, bool lazy_load = false)
     {
         common::cdf_repr repr;
         repr.majority = cdf_headers.majority;
@@ -99,13 +102,14 @@ namespace
         if (!attribute::load_all<typename cdf_headers_t::version_tag, iso_8859_1_to_utf8>(
                 cdf_headers, repr))
             return std::nullopt;
-        if (!variable::load_all<typename cdf_headers_t::version_tag>(cdf_headers, repr))
+        if (!variable::load_all<typename cdf_headers_t::version_tag>(cdf_headers, repr, lazy_load))
             return std::nullopt;
         return from_repr(std::move(repr));
     }
 
-    template <typename cdf_version_tag_t, bool iso_8859_1_to_utf8, typename buffer_t>
-    std::optional<CDF> parse_cdf(buffer_t&& buffer, bool is_compressed = false)
+    template <typename cdf_version_tag_t, typename iso_8859_1_to_utf8, typename buffer_t>
+    std::optional<CDF> parse_cdf(
+        buffer_t&& buffer, iso_8859_1_to_utf8, bool is_compressed = false, bool lazy_load = false)
     {
         if (is_compressed)
         {
@@ -119,83 +123,99 @@ namespace
                 {
                     decompression::gzinflate(
                         CCR.data.value, data.data() + 8UL, std::size(data) - 8UL);
-                    buffers::array_adapter decompressed_buffer(data);
-                    cdf_headers_t<cdf_version_tag_t, decltype(decompressed_buffer)> cdf_headers {
-                        decompressed_buffer
-                    };
-                    return impl_parse_cdf<iso_8859_1_to_utf8>(cdf_headers);
+                    cdf_headers_t cdf_headers { buffers::make_shared_array_adapter(std::move(data)),
+                        cdf_version_tag_t {} };
+                    return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
+                        cdf_headers, lazy_load);
                 }
                 else if (CPR.cType.value == cdf_compression_type::rle_compression)
                 {
 
                     decompression::rleinflate(
                         CCR.data.value, data.data() + 8UL, std::size(data) - 8UL);
-                    buffers::array_adapter decompressed_buffer(data);
-                    cdf_headers_t<cdf_version_tag_t, decltype(decompressed_buffer)> cdf_headers {
-                        decompressed_buffer
-                    };
-                    return impl_parse_cdf<iso_8859_1_to_utf8>(cdf_headers);
+                    cdf_headers_t cdf_headers { buffers::make_shared_array_adapter(std::move(data)),
+                        cdf_version_tag_t {} };
+                    return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
+                        cdf_headers, lazy_load);
                 }
             }
             return std::nullopt;
         }
         else
         {
-            cdf_headers_t<cdf_version_tag_t, buffer_t> cdf_headers { buffer };
-            return impl_parse_cdf<iso_8859_1_to_utf8>(cdf_headers);
+            cdf_headers_t cdf_headers { std::move(buffer), cdf_version_tag_t {} };
+            return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
+                cdf_headers, lazy_load);
         }
     }
 
-    template <typename buffer_t, bool iso_8859_1_to_utf8>
-    auto _impl_load(buffer_t&& buffer) -> decltype(buffer.read(0UL, 0UL), std::optional<CDF> {})
+    template <typename buffer_t, typename iso_8859_1_to_utf8>
+    auto _impl_load(buffer_t&& buffer, iso_8859_1_to_utf8 iso_8859_1_to_utf8_tag,
+        bool lazy_load = false) -> decltype(buffer.read(0UL, 0UL), std::optional<CDF> {})
     {
         auto magic = get_magic(buffer);
         if (common::is_v3x(magic))
         {
-            return parse_cdf<v3x_tag, iso_8859_1_to_utf8>(
-                std::forward<buffer_t>(buffer), common::is_compressed(magic));
+            return parse_cdf<v3x_tag>(
+                std::move(buffer), iso_8859_1_to_utf8_tag, common::is_compressed(magic), lazy_load);
         }
         else
         {
-            return parse_cdf<v2x_tag, iso_8859_1_to_utf8>(
-                std::forward<buffer_t>(buffer), common::is_compressed(magic));
+            return parse_cdf<v2x_tag>(
+                std::move(buffer), iso_8859_1_to_utf8_tag, common::is_compressed(magic), lazy_load);
         }
     }
 
     template <typename buffer_t>
-    auto impl_load(buffer_t&& buffer, bool iso_8859_1_to_utf8)
+    auto impl_load(buffer_t&& buffer, bool iso_8859_1_to_utf8, bool lazy_load = false)
     {
         if (iso_8859_1_to_utf8)
-            return _impl_load<buffer_t, true>(std::forward<buffer_t>(buffer));
+            return _impl_load(std::move(buffer), common::iso_8859_1_to_utf8_t {}, lazy_load);
         else
-            return _impl_load<buffer_t, false>(std::forward<buffer_t>(buffer));
+            return _impl_load(std::move(buffer), common::no_iso_8859_1_to_utf8_t {}, lazy_load);
     }
 } // namespace
 
 
-std::optional<CDF> load(const std::string& path, bool iso_8859_1_to_utf8 = false)
+std::optional<CDF> load(
+    const std::string& path, bool iso_8859_1_to_utf8 = false, bool lazy_load = true)
 {
-    auto buffer = buffers::make_file_adapter(path);
+    auto buffer = buffers::make_shared_file_adapter(path);
     if (buffer.is_valid())
     {
-        return impl_load(std::move(buffer), iso_8859_1_to_utf8);
+        return impl_load(std::move(buffer), iso_8859_1_to_utf8, lazy_load);
     }
     return std::nullopt;
 }
 
-std::optional<CDF> load(const std::vector<char>& data, bool iso_8859_1_to_utf8 = false)
+std::optional<CDF> load(
+    const std::vector<char>& data, bool iso_8859_1_to_utf8 = false, bool lazy_load = false)
 {
     if (std::size(data))
     {
-        return impl_load(buffers::array_adapter { data }, iso_8859_1_to_utf8);
+        return impl_load(buffers::make_shared_array_adapter(data), iso_8859_1_to_utf8, lazy_load);
     }
     return std::nullopt;
 }
-std::optional<CDF> load(const char* data, std::size_t size, bool iso_8859_1_to_utf8 = false)
+
+std::optional<CDF> load(
+    const std::vector<char>&& data, bool iso_8859_1_to_utf8 = false, bool lazy_load = true)
+{
+    if (std::size(data))
+    {
+        return impl_load(
+            buffers::make_shared_array_adapter(std::move(data)), iso_8859_1_to_utf8, lazy_load);
+    }
+    return std::nullopt;
+}
+
+std::optional<CDF> load(
+    const char* data, std::size_t size, bool iso_8859_1_to_utf8 = false, bool lazy_load = false)
 {
     if (size != 0 && data != nullptr)
     {
-        return impl_load(buffers::array_adapter { data, size }, iso_8859_1_to_utf8);
+        return impl_load(
+            buffers::make_shared_array_adapter(data, size), iso_8859_1_to_utf8, lazy_load);
     }
     return std::nullopt;
 }

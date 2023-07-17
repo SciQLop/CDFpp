@@ -26,9 +26,11 @@
 #include "cdf-helpers.hpp"
 #include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <variant>
 #include <vector>
+#include <stdint.h>
 
 namespace cdf
 {
@@ -100,6 +102,27 @@ struct data_t
 
 private:
     cdf_values_t p_values;
+    CDF_Types p_type;
+};
+
+struct lazy_data
+{
+    lazy_data() = default;
+    lazy_data(std::function<data_t(void)>&& loader, CDF_Types type)
+            : p_loader { std::move(loader) }, p_type { type }
+    {
+    }
+    lazy_data(const lazy_data&) = default;
+    lazy_data(lazy_data&&) = default;
+    lazy_data& operator=(const lazy_data&) = default;
+    lazy_data& operator=(lazy_data&&) = default;
+
+    inline data_t load() { return p_loader(); }
+
+    inline CDF_Types type() const { return p_type; }
+
+private:
+    std::function<data_t(void)> p_loader;
     CDF_Types p_type;
 };
 

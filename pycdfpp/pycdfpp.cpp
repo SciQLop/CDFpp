@@ -235,24 +235,24 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
         .def_property_readonly("shape", &Variable::shape)
         .def_property_readonly("majority", &Variable::majority)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
-        .def_property_readonly("values", make_values_view,
-            py::return_value_policy::reference_internal);
+        .def_property_readonly(
+            "values", make_values_view, py::return_value_policy::reference_internal);
 
     m.def(
         "load",
-        [](py::bytes& buffer, bool iso_8859_1_to_utf8)
+        [](py::bytes& buffer, bool iso_8859_1_to_utf8, bool lazy_load)
         {
             py::buffer_info info(py::buffer(buffer).request());
             return io::load(static_cast<char*>(info.ptr), static_cast<std::size_t>(info.size),
-                iso_8859_1_to_utf8);
+                iso_8859_1_to_utf8, lazy_load);
         },
-        py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false,
+        py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false, py::arg("lazy_load") = false,
         py::return_value_policy::reference);
 
     m.def(
         "load",
-        [](const char* fname, bool iso_8859_1_to_utf8)
-        { return io::load(std::string { fname }, iso_8859_1_to_utf8); },
-        py::arg("fname"), py::arg("iso_8859_1_to_utf8") = false,
+        [](const char* fname, bool iso_8859_1_to_utf8, bool lazy_load)
+        { return io::load(std::string { fname }, iso_8859_1_to_utf8, lazy_load); },
+        py::arg("fname"), py::arg("iso_8859_1_to_utf8") = false, py::arg("lazy_load") = true,
         py::return_value_policy::reference);
 }

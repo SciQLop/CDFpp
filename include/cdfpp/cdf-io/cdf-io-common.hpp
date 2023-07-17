@@ -36,6 +36,12 @@ namespace cdf::io::common
 using magic_numbers_t = std::pair<uint32_t, uint32_t>;
 using version_t = std::pair<uint8_t, uint8_t>;
 
+struct iso_8859_1_to_utf8_t{};
+struct no_iso_8859_1_to_utf8_t{};
+
+template <typename T>
+inline constexpr bool with_iso_8859_1_to_utf8 = std::is_same_v<T, iso_8859_1_to_utf8_t>;
+
 inline version_t cdf_version(const magic_numbers_t& magic)
 {
     return { (magic.first >> 16) & 0xf, (magic.first >> 12) & 0xf };
@@ -221,10 +227,21 @@ void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
 {
     repr.variables[name]
         = Variable { name, number, std::move(data), std::move(shape), repr.majority };
-    if (repr.majority == cdf_majority::column)
+    repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
     {
-        majority::swap(repr.variables[name]);
-    }
+        auto attrs = repr.var_attributes.extract(number);
+        if (!attrs.empty())
+            return attrs.mapped();
+        else
+            return {};
+    }();
+}
+
+void add_lazy_variable(cdf_repr& repr, const std::string& name, std::size_t number,
+    lazy_data&& data, Variable::shape_t&& shape)
+{
+    repr.variables[name]
+        = Variable { name, number, std::move(data), std::move(shape), repr.majority };
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
     {
         auto attrs = repr.var_attributes.extract(number);

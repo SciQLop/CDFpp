@@ -23,6 +23,7 @@
 #include "attribute.hpp"
 #include "cdf-data.hpp"
 #include "cdf-enums.hpp"
+#include "cdf-majority-swap.hpp"
 #include <cstdint>
 #include <optional>
 #include <unordered_map>
@@ -48,35 +49,45 @@ struct Variable
             , p_shape { shape }
             , p_majority { majority }
     {
+        if (this->majority() == cdf_majority::column)
+        {
+            majority::swap(_data(), p_shape);
+        }
     }
 
-    Variable(const std::string& name, var_data_t&& data, shape_t&& shape)
-            : p_name { name }, p_data { std::move(data) }, p_shape { shape }
+    Variable(const std::string& name, std::size_t number, lazy_data&& data, shape_t&& shape,
+        cdf_majority majority)
+            : p_name { name }
+            , p_number { number }
+            , p_data { std::move(data) }
+            , p_shape { shape }
+            , p_majority { majority }
     {
     }
+
 
     template <CDF_Types type>
     decltype(auto) get()
     {
-        return p_data.get<type>();
+        return _data().get<type>();
     }
 
     template <CDF_Types type>
     decltype(auto) get() const
     {
-        return p_data.get<type>();
+        return _data().get<type>();
     }
 
     template <typename type>
     decltype(auto) get()
     {
-        return p_data.get<type>();
+        return _data().get<type>();
     }
 
     template <typename type>
     decltype(auto) get() const
     {
-        return p_data.get<type>();
+        return _data().get<type>();
     }
 
     const std::string& name() const { return p_name; }
@@ -98,17 +109,49 @@ struct Variable
 
     std::optional<std::size_t> number() { return p_number; }
 
-    CDF_Types type() const { return p_data.type(); }
+    CDF_Types type() const
+    {
+        if (std::holds_alternative<var_data_t>(p_data))
+            return std::get<var_data_t>(p_data).type();
+        return std::get<lazy_data>(p_data).type();
+    }
 
-    cdf_majority majority() { return p_majority; }
+    cdf_majority majority() const { return p_majority; }
 
     template <typename... Ts>
     friend auto visit(Variable& var, Ts... lambdas);
 
 private:
+    var_data_t& _data()
+    {
+        if (std::holds_alternative<lazy_data>(p_data))
+        {
+            p_data = std::get<lazy_data>(p_data).load();
+            auto& data = std::get<data_t>(p_data);
+            if (this->majority() == cdf_majority::column)
+            {
+                majority::swap(data, p_shape);
+            }
+        }
+        return std::get<var_data_t>(p_data);
+    }
+    const var_data_t& _data() const
+    {
+        if (std::holds_alternative<lazy_data>(p_data))
+        {
+            p_data = std::get<lazy_data>(p_data).load();
+            auto& data = std::get<data_t>(p_data);
+            if (this->majority() == cdf_majority::column)
+            {
+                majority::swap(data, p_shape);
+            }
+        }
+        return std::get<var_data_t>(p_data);
+    }
+
     std::string p_name;
     std::optional<std::size_t> p_number;
-    var_data_t p_data;
+    mutable std::variant<lazy_data, var_data_t> p_data;
     shape_t p_shape;
     cdf_majority p_majority;
 };

@@ -55,6 +55,7 @@ List of features and roadmap:
     - [x] read compressed variables (GZip, RLE)
     - [x] read UTF-8 encoded files
     - [x] read ISO 8859-1(Latin-1) encoded files (converts to UTF-8 on the fly)
+    - [x] variables values lazy loading
 - CDF writing
     - [ ] write uncompressed headers
     - [ ] write uncompressed attributes
