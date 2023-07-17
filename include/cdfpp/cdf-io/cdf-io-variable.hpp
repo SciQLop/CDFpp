@@ -40,9 +40,8 @@ namespace
         std::size_t size;
     };
 
-    template <cdf_r_z type, typename cdf_vdr_t, typename stream_t, typename context_t>
-    std::vector<uint32_t> get_variable_dimensions(
-        const cdf_vdr_t& vdr, stream_t& stream, context_t& context)
+    template <cdf_r_z type, typename cdf_vdr_t, typename context_t>
+    std::vector<uint32_t> get_variable_dimensions(const cdf_vdr_t& vdr, context_t& context)
     {
         if constexpr (type == cdf_r_z::z)
         {
@@ -51,7 +50,7 @@ namespace
             if (vdr.zNumDims.value)
             {
                 std::size_t offset = vdr.offset + AFTER(vdr.zNumDims);
-                common::load_values<endianness::big_endian_t>(stream, offset, all_sizes);
+                common::load_values<endianness::big_endian_t>(context.buffer, offset, all_sizes);
                 std::copy_if(std::cbegin(all_sizes), std::cend(all_sizes),
                     std::back_inserter(sizes),
                     [DimVarys = vdr.DimVarys.value.begin()]([[maybe_unused]] const auto& v) mutable
@@ -224,15 +223,56 @@ namespace
             * std::accumulate(std::cbegin(shape), std::cend(shape), 1, std::multiplies<uint32_t>());
     }
 
-    template <cdf_r_z type, typename cdf_version_tag_t, typename stream_t, typename context_t>
-    bool load_all_Vars(stream_t& stream, context_t& context, common::cdf_repr& cdf)
+    template <typename stream_t, typename encoding_t, typename VDR_t>
+    struct defered_variable_loader
+    {
+        defered_variable_loader(stream_t stream, encoding_t encoding, VDR_t vdr,
+            uint32_t record_count, uint32_t record_size)
+                : p_stream { stream }
+                , p_encoding { encoding }
+                , p_vdr { vdr }
+                , p_record_count { record_count }
+                , p_record_size { record_size }
+        {
+        }
+
+        inline data_t operator()()
+        {
+            return load_values<false>(
+                [this]()
+                {
+                    if (common::is_compressed(this->p_vdr))
+                    {
+                        return load_var_data<true>(
+                            this->p_stream, this->p_vdr, this->p_record_size, this->p_record_count);
+                    }
+                    else
+                    {
+                        return load_var_data<false>(
+                            this->p_stream, this->p_vdr, this->p_record_size, this->p_record_count);
+                    }
+                    return data_t {};
+                }(),
+                this->p_encoding);
+        }
+
+    private:
+        stream_t p_stream;
+        encoding_t p_encoding;
+        VDR_t p_vdr;
+        uint32_t p_record_count;
+        uint32_t p_record_size;
+    };
+
+    template <cdf_r_z type, typename cdf_version_tag_t, typename context_t>
+    bool load_all_Vars(context_t& context, common::cdf_repr& cdf, bool lazy_load = false)
     {
         std::for_each(begin_VDR<type>(context.gdr), end_VDR<type>(context.gdr),
-            [&](const cdf_VDR_t<type, cdf_version_tag_t, stream_t>& vdr)
+            [&](const cdf_VDR_t<type, cdf_version_tag_t, decltype(context.buffer)>& vdr)
             {
                 if (vdr.is_loaded)
                 {
-                    auto shape = get_variable_dimensions<type>(vdr, stream, context);
+                    auto shape = get_variable_dimensions<type>(vdr, context);
                     uint32_t record_size = var_record_size(shape, vdr.DataType.value);
                     uint32_t record_count = common::is_nrv(vdr) ? 1 : (vdr.MaxRec.value + 1);
                     if ((vdr.DataType.value != CDF_Types::CDF_CHAR
@@ -241,24 +281,35 @@ namespace
                     {
                         shape.insert(std::cbegin(shape), record_count);
                     }
-                    common::add_variable(cdf, vdr.Name.value, vdr.Num.value,
-                        load_values<false>(
-                            [&]()
-                            {
-                                if (common::is_compressed(vdr))
+                    if (lazy_load)
+                    {
+                        common::add_lazy_variable(cdf, vdr.Name.value, vdr.Num.value,
+                            lazy_data { defered_variable_loader { context.buffer,
+                                            context.encoding(), vdr, record_count, record_size },
+                                vdr.DataType.value },
+                            std::move(shape));
+                    }
+                    else
+                    {
+                        common::add_variable(cdf, vdr.Name.value, vdr.Num.value,
+                            load_values<false>(
+                                [&context, &vdr, record_count, record_size]()
                                 {
-                                    return load_var_data<true>(
-                                        stream, vdr, record_size, record_count);
-                                }
-                                else
-                                {
-                                    return load_var_data<false>(
-                                        stream, vdr, record_size, record_count);
-                                }
-                                return data_t {};
-                            }(),
-                            context.encoding()),
-                        std::move(shape));
+                                    if (common::is_compressed(vdr))
+                                    {
+                                        return load_var_data<true>(
+                                            context.buffer, vdr, record_size, record_count);
+                                    }
+                                    else
+                                    {
+                                        return load_var_data<false>(
+                                            context.buffer, vdr, record_size, record_count);
+                                    }
+                                    return data_t {};
+                                }(),
+                                context.encoding()),
+                            std::move(shape));
+                    }
                 }
             });
         return true;
@@ -266,10 +317,10 @@ namespace
 }
 
 template <typename cdf_version_tag_t, typename context_t>
-bool load_all(context_t& context, common::cdf_repr& cdf)
+bool load_all(context_t& context, cdf::io::common::cdf_repr& cdf, bool lazy_load = false)
 {
-    return load_all_Vars<cdf_r_z::r, cdf_version_tag_t>(context.buffer, context, cdf)
-        & load_all_Vars<cdf_r_z::z, cdf_version_tag_t>(context.buffer, context, cdf);
+    return load_all_Vars<cdf_r_z::r, cdf_version_tag_t>(context, cdf, lazy_load)
+        & load_all_Vars<cdf_r_z::z, cdf_version_tag_t>(context, cdf, lazy_load);
 }
 
 }

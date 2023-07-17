@@ -21,7 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "cdf-debug.hpp"
-#include "variable.hpp"
+#include "cdf-data.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -123,54 +123,54 @@ namespace majority
         }
     }
 
-    void swap(Variable& var)
+    void swap(data_t& data, const std::vector<uint32_t>& shape)
     {
-        switch (var.type())
+        switch (data.type())
         {
             case CDF_Types::CDF_BYTE:
             case CDF_Types::CDF_INT1:
-                swap(var.get<int8_t>(), var.shape());
+                swap(data.get<int8_t>(), shape);
                 break;
             case CDF_Types::CDF_CHAR:
-                swap(var.get<CDF_Types::CDF_CHAR>(), var.shape());
+                swap(data.get<CDF_Types::CDF_CHAR>(), shape);
                 break;
             case CDF_Types::CDF_UCHAR:
-                swap(var.get<CDF_Types::CDF_UCHAR>(), var.shape());
+                swap(data.get<CDF_Types::CDF_UCHAR>(), shape);
                 break;
             case CDF_Types::CDF_UINT1:
-                swap(var.get<unsigned char>(), var.shape());
+                swap(data.get<unsigned char>(), shape);
                 break;
             case CDF_Types::CDF_UINT2:
-                swap(var.get<uint16_t>(), var.shape());
+                swap(data.get<uint16_t>(), shape);
                 break;
             case CDF_Types::CDF_UINT4:
-                swap(var.get<uint32_t>(), var.shape());
+                swap(data.get<uint32_t>(), shape);
                 break;
             case CDF_Types::CDF_INT2:
-                swap(var.get<int16_t>(), var.shape());
+                swap(data.get<int16_t>(), shape);
                 break;
             case CDF_Types::CDF_INT4:
-                swap(var.get<int32_t>(), var.shape());
+                swap(data.get<int32_t>(), shape);
                 break;
             case CDF_Types::CDF_INT8:
-                swap(var.get<int64_t>(), var.shape());
+                swap(data.get<int64_t>(), shape);
                 break;
             case CDF_Types::CDF_FLOAT:
             case CDF_Types::CDF_REAL4:
-                swap(var.get<float>(), var.shape());
+                swap(data.get<float>(), shape);
                 break;
             case CDF_Types::CDF_DOUBLE:
             case CDF_Types::CDF_REAL8:
-                swap(var.get<double>(), var.shape());
+                swap(data.get<double>(), shape);
                 break;
             case CDF_Types::CDF_EPOCH:
-                swap(var.get<epoch>(), var.shape());
+                swap(data.get<epoch>(), shape);
                 break;
             case CDF_Types::CDF_EPOCH16:
-                swap(var.get<epoch16>(), var.shape());
+                swap(data.get<epoch16>(), shape);
                 break;
             case CDF_Types::CDF_TIME_TT2000:
-                swap(var.get<tt2000_t>(), var.shape());
+                swap(data.get<tt2000_t>(), shape);
                 break;
             default:
                 break;
