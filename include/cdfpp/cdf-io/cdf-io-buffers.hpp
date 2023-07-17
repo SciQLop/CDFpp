@@ -321,7 +321,7 @@ template <typename array_t, class... Types>
 inline auto make_shared_array_adapter(array_t&& array, Types&&... args)
 {
     if constexpr (std::is_rvalue_reference_v<decltype(std::forward<array_t>(array))>)
-        return shared_buffer_t(std::make_shared<array_adapter<array_t,true>>(
+        return shared_buffer_t(std::make_shared<array_adapter<array_t, true>>(
             std::forward<array_t>(array), std::forward<Types>(args)...));
     else
         return shared_buffer_t(std::make_shared<array_adapter<array_t>>(
@@ -333,8 +333,8 @@ inline auto make_shared_file_adapter(const std::string& path)
 #if __has_include(<sys/mman.h>)
     return shared_buffer_t(std::make_shared<mmap_adapter>(path));
 #else
-    return shared_buffer_t(
-        std::make_shared<stream_adapter>(std::fstream { path, std::ios::in | std::ios::binary }));
+    return shared_buffer_t(std::make_shared<stream_adapter<std::fstream>>(
+        std::fstream { path, std::ios::in | std::ios::binary }));
 #endif
 }
 
