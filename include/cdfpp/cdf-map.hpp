@@ -1,7 +1,7 @@
 #pragma once
 /*------------------------------------------------------------------------------
 -- This file is a part of the CDFpp library
--- Copyright (C) 2019, Plasma Physics Laboratory - CNRS
+-- Copyright (C) 2023, Plasma Physics Laboratory - CNRS
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -20,35 +20,15 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "attribute.hpp"
-#include "cdf-enums.hpp"
-#include "cdf-map.hpp"
-#include "cdf-io/cdf-io-common.hpp"
-#include "variable.hpp"
-#include <string>
+#include <unordered_map>
 
+#include "cdfpp_config.h"
+#include "nomap.hpp"
 
-namespace cdf
-{
-struct CDF
-{
-    cdf_majority majority;
-    cdf_compression_type compression;
-    std::tuple<uint32_t,uint32_t,uint32_t> distribution_version;
-    cdf_map<std::string, Variable> variables;
-    cdf_map<std::string, Attribute> attributes;
-    const Variable& operator[](const std::string& name) const { return variables.at(name); }
-    Variable& operator[](const std::string& name) { return variables.at(name); }
-};
-
-void add_attribute(CDF& cdf_file, const std::string& name, Attribute::attr_data_t&& data)
-{
-    cdf_file.attributes[name] = std::move(data);
-}
-
-void add_variable(CDF& cdf_file, const std::string& name, Variable&& var)
-{
-    cdf_file.variables[name] = std::move(var);
-}
-
-} // namespace cdf
+#ifdef CDFpp_USE_NOMAP
+template <typename Key, typename T>
+using cdf_map = nomap<Key, T>;
+#else
+template <typename Key, typename T>
+using cdf_map = std::unordered_map<Key, T>;
+#endif

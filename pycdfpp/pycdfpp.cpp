@@ -33,8 +33,20 @@ using namespace cdf;
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
+
+PYBIND11_MAKE_OPAQUE(cdf_map<std::string, Attribute>);
+PYBIND11_MAKE_OPAQUE(cdf_map<std::string, Variable>);
 
 namespace py = pybind11;
+
+#ifdef CDFpp_USE_NOMAP
+template <typename T1, typename T2>
+class pybind11::detail::type_caster<nomap_node<T1, T2>>
+        : public pybind11::detail::tuple_caster<nomap_node, T1, T2>
+{
+};
+#endif
 
 using py_cdf_attr_data_t = std::variant<std::string, std::vector<char>, std::vector<uint8_t>,
     std::vector<uint16_t>, std::vector<uint32_t>, std::vector<int8_t>, std::vector<int16_t>,
@@ -129,6 +141,9 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
     PYBIND11_NUMPY_DTYPE(tt2000_t, value);
     PYBIND11_NUMPY_DTYPE(epoch, value);
     PYBIND11_NUMPY_DTYPE(epoch16, seconds, picoseconds);
+
+    py::bind_map<decltype(std::declval<CDF>().attributes)>(m, "AttributesMap");
+    py::bind_map<decltype(std::declval<CDF>().variables)>(m, "VariablesMap");
 
     m.def("to_datetime64", array_to_datetime64<epoch>, py::arg {}.noconvert());
     m.def("to_datetime64", array_to_datetime64<epoch16>, py::arg {}.noconvert());

@@ -94,11 +94,11 @@ namespace
     template <bool iso_8859_1_to_utf8, typename cdf_headers_t>
     std::optional<CDF> impl_parse_cdf(cdf_headers_t& cdf_headers, bool lazy_load = false)
     {
-        common::cdf_repr repr;
-        repr.majority = cdf_headers.majority;
-        repr.distribution_version = { cdf_headers.distribution_version };
         if (!cdf_headers.ok)
             return std::nullopt;
+        common::cdf_repr repr{cdf_headers.gdr.NzVars.value+cdf_headers.gdr.NrVars.value};
+        repr.majority = cdf_headers.majority;
+        repr.distribution_version = { cdf_headers.distribution_version };
         if (!attribute::load_all<typename cdf_headers_t::version_tag, iso_8859_1_to_utf8>(
                 cdf_headers, repr))
             return std::nullopt;
