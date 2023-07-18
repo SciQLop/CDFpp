@@ -22,6 +22,7 @@
 #include "buffers.hpp"
 #include "chrono.hpp"
 #include <cdfpp/cdf-data.hpp>
+#include <cdfpp/cdf-map.hpp>
 #include <cdfpp/cdf-repr.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
@@ -118,8 +119,38 @@ inline py_cdf_attr_data_t to_py_cdf_data(const cdf::data_t& data)
     }
     return {};
 }
+}
 
-
+template <typename T1, typename T2,typename T3 >
+auto def_cdf_map(T3& mod, const char *name)
+{
+    return py::class_<cdf_map<T1, T2>>(mod, name)
+        .def("__repr__", __repr__<cdf_map<T1, T2>>)
+        .def(
+            "__getitem__", [](cdf_map<T1, T2>& m, const std::string& key) -> T2& { return m[key]; },
+            py::return_value_policy::reference_internal)
+        .def("__contains__",
+             [](const cdf_map<T1, T2>& m, std::string& key) { return m.count(key) > 0; })
+        .def(
+            "__iter__",
+            [](const cdf_map<T1, T2>& m)
+            { return py::make_key_iterator(std::begin(m), std::end(m)); },
+            py::keep_alive<0, 1>())
+        .def(
+            "items",
+            [](const cdf_map<T1, T2>& m)
+            { return py::make_iterator(std::begin(m), std::end(m)); },
+            py::keep_alive<0, 1>())
+        .def(
+            "keys",
+            [](const cdf_map<T1, T2>& m)
+            {
+                std::vector<T1> keys(std::size(m));
+                std::transform(std::cbegin(m), std::cend(m), std::begin(keys),[](const auto& item){return item.first;});
+                return keys;
+            }
+            )
+        .def("__len__", [](const cdf_map<T1, T2>& m) { return std::size(m); });
 }
 
 PYBIND11_MODULE(cdfpp_wrapper, m)
@@ -141,9 +172,11 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
     PYBIND11_NUMPY_DTYPE(tt2000_t, value);
     PYBIND11_NUMPY_DTYPE(epoch, value);
     PYBIND11_NUMPY_DTYPE(epoch16, seconds, picoseconds);
+    //py::bind_map<cdf_map<std::string, Variable>>(m,"VariablesMap");
+    //py::bind_map<cdf_map<std::string, Attribute>>(m,"AttributeMap");
 
-    py::bind_map<decltype(std::declval<CDF>().attributes)>(m, "AttributesMap");
-    py::bind_map<decltype(std::declval<CDF>().variables)>(m, "VariablesMap");
+    def_cdf_map<std::string, Variable>(m,"VariablesMap");
+    def_cdf_map<std::string, Attribute>(m,"AttributeMap");
 
     m.def("to_datetime64", array_to_datetime64<epoch>, py::arg {}.noconvert());
     m.def("to_datetime64", array_to_datetime64<epoch16>, py::arg {}.noconvert());

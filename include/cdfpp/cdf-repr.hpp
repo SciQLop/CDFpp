@@ -20,7 +20,9 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "cdfpp_config.h"
 #include <cdfpp/cdf-data.hpp>
+#include <cdfpp/cdf-map.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
 #include <chrono>
@@ -30,7 +32,8 @@
 #include <string>
 using namespace cdf;
 
-inline std::ostream& operator<<(std::ostream& os, const cdf::data_t& data);
+template <class stream_t>
+stream_t& operator<<(stream_t& os, const cdf::data_t& data);
 
 template <typename collection_t>
 constexpr bool is_char_like_v
@@ -41,14 +44,10 @@ constexpr bool is_char_like_v
         std::remove_cv_t<
             std::remove_reference_t<decltype(*std::cbegin(std::declval<collection_t>()))>>>;
 
-template <int widtw>
-std::ostream& fixed_width(std::ostream& os)
-{
-    return os << std::setprecision(widtw) << std::setw(widtw) << std::setfill('0');
-};
 
-inline std::ostream& operator<<(
-    std::ostream& os, const std::chrono::time_point<std::chrono::system_clock>& tp)
+template <class stream_t>
+inline stream_t& operator<<(
+    stream_t& os, const std::chrono::time_point<std::chrono::system_clock>& tp)
 {
     const auto time_t = std::chrono::system_clock::to_time_t(tp);
     const auto tt = std::gmtime(&time_t);
@@ -59,39 +58,43 @@ inline std::ostream& operator<<(
                 % 1000000)
                   .count();
         // clang-format off
-        os << fixed_width<4> << tt->tm_year + 1900 << '-'
-           << fixed_width<2> << tt->tm_mon + 1     << '-'
-           << fixed_width<2> << tt->tm_mday        << 'T'
-           << fixed_width<2> << tt->tm_hour        << ':'
-           << fixed_width<2> << tt->tm_min         << ':'
-           << fixed_width<2> << tt->tm_sec         << '.'
-           << fixed_width<6> << us;
+        os << std::setprecision(4) << std::setw(4) << std::setfill('0')  << tt->tm_year + 1900 << '-'
+           << std::setprecision(2) << std::setw(2) << std::setfill('0')  << tt->tm_mon + 1     << '-'
+           << std::setprecision(2) << std::setw(2) << std::setfill('0')  << tt->tm_mday        << 'T'
+           << std::setprecision(2) << std::setw(2) << std::setfill('0')  << tt->tm_hour        << ':'
+           << std::setprecision(2) << std::setw(2) << std::setfill('0')  << tt->tm_min         << ':'
+           << std::setprecision(2) << std::setw(2) << std::setfill('0')  << tt->tm_sec         << '.'
+           << std::setprecision(6) << std::setw(6) << std::setfill('0')  << us;
         // clang-format on
     }
 
     return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const epoch& time)
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const epoch& time)
 {
     os << cdf::to_time_point(time) << std::endl;
     return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const epoch16& time)
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const epoch16& time)
 {
     os << cdf::to_time_point(time) << std::endl;
     return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const tt2000_t& time)
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const tt2000_t& time)
 {
     os << cdf::to_time_point(time) << std::endl;
     return os;
 }
 
-template <class input_t, class item_t>
-inline std::ostream& stream_collection(std::ostream& os, const input_t& input, const item_t& sep)
+template <class stream_t, class input_t, class item_t>
+inline auto stream_collection(stream_t& os, const input_t& input, const item_t& sep)
+    -> decltype(input.back(), os)
 {
     os << "[ ";
     if (std::size(input))
@@ -122,8 +125,8 @@ inline std::ostream& stream_collection(std::ostream& os, const input_t& input, c
     return os;
 }
 
-template <class input_t>
-inline std::ostream& stream_string_like(std::ostream& os, const input_t& input)
+template <class stream_t, class input_t>
+inline stream_t& stream_string_like(stream_t& os, const input_t& input)
 {
     os << "\"";
     std::string_view sv { reinterpret_cast<const char*>(input.data()), std::size(input) };
@@ -132,7 +135,8 @@ inline std::ostream& stream_string_like(std::ostream& os, const input_t& input)
     return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const cdf::data_t& data)
+template <class stream_t>
+stream_t& operator<<(stream_t& os, const cdf::data_t& data)
 {
     using namespace cdf;
     switch (data.type())
@@ -195,7 +199,8 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::data_t& data)
     return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const cdf::Attribute& attribute)
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf::Attribute& attribute)
 {
     if (std::size(attribute) == 1
         and (attribute.front().type() == cdf::CDF_Types::CDF_CHAR
@@ -213,7 +218,8 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::Attribute& attribut
 }
 
 
-inline std::ostream& operator<<(std::ostream& os, const cdf::Variable& var)
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf::Variable& var)
 {
     os << var.name() << ": (";
     stream_collection(os, var.shape(), ", ");
@@ -221,16 +227,18 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::Variable& var)
     return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const cdf_majority& majority)
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf_majority& majority)
 {
     if (majority == cdf_majority::row)
         os << "majority: row";
     else
-        os << "majority: row";
+        os << "majority: column";
     return os;
 }
 
-inline std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf::CDF& cdf_file)
 {
     os << "CDF:\n"
        << fmt::format("version: {}.{}.{}\n", std::get<0>(cdf_file.distribution_version),
@@ -247,6 +255,24 @@ inline std::ostream& operator<<(std::ostream& os, const cdf::CDF& cdf_file)
     return os;
 }
 
+#ifdef CDFpp_USE_NOMAP
+template <class stream_t, typename key_t, typename Value_t>
+inline stream_t& operator<<(stream_t& os, const nomap_node<key_t, Value_t>& node)
+{
+    if (!node.empty())
+        os << node.key() << ": " << node.mapped() << std::endl;
+    return os;
+}
+
+template <class stream_t, typename key_t, typename Value_t>
+inline stream_t& operator<<(stream_t& os, const nomap<key_t, Value_t>& m)
+{
+    os << "{" << std::endl;
+    std::for_each(std::cbegin(m), std::cend(m), [&](const auto& item) { os << item; });
+    os << "}" << std::endl;
+    return os;
+}
+#endif
 
 template <typename T>
 inline std::string __repr__(T& obj)

@@ -81,7 +81,7 @@ struct data_t
 
     template <typename T, typename Dummy = void,
         typename = std::enable_if_t<!std::is_same_v<std::remove_reference_t<T>, data_t>, Dummy>>
-    data_t(T&& values)
+    explicit data_t(T&& values)
             : p_values { std::forward<T>(values) }
             , p_type { to_cdf_type<typename std::remove_reference_t<T>::value_type>() }
     {
