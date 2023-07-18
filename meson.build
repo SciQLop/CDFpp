@@ -23,6 +23,10 @@ if get_option('use_libdeflate')
     conf_data.set('CDFpp_USE_LIBDEFLATE', true)
 endif
 
+if get_option('use_nomap')
+    conf_data.set('CDFpp_USE_NOMAP', true)
+endif
+
 if(target_machine.endian() == 'big')
     conf_data.set('CDFpp_BIG_ENDIAN', true)
 else
@@ -67,6 +71,8 @@ endif
 
 cdfpp_headers = files(
     'include/cdfpp/attribute.hpp',
+    'include/cdfpp/nomap.hpp',
+    'include/cdfpp/cdf-map.hpp',
     'include/cdfpp/variable.hpp',
     'include/cdfpp/cdf.hpp',
     'include/cdfpp/cdf-helpers.hpp',
@@ -166,7 +172,7 @@ if get_option('with_tests')
     catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
 
 
-    foreach test:['endianness','simple_open', 'majority', 'chrono']
+    foreach test:['endianness','simple_open', 'majority', 'chrono', 'nomap']
         exe = executable('test-'+test,'tests/'+test+'/main.cpp',
                         dependencies:[catch_dep, cdfpp_dep],
                         install: false

@@ -26,7 +26,7 @@
 #include "cdf-majority-swap.hpp"
 #include <cstdint>
 #include <optional>
-#include <unordered_map>
+#include "cdf-map.hpp"
 #include <vector>
 
 namespace cdf
@@ -35,7 +35,7 @@ struct Variable
 {
     using var_data_t = data_t;
     using shape_t = std::vector<uint32_t>;
-    std::unordered_map<std::string, Attribute> attributes;
+    cdf_map<std::string, Attribute> attributes;
     Variable() = default;
     Variable(Variable&&) = default;
     Variable(const Variable&) = default;

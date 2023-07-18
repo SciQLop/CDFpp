@@ -24,11 +24,11 @@
 #include "../cdf-endianness.hpp"
 #include "../cdf-majority-swap.hpp"
 #include "../variable.hpp"
+#include "../cdf-map.hpp"
 #include <assert.h>
 #include <functional>
 #include <tuple>
 #include <type_traits>
-#include <unordered_map>
 #include <vector>
 
 namespace cdf::io::common
@@ -183,9 +183,14 @@ struct cdf_repr
 {
     cdf_majority majority;
     std::tuple<uint32_t, uint32_t, uint32_t> distribution_version;
-    std::unordered_map<std::string, Variable> variables;
-    std::unordered_map<std::string, Attribute> attributes;
-    std::unordered_map<std::size_t, std::unordered_map<std::string, Attribute>> var_attributes;
+    cdf_map<std::string, Variable> variables;
+    cdf_map<std::string, Attribute> attributes;
+    std::vector<cdf_map<std::string, Attribute>> var_attributes;
+    cdf_repr(std::size_t var_count):var_attributes(var_count){}
+    cdf_repr(cdf_repr&&) = default;
+    cdf_repr(const cdf_repr&) = delete;
+    cdf_repr& operator=(const cdf_repr&) = delete;
+    cdf_repr& operator=(cdf_repr&&) = default;
 };
 
 void add_global_attribute(cdf_repr& repr, const std::string& name, Attribute::attr_data_t&& data)
@@ -197,7 +202,7 @@ void add_var_attribute(cdf_repr& repr, const std::vector<uint32_t>& variable_ind
     const std::string& name, Attribute::attr_data_t&& data)
 {
     assert(std::size(data) == std::size(variable_indexes));
-    std::unordered_map<uint32_t, std::unordered_map<std::string, Attribute::attr_data_t>> storage;
+    cdf_map<uint32_t, cdf_map<std::string, Attribute::attr_data_t>> storage;
     for (auto index = 0UL; index < std::size(data); index++)
     {
         storage[variable_indexes[index]][name].push_back(data[index]);
@@ -229,11 +234,7 @@ void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
         = Variable { name, number, std::move(data), std::move(shape), repr.majority };
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
     {
-        auto attrs = repr.var_attributes.extract(number);
-        if (!attrs.empty())
-            return attrs.mapped();
-        else
-            return {};
+        return std::move(repr.var_attributes[number]);
     }();
 }
 
@@ -244,11 +245,7 @@ void add_lazy_variable(cdf_repr& repr, const std::string& name, std::size_t numb
         = Variable { name, number, std::move(data), std::move(shape), repr.majority };
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
     {
-        auto attrs = repr.var_attributes.extract(number);
-        if (!attrs.empty())
-            return attrs.mapped();
-        else
-            return {};
+        return std::move(repr.var_attributes[number]);
     }();
 }
 
