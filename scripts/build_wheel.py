@@ -18,7 +18,7 @@ def wheel_name(name, version):
     return f'{distname}-{tag}.whl'
 
 def build_wheel():
-    subprocess.run([sys.executable, "-m", "build", "."])
+    return subprocess.run([sys.executable, "-m", "build", "."])
 
 def fix_wheel_name(wheel):
     name, version = wheel.split('-')[:2]
@@ -29,10 +29,13 @@ def fix_wheel_name(wheel):
 if __name__ == '__main__':
 
     wheels_before = glob('dist/*.whl')
-    build_wheel()
-    wheels_after = glob('dist/*.whl')
-    diff = list(set(wheels_after) - set(wheels_before))
+    r=build_wheel()
+    if r.returncode == 0:
+        wheels_after = glob('dist/*.whl')
+        diff = list(set(wheels_after) - set(wheels_before))
 
-    if len(diff) == 1:
-        print(f"Found one wheel to rename {diff[0]}")
-        fix_wheel_name(os.path.basename(diff[0]))
+        if len(diff) == 1:
+            print(f"Found one wheel to rename {diff[0]}")
+            fix_wheel_name(os.path.basename(diff[0]))
+    else:
+        exit(r.returncode)
