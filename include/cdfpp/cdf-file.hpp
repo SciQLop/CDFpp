@@ -37,6 +37,7 @@ struct CDF
     std::tuple<uint32_t,uint32_t,uint32_t> distribution_version;
     cdf_map<std::string, Variable> variables;
     cdf_map<std::string, Attribute> attributes;
+    bool lazy_loaded;
     const Variable& operator[](const std::string& name) const { return variables.at(name); }
     Variable& operator[](const std::string& name) { return variables.at(name); }
 };

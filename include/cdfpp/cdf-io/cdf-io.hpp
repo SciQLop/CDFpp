@@ -61,11 +61,15 @@ namespace
         cdf_GDR_t<version_t, buffer_t> gdr;
         cdf_majority majority;
         std::tuple<uint32_t, uint32_t, uint32_t> distribution_version;
-
+        cdf_compression_type compression_type;
         bool is_compressed;
         bool ok = false;
-        cdf_headers_t(buffer_t&& buff, version_t, std::size_t CDRoffset = 8)
-                : buffer { std::move(buff) }, cdr { buffer }, gdr { buffer }
+        cdf_headers_t(buffer_t&& buff, version_t, cdf_compression_type compression_type,
+            std::size_t CDRoffset = 8)
+                : buffer { std::move(buff) }
+                , cdr { buffer }
+                , gdr { buffer }
+                , compression_type { compression_type }
         {
             magic = get_magic(this->buffer);
             if (common::is_cdf(magic) && cdr.load(CDRoffset) && gdr.load(cdr.GDRoffset.value))
@@ -88,6 +92,8 @@ namespace
         cdf.distribution_version = repr.distribution_version;
         cdf.attributes = std::move(repr.attributes);
         cdf.variables = std::move(repr.variables);
+        cdf.lazy_loaded = repr.lazy;
+        cdf.compression = repr.compression_type;
         return cdf;
     }
 
@@ -96,9 +102,10 @@ namespace
     {
         if (!cdf_headers.ok)
             return std::nullopt;
-        common::cdf_repr repr{cdf_headers.gdr.NzVars.value+cdf_headers.gdr.NrVars.value};
+        common::cdf_repr repr { cdf_headers.gdr.NzVars.value + cdf_headers.gdr.NrVars.value };
         repr.majority = cdf_headers.majority;
         repr.distribution_version = { cdf_headers.distribution_version };
+        repr.compression_type = cdf_headers.compression_type;
         if (!attribute::load_all<typename cdf_headers_t::version_tag, iso_8859_1_to_utf8>(
                 cdf_headers, repr))
             return std::nullopt;
@@ -124,7 +131,7 @@ namespace
                     decompression::gzinflate(
                         CCR.data.value, data.data() + 8UL, std::size(data) - 8UL);
                     cdf_headers_t cdf_headers { buffers::make_shared_array_adapter(std::move(data)),
-                        cdf_version_tag_t {} };
+                        cdf_version_tag_t {}, cdf_compression_type::gzip_compression };
                     return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
                         cdf_headers, lazy_load);
                 }
@@ -134,7 +141,7 @@ namespace
                     decompression::rleinflate(
                         CCR.data.value, data.data() + 8UL, std::size(data) - 8UL);
                     cdf_headers_t cdf_headers { buffers::make_shared_array_adapter(std::move(data)),
-                        cdf_version_tag_t {} };
+                        cdf_version_tag_t {}, cdf_compression_type::rle_compression };
                     return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
                         cdf_headers, lazy_load);
                 }
@@ -143,7 +150,8 @@ namespace
         }
         else
         {
-            cdf_headers_t cdf_headers { std::move(buffer), cdf_version_tag_t {} };
+            cdf_headers_t cdf_headers { std::move(buffer), cdf_version_tag_t {},
+                cdf_compression_type::no_compression };
             return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
                 cdf_headers, lazy_load);
         }

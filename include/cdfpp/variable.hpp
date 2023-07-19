@@ -116,6 +116,11 @@ struct Variable
         return std::get<lazy_data>(p_data).type();
     }
 
+    inline bool values_loaded()const
+    {
+        return not std::holds_alternative<lazy_data>(p_data);
+    }
+
     cdf_majority majority() const { return p_majority; }
 
     template <typename... Ts>
@@ -124,7 +129,7 @@ struct Variable
 private:
     var_data_t& _data()
     {
-        if (std::holds_alternative<lazy_data>(p_data))
+        if (not values_loaded())
         {
             p_data = std::get<lazy_data>(p_data).load();
             auto& data = std::get<data_t>(p_data);
@@ -137,7 +142,7 @@ private:
     }
     const var_data_t& _data() const
     {
-        if (std::holds_alternative<lazy_data>(p_data))
+        if (not values_loaded())
         {
             p_data = std::get<lazy_data>(p_data).load();
             auto& data = std::get<data_t>(p_data);

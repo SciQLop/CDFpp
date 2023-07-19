@@ -2,9 +2,9 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
-#include <tuple>
 
 
 #if __has_include(<catch2/catch_all.hpp>)
@@ -195,9 +195,10 @@ std::size_t filesize(std::fstream& file)
     return static_cast<std::size_t>(pos);
 }
 
-#define CHECK_CDF_FILE(cd, expected_version, expected_majority)                                        \
-    REQUIRE(cd.distribution_version == expected_version);                                                       \
-    REQUIRE(cd.majority == expected_majority);
+#define CHECK_CDF_FILE(cd, expected_version, expected_majority, expected_compression)              \
+    REQUIRE(cd.distribution_version == expected_version);                                          \
+    REQUIRE(cd.majority == expected_majority);                                                     \
+    REQUIRE(cd.compression == expected_compression);
 
 
 #define CHECK_ATTRIBUTES(cd)                                                                       \
@@ -285,17 +286,18 @@ SCENARIO("Loading a cdf files", "[CDF]")
                 REQUIRE(cdf::io::load(path) == std::nullopt);
             }
         }
-        WHEN("file exists and is a cdf file")
+        WHEN("file exists and is an uncompressed cdf file")
         {
             auto path = std::string(DATA_PATH) + "/a_cdf.cdf";
             REQUIRE(file_exists(path));
             auto cd_opt = cdf::io::load(path);
             REQUIRE(cd_opt != std::nullopt);
             auto cd = *cd_opt;
-            THEN("Version and majority are retrieved")
+            THEN("Version, majority and compression type are retrieved")
             {
-                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
-                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+                static constexpr auto version
+                    = std::tuple<uint32_t, uint32_t, uint32_t> { 3, 8, 0 };
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row, cdf::cdf_compression_type::no_compression);
             }
             THEN("All expected attributes are loaded")
             {
@@ -326,8 +328,9 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd = *cd_opt;
             THEN("Version and majority are retrieved")
             {
-                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
-                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+                static constexpr auto version
+                    = std::tuple<uint32_t, uint32_t, uint32_t> { 3, 8, 0 };
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row, cdf::cdf_compression_type::no_compression);
             }
             THEN("All expected attributes are loaded")
             {
@@ -360,8 +363,9 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd = *cd_opt;
             THEN("Version and majority are retrieved")
             {
-                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
-                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+                static constexpr auto version
+                    = std::tuple<uint32_t, uint32_t, uint32_t> { 3, 8, 0 };
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row, cdf::cdf_compression_type::no_compression);
             }
             THEN("All expected attributes are loaded")
             {
@@ -381,8 +385,9 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd = *cd_opt;
             THEN("Version and majority are retrieved")
             {
-                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
-                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+                static constexpr auto version
+                    = std::tuple<uint32_t, uint32_t, uint32_t> { 3, 8, 0 };
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row, cdf::cdf_compression_type::gzip_compression);
             }
             THEN("All expected attributes are loaded")
             {
@@ -402,8 +407,9 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd = *cd_opt;
             THEN("Version and majority are retrieved")
             {
-                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
-                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+                static constexpr auto version
+                    = std::tuple<uint32_t, uint32_t, uint32_t> { 3, 8, 0 };
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row, cdf::cdf_compression_type::rle_compression);
             }
             THEN("All expected attributes are loaded")
             {
@@ -423,8 +429,9 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd = *cd_opt;
             THEN("Version and majority are retrieved")
             {
-                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
-                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row);
+                static constexpr auto version
+                    = std::tuple<uint32_t, uint32_t, uint32_t> { 3, 8, 0 };
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::row, cdf::cdf_compression_type::no_compression);
             }
             THEN("All expected attributes are loaded")
             {
@@ -444,8 +451,9 @@ SCENARIO("Loading a cdf files", "[CDF]")
             auto cd = *cd_opt;
             THEN("Version and majority are retrieved")
             {
-                static constexpr auto version = std::tuple<uint32_t,uint32_t,uint32_t>{3,8,0};
-                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::column);
+                static constexpr auto version
+                    = std::tuple<uint32_t, uint32_t, uint32_t> { 3, 8, 0 };
+                CHECK_CDF_FILE(cd, version, cdf::cdf_majority::column, cdf::cdf_compression_type::no_compression);
             }
             THEN("All expected attributes are loaded")
             {
