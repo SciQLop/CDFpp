@@ -98,8 +98,8 @@ auto majority(const T& cdr)
 template <typename src_endianess_t, typename buffer_t, typename container_t>
 void load_values(buffer_t& buffer, std::size_t offset, container_t& output)
 {
-    auto data = buffer.read(offset, std::size(output) * sizeof(typename container_t::value_type));
-    endianness::decode_v<src_endianess_t>(data.data(), std::size(data), output.data());
+    buffer.read(reinterpret_cast<char*>(output.data()), offset, std::size(output) * sizeof(typename container_t::value_type));
+    endianness::decode_v<src_endianess_t>(output.data(), std::size(output));
 }
 
 template <typename value_t, typename stream_t, typename... Args>

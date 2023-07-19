@@ -100,6 +100,8 @@ struct stream_adapter
     std::optional<buffer> p_buffer;
     stream_t stream;
     std::size_t p_fsize;
+    using implements_view = std::false_type;
+
     stream_adapter(stream_t&& stream) : stream { std::move(stream) }
     {
         p_fsize = filesize(this->stream);
@@ -195,6 +197,8 @@ struct array_adapter
         : std::conditional_t<takes_ownership, with_ownership<array_t>, without_ownership<array_t>>
 {
     const std::size_t size;
+    using implements_view = std::true_type;
+
     template <bool owns = takes_ownership>
     array_adapter(const array_t& array, typename std::enable_if<!owns>::type* = 0)
             : without_ownership<array_t> { array }, size { std::size(array) }
@@ -234,7 +238,35 @@ struct array_adapter
         return buffer;
     }
 
-    void read(char* dest, std::size_t offset, std::size_t size) const { impl_read(dest, offset, size); }
+    template <std::size_t size, bool is_ptr = std::is_pointer_v<array_t>>
+    auto view(const std::size_t offset, typename std::enable_if<!is_ptr>::type* = 0)
+    {
+        return array_adapter<const char* const> { this->array.data() + offset, size };
+    }
+
+    template <std::size_t size, bool is_ptr = std::is_pointer_v<array_t>>
+    auto view(const std::size_t offset, typename std::enable_if<is_ptr>::type* = 0)
+    {
+        return array_adapter<const char* const> { this->array + offset, size };
+    }
+
+    void read(char* dest, std::size_t offset, std::size_t size) const
+    {
+        impl_read(dest, offset, size);
+    }
+
+    template <bool is_ptr = std::is_pointer_v<array_t>>
+    const char*  data(typename std::enable_if<is_ptr>::type* = 0)const
+    {
+        return this->array;
+    }
+
+    template <bool is_ptr = std::is_pointer_v<array_t>>
+    const char*  data(typename std::enable_if<!is_ptr>::type* = 0)const
+    {
+        return this->array.data();
+    }
+
     bool is_valid() const { return size != 0; }
 };
 
@@ -251,6 +283,8 @@ struct mmap_adapter
     int fd = -1;
     std::shared_ptr<char> mapped_file = nullptr;
     std::size_t f_size = 0UL;
+    using implements_view = std::true_type;
+
     mmap_adapter(const std::string& path)
     {
         if (fd = open(path.c_str(), O_RDONLY, static_cast<mode_t>(0600)); fd != -1)
@@ -286,6 +320,12 @@ struct mmap_adapter
         std::copy_n(mapped_file.get() + offset, size, dest);
     }
 
+    template <std::size_t size>
+    auto view(const std::size_t offset)
+    {
+        return array_adapter<char*, false> { mapped_file.get() + offset, size };
+    }
+
     bool is_valid() const { return fd != -1 && mapped_file != nullptr; }
 };
 #endif
@@ -293,7 +333,8 @@ struct mmap_adapter
 template <class buffer_t>
 struct shared_buffer_t
 {
-    shared_buffer_t()=delete;
+    shared_buffer_t() = delete;
+    using implements_view = typename buffer_t::implements_view;
 
     shared_buffer_t(std::shared_ptr<buffer_t>&& buffer) : p_buffer { std::move(buffer) } { }
 
@@ -324,6 +365,13 @@ struct shared_buffer_t
     inline auto read(const std::size_t offset) const
     {
         return p_buffer->template read<size>(offset);
+    }
+
+    template <std::size_t size>
+    auto view(const std::size_t offset)
+        -> decltype(std::declval<buffer_t>().template view<size>(offset))
+    {
+        return p_buffer->template view<size>(offset);
     }
 
     inline bool is_valid() const { return p_buffer->is_valid(); }
