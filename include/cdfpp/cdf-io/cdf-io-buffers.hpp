@@ -238,16 +238,10 @@ struct array_adapter
         return buffer;
     }
 
-    template <std::size_t size, bool is_ptr = std::is_pointer_v<array_t>>
-    auto view(const std::size_t offset, typename std::enable_if<!is_ptr>::type* = 0)
+    template <std::size_t size>
+    auto view(const std::size_t offset) const
     {
-        return array_adapter<const char* const> { this->array.data() + offset, size };
-    }
-
-    template <std::size_t size, bool is_ptr = std::is_pointer_v<array_t>>
-    auto view(const std::size_t offset, typename std::enable_if<is_ptr>::type* = 0)
-    {
-        return array_adapter<const char* const> { this->array + offset, size };
+        return std::string_view { this->data() + offset, size };
     }
 
     void read(char* dest, std::size_t offset, std::size_t size) const
@@ -321,9 +315,9 @@ struct mmap_adapter
     }
 
     template <std::size_t size>
-    auto view(const std::size_t offset)
+    auto view(const std::size_t offset) const
     {
-        return array_adapter<char*, false> { mapped_file.get() + offset, size };
+        return std::string_view { mapped_file.get() + offset, size };
     }
 
     bool is_valid() const { return fd != -1 && mapped_file != nullptr; }
@@ -368,7 +362,7 @@ struct shared_buffer_t
     }
 
     template <std::size_t size>
-    auto view(const std::size_t offset)
+    auto view(const std::size_t offset) const
         -> decltype(std::declval<buffer_t>().template view<size>(offset))
     {
         return p_buffer->template view<size>(offset);
