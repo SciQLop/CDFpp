@@ -20,11 +20,9 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "../cdf-data.hpp"
 #include "../cdf-endianness.hpp"
 #include "../cdf-enums.hpp"
 #include "../cdf-helpers.hpp"
-#include "cdf-io-buffers.hpp"
 #include "cdf-io-common.hpp"
 #include <cstdint>
 #include <tuple>
@@ -254,8 +252,18 @@ constexpr bool load_fields(buffer_t&& buffer, std::size_t offset, Ts&&... fields
     using first_member_t = first_field_t<Ts...>;
     constexpr std::size_t buffer_len
         = last_member_t::offset + last_member_t::len - first_member_t::offset;
-    auto data = buffer.read(offset + first_member_t::offset, buffer_len);
-    extract_fields(data, first_member_t::offset, fields...);
+    //std::array<char,buffer_len> data ;
+    //buffer.read(data.data(), offset + first_member_t::offset, buffer_len);
+    if constexpr(std::remove_reference_t<buffer_t>::implements_view::value)
+    {
+        auto data = buffer.template view<buffer_len>(offset + first_member_t::offset);
+        extract_fields(data, first_member_t::offset, fields...);
+    }
+    else
+    {
+        auto data = buffer.template read<buffer_len>(offset + first_member_t::offset);
+        extract_fields(data, first_member_t::offset, fields...);
+    }
     return true;
 }
 

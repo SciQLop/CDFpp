@@ -107,6 +107,17 @@ namespace
     template <std::size_t s>
     using uint_t = typename uint<s>::type;
 
+    template <typename T>
+    union swapable_t
+    {
+        static inline constexpr bool is_int = std::is_same_v< T, uint_t<sizeof(T)>>;
+        uint_t<sizeof(T)> int_view;
+        T value;
+        template<bool disable=is_int>
+        swapable_t(T v, typename std::enable_if<!disable>::type* = 0) : value { v } { }
+        swapable_t(uint_t<sizeof(T)> v) : int_view { v } { }
+    };
+
 
     inline uint8_t bswap(uint8_t v)
     {
@@ -128,57 +139,57 @@ namespace
     template <typename T, std::size_t s = sizeof(T)>
     inline T byte_swap(T value)
     {
-        using int_repr_t = uint_t<s>;
-        int_repr_t result = bswap(*reinterpret_cast<int_repr_t*>(&value));
-        return *reinterpret_cast<T*>(&result);
+        return swapable_t<T> { bswap(swapable_t<T> { value }.int_view) }.value;
     }
 }
 
 
 template <typename src_endianess_t, typename T, typename U>
 CDFPP_NON_NULL(1)
-T decode(const U* input)
+inline T decode(const U* input)
 {
-    T result;
-    CDFPP_ASSERT(input != nullptr);
-    std::memcpy(&result, input, sizeof(T));
-    if constexpr (!std::is_same_v<host_endianness_t, src_endianess_t>)
+    if constexpr (sizeof(T) > 1)
     {
-        return byte_swap<T>(result);
+        T result;
+        CDFPP_ASSERT(input != nullptr);
+        std::memcpy(&result, input, sizeof(T));
+        if constexpr (!std::is_same_v<host_endianness_t, src_endianess_t>)
+        {
+            return byte_swap<T>(result);
+        }
+        return result;
     }
-    return result;
+    else
+    {
+        return static_cast<T>(*input);
+    }
 }
 
 template <typename src_endianess_t, typename value_t>
-CDFPP_NON_NULL(1, 3)
-inline void decode_v(const char* input, std::size_t size, value_t* output)
+CDFPP_NON_NULL(1)
+inline void decode_v(value_t* data, std::size_t size)
 {
-    using casted_buffer_t = uint_t<sizeof(value_t)>;
-    CDFPP_ASSERT(input != nullptr);
-    CDFPP_ASSERT(output != nullptr);
-    if (size > 0)
+    if constexpr (sizeof(value_t) > 1)
     {
-        if (reinterpret_cast<const void*>(output) != reinterpret_cast<const void*>(input))
+        CDFPP_ASSERT(data != nullptr);
+        if (size > 0)
         {
-            std::memcpy(output, input, size);
-        }
-        if constexpr (not std::is_same_v<host_endianness_t, src_endianess_t>)
-        {
-            std::size_t buffer_size = size / sizeof(value_t);
-            casted_buffer_t* casted_buffer = reinterpret_cast<casted_buffer_t*>(output);
-            for (auto i = 0UL; i < buffer_size; i++)
+            if constexpr (not std::is_same_v<host_endianness_t, src_endianess_t>)
             {
-                casted_buffer[i] = byte_swap(casted_buffer[i]);
+                for (auto i = 0UL; i < size; i++)
+                {
+                    data[i] = byte_swap(data[i]);
+                }
             }
         }
     }
 }
 
-template <typename src_endianess_t>
-CDFPP_NON_NULL(1, 3)
-inline void decode_v(const char* input, std::size_t size, epoch16* output)
-{
-    decode_v<src_endianess_t>(input, size, reinterpret_cast<double*>(output));
-}
 
+template <typename src_endianess_t>
+CDFPP_NON_NULL(1)
+inline void decode_v(epoch16* data, std::size_t size)
+{
+    decode_v<src_endianess_t>(reinterpret_cast<double*>(data), size * 2);
+}
 }

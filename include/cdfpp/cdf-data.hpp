@@ -238,7 +238,7 @@ inline data_t load_values(data_t&& data)
     else
     {
         if (std::size(data) != 0UL)
-            endianness::decode_v<endianness_t>(data.bytes_ptr(), data.bytes(), data.bytes_ptr());
+            endianness::decode_v<endianness_t>(reinterpret_cast<from_cdf_type_t<type>*>(data.bytes_ptr()), data.size());
         return std::move(data);
     }
 }

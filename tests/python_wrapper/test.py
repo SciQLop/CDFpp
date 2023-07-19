@@ -142,6 +142,13 @@ class PycdfEncodingTest(unittest.TestCase):
         str(cdf)
         self.assertIn('4ïÂ°', cdf.attributes['TEXT'][0])
 
+class PycdfLazyLoadingTest(unittest.TestCase):
+    def test_lazy_in_memory_loading(self):
+        files = glob(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/a_*.cdf')
+        for f in files:
+            cdf = pycdfpp.load(load_bytes(f))
+            data=[v.values for _,v in cdf.items()]
+            self.assertTrue(all([ d is not None for d in data ]))
 
 class PycdfDatetimeReprTest(unittest.TestCase):
     def test_can_repr_the_exact_expected_value_no_matter_what_TZ(self):
