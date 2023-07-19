@@ -23,8 +23,8 @@
 #include "../attribute.hpp"
 #include "../cdf-endianness.hpp"
 #include "../cdf-majority-swap.hpp"
-#include "../variable.hpp"
 #include "../cdf-map.hpp"
+#include "../variable.hpp"
 #include <assert.h>
 #include <functional>
 #include <tuple>
@@ -36,8 +36,12 @@ namespace cdf::io::common
 using magic_numbers_t = std::pair<uint32_t, uint32_t>;
 using version_t = std::pair<uint8_t, uint8_t>;
 
-struct iso_8859_1_to_utf8_t{};
-struct no_iso_8859_1_to_utf8_t{};
+struct iso_8859_1_to_utf8_t
+{
+};
+struct no_iso_8859_1_to_utf8_t
+{
+};
 
 template <typename T>
 inline constexpr bool with_iso_8859_1_to_utf8 = std::is_same_v<T, iso_8859_1_to_utf8_t>;
@@ -181,12 +185,14 @@ struct blk_iterator
 
 struct cdf_repr
 {
-    cdf_majority majority;
     std::tuple<uint32_t, uint32_t, uint32_t> distribution_version;
     cdf_map<std::string, Variable> variables;
     cdf_map<std::string, Attribute> attributes;
     std::vector<cdf_map<std::string, Attribute>> var_attributes;
-    cdf_repr(std::size_t var_count):var_attributes(var_count){}
+    cdf_majority majority;
+    cdf_compression_type compression_type;
+    bool lazy;
+    cdf_repr(std::size_t var_count) : var_attributes(var_count) { }
     cdf_repr(cdf_repr&&) = default;
     cdf_repr(const cdf_repr&) = delete;
     cdf_repr& operator=(const cdf_repr&) = delete;
@@ -233,9 +239,7 @@ void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
     repr.variables[name]
         = Variable { name, number, std::move(data), std::move(shape), repr.majority };
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
-    {
-        return std::move(repr.var_attributes[number]);
-    }();
+    { return std::move(repr.var_attributes[number]); }();
 }
 
 void add_lazy_variable(cdf_repr& repr, const std::string& name, std::size_t number,
@@ -244,9 +248,7 @@ void add_lazy_variable(cdf_repr& repr, const std::string& name, std::size_t numb
     repr.variables[name]
         = Variable { name, number, std::move(data), std::move(shape), repr.majority };
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
-    {
-        return std::move(repr.var_attributes[number]);
-    }();
+    { return std::move(repr.var_attributes[number]); }();
 }
 
 }

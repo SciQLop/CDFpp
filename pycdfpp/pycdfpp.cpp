@@ -215,6 +215,13 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
         .value("row", cdf_majority::row)
         .value("column", cdf_majority::column);
 
+    py::enum_<cdf_compression_type>(m, "CDF_compression_type")
+        .value("no_compression", cdf_compression_type::no_compression)
+        .value("gzip_compression", cdf_compression_type::gzip_compression)
+        .value("rle_compression", cdf_compression_type::rle_compression)
+        .value("ahuff_compression", cdf_compression_type::ahuff_compression)
+        .value("huff_compression", cdf_compression_type::huff_compression);
+
     py::enum_<CDF_Types>(m, "CDF_Types")
         .value("CDF_BYTE", CDF_Types::CDF_BYTE)
         .value("CDF_CHAR", CDF_Types::CDF_CHAR)
@@ -242,6 +249,10 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
         .def_property_readonly("majority", [](const CDF& cdf) { return cdf.majority; })
         .def_property_readonly(
             "distribution_version", [](const CDF& cdf) { return cdf.distribution_version; })
+        .def_property_readonly(
+            "lazy_loaded", [](const CDF& cdf) { return cdf.lazy_loaded; })
+        .def_property_readonly(
+            "compression", [](const CDF& cdf) { return cdf.compression; })
         .def("__repr__", __repr__<CDF>)
         .def(
             "__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; },
@@ -282,6 +293,7 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
         .def_property_readonly("type", &Variable::type)
         .def_property_readonly("shape", &Variable::shape)
         .def_property_readonly("majority", &Variable::majority)
+        .def_property_readonly("values_loaded", &Variable::values_loaded)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
         .def_property_readonly(
             "values", make_values_view, py::return_value_policy::reference_internal);
