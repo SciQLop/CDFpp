@@ -26,7 +26,9 @@
 #include "variable.hpp"
 #include "cdf-repr.hpp"
 #include <optional>
+#include <thread>
 
 namespace cdf
 {
+
 } // namespace cdf

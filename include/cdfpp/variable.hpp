@@ -121,6 +121,19 @@ struct Variable
         return not std::holds_alternative<lazy_data>(p_data);
     }
 
+    inline void load_values() const
+    {
+        if (not values_loaded())
+        {
+            p_data = std::get<lazy_data>(p_data).load();
+            auto& data = std::get<data_t>(p_data);
+            if (this->majority() == cdf_majority::column)
+            {
+                majority::swap(data, p_shape);
+            }
+        }
+    }
+
     cdf_majority majority() const { return p_majority; }
 
     template <typename... Ts>
@@ -129,28 +142,12 @@ struct Variable
 private:
     var_data_t& _data()
     {
-        if (not values_loaded())
-        {
-            p_data = std::get<lazy_data>(p_data).load();
-            auto& data = std::get<data_t>(p_data);
-            if (this->majority() == cdf_majority::column)
-            {
-                majority::swap(data, p_shape);
-            }
-        }
+        load_values();
         return std::get<var_data_t>(p_data);
     }
     const var_data_t& _data() const
     {
-        if (not values_loaded())
-        {
-            p_data = std::get<lazy_data>(p_data).load();
-            auto& data = std::get<data_t>(p_data);
-            if (this->majority() == cdf_majority::column)
-            {
-                majority::swap(data, p_shape);
-            }
-        }
+        load_values();
         return std::get<var_data_t>(p_data);
     }
 

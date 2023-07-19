@@ -227,4 +227,5 @@ std::optional<CDF> load(
     }
     return std::nullopt;
 }
+
 } // namespace cdf::io
