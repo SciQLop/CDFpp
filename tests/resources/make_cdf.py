@@ -86,7 +86,7 @@ def make_cdf(name, compress_file=False, compress_var=False, compression_algo=pyc
     add_attributes(cd)
     print_cdf(cd)
     if compress_file:
-        cd.compress(pycdf.const.GZIP_COMPRESSION)
+        cd.compress(compression_algo)
     cd.close()
 
 make_cdf("a_cdf.cdf")
