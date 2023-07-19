@@ -186,7 +186,7 @@ struct with_ownership
 template <typename array_t>
 struct without_ownership
 {
-    const array_t& array;
+    std::conditional_t<std::is_pointer_v<array_t>, const array_t, const array_t&> array;
     without_ownership(const array_t& array) : array { array } { }
 };
 
@@ -214,12 +214,12 @@ struct array_adapter
     }
 
     template <typename T>
-    void impl_read(T& output_array, const std::size_t offset, const std::size_t size)
+    void impl_read(T& output_array, const std::size_t offset, const std::size_t size) const
     {
         std::copy_n(begin(this->array) + offset, size, begin(output_array));
     }
 
-    std::vector<char> read(const std::size_t offset, const std::size_t size)
+    std::vector<char> read(const std::size_t offset, const std::size_t size) const
     {
         std::vector<char> buffer(size);
         impl_read(buffer, offset, size);
@@ -227,15 +227,15 @@ struct array_adapter
     }
 
     template <std::size_t size>
-    std::array<char, size> read(const std::size_t offset)
+    std::array<char, size> read(const std::size_t offset) const
     {
         std::array<char, size> buffer;
         impl_read(buffer, offset, size);
         return buffer;
     }
 
-    void read(char* dest, std::size_t offset, std::size_t size) { impl_read(dest, offset, size); }
-    bool is_valid() { return size != 0; }
+    void read(char* dest, std::size_t offset, std::size_t size) const { impl_read(dest, offset, size); }
+    bool is_valid() const { return size != 0; }
 };
 
 template <typename array_t>
@@ -286,21 +286,30 @@ struct mmap_adapter
         std::copy_n(mapped_file.get() + offset, size, dest);
     }
 
-    bool is_valid() { return fd != -1 && mapped_file != nullptr; }
+    bool is_valid() const { return fd != -1 && mapped_file != nullptr; }
 };
 #endif
 
 template <class buffer_t>
 struct shared_buffer_t
 {
+    shared_buffer_t()=delete;
 
     shared_buffer_t(std::shared_ptr<buffer_t>&& buffer) : p_buffer { std::move(buffer) } { }
 
     shared_buffer_t(const shared_buffer_t& other) { p_buffer = other.p_buffer; }
     shared_buffer_t(shared_buffer_t&& other) { p_buffer = std::move(other.p_buffer); }
+    shared_buffer_t& operator=(const shared_buffer_t&) = default;
+    shared_buffer_t& operator=(shared_buffer_t&&) = default;
 
     template <class... Types>
     inline auto read(Types&&... args)
+    {
+        return p_buffer->read(std::forward<Types>(args)...);
+    }
+
+    template <class... Types>
+    inline auto read(Types&&... args) const
     {
         return p_buffer->read(std::forward<Types>(args)...);
     }
@@ -311,21 +320,33 @@ struct shared_buffer_t
         return p_buffer->template read<size>(offset);
     }
 
-    inline bool is_valid() { return p_buffer->is_valid(); }
+    template <std::size_t size>
+    inline auto read(const std::size_t offset) const
+    {
+        return p_buffer->template read<size>(offset);
+    }
+
+    inline bool is_valid() const { return p_buffer->is_valid(); }
 
 private:
     std::shared_ptr<buffer_t> p_buffer;
 };
 
-template <typename array_t, class... Types>
-inline auto make_shared_array_adapter(array_t&& array, Types&&... args)
+template <typename array_t>
+inline auto make_shared_array_adapter(array_t&& array)
 {
     if constexpr (std::is_rvalue_reference_v<decltype(std::forward<array_t>(array))>)
-        return shared_buffer_t(std::make_shared<array_adapter<array_t, true>>(
-            std::forward<array_t>(array), std::forward<Types>(args)...));
+        return shared_buffer_t(
+            std::make_shared<array_adapter<array_t, true>>(std::forward<array_t>(array)));
     else
-        return shared_buffer_t(std::make_shared<array_adapter<array_t>>(
-            std::forward<array_t>(array), std::forward<Types>(args)...));
+        return shared_buffer_t(
+            std::make_shared<array_adapter<array_t>>(std::forward<array_t>(array)));
+}
+
+
+inline auto make_shared_array_adapter(const char* const data, std::size_t size)
+{
+    return shared_buffer_t(std::make_shared<array_adapter<const char* const>>(data, size));
 }
 
 inline auto make_shared_file_adapter(const std::string& path)

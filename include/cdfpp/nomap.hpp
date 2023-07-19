@@ -101,7 +101,7 @@ struct nomap
     using reference = mapped_type&;
     using const_reference = const mapped_type&;
     using iterator = decltype(std::declval<std::vector<value_type>>().begin());
-    using const_iterator= decltype(std::declval<std::vector<value_type>>().cbegin());
+    using const_iterator = decltype(std::declval<std::vector<value_type>>().cbegin());
 
     nomap() = default;
     nomap(nomap&&) = default;
@@ -160,6 +160,8 @@ struct nomap
         return node.second;
     }
 
+    inline const T& operator[](const key_type& key) const { return this->at(key); }
+
     inline iterator begin() { return std::begin(p_nodes); }
 
     inline iterator end() { return std::end(p_nodes); }
@@ -183,10 +185,10 @@ struct nomap
     {
         if (position != end())
         {
-            auto next_idx=(position-begin());
+            auto next_idx = (position - begin());
             std::swap(*position, p_nodes.back());
             p_nodes.pop_back();
-            return begin()+next_idx;
+            return begin() + next_idx;
         }
         return end();
     }
@@ -195,26 +197,26 @@ struct nomap
     {
         if (position != cend())
         {
-            auto next_idx=(position-cbegin());
+            auto next_idx = (position - cbegin());
             std::swap(*position, p_nodes.back());
             p_nodes.pop_back();
-            return cbegin()+next_idx;
+            return cbegin() + next_idx;
         }
         return cend();
     }
 
-    inline iterator erase( const_iterator first, const_iterator last )
+    inline iterator erase(const_iterator first, const_iterator last)
     {
-        if (first != cend() and last != cend() and first<=last)
+        if (first != cend() and last != cend() and first <= last)
         {
-            auto next_idx=(first-cbegin());
-            auto count = last-first;
+            auto next_idx = (first - cbegin());
+            auto count = last - first;
             while (count--)
             {
                 std::swap(p_nodes[next_idx], p_nodes.back());
                 p_nodes.pop_back();
             }
-            return cbegin()+next_idx;
+            return cbegin() + next_idx;
         }
         return end();
     }
@@ -252,18 +254,17 @@ struct nomap
 
     void reserve(size_type count) { p_nodes.reserve(count); }
 
-    template<typename Kt, class... Args >
-    std::pair<iterator,bool> emplace(Kt&& key, Args&&... args )
+    template <typename Kt, class... Args>
+    std::pair<iterator, bool> emplace(Kt&& key, Args&&... args)
     {
-        auto it=find(key);
-        if(it==end())
+        auto it = find(key);
+        if (it == end())
         {
             p_nodes.emplace_back(std::forward<Kt>(key), std::forward<Args>(args)...);
-            return {p_nodes.end()-1,true};
+            return { p_nodes.end() - 1, true };
         }
-        return {it,false};
+        return { it, false };
     }
-
 
 
 private:

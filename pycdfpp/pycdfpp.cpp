@@ -121,8 +121,8 @@ inline py_cdf_attr_data_t to_py_cdf_data(const cdf::data_t& data)
 }
 }
 
-template <typename T1, typename T2,typename T3 >
-auto def_cdf_map(T3& mod, const char *name)
+template <typename T1, typename T2, typename T3>
+auto def_cdf_map(T3& mod, const char* name)
 {
     return py::class_<cdf_map<T1, T2>>(mod, name)
         .def("__repr__", __repr__<cdf_map<T1, T2>>)
@@ -130,7 +130,7 @@ auto def_cdf_map(T3& mod, const char *name)
             "__getitem__", [](cdf_map<T1, T2>& m, const std::string& key) -> T2& { return m[key]; },
             py::return_value_policy::reference_internal)
         .def("__contains__",
-             [](const cdf_map<T1, T2>& m, std::string& key) { return m.count(key) > 0; })
+            [](const cdf_map<T1, T2>& m, std::string& key) { return m.count(key) > 0; })
         .def(
             "__iter__",
             [](const cdf_map<T1, T2>& m)
@@ -138,18 +138,16 @@ auto def_cdf_map(T3& mod, const char *name)
             py::keep_alive<0, 1>())
         .def(
             "items",
-            [](const cdf_map<T1, T2>& m)
-            { return py::make_iterator(std::begin(m), std::end(m)); },
+            [](const cdf_map<T1, T2>& m) { return py::make_iterator(std::begin(m), std::end(m)); },
             py::keep_alive<0, 1>())
-        .def(
-            "keys",
+        .def("keys",
             [](const cdf_map<T1, T2>& m)
             {
                 std::vector<T1> keys(std::size(m));
-                std::transform(std::cbegin(m), std::cend(m), std::begin(keys),[](const auto& item){return item.first;});
+                std::transform(std::cbegin(m), std::cend(m), std::begin(keys),
+                    [](const auto& item) { return item.first; });
                 return keys;
-            }
-            )
+            })
         .def("__len__", [](const cdf_map<T1, T2>& m) { return std::size(m); });
 }
 
@@ -172,11 +170,11 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
     PYBIND11_NUMPY_DTYPE(tt2000_t, value);
     PYBIND11_NUMPY_DTYPE(epoch, value);
     PYBIND11_NUMPY_DTYPE(epoch16, seconds, picoseconds);
-    //py::bind_map<cdf_map<std::string, Variable>>(m,"VariablesMap");
-    //py::bind_map<cdf_map<std::string, Attribute>>(m,"AttributeMap");
+    // py::bind_map<cdf_map<std::string, Variable>>(m,"VariablesMap");
+    // py::bind_map<cdf_map<std::string, Attribute>>(m,"AttributeMap");
 
-    def_cdf_map<std::string, Variable>(m,"VariablesMap");
-    def_cdf_map<std::string, Attribute>(m,"AttributeMap");
+    def_cdf_map<std::string, Variable>(m, "VariablesMap");
+    def_cdf_map<std::string, Attribute>(m, "AttributeMap");
 
     m.def("to_datetime64", array_to_datetime64<epoch>, py::arg {}.noconvert());
     m.def("to_datetime64", array_to_datetime64<epoch16>, py::arg {}.noconvert());
@@ -249,10 +247,8 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
         .def_property_readonly("majority", [](const CDF& cdf) { return cdf.majority; })
         .def_property_readonly(
             "distribution_version", [](const CDF& cdf) { return cdf.distribution_version; })
-        .def_property_readonly(
-            "lazy_loaded", [](const CDF& cdf) { return cdf.lazy_loaded; })
-        .def_property_readonly(
-            "compression", [](const CDF& cdf) { return cdf.compression; })
+        .def_property_readonly("lazy_loaded", [](const CDF& cdf) { return cdf.lazy_loaded; })
+        .def_property_readonly("compression", [](const CDF& cdf) { return cdf.compression; })
         .def("__repr__", __repr__<CDF>)
         .def(
             "__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; },
@@ -300,19 +296,31 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
 
     m.def(
         "load",
-        [](py::bytes& buffer, bool iso_8859_1_to_utf8, bool lazy_load)
+        [](py::bytes& buffer, bool iso_8859_1_to_utf8)
         {
             py::buffer_info info(py::buffer(buffer).request());
             return io::load(static_cast<char*>(info.ptr), static_cast<std::size_t>(info.size),
-                iso_8859_1_to_utf8, lazy_load);
+                iso_8859_1_to_utf8);
         },
-        py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false, py::arg("lazy_load") = false,
-        py::return_value_policy::reference);
+        py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false,
+        py::return_value_policy::take_ownership);
+
+    m.def(
+        "lazy_load",
+        [](py::buffer& buffer, bool iso_8859_1_to_utf8)
+        {
+            py::buffer_info info(buffer.request());
+            if (info.ndim != 1)
+                throw std::runtime_error("Incompatible buffer dimension!");
+            return io::load(static_cast<char*>(info.ptr), info.shape[0], iso_8859_1_to_utf8, true);
+        },
+        py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false,
+        py::return_value_policy::take_ownership, py::keep_alive<0, 1>());
 
     m.def(
         "load",
         [](const char* fname, bool iso_8859_1_to_utf8, bool lazy_load)
         { return io::load(std::string { fname }, iso_8859_1_to_utf8, lazy_load); },
         py::arg("fname"), py::arg("iso_8859_1_to_utf8") = false, py::arg("lazy_load") = true,
-        py::return_value_policy::reference);
+        py::return_value_policy::take_ownership);
 }
