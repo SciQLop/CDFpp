@@ -110,11 +110,13 @@ namespace
     template <typename T>
     union swapable_t
     {
-        static inline constexpr bool is_int = std::is_same_v< T, uint_t<sizeof(T)>>;
+        static inline constexpr bool is_int = std::is_same_v<T, uint_t<sizeof(T)>>;
         uint_t<sizeof(T)> int_view;
         T value;
-        template<bool disable=is_int>
-        swapable_t(T v, typename std::enable_if<!disable>::type* = 0) : value { v } { }
+        template <bool disable = is_int>
+        swapable_t(T v, typename std::enable_if<!disable>::type* = 0) : value { v }
+        {
+        }
         swapable_t(uint_t<sizeof(T)> v) : int_view { v } { }
     };
 
@@ -169,17 +171,14 @@ template <typename src_endianess_t, typename value_t>
 CDFPP_NON_NULL(1)
 inline void decode_v(value_t* data, std::size_t size)
 {
-    if constexpr (sizeof(value_t) > 1)
+    if constexpr (sizeof(value_t) > 1 and not std::is_same_v<host_endianness_t, src_endianess_t>)
     {
         CDFPP_ASSERT(data != nullptr);
         if (size > 0)
         {
-            if constexpr (not std::is_same_v<host_endianness_t, src_endianess_t>)
+            for (auto i = 0UL; i < size; i++)
             {
-                for (auto i = 0UL; i < size; i++)
-                {
-                    data[i] = byte_swap(data[i]);
-                }
+                data[i] = byte_swap(data[i]);
             }
         }
     }
