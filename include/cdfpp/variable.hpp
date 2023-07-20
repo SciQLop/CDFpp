@@ -24,6 +24,7 @@
 #include "cdf-data.hpp"
 #include "cdf-enums.hpp"
 #include "cdf-majority-swap.hpp"
+#include "no_init_vector.hpp"
 #include <cstdint>
 #include <optional>
 #include "cdf-map.hpp"
@@ -34,7 +35,7 @@ namespace cdf
 struct Variable
 {
     using var_data_t = data_t;
-    using shape_t = std::vector<uint32_t>;
+    using shape_t = no_init_vector<uint32_t>;
     cdf_map<std::string, Attribute> attributes;
     Variable() = default;
     Variable(Variable&&) = default;

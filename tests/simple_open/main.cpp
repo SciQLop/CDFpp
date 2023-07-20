@@ -60,7 +60,7 @@ template <int index, typename value_type>
 std::enable_if_t<std::is_scalar_v<value_type> && !std::is_same_v<value_type, const char*>, bool>
 impl_compare_attribute_value(const cdf::Attribute& attribute, const value_type& value)
 {
-    return attribute.get<value_type>(index) == std::vector<value_type> { value };
+    return attribute.get<value_type>(index) == no_init_vector<value_type> { value };
 }
 
 template <int index, typename value_type>
@@ -95,13 +95,13 @@ bool compare_attribute_values(cdf::Attribute& attribute, Ts... values)
 
 bool compare_shape(const cdf::Variable& variable, std::initializer_list<uint32_t> values)
 {
-    return variable.shape() == std::vector<uint32_t> { values };
+    return variable.shape() == no_init_vector<uint32_t> { values };
 }
 
 
 template <typename value_type>
 bool check_variable(const cdf::Variable& var, std::initializer_list<uint32_t> expected_shape,
-    std::vector<value_type> ref)
+    no_init_vector<value_type> ref)
 {
     auto values = var.get<value_type>();
     bool is_valid = compare_shape(var, expected_shape);
@@ -132,11 +132,11 @@ bool check_time_variable(const cdf::Variable& var, std::initializer_list<uint32_
     auto offset = 0;
     if constexpr (std::is_same_v<time_t, cdf::tt2000_t>)
         offset = 5; // skip 1971 issue with tt2000
-    auto values = std::vector<decltype(cdf::to_time_point(time_t {}))>();
+    auto values = no_init_vector<decltype(cdf::to_time_point(time_t {}))>();
     std::transform(std::cbegin(var.get<time_t>()), std::cend(var.get<time_t>()),
         std::back_inserter(values), [](const time_t& v) { return cdf::to_time_point(v); });
     bool is_valid = compare_shape(var, expected_shape);
-    auto ref = std::vector<decltype(cdf::to_time_point(time_t {}))>(std::size(values));
+    auto ref = no_init_vector<decltype(cdf::to_time_point(time_t {}))>(std::size(values));
     std::generate(std::begin(ref), std::end(ref),
         [i = 0]() mutable { return time_point<system_clock> {} + hours(24 * (i++ * 180)) + 0ns; });
     is_valid &= std::inner_product(std::begin(ref) + offset, std::end(ref),
@@ -149,9 +149,9 @@ struct cos_gen
 {
     const T step;
     cos_gen(T step) : step { step } { }
-    std::vector<T> operator()(std::size_t size)
+    no_init_vector<T> operator()(std::size_t size)
     {
-        std::vector<T> values(size);
+        no_init_vector<T> values(size);
         std::generate(std::begin(values), std::end(values),
             [i = T(0.), step = step]() mutable
             {
@@ -166,9 +166,9 @@ struct cos_gen
 template <typename T>
 struct ones
 {
-    std::vector<T> operator()(std::size_t size)
+    no_init_vector<T> operator()(std::size_t size)
     {
-        std::vector<T> values(size);
+        no_init_vector<T> values(size);
         std::generate(std::begin(values), std::end(values), []() mutable { return T(1); });
         return values;
     }
@@ -177,9 +177,9 @@ struct ones
 template <typename T>
 struct zeros
 {
-    std::vector<T> operator()(std::size_t size)
+    no_init_vector<T> operator()(std::size_t size)
     {
-        std::vector<T> values(size);
+        no_init_vector<T> values(size);
         std::generate(std::begin(values), std::end(values), []() mutable { return T(0); });
         return values;
     }
@@ -206,14 +206,15 @@ std::size_t filesize(std::fstream& file)
     REQUIRE(has_attribute(cd, "attr"));                                                            \
     REQUIRE(compare_attribute_values(cd.attributes["attr"], "a cdf text attribute"));              \
     REQUIRE(has_attribute(cd, "attr_float"));                                                      \
-    REQUIRE(compare_attribute_values(cd.attributes["attr_float"], std::vector { 1.f, 2.f, 3.f },   \
-        std::vector { 4.f, 5.f, 6.f }));                                                           \
+    REQUIRE(compare_attribute_values(cd.attributes["attr_float"],                                  \
+        no_init_vector<float> { 1.f, 2.f, 3.f }, no_init_vector<float> { 4.f, 5.f, 6.f }));        \
     REQUIRE(has_attribute(cd, "attr_int"));                                                        \
-    REQUIRE(compare_attribute_values(                                                              \
-        cd.attributes["attr_int"], std::vector { int8_t { 1 }, int8_t { 2 }, int8_t { 3 } }));     \
+    REQUIRE(compare_attribute_values(cd.attributes["attr_int"],                                    \
+        no_init_vector<int8_t> { int8_t { 1 }, int8_t { 2 }, int8_t { 3 } }));                     \
     REQUIRE(has_attribute(cd, "attr_multi"));                                                      \
     REQUIRE(compare_attribute_values(cd.attributes["attr_multi"],                                  \
-        std::vector { int8_t { 1 }, int8_t { 2 } }, std::vector { 2.f, 3.f }, "hello"));           \
+        no_init_vector<int8_t> { int8_t { 1 }, int8_t { 2 } }, no_init_vector<float> { 2.f, 3.f }, \
+        "hello"));                                                                                 \
     REQUIRE(has_attribute(cd, "empty"));                                                           \
     REQUIRE(std::size(cd.attributes["empty"]) == 0UL);                                             \
     REQUIRE(has_attribute(cd, "epoch"))
@@ -247,22 +248,22 @@ std::size_t filesize(std::fstream& file)
     REQUIRE(has_variable(cd, "var3d"));                                                            \
     REQUIRE(compare_shape(cd.variables["var3d"], { 4, 3, 2 }));                                    \
     REQUIRE(check_variable(cd.variables["var3d"], { 4, 3, 2 }, ones<double>()));                   \
-    REQUIRE(compare_attribute_values(                                                              \
-        cd.variables["var3d"].attributes["var3d_attr_multi"], std::vector { 10., 11. }));          \
+    REQUIRE(compare_attribute_values(cd.variables["var3d"].attributes["var3d_attr_multi"],         \
+        no_init_vector<double> { 10., 11. }));                                                     \
     REQUIRE(has_variable(cd, "var2d_counter"));                                                    \
     REQUIRE(compare_shape(cd.variables["var2d_counter"], { 10, 10 }));                             \
     REQUIRE(check_variable(cd.variables["var2d_counter"], { 10, 10 },                              \
         [](const auto&)                                                                            \
         {                                                                                          \
-            std::vector<double> result(100);                                                       \
+            no_init_vector<double> result(100);                                                    \
             std::iota(std::begin(result), std::end(result), 0.);                                   \
             return result;                                                                         \
         }));                                                                                       \
     REQUIRE(check_variable(cd.variables["var_string"], { 16 },                                     \
-        std::vector<char> {                                                                        \
+        no_init_vector<char> {                                                                     \
             'T', 'h', 'i', 's', ' ', 'i', 's', ' ', 'a', ' ', 's', 't', 'r', 'i', 'n', 'g' }));    \
     REQUIRE(check_variable(cd.variables["var_string_uchar"], { 16 },                               \
-        std::vector<unsigned char> {                                                               \
+        no_init_vector<unsigned char> {                                                            \
             'T', 'h', 'i', 's', ' ', 'i', 's', ' ', 'a', ' ', 's', 't', 'r', 'i', 'n', 'g' }))
 
 
