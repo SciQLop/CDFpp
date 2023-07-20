@@ -35,7 +35,8 @@ namespace _internal
 
 }
 
-inline std::size_t inflate(const std::vector<char>& input, char* output)
+template <typename T>
+inline std::size_t inflate(const T& input, char* output, const std::size_t)
 {
     auto output_cursor = output;
     auto input_cursor = std::cbegin(input);

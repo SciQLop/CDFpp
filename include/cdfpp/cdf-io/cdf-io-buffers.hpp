@@ -33,6 +33,19 @@
 namespace cdf::io::buffers
 {
 
+template <typename buffer_t>
+inline constexpr auto get_data_ptr(buffer_t& buffer) -> decltype(buffer.data())
+{
+    return buffer.data();
+}
+
+template <typename buffer_t>
+inline constexpr auto get_data_ptr(
+    buffer_t& buffer, typename std::enable_if<std::is_pointer_v<buffer_t>>::type* = 0)
+{
+    return buffer;
+}
+
 template <typename stream_t>
 std::size_t filesize(stream_t& file)
 {
@@ -223,11 +236,9 @@ struct array_adapter
         std::copy_n(begin(this->array) + offset, size, begin(output_array));
     }
 
-    std::vector<char> read(const std::size_t offset, const std::size_t size) const
+    auto read(const std::size_t offset, const std::size_t) const
     {
-        std::vector<char> buffer(size);
-        impl_read(buffer, offset, size);
-        return buffer;
+        return this->data()+offset;
     }
 
     template <std::size_t size>
@@ -241,7 +252,7 @@ struct array_adapter
     template <std::size_t size>
     auto view(const std::size_t offset) const
     {
-        return std::string_view { this->data() + offset, size };
+        return this->data() + offset;
     }
 
     void read(char* dest, std::size_t offset, std::size_t size) const
@@ -250,13 +261,13 @@ struct array_adapter
     }
 
     template <bool is_ptr = std::is_pointer_v<array_t>>
-    const char*  data(typename std::enable_if<is_ptr>::type* = 0)const
+    const char* data(typename std::enable_if<is_ptr>::type* = 0) const
     {
         return this->array;
     }
 
     template <bool is_ptr = std::is_pointer_v<array_t>>
-    const char*  data(typename std::enable_if<!is_ptr>::type* = 0)const
+    const char* data(typename std::enable_if<!is_ptr>::type* = 0) const
     {
         return this->array.data();
     }
@@ -275,7 +286,7 @@ using owning_array_adapter = array_adapter<array_t, true>;
 struct mmap_adapter
 {
     int fd = -1;
-    std::shared_ptr<char> mapped_file = nullptr;
+    char* mapped_file = nullptr;
     std::size_t f_size = 0UL;
     using implements_view = std::true_type;
 
@@ -286,38 +297,40 @@ struct mmap_adapter
             struct stat fileInfo;
             if (fstat(fd, &fileInfo) != -1 && fileInfo.st_size != 0)
             {
-                auto ptr = static_cast<char*>(
-                    mmap(nullptr, fileInfo.st_size, PROT_READ, MAP_SHARED, fd, 0UL));
-                mapped_file = std::shared_ptr<char> { ptr,
-                    [fd = this->fd, size = fileInfo.st_size](char* ptr)
-                    {
-                        munmap(ptr, size);
-                        close(fd);
-                    } };
+                mapped_file = static_cast<char*>(mmap(nullptr, fileInfo.st_size, PROT_READ, MAP_SHARED, fd, 0UL));
+                this->f_size = fileInfo.st_size;
             }
         }
     }
-
-    array_view read(const std::size_t offset, const std::size_t size)
+    ~mmap_adapter()
     {
-        return array_view { mapped_file, size, offset };
+        if (mapped_file)
+        {
+            munmap(mapped_file, f_size);
+            close(fd);
+        }
+    }
+
+    auto read(const std::size_t offset, const std::size_t)
+    {
+        return  mapped_file+offset;
     }
 
     template <std::size_t size>
-    array_view read(const std::size_t offset)
+    auto read(const std::size_t offset)
     {
-        return array_view { mapped_file, size, offset };
+        return mapped_file+offset;
     }
 
     void read(char* dest, const std::size_t offset, const std::size_t size)
     {
-        std::copy_n(mapped_file.get() + offset, size, dest);
+        std::copy_n(mapped_file + offset, size, dest);
     }
 
     template <std::size_t size>
     auto view(const std::size_t offset) const
     {
-        return std::string_view { mapped_file.get() + offset, size };
+        return mapped_file + offset;
     }
 
     bool is_valid() const { return fd != -1 && mapped_file != nullptr; }
@@ -338,13 +351,13 @@ struct shared_buffer_t
     shared_buffer_t& operator=(shared_buffer_t&&) = default;
 
     template <class... Types>
-    inline auto read(Types&&... args)
+    inline auto read(Types&&... args)->decltype(std::declval<std::shared_ptr<buffer_t>>()->read(std::forward<Types>(args)...))
     {
         return p_buffer->read(std::forward<Types>(args)...);
     }
 
     template <class... Types>
-    inline auto read(Types&&... args) const
+    inline auto read(Types&&... args) const ->decltype(std::declval<std::shared_ptr<buffer_t>>()->read(std::forward<Types>(args)...))
     {
         return p_buffer->read(std::forward<Types>(args)...);
     }

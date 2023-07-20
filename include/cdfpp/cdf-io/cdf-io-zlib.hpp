@@ -21,6 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "../cdf-debug.hpp"
+#include "cdf-io-buffers.hpp"
 #include <cdfpp_config.h>
 
 #include <algorithm>
@@ -39,8 +40,9 @@ namespace _internal
 
     // Taken from:
     //   https://github.com/qpdf/qpdf/blob/master/libqpdf/Pl_Flate.cc
+    template <typename T>
     CDF_WARN_UNUSED_RESULT std::size_t impl_inflate(
-        const std::vector<char>& input, char* output, const std::size_t output_size)
+        const T& input, char* output, const std::size_t output_size)
     {
 
         z_stream fstream;
@@ -66,8 +68,8 @@ namespace _internal
 
 }
 
-
-std::size_t gzinflate(const std::vector<char>& input, char* output, const std::size_t output_size)
+template <typename T>
+std::size_t gzinflate(const T& input, char* output, const std::size_t output_size)
 {
     using namespace _internal;
     return impl_inflate(input, output, output_size);

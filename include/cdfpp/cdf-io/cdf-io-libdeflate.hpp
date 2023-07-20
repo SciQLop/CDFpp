@@ -21,6 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "../cdf-debug.hpp"
+#include "cdf-io-buffers.hpp"
 #include <cdfpp_config.h>
 
 #include <algorithm>
@@ -34,15 +35,15 @@ namespace cdf::io::libdeflate
 {
 namespace _internal
 {
-
+    template <typename T>
     CDF_WARN_UNUSED_RESULT std::size_t impl_inflate(
-        const std::vector<char>& input, char* output, const std::size_t output_size)
+        const T& input, char* output, const std::size_t output_size)
     {
 
         auto decompressor = libdeflate_alloc_decompressor();
         std::size_t length;
-        auto result = libdeflate_gzip_decompress(
-            decompressor, input.data(), std::size(input), output, output_size, &length);
+        auto result = libdeflate_gzip_decompress(decompressor, input.data(),
+            std::size(input), output, output_size, &length);
         libdeflate_free_decompressor(decompressor);
         if (result == LIBDEFLATE_SUCCESS)
         {
@@ -56,7 +57,8 @@ namespace _internal
 
 }
 
-std::size_t gzinflate(const std::vector<char>& input, char* output, const std::size_t output_size)
+template <typename T>
+std::size_t gzinflate(const T& input, char* output, const std::size_t output_size)
 {
     using namespace _internal;
     return impl_inflate(input, output, output_size);
