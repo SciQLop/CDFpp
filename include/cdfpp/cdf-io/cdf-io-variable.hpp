@@ -22,6 +22,7 @@
 ----------------------------------------------------------------------------*/
 #include "../cdf-data.hpp"
 #include "../cdf-debug.hpp"
+#include "../no_init_vector.hpp"
 #include "../cdf-endianness.hpp"
 #include "../variable.hpp"
 #include "cdf-io-common.hpp"
@@ -41,12 +42,12 @@ namespace
     };
 
     template <cdf_r_z type, typename cdf_vdr_t, typename context_t>
-    std::vector<uint32_t> get_variable_dimensions(const cdf_vdr_t& vdr, context_t& context)
+    no_init_vector<uint32_t> get_variable_dimensions(const cdf_vdr_t& vdr, context_t& context)
     {
         if constexpr (type == cdf_r_z::z)
         {
-            std::vector<uint32_t> all_sizes(vdr.zNumDims.value);
-            std::vector<uint32_t> sizes;
+            no_init_vector<uint32_t> all_sizes(vdr.zNumDims.value);
+            no_init_vector<uint32_t> sizes;
             if (vdr.zNumDims.value)
             {
                 std::size_t offset = vdr.offset + AFTER(vdr.zNumDims);
@@ -71,7 +72,7 @@ namespace
         {
             if (std::size(vdr.DimVarys.value) == 0)
                 return { 1 };
-            std::vector<uint32_t> shape;
+            no_init_vector<uint32_t> shape;
             std::copy_if(std::cbegin(context.gdr.rDimSizes.value),
                 std::cend(context.gdr.rDimSizes.value), std::back_inserter(shape),
                 [DimVarys = vdr.DimVarys.value.begin()]([[maybe_unused]] const auto& v) mutable
@@ -217,7 +218,7 @@ namespace
     }
 
 
-    std::size_t var_record_size(const std::vector<uint32_t>& shape, CDF_Types type)
+    std::size_t var_record_size(const no_init_vector<uint32_t>& shape, CDF_Types type)
     {
         return cdf_type_size(type)
             * std::accumulate(std::cbegin(shape), std::cend(shape), 1, std::multiplies<uint32_t>());

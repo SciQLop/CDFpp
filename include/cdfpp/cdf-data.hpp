@@ -24,6 +24,7 @@
 #include "cdf-endianness.hpp"
 #include "cdf-enums.hpp"
 #include "cdf-helpers.hpp"
+#include "no_init_vector.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <functional>
@@ -41,10 +42,10 @@ struct cdf_none
     inline void* data() { return nullptr; }
 };
 
-using cdf_values_t = std::variant<cdf_none, std::vector<char>, std::vector<uint8_t>,
-    std::vector<uint16_t>, std::vector<uint32_t>, std::vector<int8_t>, std::vector<int16_t>,
-    std::vector<int32_t>, std::vector<int64_t>, std::vector<float>, std::vector<double>,
-    std::vector<tt2000_t>, std::vector<epoch>, std::vector<epoch16>>;
+using cdf_values_t = std::variant<cdf_none, no_init_vector<char>, no_init_vector<uint8_t>,
+    no_init_vector<uint16_t>, no_init_vector<uint32_t>, no_init_vector<int8_t>, no_init_vector<int16_t>,
+    no_init_vector<int32_t>, no_init_vector<int64_t>, no_init_vector<float>, no_init_vector<double>,
+    no_init_vector<tt2000_t>, no_init_vector<epoch>, no_init_vector<epoch16>>;
 
 struct data_t
 {
@@ -152,20 +153,20 @@ data_t load_values(data_t& data, cdf_encoding encoding);
 template <CDF_Types type>
 inline decltype(auto) data_t::get()
 {
-    return std::get<std::vector<from_cdf_type_t<type>>>(this->p_values);
+    return std::get<no_init_vector<from_cdf_type_t<type>>>(this->p_values);
 }
 
 template <CDF_Types type>
 inline decltype(auto) data_t::get() const
 {
-    return std::get<std::vector<from_cdf_type_t<type>>>(this->p_values);
+    return std::get<no_init_vector<from_cdf_type_t<type>>>(this->p_values);
 }
 
 
 template <typename T, typename type>
 inline decltype(auto) _get_impl(T* self)
 {
-    return std::get<std::vector<type>>(self->p_values);
+    return std::get<no_init_vector<type>>(self->p_values);
 }
 
 template <typename type>
@@ -196,9 +197,9 @@ inline data_t& data_t::operator=(const data_t& other)
 
 // https://stackoverflow.com/questions/4059775/convert-iso-8859-1-strings-to-utf-8-in-c-c
 template <typename T>
-std::vector<T> iso_8859_1_to_utf8(const char* buffer, std::size_t buffer_size)
+no_init_vector<T> iso_8859_1_to_utf8(const char* buffer, std::size_t buffer_size)
 {
-    std::vector<T> out;
+    no_init_vector<T> out;
     out.reserve(buffer_size);
     std::for_each(buffer, buffer + buffer_size,
         [&out](const uint8_t c)
@@ -285,7 +286,7 @@ cdf_values_t new_cdf_values_container(std::size_t len)
 {
     using raw_type = from_cdf_type_t<type>;
     std::size_t size = len / sizeof(raw_type);
-    return cdf_values_t { std::vector<raw_type>(size) };
+    return cdf_values_t { no_init_vector<raw_type>(size) };
 }
 
 

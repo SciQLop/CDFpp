@@ -22,6 +22,7 @@
 ----------------------------------------------------------------------------*/
 #include "cdf-debug.hpp"
 #include "cdf-data.hpp"
+#include "no_init_vector.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -123,7 +124,7 @@ namespace majority
         }
     }
 
-    void swap(data_t& data, const std::vector<uint32_t>& shape)
+    void swap(data_t& data, const no_init_vector<uint32_t>& shape)
     {
         switch (data.type())
         {

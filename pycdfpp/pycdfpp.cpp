@@ -23,6 +23,7 @@
 #include "chrono.hpp"
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf-map.hpp>
+#include <cdfpp/no_init_vector.hpp>
 #include <cdfpp/cdf-repr.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
@@ -49,10 +50,10 @@ class pybind11::detail::type_caster<nomap_node<T1, T2>>
 };
 #endif
 
-using py_cdf_attr_data_t = std::variant<std::string, std::vector<char>, std::vector<uint8_t>,
-    std::vector<uint16_t>, std::vector<uint32_t>, std::vector<int8_t>, std::vector<int16_t>,
-    std::vector<int32_t>, std::vector<int64_t>, std::vector<float>, std::vector<double>,
-    std::vector<tt2000_t>, std::vector<epoch>, std::vector<epoch16>>;
+using py_cdf_attr_data_t = std::variant<std::string, no_init_vector<char>, no_init_vector<uint8_t>,
+    no_init_vector<uint16_t>, no_init_vector<uint32_t>, no_init_vector<int8_t>, no_init_vector<int16_t>,
+    no_init_vector<int32_t>, no_init_vector<int64_t>, no_init_vector<float>, no_init_vector<double>,
+    no_init_vector<tt2000_t>, no_init_vector<epoch>, no_init_vector<epoch16>>;
 
 namespace
 {
