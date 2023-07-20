@@ -43,11 +43,10 @@ namespace
     template <typename buffer_t>
     common::magic_numbers_t get_magic(buffer_t& buffer)
     {
-        auto data = buffer.template read<8>(0);
-        uint32_t magic1 = cdf::endianness::decode<endianness::big_endian_t, uint32_t>(data.data());
-        uint32_t magic2
-            = cdf::endianness::decode<endianness::big_endian_t, uint32_t>(data.data() + 4);
-        return { magic1, magic2 };
+        uint32_t magic[2];
+        buffer.read(reinterpret_cast<char*>(magic),0,sizeof(magic));
+        endianness::decode_v<endianness::big_endian_t>(magic,2);
+        return {magic[0],magic[1]};
     }
 
     template <typename buffer_t, typename version_t>
@@ -124,7 +123,7 @@ namespace
             {
                 cdf_CPR_t<cdf_version_tag_t, buffer_t> CPR { buffer };
                 CPR.load(CCR.CPRoffset.value);
-                std::vector<char> data(8UL + CCR.uSize);
+                no_init_vector<char> data(8UL + CCR.uSize);
                 buffer.read(data.data(), 0, 8);
                 if (CPR.cType.value == cdf_compression_type::gzip_compression)
                 {
@@ -158,8 +157,9 @@ namespace
     }
 
     template <typename buffer_t, typename iso_8859_1_to_utf8>
-    auto _impl_load(buffer_t&& buffer, iso_8859_1_to_utf8 iso_8859_1_to_utf8_tag,
-        bool lazy_load = false) -> decltype(buffer.read(0UL, 0UL), std::optional<CDF> {})
+    auto _impl_load(
+        buffer_t&& buffer, iso_8859_1_to_utf8 iso_8859_1_to_utf8_tag, bool lazy_load = false)
+        -> decltype(buffer.read(std::declval<char*>(), 0UL, 0UL), std::optional<CDF> {})
     {
         auto magic = get_magic(buffer);
         if (common::is_v3x(magic))

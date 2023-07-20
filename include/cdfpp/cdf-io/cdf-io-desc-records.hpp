@@ -23,6 +23,7 @@
 #include "../cdf-endianness.hpp"
 #include "../cdf-enums.hpp"
 #include "../cdf-helpers.hpp"
+#include "cdf-io-buffers.hpp"
 #include "cdf-io-common.hpp"
 #include <cstdint>
 #include <tuple>
@@ -74,8 +75,8 @@ template <typename T, typename cdf_dr_t>
 struct table_field_t
 {
     using type = T;
-    std::vector<T> value;
-    operator std::vector<T>() { return value; }
+    no_init_vector<T> value;
+    operator no_init_vector<T>() { return value; }
     std::function<std::size_t(const cdf_dr_t&)> size;
     std::function<std::size_t(const cdf_dr_t&)> offset;
 
@@ -98,6 +99,8 @@ bool load_table_field(table_field_t<T, cdf_dr_t>& field, buffer_t& buffer, const
     return true;
 }
 
+
+
 template <typename buffer_t, typename T>
 void extract_field(buffer_t buffer, std::size_t offset, T& field)
 {
@@ -109,11 +112,11 @@ void extract_field(buffer_t buffer, std::size_t offset, T& field)
             if (buffer[T::offset - offset + size] == '\0')
                 break;
         }
-        field = std::string { buffer.data() + T::offset - offset, size };
+        field = std::string { buffers::get_data_ptr(buffer) + T::offset - offset, size };
     }
     else
         field = endianness::decode<endianness::big_endian_t, typename T::type>(
-            buffer.data() + T::offset - offset);
+            buffers::get_data_ptr(buffer) + T::offset - offset);
 }
 
 template <typename buffer_t, typename... Ts>
@@ -236,12 +239,25 @@ constexpr bool load_desc_record(
             return len;
     }
     ();
-    auto data = buffer.read(offset, buffer_size);
-    if (cdf_desc_record.header.load(data))
+    if constexpr(std::remove_reference_t<buffer_t>::implements_view::value)
     {
-        extract_fields(data, 0, fields...);
-        return true;
+        auto data = buffer.template view<buffer_size>(offset);
+        if (cdf_desc_record.header.load(data))
+        {
+            extract_fields(data, 0, fields...);
+            return true;
+        }
     }
+    else
+    {
+        auto data = buffer.template read<buffer_size>(offset);
+        if (cdf_desc_record.header.load(data))
+        {
+            extract_fields(data, 0, fields...);
+            return true;
+        }
+    }
+
     return false;
 }
 
@@ -252,8 +268,6 @@ constexpr bool load_fields(buffer_t&& buffer, std::size_t offset, Ts&&... fields
     using first_member_t = first_field_t<Ts...>;
     constexpr std::size_t buffer_len
         = last_member_t::offset + last_member_t::len - first_member_t::offset;
-    //std::array<char,buffer_len> data ;
-    //buffer.read(data.data(), offset + first_member_t::offset, buffer_len);
     if constexpr(std::remove_reference_t<buffer_t>::implements_view::value)
     {
         auto data = buffer.template view<buffer_len>(offset + first_member_t::offset);

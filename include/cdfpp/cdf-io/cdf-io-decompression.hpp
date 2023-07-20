@@ -35,16 +35,15 @@
 namespace cdf::io::decompression
 {
 
-
+template<typename T>
 inline std::size_t rleinflate(
-    const std::vector<char>& input, char* output, const std::size_t output_size)
+    const T& input, char* output, const std::size_t output_size)
 {
-    (void)output_size;
-    return rle::inflate(input, output);
+    return rle::inflate(input, output, output_size);
 }
 
-
-std::size_t gzinflate(const std::vector<char>& input, char* output, const std::size_t output_size)
+template<typename T>
+std::size_t gzinflate(const T& input, char* output, const std::size_t output_size)
 {
 #ifdef CDFpp_USE_LIBDEFLATE
     return libdeflate::gzinflate(input, output, output_size);
@@ -53,8 +52,8 @@ std::size_t gzinflate(const std::vector<char>& input, char* output, const std::s
 #endif
 }
 
-template <cdf_compression_type type>
-std::size_t inflate(const std::vector<char>& input, char* output, const std::size_t output_size)
+template <cdf_compression_type type, typename T>
+std::size_t inflate(const T& input, char* output, const std::size_t output_size)
 {
     if constexpr (type == cdf_compression_type::gzip_compression)
         return gzinflate(input, output, output_size);
