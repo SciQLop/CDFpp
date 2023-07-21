@@ -169,7 +169,7 @@ inline T decode(const U* input)
 
 template <typename src_endianess_t, typename value_t>
 CDFPP_NON_NULL(1)
-inline void decode_v(value_t* data, std::size_t size)
+inline void _impl_decode_v(value_t* data, std::size_t size)
 {
     if constexpr (sizeof(value_t) > 1 and not std::is_same_v<host_endianness_t, src_endianess_t>)
     {
@@ -185,10 +185,17 @@ inline void decode_v(value_t* data, std::size_t size)
 }
 
 
+template <typename src_endianess_t, typename value_t>
+CDFPP_NON_NULL(1)
+    inline void decode_v(value_t* data, std::size_t size)
+{
+    _impl_decode_v<src_endianess_t>(reinterpret_cast<uint_t<sizeof(value_t)>*>(data),size);
+}
+
 template <typename src_endianess_t>
 CDFPP_NON_NULL(1)
 inline void decode_v(epoch16* data, std::size_t size)
 {
-    decode_v<src_endianess_t>(reinterpret_cast<double*>(data), size * 2);
+    decode_v<src_endianess_t>(reinterpret_cast<uint64_t*>(data), size * 2);
 }
 }
