@@ -17,7 +17,7 @@ int main(int argc, char** argv)
     if (argc > 1)
     {
         std::cout << "reading " << argv[1];
-        auto f = cdf::io::load(argv[1]);
+        auto f = cdf::io::load(std::string{argv[1]}, false, false);
         if (!f)
             return -1;
         std::cout << "Attribute list:" << std::endl;

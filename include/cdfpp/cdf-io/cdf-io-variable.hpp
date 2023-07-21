@@ -22,8 +22,8 @@
 ----------------------------------------------------------------------------*/
 #include "../cdf-data.hpp"
 #include "../cdf-debug.hpp"
-#include "../no_init_vector.hpp"
 #include "../cdf-endianness.hpp"
+#include "../no_init_vector.hpp"
 #include "../variable.hpp"
 #include "cdf-io-common.hpp"
 #include "cdf-io-decompression.hpp"
@@ -275,7 +275,15 @@ namespace
                 {
                     auto shape = get_variable_dimensions<type>(vdr, context);
                     uint32_t record_size = var_record_size(shape, vdr.DataType.value);
-                    uint32_t record_count = common::is_nrv(vdr) ? 1 : (vdr.MaxRec.value + 1);
+                    uint32_t record_count = [&vdr]() -> uint32_t
+                    {
+                        if (common::is_nrv(vdr) and vdr.MaxRec.value != -1)
+                            return 1;
+                        else
+                        {
+                            return vdr.MaxRec.value + 1;
+                        }
+                    }();
                     if ((vdr.DataType.value != CDF_Types::CDF_CHAR
                             and vdr.DataType.value != CDF_Types::CDF_UCHAR)
                         or !common::is_nrv(vdr))
