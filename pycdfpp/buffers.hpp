@@ -62,7 +62,7 @@ std::vector<ssize_t> strides(const Variable& var)
 template <CDF_Types data_t>
 py::array make_array(Variable& variable, py::object& obj)
 {
-    static_assert(data_t != CDF_Types::CDF_CHAR and data_t != CDF_Types::CDF_UCHAR);
+    //static_assert(data_t != CDF_Types::CDF_CHAR and data_t != CDF_Types::CDF_UCHAR);
     return py::array_t<from_cdf_type_t<data_t>>(shape_ssize_t(variable),
         strides<from_cdf_type_t<data_t>>(variable), variable.get<from_cdf_type_t<data_t>>().data(),
         obj);
@@ -130,15 +130,15 @@ py::buffer_info impl_make_buffer(cdf::Variable& var)
 
 }
 
-py::object make_values_view(py::object& obj)
+py::array make_values_view(py::object& obj)
 {
     Variable& variable = obj.cast<Variable&>();
     switch (variable.type())
     {
         case cdf::CDF_Types::CDF_CHAR:
-            return _details::make_list<cdf::CDF_Types::CDF_CHAR>(variable);
+            return _details::make_array<cdf::CDF_Types::CDF_CHAR>(variable, obj);
         case cdf::CDF_Types::CDF_UCHAR:
-            return _details::make_list<cdf::CDF_Types::CDF_UCHAR>(variable);
+            return _details::make_array<cdf::CDF_Types::CDF_UCHAR>(variable, obj);
         case cdf::CDF_Types::CDF_INT1:
             return _details::make_array<CDF_Types::CDF_INT1>(variable, obj);
         case cdf::CDF_Types::CDF_INT2:
