@@ -38,6 +38,13 @@ struct CDF
     cdf_map<std::string, Variable> variables;
     cdf_map<std::string, Attribute> attributes;
     bool lazy_loaded;
+
+    CDF() = default;
+    CDF(const CDF&) = default;
+    CDF(CDF&&) = default;
+    CDF& operator=(CDF&&) = default;
+    CDF& operator=(const CDF&) = default;
+
     const Variable& operator[](const std::string& name) const { return variables.at(name); }
     Variable& operator[](const std::string& name) { return variables.at(name); }
 };

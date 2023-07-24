@@ -50,7 +50,7 @@ class pybind11::detail::type_caster<nomap_node<T1, T2>>
 };
 #endif
 
-using py_cdf_attr_data_t = std::variant<std::string, no_init_vector<char>, no_init_vector<uint8_t>,
+using py_cdf_attr_data_t = std::variant<std::string, no_init_vector<char>, const no_init_vector<uint8_t>,
     no_init_vector<uint16_t>, no_init_vector<uint32_t>, no_init_vector<int8_t>, no_init_vector<int16_t>,
     no_init_vector<int32_t>, no_init_vector<int64_t>, no_init_vector<float>, no_init_vector<double>,
     no_init_vector<tt2000_t>, no_init_vector<epoch>, no_init_vector<epoch16>>;
@@ -280,7 +280,7 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
                         "Trying to get an attribute value outside of its range");
                 return to_py_cdf_data(att[index]);
             },
-            py::return_value_policy::reference_internal)
+            py::return_value_policy::copy)
         .def("__len__", [](const Attribute& att) { return att.size(); });
 
     py::class_<Variable>(m, "Variable", py::buffer_protocol())

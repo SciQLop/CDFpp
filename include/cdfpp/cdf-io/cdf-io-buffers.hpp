@@ -166,7 +166,7 @@ struct stream_adapter
         if (!p_buffer || !contains(*p_buffer, offset, size))
             _fill_buffer(offset, size);
         auto view = p_buffer->view(offset, size);
-        std::copy_n(view.cbegin(), size, dest);
+        std::memcpy(dest, view.data(), size);
     }
     bool is_valid() { return stream.is_open(); }
 };
@@ -233,13 +233,10 @@ struct array_adapter
     template <typename T>
     void impl_read(T& output_array, const std::size_t offset, const std::size_t size) const
     {
-        std::copy_n(begin(this->array) + offset, size, begin(output_array));
+        std::memcpy(get_data_ptr(output_array), get_data_ptr(this->array) + offset, size);
     }
 
-    auto read(const std::size_t offset, const std::size_t) const
-    {
-        return this->data()+offset;
-    }
+    auto read(const std::size_t offset, const std::size_t) const { return this->data() + offset; }
 
     template <std::size_t size>
     std::array<char, size> read(const std::size_t offset) const
@@ -297,7 +294,8 @@ struct mmap_adapter
             struct stat fileInfo;
             if (fstat(fd, &fileInfo) != -1 && fileInfo.st_size != 0)
             {
-                mapped_file = static_cast<char*>(mmap(nullptr, fileInfo.st_size, PROT_READ, MAP_SHARED, fd, 0UL));
+                mapped_file = static_cast<char*>(
+                    mmap(nullptr, fileInfo.st_size, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0UL));
                 this->f_size = fileInfo.st_size;
             }
         }
@@ -311,20 +309,17 @@ struct mmap_adapter
         }
     }
 
-    auto read(const std::size_t offset, const std::size_t)
-    {
-        return  mapped_file+offset;
-    }
+    auto read(const std::size_t offset, const std::size_t) { return mapped_file + offset; }
 
     template <std::size_t size>
     auto read(const std::size_t offset)
     {
-        return mapped_file+offset;
+        return mapped_file + offset;
     }
 
     void read(char* dest, const std::size_t offset, const std::size_t size)
     {
-        std::copy_n(mapped_file + offset, size, dest);
+        std::memcpy(dest, mapped_file + offset, size);
     }
 
     template <std::size_t size>
@@ -351,13 +346,15 @@ struct shared_buffer_t
     shared_buffer_t& operator=(shared_buffer_t&&) = default;
 
     template <class... Types>
-    inline auto read(Types&&... args)->decltype(std::declval<std::shared_ptr<buffer_t>>()->read(std::forward<Types>(args)...))
+    inline auto read(Types&&... args)
+        -> decltype(std::declval<std::shared_ptr<buffer_t>>()->read(std::forward<Types>(args)...))
     {
         return p_buffer->read(std::forward<Types>(args)...);
     }
 
     template <class... Types>
-    inline auto read(Types&&... args) const ->decltype(std::declval<std::shared_ptr<buffer_t>>()->read(std::forward<Types>(args)...))
+    inline auto read(Types&&... args) const
+        -> decltype(std::declval<std::shared_ptr<buffer_t>>()->read(std::forward<Types>(args)...))
     {
         return p_buffer->read(std::forward<Types>(args)...);
     }
