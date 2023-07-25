@@ -22,17 +22,25 @@
 ----------------------------------------------------------------------------*/
 #include <memory>
 #include <vector>
-
+#if __has_include(<sys/mman.h>)
+#include <stdlib.h>
+#include <sys/mman.h>
+#endif
 
 /*
  * taken from:
  *  https://stackoverflow.com/questions/21028299/is-this-behavior-of-vectorresizesize-type-n-under-c11-and-boost-container/21028912#21028912
+ *  and
+ *  https://stackoverflow.com/questions/2340311/posix-memalign-for-stdvector
  */
 
 template <typename T, typename A = std::allocator<T>>
 class default_init_allocator : public A
 {
     typedef std::allocator_traits<A> a_t;
+    static inline constexpr  std::size_t page_size = 1 << 21;
+    static inline constexpr bool is_trivial_and_nothrow_default_constructible
+        = std::is_trivially_constructible_v<T> and std::is_nothrow_default_constructible_v<T>;
 
 public:
     template <typename U>
@@ -53,6 +61,48 @@ public:
     {
         a_t::construct(static_cast<A&>(*this), ptr, std::forward<Args>(args)...);
     }
+
+#if __has_include(<sys/mman.h>)
+    template <bool U = is_trivial_and_nothrow_default_constructible>
+    T* allocate(std::size_t pCount, const T* = 0, typename std::enable_if<U>::type* = 0)
+    {
+        void* mem = 0;
+        auto bytes=sizeof(T) * pCount;
+        if(bytes>=2*page_size)
+        {
+            if (::posix_memalign(&mem, page_size, sizeof(T) * pCount) != 0)
+            {
+                throw std::bad_alloc(); // or something
+            }
+            ::madvise(mem, pCount * sizeof(T), MADV_HUGEPAGE);
+        }
+        else
+        {
+            mem = ::malloc(bytes);
+        }
+        return reinterpret_cast<T*>(mem);
+    }
+
+    template <bool U = is_trivial_and_nothrow_default_constructible>
+    T* allocate(std::size_t pCount, const T* ptr = 0, typename std::enable_if<!U>::type* = 0)
+    {
+        return A::allocate(pCount, ptr);
+    }
+
+    template <bool U = is_trivial_and_nothrow_default_constructible>
+    void deallocate(T* ptr, std::size_t, typename std::enable_if<U>::type* = 0) noexcept(
+        std::is_nothrow_default_constructible<T>::value)
+    {
+        ::free(ptr);
+    }
+
+    template <bool U = is_trivial_and_nothrow_default_constructible>
+    void deallocate(T* ptr, std::size_t sz, typename std::enable_if<!U>::type* = 0) noexcept(
+        std::is_nothrow_default_constructible<T>::value)
+    {
+        A::deallocate(ptr, sz);
+    }
+#endif
 };
 
 template <typename T>

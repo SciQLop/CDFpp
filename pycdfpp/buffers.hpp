@@ -62,7 +62,7 @@ std::vector<ssize_t> strides(const Variable& var)
 template <CDF_Types data_t>
 py::array make_array(Variable& variable, py::object& obj)
 {
-    //static_assert(data_t != CDF_Types::CDF_CHAR and data_t != CDF_Types::CDF_UCHAR);
+    // static_assert(data_t != CDF_Types::CDF_CHAR and data_t != CDF_Types::CDF_UCHAR);
     return py::array_t<from_cdf_type_t<data_t>>(shape_ssize_t(variable),
         strides<from_cdf_type_t<data_t>>(variable), variable.get<from_cdf_type_t<data_t>>().data(),
         obj);
@@ -71,12 +71,13 @@ py::array make_array(Variable& variable, py::object& obj)
 template <typename T, typename size_type>
 static inline std::string_view make_string_view(T* data, size_type len)
 {
-    return std::string_view(reinterpret_cast<const char*>(data),
-        static_cast<std::string_view::size_type>(len));
+    return std::string_view(
+        reinterpret_cast<const char*>(data), static_cast<std::string_view::size_type>(len));
 }
 
 template <typename T>
-py::object make_list(const T* data, decltype(std::declval<Variable>().shape()) shape)
+py::object make_list(
+    const T* data, decltype(std::declval<Variable>().shape()) shape, py::object& obj)
 {
     if (std::size(shape) > 2)
     {
@@ -87,34 +88,34 @@ py::object make_list(const T* data, decltype(std::declval<Variable>().shape()) s
             std::cbegin(inner_shape), std::cend(inner_shape), 1UL, std::multiplies<std::size_t>());
         for (auto i = 0UL; i < shape[0]; i++)
         {
-            res.append(make_list(data+offset, inner_shape));
+            res.append(make_list(data + offset, inner_shape,obj));
             offset += jump;
         }
         return res;
     }
-    if(std::size(shape)==2)
+    if (std::size(shape) == 2)
     {
         py::list res {};
         std::size_t offset = 0;
         for (auto i = 0UL; i < shape[0]; i++)
         {
-            res.append(make_string_view(data + offset,shape[1]));
+            res.append(make_string_view(data + offset, shape[1]));
             offset += shape[1];
         }
         return res;
     }
-    if(std::size(shape)==1)
+    if (std::size(shape) == 1)
     {
-        return py::str(make_string_view(data ,shape[0]));
+        return py::str(make_string_view(data, shape[0]));
     }
     return py::none();
 }
 
 template <CDF_Types data_t>
-py::object make_list(Variable& variable)
+py::object make_list(Variable& variable, py::object& obj)
 {
     static_assert(data_t == CDF_Types::CDF_CHAR or data_t == CDF_Types::CDF_UCHAR);
-    return make_list(variable.get<from_cdf_type_t<data_t>>().data(), variable.shape());
+    return make_list(variable.get<from_cdf_type_t<data_t>>().data(), variable.shape(), obj);
 }
 
 template <CDF_Types T>
@@ -130,15 +131,15 @@ py::buffer_info impl_make_buffer(cdf::Variable& var)
 
 }
 
-py::array make_values_view(py::object& obj)
+py::object make_values_view(py::object& obj)
 {
     Variable& variable = obj.cast<Variable&>();
     switch (variable.type())
     {
         case cdf::CDF_Types::CDF_CHAR:
-            return _details::make_array<cdf::CDF_Types::CDF_CHAR>(variable, obj);
+            return _details::make_list<cdf::CDF_Types::CDF_CHAR>(variable, obj);
         case cdf::CDF_Types::CDF_UCHAR:
-            return _details::make_array<cdf::CDF_Types::CDF_UCHAR>(variable, obj);
+            return _details::make_list<cdf::CDF_Types::CDF_UCHAR>(variable, obj);
         case cdf::CDF_Types::CDF_INT1:
             return _details::make_array<CDF_Types::CDF_INT1>(variable, obj);
         case cdf::CDF_Types::CDF_INT2:

@@ -1,4 +1,5 @@
 option('with_tests', type : 'boolean', value : false, description : 'Disable tests build.')
+option('with_benchmarks', type : 'boolean', value : false, description : 'Disable benchmarks build.')
 option('show_extra_files', type : 'boolean', value : false, description : 'adds dummy lib to show extra files into an IDE.')
 option('use_libdeflate', type : 'boolean', value : true, description : 'uses libdeflate instead of libz.')
 option('use_nomap', type : 'boolean', value : true, description : 'uses custom map like implementation.')

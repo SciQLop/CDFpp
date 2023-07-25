@@ -213,6 +213,16 @@ if get_option('with_tests')
     endforeach
 endif
 
+if get_option('with_benchmarks')
+    google_benchmarks_dep = dependency('benchmark', required : true)
+    foreach bench:['file_reader']
+        exe = executable('benchmark-'+bench,'benchmarks/'+bench+'/main.cpp',
+                        dependencies:[google_benchmarks_dep, cdfpp_dep],
+                        install: false
+                        )
+        benchmark(bench, exe)
+    endforeach
+endif
 
 summary({'C': meson.get_compiler('c').cmd_array(),
         'C++': meson.get_compiler('cpp').cmd_array()
