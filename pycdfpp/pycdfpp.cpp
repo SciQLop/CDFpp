@@ -285,7 +285,7 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
 
     py::class_<Variable>(m, "Variable", py::buffer_protocol())
         .def("__repr__", __repr__<Variable>)
-        .def_readonly("attributes", &Variable::attributes, py::return_value_policy::reference)
+        .def_readonly("attributes", &Variable::attributes, py::return_value_policy::reference_internal)
         .def_property_readonly("name", &Variable::name)
         .def_property_readonly("type", &Variable::type)
         .def_property_readonly("shape", &Variable::shape)
@@ -293,7 +293,7 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
         .def_property_readonly("values_loaded", &Variable::values_loaded)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
         .def_property_readonly(
-            "values", make_values_view, py::return_value_policy::reference_internal);
+            "values", make_values_view, py::keep_alive<0, 1>());
 
     m.def(
         "load",
@@ -304,7 +304,7 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
                 iso_8859_1_to_utf8);
         },
         py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false,
-        py::return_value_policy::take_ownership);
+        py::return_value_policy::move);
 
     m.def(
         "lazy_load",
@@ -316,12 +316,12 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
             return io::load(static_cast<char*>(info.ptr), info.shape[0], iso_8859_1_to_utf8, true);
         },
         py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false,
-        py::return_value_policy::take_ownership, py::keep_alive<0, 1>());
+        py::return_value_policy::move, py::keep_alive<0, 1>());
 
     m.def(
         "load",
         [](const char* fname, bool iso_8859_1_to_utf8, bool lazy_load)
         { return io::load(std::string { fname }, iso_8859_1_to_utf8, lazy_load); },
         py::arg("fname"), py::arg("iso_8859_1_to_utf8") = false, py::arg("lazy_load") = true,
-        py::return_value_policy::take_ownership);
+        py::return_value_policy::move);
 }
