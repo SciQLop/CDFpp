@@ -28,10 +28,10 @@
 #include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <stdint.h>
 #include <string>
 #include <variant>
 #include <vector>
-#include <stdint.h>
 
 namespace cdf
 {
@@ -43,9 +43,10 @@ struct cdf_none
 };
 
 using cdf_values_t = std::variant<cdf_none, no_init_vector<char>, no_init_vector<uint8_t>,
-    no_init_vector<uint16_t>, no_init_vector<uint32_t>, no_init_vector<int8_t>, no_init_vector<int16_t>,
-    no_init_vector<int32_t>, no_init_vector<int64_t>, no_init_vector<float>, no_init_vector<double>,
-    no_init_vector<tt2000_t>, no_init_vector<epoch>, no_init_vector<epoch16>>;
+    no_init_vector<uint16_t>, no_init_vector<uint32_t>, no_init_vector<int8_t>,
+    no_init_vector<int16_t>, no_init_vector<int32_t>, no_init_vector<int64_t>,
+    no_init_vector<float>, no_init_vector<double>, no_init_vector<tt2000_t>, no_init_vector<epoch>,
+    no_init_vector<epoch16>>;
 
 struct data_t
 {
@@ -239,7 +240,8 @@ inline data_t load_values(data_t&& data)
     else
     {
         if (std::size(data) != 0UL)
-            endianness::decode_v<endianness_t>(reinterpret_cast<from_cdf_type_t<type>*>(data.bytes_ptr()), data.size());
+            endianness::decode_v<endianness_t>(
+                reinterpret_cast<from_cdf_type_t<type>*>(data.bytes_ptr()), data.size());
         return std::move(data);
     }
 }
