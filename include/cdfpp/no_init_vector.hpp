@@ -22,6 +22,7 @@
 ----------------------------------------------------------------------------*/
 #include <memory>
 #include <vector>
+#include <string.h>
 #if __has_include(<sys/mman.h>)
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -52,7 +53,7 @@ public:
     using A::A;
 
     template <typename U>
-    void construct(U* ptr) noexcept(std::is_nothrow_default_constructible<U>::value)
+    void construct(U* ptr) noexcept(std::is_nothrow_default_constructible_v<U>)
     {
         ::new (static_cast<void*>(ptr)) U;
     }
@@ -80,6 +81,7 @@ public:
         {
             mem = ::malloc(bytes);
         }
+        //::memset(reinterpret_cast<char*>(mem),0x9e,bytes);
         return reinterpret_cast<T*>(mem);
     }
 

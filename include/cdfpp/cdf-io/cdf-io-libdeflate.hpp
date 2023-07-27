@@ -47,10 +47,11 @@ namespace _internal
         libdeflate_free_decompressor(decompressor);
         if (result == LIBDEFLATE_SUCCESS)
         {
-            return output_size;
+            return length;
         }
         else
         {
+            std::cout << "Fuck " << output_size << " " << length<< " " << result <<std::endl;
             return 0;
         }
     }

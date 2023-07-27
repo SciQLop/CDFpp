@@ -61,7 +61,7 @@ namespace _internal
         inflateEnd(&fstream);
 
         if (ret == Z_STREAM_END)
-            return output_size;
+            return output_size - fstream.avail_out;
         else
             return 0;
     }
