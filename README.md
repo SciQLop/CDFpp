@@ -38,7 +38,7 @@
 A NASA's [CDF](https://cdf.gsfc.nasa.gov/) modern C++ library. 
 This is not a C++ wrapper but a full C++ implementation.
 Why? CDF files are still used for space physics missions but few implementations are available.
-The main one is NASA's C implementation available [here](https://cdf.gsfc.nasa.gov/) but it lacks multi-threads support, has an old C interface and has a license which isn't compatible with most Linux distributions policy.
+The main one is NASA's C implementation available [here](https://cdf.gsfc.nasa.gov/) but it lacks multi-threads support (global shared state), has an old C interface and has a license which isn't compatible with most Linux distributions policy.
 There are also Java and Python implementations which are not usable in C++.
 
 List of features and roadmap:
@@ -63,11 +63,13 @@ List of features and roadmap:
     - [ ] write compressed attributes
     - [ ] write compressed file variables
 - General features
+    - [x] uses [libdeflate](https://github.com/ebiggers/libdeflate) for faster GZip decompression
+    - [x] highly optimized CDF reads (up to 4GB/s read speed)
     - [x] handle leap seconds
     - [x] Python wrappers
     - [ ] Documentation
-    - [ ] Examples
-    - [ ] Benchmarks
+    - [x] Examples (see below)
+    - [x] [Benchmarks](https://github.com/SciQLop/CDFpp/tree/main/notebooks/benchmarks.ipynb)
 
 If you want to understand how it works, how to use the code or what works, you may have to read tests.
 
