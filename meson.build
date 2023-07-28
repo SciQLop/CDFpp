@@ -88,6 +88,8 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-enums.hpp',
     'include/cdfpp/cdf-file.hpp',
     'include/cdfpp/cdf-io/cdf-io.hpp',
+    'include/cdfpp/cdf-io/reflection.hpp',
+    'include/cdfpp/cdf-io/cdf-io-loading.hpp',
     'include/cdfpp/cdf-io/cdf-io-attribute.hpp',
     'include/cdfpp/cdf-io/cdf-io-buffers.hpp',
     'include/cdfpp/cdf-io/cdf-io-common.hpp',
@@ -173,7 +175,7 @@ if get_option('with_tests')
     catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
 
 
-    foreach test:['endianness','simple_open', 'majority', 'chrono', 'nomap']
+    foreach test:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading']
         exe = executable('test-'+test,'tests/'+test+'/main.cpp',
                         dependencies:[catch_dep, cdfpp_dep],
                         install: false
