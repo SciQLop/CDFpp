@@ -89,6 +89,7 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-file.hpp',
     'include/cdfpp/cdf-io/cdf-io.hpp',
     'include/cdfpp/cdf-io/reflection.hpp',
+    'include/cdfpp/cdf-io/cdf-io-special-fields.hpp',
     'include/cdfpp/cdf-io/cdf-io-loading.hpp',
     'include/cdfpp/cdf-io/cdf-io-attribute.hpp',
     'include/cdfpp/cdf-io/cdf-io-buffers.hpp',
