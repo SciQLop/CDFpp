@@ -75,7 +75,9 @@ public:
             {
                 throw std::bad_alloc(); // or something
             }
+#ifdef MADV_HUGEPAGE
             ::madvise(mem, pCount * sizeof(T), MADV_HUGEPAGE);
+#endif
         }
         else
         {
