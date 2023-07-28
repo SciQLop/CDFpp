@@ -16,7 +16,7 @@
 
 
 #include "cdfpp/cdf-io/cdf-io-loading.hpp"
-
+#include "cdfpp/cdf-io/cdf-io-special-fields.hpp"
 
 SCENARIO("record loading", "[CDF]")
 {
@@ -45,16 +45,79 @@ SCENARIO("record loading", "[CDF]")
             uint32_t c;
             uint64_t d;
         };
-        complex_record s { 0, 0., 0, 0 };
         THEN("we can load it from a buffer")
         {
-            std::string buffer { 0x2A, 0x40, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x00, 0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2A };
-            cdf::io::load_record(s, buffer.c_str(), 0);
+            complex_record s { 0, 0., 0, 0 };
+            std::array<char, 21> buffer { 0x2A, 0x40, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2A };
+            cdf::io::load_record(s, buffer.data(), 0);
             REQUIRE(s.a == 42);
             REQUIRE(s.b == 42.);
             REQUIRE(s.c == 42);
             REQUIRE(s.d == 42);
+        }
+        THEN("we can load it from a buffer with an offset")
+        {
+            complex_record s { 0, 0., 0, 0 };
+            std::array<char, 22> buffer { 0x11, 0x2A, 0x40, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2A };
+            cdf::io::load_record(s, buffer.data(), 1);
+            REQUIRE(s.a == 42);
+            REQUIRE(s.b == 42.);
+            REQUIRE(s.c == 42);
+            REQUIRE(s.d == 42);
+        }
+    }
+    GIVEN("a record with string fields")
+    {
+        struct record_with_string
+        {
+            char a;
+            double b;
+            string_field<8> c;
+            uint64_t d;
+        };
+        THEN("we can load it from a buffer")
+        {
+            record_with_string s { 0, 0., { "" }, 0 };
+            std::array<char, 25> buffer { 0x2A, 0x40, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 'h',
+                'e', 'l', 'l', 'o', 0, 0, 0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2A };
+            cdf::io::load_record(s, buffer.data(), 0);
+            REQUIRE(s.a == 42);
+            REQUIRE(s.b == 42.);
+            REQUIRE(s.c.value == "hello");
+            REQUIRE(s.d == 42);
+        }
+    }
+    GIVEN("a record with table fields")
+    {
+        struct record_table_fields
+        {
+            char a;
+            double b;
+            table_field<uint16_t, 0> c;
+            uint64_t d;
+            table_field<uint32_t, 1> e;
+
+            std::size_t size(const table_field<uint16_t, 0>&) const
+            {
+                return this->a * sizeof(uint16_t);
+            }
+            std::size_t size(const table_field<uint32_t, 1>&) const { return 2 * sizeof(uint32_t); }
+        };
+        THEN("we can load it from a buffer")
+        {
+            record_table_fields s;
+            std::array<char, 33> buffer { 0x4, 0x40, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0,
+                0x01, 0x0, 0x2, 0x0, 0x3, 0x0, 0x4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2A,
+                0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02 };
+            cdf::io::load_record(s, buffer.data(), 0);
+            REQUIRE(s.a == 4);
+            REQUIRE(s.b == 42.);
+            REQUIRE(s.c.values == std::vector<uint16_t> { 1, 2, 3, 4 });
+            REQUIRE(s.d == 42);
+            REQUIRE(s.e.values == std::vector<uint32_t> { 1, 2 });
+            static_assert(count_members<decltype(s)> == 5);
         }
     }
 }
