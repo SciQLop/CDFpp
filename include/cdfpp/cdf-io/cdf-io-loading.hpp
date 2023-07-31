@@ -22,44 +22,52 @@
 ----------------------------------------------------------------------------*/
 #include "../cdf-endianness.hpp"
 #include "cdf-io-buffers.hpp"
+#include "cdf-io-desc-records.hpp"
 #include "cdf-io-special-fields.hpp"
 #include "reflection.hpp"
 #include <string>
 namespace cdf::io
 {
 
-template <typename T, typename U>
-inline constexpr std::size_t offset_of(const T&, const U&)
+template <typename buffer_t, typename version_t>
+struct parsing_context_t
 {
-    using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-    if constexpr (is_string_field_v<value_type>)
+    inline static constexpr bool v3 = is_v3_v<version_t>;
+    using version_tag = version_t;
+    buffer_t buffer;
+    cdf_CDR_t<version_t> cdr;
+    cdf_GDR_t<version_t> gdr;
+    cdf_majority majority;
+    cdf_compression_type compression_type;
+
+    parsing_context_t(buffer_t&& buff, cdf_compression_type compression_type)
+            : buffer { std::move(buff) }, cdr {}, gdr {}, compression_type { compression_type }
     {
-        return value_type::max_len;
     }
-    else
+    inline cdf_encoding encoding() { return cdr.Encoding; }
+    inline std::tuple<uint32_t, uint32_t, uint32_t> distribution_version()
     {
-        return sizeof(value_type);
+        return { cdr.Version, cdr.Release, cdr.Increment };
     }
-}
+};
 
 template <typename T, typename U>
-inline std::size_t offset_of(const table_field<T>& table, const U& record)
-{
-    return record.size(table);
-}
+std::size_t load_record(T& s, const U& buffer, std::size_t offset);
 
-template <typename buffer_t, typename record_t, typename T>
-inline void load_field(buffer_t buffer, const record_t& r, std::size_t offset, T& field)
+template <typename parsing_context_t, typename record_t, typename T>
+inline std::size_t load_field(
+    parsing_context_t& parsing_context, const record_t& r, std::size_t offset, T& field)
 {
     if constexpr (is_string_field_v<T>)
     {
         std::size_t size = 0;
         for (; size < T::max_len; size++)
         {
-            if (buffers::get_data_ptr(buffer)[offset + size] == '\0')
+            if (buffers::get_data_ptr(parsing_context)[offset + size] == '\0')
                 break;
         }
-        field.value = std::string { buffers::get_data_ptr(buffer) + offset, size };
+        field.value = std::string { buffers::get_data_ptr(parsing_context) + offset, size };
+        return offset + T::max_len;
     }
     else
     {
@@ -67,120 +75,519 @@ inline void load_field(buffer_t buffer, const record_t& r, std::size_t offset, T
         {
             const auto bytes = r.size(field);
             field.values.resize(bytes / sizeof(typename T::value_type));
-            std::memcpy(field.values.data(), buffers::get_data_ptr(buffer) + offset, bytes);
-            cdf::endianness::decode_v<endianness::big_endian_t>(field.values.data(), bytes / sizeof(typename T::value_type));
+            if (bytes > 0)
+            {
+                std::memcpy(
+                    field.values.data(), buffers::get_data_ptr(parsing_context) + offset, bytes);
+                cdf::endianness::decode_v<endianness::big_endian_t>(
+                    field.values.data(), bytes / sizeof(typename T::value_type));
+            }
+            return offset + bytes;
         }
         else
+        {
             field = cdf::endianness::decode<endianness::big_endian_t, T>(
-                buffers::get_data_ptr(buffer) + offset);
+                buffers::get_data_ptr(parsing_context) + offset);
+            return offset + sizeof(T);
+        }
     }
 }
 
-template <typename buffer_t, typename record_t, typename T>
-inline void load_fields(
-    buffer_t buffer, const record_t& r, [[maybe_unused]] std::size_t offset, T&& field)
+template <typename parsing_context_t, typename version_t, typename T>
+inline std::size_t load_field(parsing_context_t& parsing_context, const cdf_rVDR_t<version_t>& r,
+    std::size_t offset, decltype(std::declval<cdf_rVDR_t<version_t>>().DimVarys)& field)
 {
-    load_field(buffer, r, offset, std::forward<T>(field));
+    const auto bytes = r.size(field, parsing_context.gdr.rNumDims);
+    field.values.resize(bytes / sizeof(typename T::value_type));
+    if (bytes > 0)
+    {
+        std::memcpy(field.values.data(), buffers::get_data_ptr(parsing_context) + offset, bytes);
+        cdf::endianness::decode_v<endianness::big_endian_t>(
+            field.values.data(), bytes / sizeof(typename T::value_type));
+    }
+    return offset + bytes;
 }
 
-template <typename buffer_t, typename record_t, typename T, typename... Ts>
-inline void load_fields(buffer_t buffer, const record_t& r, [[maybe_unused]] std::size_t offset,
-    T&& field, Ts&&... fields)
+template <typename parsing_context_t, typename record_t, typename T>
+inline std::size_t load_fields(parsing_context_t& parsing_context, const record_t& r,
+    [[maybe_unused]] std::size_t offset, T&& field)
 {
-    load_field(buffer, r, offset, std::forward<T>(field));
-    load_fields(buffer, r, offset + offset_of(field, r), std::forward<Ts>(fields)...);
+    using Field_t = std::remove_cv_t<std::remove_reference_t<T>>;
+    static constexpr std::size_t count = count_members<Field_t>;
+    if constexpr (std::is_compound_v<Field_t> && (count > 1)
+        && (not is_string_field_v<Field_t>)&&(not is_table_field_v<Field_t>))
+        return load_record(field, parsing_context, offset);
+    else
+        return load_field(parsing_context, r, offset, std::forward<T>(field));
+}
+
+template <typename parsing_context_t, typename record_t, typename T, typename... Ts>
+inline std::size_t load_fields(parsing_context_t& parsing_context, const record_t& r,
+    [[maybe_unused]] std::size_t offset, T&& field, Ts&&... fields)
+{
+    offset = load_fields(parsing_context, r, offset, std::forward<T>(field));
+    return load_fields(parsing_context, r, offset, std::forward<Ts>(fields)...);
 }
 
 // this looks quite ugly bit it is worth it!
 template <typename T, typename U>
-void load_record(T& s, const U& buffer, std::size_t offset)
+std::size_t load_record(T& s, const U& parsing_context, std::size_t offset)
 {
     static constexpr std::size_t count = count_members<T>;
+    static_assert(count <= 31);
+
     if constexpr (count == 1)
     {
-        auto& [a] = s;
-        load_fields(buffer, s, offset, a);
+        auto& [_0] = s;
+        return load_fields(parsing_context, s, offset, _0);
     }
+
     if constexpr (count == 2)
     {
-        auto& [a, b] = s;
-        load_fields(buffer, s, offset, a, b);
+        auto& [_0, _1] = s;
+        return load_fields(parsing_context, s, offset, _0, _1);
     }
+
     if constexpr (count == 3)
     {
-        auto& [a, b, c] = s;
-        load_fields(buffer, s, offset, a, b, c);
+        auto& [_0, _1, _2] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2);
     }
+
     if constexpr (count == 4)
     {
-        auto& [a, b, c, d] = s;
-        load_fields(buffer, s, offset, a, b, c, d);
+        auto& [_0, _1, _2, _3] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3);
     }
+
     if constexpr (count == 5)
     {
-        auto& [a, b, c, d, e] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e);
+        auto& [_0, _1, _2, _3, _4] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4);
     }
+
     if constexpr (count == 6)
     {
-        auto& [a, b, c, d, e, f] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f);
+        auto& [_0, _1, _2, _3, _4, _5] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5);
     }
+
     if constexpr (count == 7)
     {
-        auto& [a, b, c, d, e, f, g] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f, g);
+        auto& [_0, _1, _2, _3, _4, _5, _6] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6);
     }
+
     if constexpr (count == 8)
     {
-        auto& [a, b, c, d, e, f, g, h] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f, g, h);
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7);
     }
+
     if constexpr (count == 9)
     {
-        auto& [a, b, c, d, e, f, g, h, i] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f, g, h, i);
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8);
     }
+
     if constexpr (count == 10)
     {
-        auto& [a, b, c, d, e, f, g, h, i, j] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f, g, h, i, j);
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9);
     }
+
     if constexpr (count == 11)
     {
-        auto& [a, b, c, d, e, f, g, h, i, j, k] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f, g, h, i, j, k);
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10);
     }
+
     if constexpr (count == 12)
     {
-        auto& [a, b, c, d, e, f, g, h, i, j, k, l] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f, g, h, i, j, k, l);
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11] = s;
+        return load_fields(
+            parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11);
     }
+
     if constexpr (count == 13)
     {
-        auto& [a, b, c, d, e, f, g, h, i, j, k, l, m] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f, g, h, i, j, k, l, m);
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12] = s;
+        return load_fields(
+            parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12);
     }
+
     if constexpr (count == 14)
     {
-        auto& [a, b, c, d, e, f, g, h, i, j, k, l, m, n] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f, g, h, i, j, k, l, m, n);
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13] = s;
+        return load_fields(
+            parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13);
     }
+
     if constexpr (count == 15)
     {
-        auto& [a, b, c, d, e, f, g, h, i, j, k, l, m, n, o] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o);
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14);
     }
+
     if constexpr (count == 16)
     {
-        auto& [a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p);
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15);
     }
+
     if constexpr (count == 17)
     {
-        auto& [a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q] = s;
-        load_fields(buffer, s, offset, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q);
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16);
+    }
+
+    if constexpr (count == 18)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17] = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17);
+    }
+
+    if constexpr (count == 19)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18);
+    }
+
+    if constexpr (count == 20)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19);
+    }
+
+    if constexpr (count == 21)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19, _20]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20);
+    }
+
+    if constexpr (count == 22)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19, _20, _21]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21);
+    }
+
+    if constexpr (count == 23)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19, _20, _21, _22]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22);
+    }
+
+    if constexpr (count == 24)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19, _20, _21, _22, _23]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23);
+    }
+
+    if constexpr (count == 25)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19, _20, _21, _22, _23, _24]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24);
+    }
+
+    if constexpr (count == 26)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19, _20, _21, _22, _23, _24, _25]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25);
+    }
+
+    if constexpr (count == 27)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19, _20, _21, _22, _23, _24, _25, _26]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26);
+    }
+
+    if constexpr (count == 28)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19, _20, _21, _22, _23, _24, _25, _26, _27]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27);
+    }
+
+    if constexpr (count == 29)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27,
+            _28);
+    }
+
+    if constexpr (count == 30)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27,
+            _28, _29);
+    }
+
+    if constexpr (count == 31)
+    {
+        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
+            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30]
+            = s;
+        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
+            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27,
+            _28, _29, _30);
     }
 }
 
+template <typename version_t>
+struct cdf_mutable_variable_record_t
+{
+    inline static constexpr bool v3 = is_v3_v<version_t>;
+    using vvr_t = cdf_VVR_t<version_t>;
+    using cvvr_t = cdf_CVVR_t<version_t>;
+    using vxr_t = cdf_VXR_t<version_t>;
+
+    std::variant<std::monostate, vvr_t, cvvr_t, vxr_t> actual_record;
+
+    cdf_DR_header<version_t> header;
+
+    template <typename... Ts>
+    auto visit(Ts... lambdas) const
+    {
+        return std::visit(helpers::make_visitor(lambdas...), actual_record);
+    }
+};
+
+template <typename T, typename U>
+std::size_t load_record(
+    cdf_mutable_variable_record_t<T>& s, const U& parsing_context, std::size_t offset)
+{
+    using mutable_record = cdf_mutable_variable_record_t<T>;
+    load_record(s.header, parsing_context, offset);
+    switch (s.header.record_type)
+    {
+        case static_cast<uint32_t>(cdf_record_type::CVVR):
+            s.actual_record.template emplace<typename mutable_record::cvvr_t>();
+            return load_record(std::get<typename mutable_record::cvvr_t>(s.actual_record),
+                parsing_context, offset);
+            break;
+        case static_cast<uint32_t>(cdf_record_type::VVR):
+            s.actual_record.template emplace<typename mutable_record::vvr_t>();
+            return load_record(
+                std::get<typename mutable_record::vvr_t>(s.actual_record), parsing_context, offset);
+            break;
+        case static_cast<uint32_t>(cdf_record_type::VXR):
+            s.actual_record.template emplace<typename mutable_record::vxr_t>();
+            return load_record(
+                std::get<typename mutable_record::vxr_t>(s.actual_record), parsing_context, offset);
+            break;
+        default:
+            return 0;
+            break;
+    }
 }
+
+template <typename value_t, typename parsing_context_t, typename... Args>
+struct blk_iterator
+{
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = std::pair<std::size_t, value_t>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = void;
+    using reference = value_type&;
+
+    std::size_t offset;
+    value_type block;
+    parsing_context_t& parsing_context;
+    std::function<std::size_t(value_t&)> next;
+    std::tuple<Args...> load_opt_args;
+
+    blk_iterator(std::size_t offset, parsing_context_t& parsing_context,
+        std::function<std::size_t(value_t&)>&& next, Args... args)
+            : offset { offset }
+            , block {}
+            , parsing_context { parsing_context }
+            , next { std::move(next) }
+            , load_opt_args { args... }
+    {
+        if (offset != 0)
+            wrapper_load(offset, std::make_index_sequence<sizeof...(Args)> {});
+    }
+
+    auto operator==(const blk_iterator& other) { return other.offset == offset; }
+
+    bool operator!=(const blk_iterator& other) { return not(*this == other); }
+
+    blk_iterator& operator+(int n)
+    {
+        step_forward(n);
+        return *this;
+    }
+
+    blk_iterator& operator+=(int n)
+    {
+        step_forward(n);
+        return *this;
+    }
+
+    blk_iterator& operator++(int n)
+    {
+        step_forward(n);
+        return *this;
+    }
+
+    blk_iterator& operator++()
+    {
+        step_forward();
+        return *this;
+    }
+
+    template <size_t... Is>
+    std::size_t wrapper_load(std::size_t offset, std::index_sequence<Is...>)
+    {
+        block.first = offset;
+        return load_record(block.second, parsing_context, offset, std::get<Is>(load_opt_args)...);
+    }
+
+    void step_forward(int n = 1)
+    {
+        while (n > 0)
+        {
+            n--;
+            offset = next(block.second);
+            if (offset != 0)
+            {
+                wrapper_load(offset, std::make_index_sequence<sizeof...(Args)> {});
+            }
+        }
+    }
+
+    const value_type* operator->() const { return &block; }
+    const value_type& operator*() const { return block; }
+    value_type* operator->() { return &block; }
+    value_type& operator*() { return block; }
+};
+
+template <typename parsing_context_t>
+auto begin_ADR(parsing_context_t& parsing_context)
+{
+    using adr_t = cdf_ADR_t<typename parsing_context_t::version_tag>;
+    return blk_iterator<adr_t, parsing_context_t> { static_cast<std::size_t>(parsing_context.gdr.ADRhead), parsing_context,
+        [](const adr_t& adr) { return adr.ADRnext; } };
+}
+
+template <typename parsing_context_t>
+auto end_ADR(parsing_context_t& parsing_context)
+{
+    using adr_t = cdf_ADR_t<typename parsing_context_t::version_tag>;
+    return blk_iterator<adr_t, parsing_context_t> { 0, parsing_context,
+        []([[maybe_unused]] const auto& adr) { return 0; } };
+}
+
+template <cdf_r_z type, typename version_t, typename buffer_t>
+auto begin_AEDR(const cdf_ADR_t<version_t>& adr, buffer_t& buffer)
+{
+    using aedr_t = cdf_AEDR_t<version_t>;
+    if constexpr (type == cdf_r_z::r)
+    {
+        return blk_iterator<aedr_t, buffer_t> { adr.AgrEDRhead, buffer,
+            [](const aedr_t& aedr) { return aedr.AEDRnext; } };
+    }
+    else if constexpr (type == cdf_r_z::z)
+    {
+        return blk_iterator<aedr_t, buffer_t> { adr.AzEDRhead, buffer,
+            [](const aedr_t& aedr) { return aedr.AEDRnext; } };
+    }
+}
+
+template <cdf_r_z type, typename version_t, typename buffer_t>
+auto end_AEDR(const cdf_ADR_t<version_t>&, buffer_t& buffer)
+{
+    return blk_iterator<cdf_AEDR_t<version_t>, buffer_t> { 0, buffer,
+        []([[maybe_unused]] const auto& aedr) { return 0; } };
+}
+
+template <cdf_r_z type, typename parsing_context_t>
+auto begin_VDR(parsing_context_t& parsing_context)
+{
+    using version_t = typename parsing_context_t::version_tag;
+    if constexpr (type == cdf_r_z::r)
+    {
+        using vdr_t = cdf_rVDR_t<version_t>;
+        return blk_iterator<vdr_t, parsing_context_t> { static_cast<std::size_t>(parsing_context.gdr.rVDRhead), parsing_context,
+            [](const vdr_t& vdr) { return vdr.VDRnext; } };
+    }
+    else if constexpr (type == cdf_r_z::z)
+    {
+        using vdr_t = cdf_zVDR_t<version_t>;
+        return blk_iterator<vdr_t, parsing_context_t> { parsing_context.gdr.zVDRhead, parsing_context,
+            [](const vdr_t& vdr) { return vdr.VDRnext; } };
+    }
+}
+
+template <cdf_r_z type, typename parsing_context_t>
+auto end_VDR(parsing_context_t& parsing_context)
+{
+    using version_t = typename parsing_context_t::version_tag;
+    if constexpr (type == cdf_r_z::r)
+    {
+        using vdr_t = cdf_rVDR_t<version_t>;
+        return blk_iterator<vdr_t, parsing_context_t> { 0, parsing_context,
+            []([[maybe_unused]] const auto& vdr) { return 0; } };
+    }
+    else if constexpr (type == cdf_r_z::z)
+    {
+        using vdr_t = cdf_zVDR_t<version_t>;
+        return blk_iterator<vdr_t, parsing_context_t> { 0, parsing_context,
+            []([[maybe_unused]] const auto& vdr) { return 0; } };
+    }
+}
+
+template <typename vdr_t, typename version_t, typename buffer_t>
+auto begin_VXR(const vdr_t& vdr, buffer_t& buffer)
+{
+    using vxr_t = cdf_VXR_t<version_t>;
+    return blk_iterator<vxr_t, buffer_t> { vdr.VXRhead, buffer,
+        [](const vxr_t& vxr) { return vxr.VXRnext; } };
+}
+
+template <typename vdr_t, typename version_t, typename buffer_t>
+auto end_VXR(const vdr_t&, buffer_t& buffer)
+{
+    return blk_iterator<cdf_VXR_t<version_t>, buffer_t> { 0, buffer,
+        []([[maybe_unused]] const auto& vxr) { return 0; } };
+}
+
+} // namespace cdf::io

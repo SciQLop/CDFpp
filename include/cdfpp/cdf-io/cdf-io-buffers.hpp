@@ -46,6 +46,18 @@ inline constexpr auto get_data_ptr(
     return buffer;
 }
 
+template <typename buffer_t>
+inline constexpr auto get_data_ptr(buffer_t& buffer) -> decltype(get_data_ptr(buffer.buffer))
+{
+    return get_data_ptr(buffer.buffer);
+}
+
+template <typename buffer_t>
+inline constexpr auto get_data_ptr(buffer_t& buffer) -> decltype(buffer.view(0UL))
+{
+    return buffer.view(0UL);
+}
+
 template <typename stream_t>
 std::size_t filesize(stream_t& file)
 {
@@ -252,6 +264,8 @@ struct array_adapter
         return this->data() + offset;
     }
 
+    auto view(const std::size_t offset) const { return this->data() + offset; }
+
     void read(char* dest, std::size_t offset, std::size_t size) const
     {
         impl_read(dest, offset, size);
@@ -328,6 +342,8 @@ struct mmap_adapter
         return mapped_file + offset;
     }
 
+    auto view(const std::size_t offset) const { return mapped_file + offset; }
+
     bool is_valid() const { return fd != -1 && mapped_file != nullptr; }
 };
 #endif
@@ -376,6 +392,11 @@ struct shared_buffer_t
         -> decltype(std::declval<buffer_t>().template view<size>(offset))
     {
         return p_buffer->template view<size>(offset);
+    }
+
+    auto view(const std::size_t offset) const -> decltype(std::declval<buffer_t>().view(offset))
+    {
+        return p_buffer->view(offset);
     }
 
     inline bool is_valid() const { return p_buffer->is_valid(); }

@@ -68,56 +68,61 @@ struct Variable
 
 
     template <CDF_Types type>
-    decltype(auto) get()
+    [[nodiscard]] decltype(auto) get()
     {
         return _data().get<type>();
     }
 
     template <CDF_Types type>
-    decltype(auto) get() const
+    [[nodiscard]] decltype(auto) get() const
     {
         return _data().get<type>();
     }
 
     template <typename type>
-    decltype(auto) get()
+    [[nodiscard]] decltype(auto) get()
     {
         return _data().get<type>();
     }
 
     template <typename type>
-    decltype(auto) get() const
+    [[nodiscard]] decltype(auto) get() const
     {
         return _data().get<type>();
     }
 
-    const std::string& name() const { return p_name; }
+    [[nodiscard]] const std::string& name() const noexcept{ return p_name; }
 
-    const shape_t& shape() const { return p_shape; }
-    std::size_t len() const { return p_shape[0]; }
+    [[nodiscard]] const shape_t& shape() const noexcept { return p_shape; }
+    [[nodiscard]] std::size_t len() const noexcept
+    {
+        if(std::size(p_shape)>=1)
+            return p_shape[0];
+        return 0;
+    }
 
-    void set_data(const data_t& data, const shape_t& shape)
+    void set_data(const data_t& data, const shape_t& shape) noexcept
     {
         p_data = data;
         p_shape = shape;
     }
 
-    void set_data(data_t&& data, shape_t&& shape)
+    void set_data(data_t&& data, shape_t&& shape) noexcept
     {
         p_data = std::move(data);
         p_shape = std::move(shape);
     }
 
-    std::optional<std::size_t> number() { return p_number; }
+    [[nodiscard]] std::optional<std::size_t> number() { return p_number; }
 
-    CDF_Types type() const
+    [[nodiscard]] CDF_Types type() const
     {
         if (std::holds_alternative<var_data_t>(p_data))
             return std::get<var_data_t>(p_data).type();
         return std::get<lazy_data>(p_data).type();
     }
 
-    inline bool values_loaded()const
+    [[nodiscard]] inline bool values_loaded()const noexcept
     {
         return not std::holds_alternative<lazy_data>(p_data);
     }
@@ -135,18 +140,19 @@ struct Variable
         }
     }
 
-    cdf_majority majority() const { return p_majority; }
+    [[nodiscard]] cdf_majority majority() const noexcept { return p_majority; }
 
     template <typename... Ts>
     friend auto visit(Variable& var, Ts... lambdas);
 
 private:
-    var_data_t& _data()
+    [[nodiscard]] var_data_t& _data()
     {
         load_values();
         return std::get<var_data_t>(p_data);
     }
-    const var_data_t& _data() const
+
+    [[nodiscard]] const var_data_t& _data() const
     {
         load_values();
         return std::get<var_data_t>(p_data);

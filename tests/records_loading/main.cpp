@@ -1,6 +1,6 @@
 #include <algorithm>
-#include <cstdint>
 #include <optional>
+#include <stdint.h>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -68,6 +68,30 @@ SCENARIO("record loading", "[CDF]")
             REQUIRE(s.d == 42);
         }
     }
+    GIVEN("a record with nested record")
+    {
+        struct inner_record
+        {
+            uint16_t a;
+            uint16_t b;
+        };
+        struct outer_record
+        {
+            char a;
+            inner_record b;
+            char c;
+        };
+        THEN("we can load it from a buffer")
+        {
+            outer_record s { 0, { 0, 0 }, 0 };
+            std::array<char, 6> buffer { 0x2A, 0x0, 0x2A, 0x0, 0x2A, 0x2A };
+            cdf::io::load_record(s, buffer.data(), 0);
+            REQUIRE(s.a == 42);
+            REQUIRE(s.b.a == 42);
+            REQUIRE(s.b.b == 42);
+            REQUIRE(s.c == 42);
+        }
+    }
     GIVEN("a record with string fields")
     {
         struct record_with_string
@@ -116,7 +140,7 @@ SCENARIO("record loading", "[CDF]")
             REQUIRE(s.b == 42.);
             REQUIRE(s.c.values == std::vector<uint16_t> { 1, 2, 3, 4 });
             REQUIRE(s.d == 42);
-            REQUIRE(s.e.values == std::vector<uint32_t> { 1, 2 });
+            REQUIRE(s.e.values == no_init_vector<uint32_t> { 1, 2 });
             static_assert(count_members<decltype(s)> == 5);
         }
     }

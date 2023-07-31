@@ -42,7 +42,7 @@ inline const bool host_is_little_endian = true;
 #include "cdf-debug.hpp"
 #include "cdf-enums.hpp"
 #include <algorithm>
-#include <cstdint>
+#include <stdint.h>
 #include <cstring>
 #include <type_traits>
 
@@ -51,14 +51,15 @@ inline const bool host_is_little_endian = true;
 namespace cdf::endianness
 {
 
-bool is_big_endian_encoding(cdf_encoding encoding)
+[[nodiscard]] constexpr bool is_big_endian_encoding(cdf_encoding encoding)
 {
     return encoding == cdf_encoding::network || encoding == cdf_encoding::SUN
         || encoding == cdf_encoding::NeXT || encoding == cdf_encoding::PPC
         || encoding == cdf_encoding::SGi || encoding == cdf_encoding::IBMRS
         || encoding == cdf_encoding::ARM_BIG;
 }
-bool is_little_endian_encoding(cdf_encoding encoding)
+
+[[nodiscard]] bool is_little_endian_encoding(cdf_encoding encoding)
 {
     return !is_big_endian_encoding(encoding);
 }
@@ -121,25 +122,25 @@ namespace
     };
 
 
-    inline uint8_t bswap(uint8_t v)
+    [[nodiscard]] inline uint8_t bswap(uint8_t v) noexcept
     {
         return v;
     }
-    inline uint16_t bswap(uint16_t v)
+    [[nodiscard]] inline uint16_t bswap(uint16_t v) noexcept
     {
         return bswap16(v);
     }
-    inline uint32_t bswap(uint32_t v)
+    [[nodiscard]] inline uint32_t bswap(uint32_t v) noexcept
     {
         return bswap32(v);
     }
-    inline uint64_t bswap(uint64_t v)
+    [[nodiscard]] inline uint64_t bswap(uint64_t v) noexcept
     {
         return bswap64(v);
     }
 
     template <typename T, std::size_t s = sizeof(T)>
-    inline T byte_swap(T value)
+    [[nodiscard]] inline T byte_swap(T value) noexcept
     {
         return swapable_t<T> { bswap(swapable_t<T> { value }.int_view) }.value;
     }
@@ -147,7 +148,7 @@ namespace
 
 
 template <typename src_endianess_t, typename T, typename U>
-CDFPP_NON_NULL(1)
+[[nodiscard]] CDFPP_NON_NULL(1)
 inline T decode(const U* input)
 {
     if constexpr (sizeof(T) > 1)

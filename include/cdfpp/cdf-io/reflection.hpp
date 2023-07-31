@@ -25,7 +25,7 @@
 
 /*
  * see https://stackoverflow.com/questions/39768517/structured-bindings-width/39779537#39779537
-*/
+ */
 
 namespace details
 {
@@ -75,10 +75,12 @@ struct construct_searcher
     using result = can_construct_with_N<T, N>;
 };
 
-template <class T, std::size_t Cap = 20>
+template <class T, std::size_t Cap = 32>
 using construct_airity = details::maximize<0, Cap, details::construct_searcher<T>::template result>;
 
 }
 
 template <typename T>
-inline constexpr std::size_t count_members = details::construct_airity<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+inline constexpr std::size_t count_members
+    = details::construct_airity<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+

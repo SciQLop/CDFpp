@@ -20,7 +20,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include <cstdint>
+#include <stdint.h>
 #include <string>
 #include <type_traits>
 

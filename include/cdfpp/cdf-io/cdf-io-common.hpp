@@ -76,21 +76,21 @@ auto is_compressed(const T& magic_numbers) noexcept -> decltype(magic_numbers.se
 }
 
 template <typename T>
-auto is_compressed(const T& vdr) noexcept -> decltype(vdr.Flags.value, true)
+auto is_compressed(const T& vdr) noexcept -> decltype(vdr.Flags, true)
 {
-    return (vdr.Flags.value & 4) == 4;
+    return (vdr.Flags & 4) == 4;
 }
 
 template <typename T>
-auto is_nrv(const T& vdr) noexcept -> decltype(vdr.Flags.value, true)
+auto is_nrv(const T& vdr) noexcept -> decltype(vdr.Flags, true)
 {
-    return (vdr.Flags.value & 1) == 0;
+    return (vdr.Flags & 1) == 0;
 }
 
 template <typename T>
 auto majority(const T& cdr)
 {
-    if (cdr.Flags.value & 1)
+    if (cdr.Flags & 1)
         return cdf_majority::row;
     return cdf_majority::column;
 }
@@ -102,86 +102,7 @@ void load_values(buffer_t& buffer, std::size_t offset, container_t& output)
     endianness::decode_v<src_endianess_t>(output.data(), std::size(output));
 }
 
-template <typename value_t, typename stream_t, typename... Args>
-struct blk_iterator
-{
-    using iterator_category = std::forward_iterator_tag;
-    using value_type = value_t;
-    using difference_type = std::ptrdiff_t;
-    using pointer = void;
-    using reference = value_type&;
 
-
-    std::size_t offset;
-    value_t block;
-    stream_t& stream;
-    std::function<std::size_t(value_t&)> next;
-    std::tuple<Args...> load_opt_args;
-
-    blk_iterator(std::size_t offset, stream_t& stream, std::function<std::size_t(value_t&)>&& next,
-        Args... args)
-            : offset { offset }
-            , block { stream }
-            , stream { stream }
-            , next { std::move(next) }
-            , load_opt_args { args... }
-    {
-        if (offset != 0)
-            block.load(offset, args...);
-    }
-
-    auto operator==(const blk_iterator& other) { return other.offset == offset; }
-
-    bool operator!=(const blk_iterator& other) { return not(*this == other); }
-
-    blk_iterator& operator+(int n)
-    {
-        step_forward(n);
-        return *this;
-    }
-
-    blk_iterator& operator+=(int n)
-    {
-        step_forward(n);
-        return *this;
-    }
-
-    blk_iterator& operator++(int n)
-    {
-        step_forward(n);
-        return *this;
-    }
-
-    blk_iterator& operator++()
-    {
-        step_forward();
-        return *this;
-    }
-
-    template <size_t... Is>
-    int wrapper_load(std::size_t offset, std::index_sequence<Is...>)
-    {
-        return block.load(offset, std::get<Is>(load_opt_args)...);
-    }
-
-    void step_forward(int n = 1)
-    {
-        while (n > 0)
-        {
-            n--;
-            offset = next(block);
-            if (offset != 0)
-            {
-                wrapper_load(offset, std::make_index_sequence<sizeof...(Args)> {});
-            }
-        }
-    }
-
-    const value_type* operator->() const { return &block; }
-    const value_type& operator*() const { return block; }
-    value_type* operator->() { return &block; }
-    value_type& operator*() { return block; }
-};
 
 struct cdf_repr
 {
