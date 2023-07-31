@@ -52,7 +52,7 @@ namespace _private
     }
 
     template <typename index_iter_t, typename shape_iter_t>
-    auto flat_index(index_iter_t&& nd_index_b, index_iter_t&& nd_index_e, shape_iter_t&& shape_b)
+    [[nodiscard]] auto flat_index(index_iter_t&& nd_index_b, index_iter_t&& nd_index_e, shape_iter_t&& shape_b)
     {
         auto index = 0UL;
         auto shape_product = 1UL;

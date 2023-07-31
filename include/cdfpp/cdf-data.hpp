@@ -20,6 +20,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include <stdint.h>
 #include "cdf-debug.hpp"
 #include "cdf-endianness.hpp"
 #include "cdf-enums.hpp"
@@ -28,7 +29,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <functional>
-#include <stdint.h>
 #include <string>
 #include <variant>
 #include <vector>
@@ -66,12 +66,13 @@ struct data_t
     const char* bytes_ptr() const;
     char* bytes_ptr();
 
-    std::size_t size() const;
-    std::size_t bytes() const;
+    [[nodiscard]] std::size_t size() const noexcept;
+    [[nodiscard]] std::size_t bytes() const noexcept;
 
-    CDF_Types type() const { return p_type; }
+    [[nodiscard]] CDF_Types type() const noexcept { return p_type; }
 
-    cdf_values_t& values() { return p_values; }
+    [[nodiscard]] cdf_values_t& values() noexcept { return p_values; }
+    [[nodiscard]] const cdf_values_t& values() const noexcept{ return p_values; }
 
     data_t& operator=(data_t&& other);
     data_t& operator=(const data_t& other);
@@ -119,9 +120,9 @@ struct lazy_data
     lazy_data& operator=(const lazy_data&) = default;
     lazy_data& operator=(lazy_data&&) = default;
 
-    inline data_t load() { return p_loader(); }
+    [[nodiscard]] inline data_t load() { return p_loader(); }
 
-    inline CDF_Types type() const { return p_type; }
+    [[nodiscard]] inline CDF_Types type() const noexcept { return p_type; }
 
 private:
     std::function<data_t(void)> p_loader;
@@ -198,7 +199,7 @@ inline data_t& data_t::operator=(const data_t& other)
 
 // https://stackoverflow.com/questions/4059775/convert-iso-8859-1-strings-to-utf-8-in-c-c
 template <typename T>
-no_init_vector<T> iso_8859_1_to_utf8(const char* buffer, std::size_t buffer_size)
+[[nodiscard]] no_init_vector<T> iso_8859_1_to_utf8(const char* buffer, std::size_t buffer_size)
 {
     no_init_vector<T> out;
     out.reserve(buffer_size);
@@ -220,7 +221,7 @@ no_init_vector<T> iso_8859_1_to_utf8(const char* buffer, std::size_t buffer_size
 
 
 template <CDF_Types type, typename endianness_t, bool latin1_to_utf8_conv>
-inline data_t load_values(data_t&& data)
+[[nodiscard]] inline data_t load_values(data_t&& data) noexcept
 {
 
     if constexpr (type == CDF_Types::CDF_CHAR
@@ -247,7 +248,7 @@ inline data_t load_values(data_t&& data)
 }
 
 template <bool iso_8859_1_to_utf8>
-inline data_t load_values(data_t&& data, cdf_encoding encoding)
+[[nodiscard]] inline data_t load_values(data_t&& data, cdf_encoding encoding) noexcept
 {
 #define DATA_FROM_T(type)                                                                          \
     case CDF_Types::type:                                                                          \
@@ -284,7 +285,7 @@ inline data_t load_values(data_t&& data, cdf_encoding encoding)
 }
 
 template <CDF_Types type>
-cdf_values_t new_cdf_values_container(std::size_t len)
+[[nodiscard]] cdf_values_t new_cdf_values_container(std::size_t len)
 {
     using raw_type = from_cdf_type_t<type>;
     std::size_t size = len / sizeof(raw_type);
@@ -292,7 +293,7 @@ cdf_values_t new_cdf_values_container(std::size_t len)
 }
 
 
-inline data_t new_data_container(std::size_t bytes_len, CDF_Types type)
+[[nodiscard]] inline data_t new_data_container(std::size_t bytes_len, CDF_Types type)
 {
 #define DC_FROM_T(type)                                                                            \
     case CDF_Types::type:                                                                          \
@@ -436,7 +437,7 @@ inline char* data_t::bytes_ptr()
     return nullptr;
 }
 
-inline std::size_t data_t::size() const
+inline std::size_t data_t::size() const noexcept
 {
     switch (this->type())
     {
@@ -492,7 +493,7 @@ inline std::size_t data_t::size() const
     return 0;
 }
 
-inline std::size_t data_t::bytes() const
+inline std::size_t data_t::bytes() const noexcept
 {
     switch (this->type())
     {

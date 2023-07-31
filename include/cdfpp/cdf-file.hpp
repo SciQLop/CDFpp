@@ -45,8 +45,8 @@ struct CDF
     CDF& operator=(CDF&&) = default;
     CDF& operator=(const CDF&) = default;
 
-    const Variable& operator[](const std::string& name) const { return variables.at(name); }
-    Variable& operator[](const std::string& name) { return variables.at(name); }
+    [[nodiscard]] const Variable& operator[](const std::string& name) const { return variables.at(name); }
+    [[nodiscard]] Variable& operator[](const std::string& name) { return variables.at(name); }
 };
 
 void add_attribute(CDF& cdf_file, const std::string& name, Attribute::attr_data_t&& data)

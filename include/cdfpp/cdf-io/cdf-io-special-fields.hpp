@@ -24,6 +24,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include "../no_init_vector.hpp"
 
 template <std::size_t _max_len>
 struct string_field
@@ -53,7 +54,7 @@ struct table_field
 {
     using value_type = T;
     static constexpr std::size_t index = _index;
-    std::vector<T> values;
+    no_init_vector<T> values;
 };
 
 template <typename T, typename = void>

@@ -41,25 +41,25 @@ struct Attribute
     }
 
     template <CDF_Types type>
-    inline decltype(auto) get(std::size_t index)
+    [[nodiscard]] inline decltype(auto) get(std::size_t index)
     {
         return data[index].get<type>();
     }
 
     template <CDF_Types type>
-    inline decltype(auto) get(std::size_t index) const
+    [[nodiscard]] inline decltype(auto) get(std::size_t index) const
     {
         return data[index].get<type>();
     }
 
     template <typename type>
-    inline decltype(auto) get(std::size_t index)
+    [[nodiscard]] inline decltype(auto) get(std::size_t index)
     {
         return data[index].get<type>();
     }
 
     template <typename type>
-    inline decltype(auto) get(std::size_t index) const
+    [[nodiscard]] inline decltype(auto) get(std::size_t index) const
     {
         return data[index].get<type>();
     }
@@ -77,8 +77,8 @@ struct Attribute
         data = new_data;
         return *this;
     }
-    inline std::size_t size() const { return std::size(data); }
-    inline data_t& operator[](std::size_t index) { return data[index]; }
+    [[nodiscard]] inline std::size_t size() const noexcept { return std::size(data); }
+    [[nodiscard]] inline data_t& operator[](std::size_t index) { return data[index]; }
 
     template <typename... Ts>
     friend void visit(Attribute& attr, Ts... lambdas);
@@ -86,20 +86,20 @@ struct Attribute
     template <typename... Ts>
     friend void visit(const Attribute& attr, Ts... lambdas);
 
-    auto begin() { return data.begin(); }
-    auto end() { return data.end(); }
+    [[nodiscard]] auto begin() { return data.begin(); }
+    [[nodiscard]] auto end() { return data.end(); }
 
-    auto begin() const { return data.begin(); }
-    auto end() const { return data.end(); }
+    [[nodiscard]] auto begin() const { return data.begin(); }
+    [[nodiscard]] auto end() const { return data.end(); }
 
-    auto cbegin() const { return data.cbegin(); }
-    auto cend() const { return data.cend(); }
+    [[nodiscard]] auto cbegin() const { return data.cbegin(); }
+    [[nodiscard]] auto cend() const { return data.cend(); }
 
-    auto& back() { return data.back(); }
-    const auto& back() const { return data.back(); }
+    [[nodiscard]] auto& back() { return data.back(); }
+    [[nodiscard]] const auto& back() const { return data.back(); }
 
-    auto& front() { return data.front(); }
-    const auto& front() const { return data.front(); }
+    [[nodiscard]] auto& front() { return data.front(); }
+    [[nodiscard]] const auto& front() const { return data.front(); }
 
 private:
     attr_data_t data;

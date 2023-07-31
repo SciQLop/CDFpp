@@ -56,9 +56,9 @@ struct nomap_node : public std::pair<Key, details::base_type_t<T>>
     nomap_node& operator=(const nomap_node&) = default;
     nomap_node& operator=(nomap_node&&) = default;
 
-    inline auto& key() const { return this->first; }
-    inline auto& mapped() const { return this->second; }
-    inline bool empty() const noexcept { return this->p_empty; };
+    [[nodiscard]] inline auto& key() const noexcept{ return this->first; }
+    [[nodiscard]] inline auto& mapped() const noexcept { return this->second; }
+    [[nodiscard]] inline bool empty() const noexcept { return this->p_empty; };
 
     friend void swap(nomap_node& lhs, nomap_node& rhs)
     {
@@ -109,14 +109,14 @@ struct nomap
     nomap& operator=(const nomap&) = default;
     nomap& operator=(nomap&&) = default;
 
-    inline bool empty() const { return p_nodes.empty(); }
-    inline size_type size() const { return std::size(p_nodes); }
+    [[nodiscard]] inline bool empty() const noexcept { return p_nodes.empty(); }
+    [[nodiscard]] inline size_type size() const noexcept { return std::size(p_nodes); }
 
-    inline size_type max_size() const noexcept { return p_nodes.max_size(); }
+    [[nodiscard]] inline size_type max_size() const noexcept { return p_nodes.max_size(); }
 
     inline void clear() noexcept { p_nodes.clear(); }
 
-    inline T& at(const key_type& key)
+    [[nodiscard]] inline T& at(const key_type& key)
     {
         for (auto i = 0UL; i < std::size(p_nodes); i++)
         {
@@ -127,7 +127,7 @@ struct nomap
         throw std::out_of_range { "Key not found" };
     }
 
-    inline const T& at(const key_type& key) const
+    [[nodiscard]] inline const T& at(const key_type& key) const
     {
         for (auto i = 0UL; i < std::size(p_nodes); i++)
         {
@@ -138,7 +138,7 @@ struct nomap
         throw std::out_of_range { "Key not found" };
     }
 
-    inline T& operator[](const key_type& key)
+    [[nodiscard]] inline T& operator[](const key_type& key)
     {
         for (auto i = 0UL; i < std::size(p_nodes); i++)
         {
@@ -149,7 +149,7 @@ struct nomap
         return node.second;
     }
 
-    inline T& operator[](key_type&& key)
+    [[nodiscard]] inline T& operator[](key_type&& key)
     {
         for (auto i = 0UL; i < std::size(p_nodes); i++)
         {
@@ -160,21 +160,21 @@ struct nomap
         return node.second;
     }
 
-    inline const T& operator[](const key_type& key) const { return this->at(key); }
+    [[nodiscard]] inline const T& operator[](const key_type& key) const { return this->at(key); }
 
-    inline iterator begin() { return std::begin(p_nodes); }
+    [[nodiscard]] inline iterator begin() { return std::begin(p_nodes); }
 
-    inline iterator end() { return std::end(p_nodes); }
+    [[nodiscard]] inline iterator end() { return std::end(p_nodes); }
 
-    inline const_iterator begin() const { return std::cbegin(p_nodes); }
+    [[nodiscard]] inline const_iterator begin() const { return std::cbegin(p_nodes); }
 
-    inline const_iterator end() const { return std::cend(p_nodes); }
+    [[nodiscard]] inline const_iterator end() const { return std::cend(p_nodes); }
 
-    inline const_iterator cbegin() const { return this->p_nodes.cbegin(); }
+    [[nodiscard]] inline const_iterator cbegin() const { return this->p_nodes.cbegin(); }
 
-    inline const_iterator cend() const { return this->p_nodes.cend(); }
+    [[nodiscard]] inline const_iterator cend() const { return this->p_nodes.cend(); }
 
-    inline value_type extract(const_iterator position)
+    [[nodiscard]] inline value_type extract(const_iterator position)
     {
         if (position != cend())
             return _extract(position - p_nodes.cbegin());
@@ -221,7 +221,7 @@ struct nomap
         return end();
     }
 
-    inline value_type extract(const key_type& key)
+    [[nodiscard]] inline value_type extract(const key_type& key)
     {
         for (auto i = 0UL; i < std::size(p_nodes); i++)
         {
@@ -233,19 +233,19 @@ struct nomap
 
     friend void swap(nomap& lhs, nomap& rhs) { std::swap(lhs.p_nodes, rhs.p_nodes); }
 
-    auto find(const key_type& key)
+    [[nodiscard]] auto find(const key_type& key)
     {
         return std::find_if(std::begin(p_nodes), std::end(p_nodes),
             [&key](const auto& node) { return node.first == key; });
     }
 
-    auto find(const key_type& key) const
+    [[nodiscard]] auto find(const key_type& key) const
     {
         return std::find_if(std::cbegin(p_nodes), std::cend(p_nodes),
             [&key](const auto& node) { return node.first == key; });
     }
 
-    size_type count(const Key& key) const
+    [[nodiscard]] size_type count(const Key& key) const
     {
         if (this->find(key) == this->cend())
             return 0;

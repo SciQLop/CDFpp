@@ -21,8 +21,8 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include <memory>
-#include <vector>
 #include <string.h>
+#include <vector>
 #if __has_include(<sys/mman.h>)
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -39,7 +39,7 @@ template <typename T, typename A = std::allocator<T>>
 class default_init_allocator : public A
 {
     typedef std::allocator_traits<A> a_t;
-    static inline constexpr  std::size_t page_size = 1 << 21;
+    static inline constexpr std::size_t page_size = 1 << 21;
     static inline constexpr bool is_trivial_and_nothrow_default_constructible
         = std::is_trivially_constructible_v<T> and std::is_nothrow_default_constructible_v<T>;
 
@@ -68,8 +68,8 @@ public:
     T* allocate(std::size_t pCount, const T* = 0, typename std::enable_if<U>::type* = 0)
     {
         void* mem = 0;
-        auto bytes=sizeof(T) * pCount;
-        if(bytes>=2*page_size)
+        auto bytes = sizeof(T) * pCount;
+        if (bytes >= 2 * page_size)
         {
             if (::posix_memalign(&mem, page_size, sizeof(T) * pCount) != 0)
             {
@@ -111,3 +111,27 @@ public:
 
 template <typename T>
 using no_init_vector = std::vector<T, default_init_allocator<T>>;
+
+template <typename T>
+[[nodiscard]] bool operator==(
+    const std::vector<T, default_init_allocator<T>>& v1, const std::vector<T>& v2) noexcept
+{
+    const auto s1 = std::size(v1);
+    if (s1 == std::size(v2))
+    {
+        for (auto i = 0UL; i < s1; i++)
+        {
+            if (v1[i] != v2[i])
+                return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+template <typename T>
+[[nodiscard]] bool operator==(
+    const std::vector<T>& v2, const std::vector<T, default_init_allocator<T>>& v1) noexcept
+{
+    return v1 == v2;
+}

@@ -20,7 +20,6 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "../cdf-debug.hpp"
 #include "../cdf-enums.hpp"
 #include <cdfpp_config.h>
 #include <vector>
@@ -35,14 +34,13 @@
 namespace cdf::io::decompression
 {
 
-template<typename T>
-inline std::size_t rleinflate(
-    const T& input, char* output, const std::size_t output_size)
+template <typename T>
+inline std::size_t rleinflate(const T& input, char* output, const std::size_t output_size)
 {
     return rle::inflate(input, output, output_size);
 }
 
-template<typename T>
+template <typename T>
 std::size_t gzinflate(const T& input, char* output, const std::size_t output_size)
 {
 #ifdef CDFpp_USE_LIBDEFLATE
@@ -59,6 +57,17 @@ std::size_t inflate(const T& input, char* output, const std::size_t output_size)
         return gzinflate(input, output, output_size);
     if constexpr (type == cdf_compression_type::rle_compression)
         return rleinflate(input, output, output_size);
+}
+
+template <typename T>
+std::size_t inflate(
+    cdf_compression_type type, const T& input, char* output, const std::size_t output_size)
+{
+    if (type == cdf_compression_type::gzip_compression)
+        return gzinflate(input, output, output_size);
+    if (type == cdf_compression_type::rle_compression)
+        return rleinflate(input, output, output_size);
+    return 0UL;
 }
 
 }
