@@ -166,7 +166,7 @@ inline decltype(auto) data_t::get() const
 
 
 template <typename T, typename type>
-inline decltype(auto) _get_impl(T* self)
+decltype(auto) _get_impl(T* self)
 {
     return std::get<no_init_vector<type>>(self->p_values);
 }
