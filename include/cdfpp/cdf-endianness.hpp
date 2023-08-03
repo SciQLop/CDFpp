@@ -39,6 +39,13 @@ inline const bool host_is_little_endian = true;
 #define bswap64 __builtin_bswap64
 #endif
 
+#ifdef _MSC_VER
+#include <stdlib.h>
+#define bswap16(x) _byteswap_ushort(x)
+#define bswap32(x) _byteswap_ulong(x)
+#define bswap64(x) _byteswap_uint64(x)
+#endif
+
 #include "cdf-debug.hpp"
 #include "cdf-enums.hpp"
 #include <algorithm>

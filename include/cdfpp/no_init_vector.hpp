@@ -135,3 +135,12 @@ template <typename T>
 {
     return v1 == v2;
 }
+
+namespace std
+{
+template <typename T>
+[[nodiscard]] size_t size(const no_init_vector<T>& v) noexcept
+{
+    return v.size();
+}
+}
