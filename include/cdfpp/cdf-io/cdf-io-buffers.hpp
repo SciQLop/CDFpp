@@ -20,15 +20,26 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "cdfpp/attribute.hpp"
-#include "cdfpp/cdf-data.hpp"
-#include "cdfpp/cdf-enums.hpp"
 #include <cassert>
 #include <cstdint>
 #include <fstream>
 #include <memory>
 #include <optional>
 #include <vector>
+#include <algorithm>
+
+#if __has_include(<sys/mman.h>)
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#define USE_MMAP
+#endif
+#if __has_include(<windows.h>)
+#define NOMINMAX
+#include <windows.h>
+#define USE_MapViewOfFile
+#endif
 
 namespace cdf::io::buffers
 {
@@ -118,70 +129,6 @@ bool contains(const buffer& b, std::size_t offset, std::size_t size)
     auto finishes_inside = ((offset + size) <= (b.offset() + b.size()));
     return starts_inside && finishes_inside;
 }
-
-template <typename stream_t>
-struct stream_adapter
-{
-    std::optional<buffer> p_buffer;
-    stream_t stream;
-    std::size_t p_fsize;
-    using implements_view = std::false_type;
-
-    stream_adapter(stream_t&& stream) : stream { std::move(stream) }
-    {
-        p_fsize = filesize(this->stream);
-    }
-
-    void _fill_buffer(const std::size_t offset, const std::size_t size)
-    {
-        assert((offset + size) <= p_fsize);
-        stream.seekg(offset);
-        auto read_size = std::min(size, p_fsize - offset);
-        char* data = new char[read_size];
-        stream.read(data, read_size);
-        p_buffer = buffer { data, read_size, offset };
-    }
-
-    template <typename T>
-    auto impl_read(T& array, const std::size_t offset, const std::size_t size)
-        -> decltype(array.data(), void())
-    {
-        stream.seekg(offset);
-        stream.read(array.data(), size);
-    }
-
-    template <typename T>
-    auto impl_read(T& array, const std::size_t offset, const std::size_t size)
-        -> decltype(*array, void())
-    {
-        stream.seekg(offset);
-        stream.read(array, size);
-    }
-
-    auto read(const std::size_t offset, const std::size_t size)
-    {
-        if (!p_buffer || !contains(*p_buffer, offset, size))
-            _fill_buffer(offset, size);
-        return p_buffer->view(offset, size);
-    }
-
-    template <std::size_t size>
-    auto read(const std::size_t offset)
-    {
-        if (!p_buffer || !contains(*p_buffer, offset, size))
-            _fill_buffer(offset, size);
-        return p_buffer->view(offset, size);
-    }
-
-    void read(char* dest, const std::size_t offset, const std::size_t size)
-    {
-        if (!p_buffer || !contains(*p_buffer, offset, size))
-            _fill_buffer(offset, size);
-        auto view = p_buffer->view(offset, size);
-        std::memcpy(dest, view.data(), size);
-    }
-    bool is_valid() { return stream.is_open(); }
-};
 
 namespace
 {
@@ -289,20 +236,23 @@ struct array_adapter
 template <typename array_t>
 using owning_array_adapter = array_adapter<array_t, true>;
 
-#if __has_include(<sys/mman.h>)
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
+
 struct mmap_adapter
 {
+    #ifdef USE_MMAP
     int fd = -1;
+    #endif
     char* mapped_file = nullptr;
     std::size_t f_size = 0UL;
     using implements_view = std::true_type;
+#ifdef USE_MapViewOfFile
+    HANDLE hMapFile= NULL;
+    HANDLE hFile= NULL;
+#endif
 
     mmap_adapter(const std::string& path)
     {
+        #ifdef USE_MMAP
         if (fd = open(path.c_str(), O_RDONLY, static_cast<mode_t>(0600)); fd != -1)
         {
             struct stat fileInfo;
@@ -313,13 +263,34 @@ struct mmap_adapter
                 this->f_size = fileInfo.st_size;
             }
         }
+        #endif
+#ifdef USE_MapViewOfFile
+        hFile = ::CreateFile (path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, 0);
+        if (hFile != INVALID_HANDLE_VALUE)
+        {
+            f_size = ::GetFileSize (hFile, NULL);
+            hMapFile =  ::CreateFileMappingA(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
+            if(hMapFile!=NULL)
+            {
+                mapped_file = static_cast<char*>(::MapViewOfFile(hMapFile,FILE_MAP_READ,0,0,f_size));
+            }
+
+        }
+#endif
     }
     ~mmap_adapter()
     {
         if (mapped_file)
         {
+#ifdef USE_MMAP
             munmap(mapped_file, f_size);
             close(fd);
+#endif
+#ifdef USE_MapViewOfFile
+            ::UnmapViewOfFile(mapped_file);
+            ::CloseHandle(hFile);
+            ::CloseHandle(hMapFile);
+#endif
         }
     }
 
@@ -344,9 +315,16 @@ struct mmap_adapter
 
     auto view(const std::size_t offset) const { return mapped_file + offset; }
 
-    bool is_valid() const { return fd != -1 && mapped_file != nullptr; }
+    bool is_valid() const {
+        #ifdef USE_MMAP
+        return fd != -1 && mapped_file != nullptr;
+        #endif
+        #ifdef USE_MapViewOfFile
+        return hFile != NULL && hMapFile != NULL && mapped_file != nullptr;
+        #endif
+    }
 };
-#endif
+
 
 template <class buffer_t>
 struct shared_buffer_t
@@ -424,12 +402,7 @@ inline auto make_shared_array_adapter(const char* const data, std::size_t size)
 
 inline auto make_shared_file_adapter(const std::string& path)
 {
-#if __has_include(<sys/mman.h>)
     return shared_buffer_t(std::make_shared<mmap_adapter>(path));
-#else
-    return shared_buffer_t(std::make_shared<stream_adapter<std::fstream>>(
-        std::fstream { path, std::ios::in | std::ios::binary }));
-#endif
 }
 
 }

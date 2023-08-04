@@ -29,6 +29,7 @@
 #include "cdf-io-loading.hpp"
 #include <cstdint>
 #include <numeric>
+#include <algorithm>
 
 namespace cdf::io::variable
 {
@@ -96,7 +97,7 @@ namespace
         const cdf_VVR_t<cdf_version_tag_t>& vvr, const std::size_t vvr_records_count,
         const uint32_t record_size, std::size_t& pos, char* data, std::size_t data_len)
     {
-        std::size_t vvr_data_size = std::min(vvr_records_count * record_size, data_len - pos);
+        std::size_t vvr_data_size = std::min(static_cast<std::size_t>(vvr_records_count * record_size), static_cast<std::size_t>(data_len - pos));
         load_vvr_data<cdf_version_tag_t>(stream, offset, vvr_data_size, vvr, data + pos);
         pos += vvr_data_size;
     }
@@ -179,7 +180,7 @@ namespace
             vdr.DataType);
         std::size_t pos { 0UL };
         cdf_VXR_t<typename VDR_t::cdf_version_t> vxr;
-        const auto compression_type = [&]()
+        const auto compression_type = [&, &stream=stream, &vdr=vdr]()
         {
             if constexpr (maybe_compressed)
             {
