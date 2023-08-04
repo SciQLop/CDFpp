@@ -171,16 +171,16 @@ decltype(auto) _get_impl(T* self)
     return std::get<no_init_vector<type>>(self->p_values);
 }
 
-template <typename type>
+template <typename T>
 inline decltype(auto) data_t::get()
 {
-    return _get_impl<data_t, type>(this);
+    return _get_impl<data_t, T>(this);
 }
 
-template <typename type>
+template <typename T>
 inline decltype(auto) data_t::get() const
 {
-    return _get_impl<const data_t, type>(this);
+    return _get_impl<const data_t, T>(this);
 }
 
 

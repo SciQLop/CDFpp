@@ -19,6 +19,13 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#if defined(_MSC_VER)
+#  pragma warning(push)
+#  pragma warning(disable: 4127) // warning C4127: Conditional expression is constant
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>

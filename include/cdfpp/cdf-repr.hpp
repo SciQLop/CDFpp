@@ -30,6 +30,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include  <ctime>
 using namespace cdf;
 
 template <class stream_t>
@@ -47,11 +48,11 @@ constexpr bool is_char_like_v
 
 template <class stream_t>
 inline stream_t& operator<<(
-    stream_t& os, const std::chrono::time_point<std::chrono::system_clock>& tp)
+    stream_t& os, const decltype( cdf::to_time_point(tt2000_t{}))& tp)
 {
-    const auto time_t = std::chrono::system_clock::to_time_t(tp);
-    const auto tt = std::gmtime(&time_t);
-    if (tt)
+    const auto tp_time_t = std::chrono::system_clock::to_time_t(std::chrono::time_point_cast<std::chrono::system_clock::time_point::duration>(tp));
+    auto tt = std::gmtime(&tp_time_t);
+    if(tt)
     {
         const auto us
             = (std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch())

@@ -58,7 +58,7 @@ bool load_all(context_t& context, common::cdf_repr& repr)
         {
             auto& [offset, ADR] = blk;
             std::vector<uint32_t> var_nums;
-            Attribute::attr_data_t data = [&]() -> Attribute::attr_data_t
+            Attribute::attr_data_t data = [&,&ADR=ADR]() -> Attribute::attr_data_t
             {
                 if (ADR.AzEDRhead != 0)
                     return load_data<cdf_r_z::z, cdf_version_tag_t, iso_8859_1_to_utf8>(

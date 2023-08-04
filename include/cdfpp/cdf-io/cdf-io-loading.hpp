@@ -21,11 +21,13 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "../cdf-endianness.hpp"
+#include "../cdf-helpers.hpp"
 #include "cdf-io-buffers.hpp"
 #include "cdf-io-desc-records.hpp"
 #include "cdf-io-special-fields.hpp"
 #include "reflection.hpp"
 #include <string>
+#include <variant>
 namespace cdf::io
 {
 
@@ -513,7 +515,7 @@ auto end_ADR(parsing_context_t& parsing_context)
 {
     using adr_t = cdf_ADR_t<typename parsing_context_t::version_tag>;
     return blk_iterator<adr_t, parsing_context_t> { 0, parsing_context,
-        []([[maybe_unused]] const auto& adr) { return 0; } };
+        [](const auto& adr)->decltype(adr.ADRnext) { return 0; } };
 }
 
 template <cdf_r_z type, typename version_t, typename buffer_t>
@@ -536,7 +538,7 @@ template <cdf_r_z type, typename version_t, typename buffer_t>
 auto end_AEDR(const cdf_ADR_t<version_t>&, buffer_t& buffer)
 {
     return blk_iterator<cdf_AEDR_t<version_t>, buffer_t> { 0, buffer,
-        []([[maybe_unused]] const auto& aedr) { return 0; } };
+        []( const auto& aedr)->decltype(aedr.AEDRnext) { return 0; } };
 }
 
 template <cdf_r_z type, typename parsing_context_t>
@@ -565,13 +567,13 @@ auto end_VDR(parsing_context_t& parsing_context)
     {
         using vdr_t = cdf_rVDR_t<version_t>;
         return blk_iterator<vdr_t, parsing_context_t> { 0, parsing_context,
-            []([[maybe_unused]] const auto& vdr) { return 0; } };
+            []( const auto& vdr)->decltype( vdr.VDRnext) { return 0; } };
     }
     else if constexpr (type == cdf_r_z::z)
     {
         using vdr_t = cdf_zVDR_t<version_t>;
         return blk_iterator<vdr_t, parsing_context_t> { 0, parsing_context,
-            []([[maybe_unused]] const auto& vdr) { return 0; } };
+            []( const auto& vdr)->decltype( vdr.VDRnext) { return 0; } };
     }
 }
 
