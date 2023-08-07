@@ -20,15 +20,15 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include <stdint.h>
 #include "cdf-debug.hpp"
-#include "cdf-io/endianness.hpp"
 #include "cdf-enums.hpp"
 #include "cdf-helpers.hpp"
+#include "cdf-io/endianness.hpp"
 #include "no_init_vector.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <stdint.h>
 #include <string>
 #include <variant>
 #include <vector>
@@ -72,7 +72,7 @@ struct data_t
     [[nodiscard]] CDF_Types type() const noexcept { return p_type; }
 
     [[nodiscard]] cdf_values_t& values() noexcept { return p_values; }
-    [[nodiscard]] const cdf_values_t& values() const noexcept{ return p_values; }
+    [[nodiscard]] const cdf_values_t& values() const noexcept { return p_values; }
 
     data_t& operator=(data_t&& other);
     data_t& operator=(const data_t& other);
@@ -541,6 +541,44 @@ inline std::size_t data_t::bytes() const noexcept
             break;
         case cdf::CDF_Types::CDF_CHAR:
             return std::size(this->get<cdf::CDF_Types::CDF_CHAR>());
+            break;
+        default:
+            return 0;
+            break;
+    }
+    return 0;
+}
+
+inline std::size_t size(const CDF_Types& cdf_type) noexcept
+{
+    switch (cdf_type)
+    {
+        case cdf::CDF_Types::CDF_BYTE:
+        case cdf::CDF_Types::CDF_INT1:
+        case cdf::CDF_Types::CDF_UINT1:
+        case cdf::CDF_Types::CDF_UCHAR:
+        case cdf::CDF_Types::CDF_CHAR:
+            return 1;
+            break;
+        case cdf::CDF_Types::CDF_INT2:
+        case cdf::CDF_Types::CDF_UINT2:
+            return 2;
+            break;
+        case cdf::CDF_Types::CDF_INT4:
+        case cdf::CDF_Types::CDF_UINT4:
+        case cdf::CDF_Types::CDF_FLOAT:
+        case cdf::CDF_Types::CDF_REAL4:
+            return 4;
+            break;
+        case cdf::CDF_Types::CDF_INT8:
+        case cdf::CDF_Types::CDF_DOUBLE:
+        case cdf::CDF_Types::CDF_REAL8:
+        case cdf::CDF_Types::CDF_EPOCH:
+        case cdf::CDF_Types::CDF_TIME_TT2000:
+            return 8;
+            break;
+        case cdf::CDF_Types::CDF_EPOCH16:
+            return 16;
             break;
         default:
             return 0;
