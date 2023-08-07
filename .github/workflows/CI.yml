@@ -128,7 +128,7 @@ jobs:
     needs: [build_osx_and_windows, build_linux, build_sdist, test_wheels]
     runs-on: ubuntu-latest
     # upload to PyPI only on github releases
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: github.event_name == 'release' && github.event.action == 'published' && github.repository_owner == 'SciQLop'
     steps:
       - uses: actions/download-artifact@v3
         with:
@@ -148,7 +148,7 @@ jobs:
     needs: [build_osx_and_windows, build_linux, build_sdist, test_wheels]
     runs-on: ubuntu-latest
     # upload to test PyPI on github pushes
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.repository_owner == 'SciQLop'
     steps:
       - uses: actions/download-artifact@v3
         with:
