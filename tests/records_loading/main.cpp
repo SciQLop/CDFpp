@@ -15,8 +15,8 @@
 #endif
 
 
-#include "cdfpp/cdf-io/cdf-io-loading.hpp"
-#include "cdfpp/cdf-io/cdf-io-special-fields.hpp"
+#include "cdfpp/cdf-io/loading/records-loading.hpp"
+#include "cdfpp/cdf-io/special-fields.hpp"
 
 SCENARIO("record loading", "[CDF]")
 {

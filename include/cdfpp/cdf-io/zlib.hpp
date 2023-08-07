@@ -21,13 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "../cdf-debug.hpp"
-#include "cdf-io-buffers.hpp"
-#include <cdfpp_config.h>
-
-#include <algorithm>
-#include <cstdint>
-#include <iostream>
-#include <type_traits>
+#include <cstddef>
 #include <vector>
 #define ZLIB_CONST
 #include <zlib.h>

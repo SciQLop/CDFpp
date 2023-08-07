@@ -22,7 +22,7 @@
 ----------------------------------------------------------------------------*/
 #include <stdint.h>
 #include "cdf-debug.hpp"
-#include "cdf-endianness.hpp"
+#include "cdf-io/endianness.hpp"
 #include "cdf-enums.hpp"
 #include "cdf-helpers.hpp"
 #include "no_init_vector.hpp"

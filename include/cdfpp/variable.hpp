@@ -23,7 +23,7 @@
 #include "attribute.hpp"
 #include "cdf-data.hpp"
 #include "cdf-enums.hpp"
-#include "cdf-majority-swap.hpp"
+#include "cdf-io/majority-swap.hpp"
 #include "no_init_vector.hpp"
 #include <cstdint>
 #include <optional>

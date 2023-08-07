@@ -77,29 +77,30 @@ cdfpp_headers = files(
     'include/cdfpp/variable.hpp',
     'include/cdfpp/cdf.hpp',
     'include/cdfpp/cdf-helpers.hpp',
-    'include/cdfpp/chrono/cdf-chrono.hpp',
-    'include/cdfpp/chrono/cdf-chrono-constants.hpp',
-    'include/cdfpp/chrono/cdf-leap-seconds.h',
     'include/cdfpp/cdf-repr.hpp',
     'include/cdfpp/cdf-data.hpp',
     'include/cdfpp/cdf-debug.hpp',
-    'include/cdfpp/cdf-endianness.hpp',
-    'include/cdfpp/cdf-majority-swap.hpp',
     'include/cdfpp/cdf-enums.hpp',
     'include/cdfpp/cdf-file.hpp',
+    'include/cdfpp/chrono/cdf-chrono.hpp',
+    'include/cdfpp/chrono/cdf-chrono-constants.hpp',
+    'include/cdfpp/chrono/cdf-leap-seconds.h',
     'include/cdfpp/cdf-io/cdf-io.hpp',
+    'include/cdfpp/cdf-io/common.hpp',
     'include/cdfpp/cdf-io/reflection.hpp',
-    'include/cdfpp/cdf-io/cdf-io-special-fields.hpp',
-    'include/cdfpp/cdf-io/cdf-io-loading.hpp',
-    'include/cdfpp/cdf-io/cdf-io-attribute.hpp',
-    'include/cdfpp/cdf-io/cdf-io-buffers.hpp',
-    'include/cdfpp/cdf-io/cdf-io-common.hpp',
-    'include/cdfpp/cdf-io/cdf-io-desc-records.hpp',
-    'include/cdfpp/cdf-io/cdf-io-variable.hpp',
-    'include/cdfpp/cdf-io/cdf-io-decompression.hpp',
-    'include/cdfpp/cdf-io/cdf-io-zlib.hpp',
-    'include/cdfpp/cdf-io/cdf-io-libdeflate.hpp',
-    'include/cdfpp/cdf-io/cdf-io-rle.hpp',
+    'include/cdfpp/cdf-io/desc-records.hpp',
+    'include/cdfpp/cdf-io/endianness.hpp',
+    'include/cdfpp/cdf-io/majority-swap.hpp',
+    'include/cdfpp/cdf-io/special-fields.hpp',
+    'include/cdfpp/cdf-io/decompression.hpp',
+    'include/cdfpp/cdf-io/zlib.hpp',
+    'include/cdfpp/cdf-io/rle.hpp',
+    'include/cdfpp/cdf-io/libdeflate.hpp',
+    'include/cdfpp/cdf-io/loading/loading.hpp',
+    'include/cdfpp/cdf-io/loading/records-loading.hpp',
+    'include/cdfpp/cdf-io/loading/attribute.hpp',
+    'include/cdfpp/cdf-io/loading/buffers.hpp',
+    'include/cdfpp/cdf-io/loading/variable.hpp',
     'pycdfpp/chrono.hpp',
     'pycdfpp/buffers.hpp'
 )
@@ -133,16 +134,17 @@ subdir('pycdfpp')
 install_headers(
 [
     'include/cdfpp/attribute.hpp',
+    'include/cdfpp/nomap.hpp',
+    'include/cdfpp/no_init_vector.hpp',
+    'include/cdfpp/cdf-map.hpp',
     'include/cdfpp/variable.hpp',
-    'include/cdfpp/cdf-repr.hpp',
     'include/cdfpp/cdf.hpp',
     'include/cdfpp/cdf-helpers.hpp',
+    'include/cdfpp/cdf-repr.hpp',
     'include/cdfpp/cdf-data.hpp',
     'include/cdfpp/cdf-debug.hpp',
-    'include/cdfpp/cdf-endianness.hpp',
-    'include/cdfpp/cdf-majority-swap.hpp',
     'include/cdfpp/cdf-enums.hpp',
-    'include/cdfpp/cdf-file.hpp',
+    'include/cdfpp/cdf-file.hpp'
 ], subdir:'cdfpp')
 
 install_headers(
@@ -155,14 +157,26 @@ install_headers(
 install_headers(
 [
     'include/cdfpp/cdf-io/cdf-io.hpp',
-    'include/cdfpp/cdf-io/cdf-io-attribute.hpp',
-    'include/cdfpp/cdf-io/cdf-io-buffers.hpp',
-    'include/cdfpp/cdf-io/cdf-io-common.hpp',
-    'include/cdfpp/cdf-io/cdf-io-desc-records.hpp',
-    'include/cdfpp/cdf-io/cdf-io-variable.hpp',
-    'include/cdfpp/cdf-io/cdf-io-zlib.hpp',
-    'include/cdfpp/cdf-io/cdf-io-rle.hpp'
+    'include/cdfpp/cdf-io/reflection.hpp',
+    'include/cdfpp/cdf-io/special-fields.hpp',
+    'include/cdfpp/cdf-io/common.hpp',
+    'include/cdfpp/cdf-io/desc-records.hpp',
+    'include/cdfpp/cdf-io/decompression.hpp',
+    'include/cdfpp/cdf-io/zlib.hpp',
+    'include/cdfpp/cdf-io/libdeflate.hpp',
+    'include/cdfpp/cdf-io/rle.hpp',
+    'include/cdfpp/cdf-io/majority-swap.hpp',
+    'include/cdfpp/cdf-io/endianness.hpp'
 ], subdir:'cdfpp/cdf-io')
+
+install_headers(
+[
+    'include/cdfpp/cdf-io/loading/attribute.hpp',
+    'include/cdfpp/cdf-io/loading/buffers.hpp',
+    'include/cdfpp/cdf-io/loading/loading.hpp',
+    'include/cdfpp/cdf-io/loading/records-loading.hpp',
+    'include/cdfpp/cdf-io/loading/variable.hpp',
+], subdir:'cdfpp/cdf-io/loading')
 
 
 if get_option('with_tests')

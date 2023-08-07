@@ -20,13 +20,13 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "../cdf-data.hpp"
-#include "../no_init_vector.hpp"
-#include "../variable.hpp"
-#include "cdf-io-common.hpp"
-#include "cdf-io-decompression.hpp"
-#include "cdf-io-desc-records.hpp"
-#include "cdf-io-loading.hpp"
+#include "cdfpp/cdf-data.hpp"
+#include "cdfpp/no_init_vector.hpp"
+#include "cdfpp/variable.hpp"
+#include "../common.hpp"
+#include "../decompression.hpp"
+#include "../desc-records.hpp"
+#include "./records-loading.hpp"
 #include <cstdint>
 #include <numeric>
 #include <algorithm>

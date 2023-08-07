@@ -21,10 +21,10 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "../attribute.hpp"
-#include "../cdf-endianness.hpp"
-#include "../cdf-majority-swap.hpp"
-#include "../cdf-map.hpp"
-#include "../variable.hpp"
+#include "./endianness.hpp"
+#include "./majority-swap.hpp"
+#include "cdfpp/cdf-map.hpp"
+#include "cdfpp/variable.hpp"
 #include <assert.h>
 #include <functional>
 #include <tuple>

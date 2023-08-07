@@ -20,10 +20,10 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "../attribute.hpp"
-#include "cdf-io-common.hpp"
-#include "cdf-io-desc-records.hpp"
-#include "cdf-io-loading.hpp"
+#include "cdfpp/attribute.hpp"
+#include "../common.hpp"
+#include "../desc-records.hpp"
+#include "./records-loading.hpp"
 
 namespace cdf::io::attribute
 {

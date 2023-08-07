@@ -1,7 +1,7 @@
 #pragma once
 /*------------------------------------------------------------------------------
 -- This file is a part of the CDFpp library
--- Copyright (C) 2023, Plasma Physics Laboratory - CNRS
+-- Copyright (C) 2022, Plasma Physics Laboratory - CNRS
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License as published by
@@ -20,49 +20,41 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "../cdf-debug.hpp"
-#include "cdf-io-buffers.hpp"
-#include <cdfpp_config.h>
 
 #include <algorithm>
 #include <cstdint>
-#include <iostream>
-#include <libdeflate.h>
-#include <type_traits>
 #include <vector>
 
-namespace cdf::io::libdeflate
+namespace cdf::io::rle
 {
 namespace _internal
 {
-    template <typename T>
-    CDF_WARN_UNUSED_RESULT std::size_t impl_inflate(
-        const T& input, char* output, const std::size_t output_size)
-    {
-
-        auto decompressor = libdeflate_alloc_decompressor();
-        std::size_t length;
-        auto result = libdeflate_gzip_decompress(decompressor, input.data(),
-            std::size(input), output, output_size, &length);
-        libdeflate_free_decompressor(decompressor);
-        if (result == LIBDEFLATE_SUCCESS)
-        {
-            return length;
-        }
-        else
-        {
-            std::cout << "Fuck " << output_size << " " << length<< " " << result <<std::endl;
-            return 0;
-        }
-    }
 
 }
 
 template <typename T>
-std::size_t gzinflate(const T& input, char* output, const std::size_t output_size)
+inline std::size_t inflate(const T& input, char* output, const std::size_t)
 {
-    using namespace _internal;
-    return impl_inflate(input, output, output_size);
+    auto output_cursor = output;
+    auto input_cursor = std::cbegin(input);
+    while (input_cursor != std::cend(input))
+    {
+        auto value = *input_cursor;
+        if (value == 0)
+        {
+            input_cursor++;
+            std::size_t count = static_cast<unsigned char>(*input_cursor) + 1;
+            std::generate_n(output_cursor, count, []() constexpr { return 0; });
+            output_cursor += count;
+        }
+        else
+        {
+            *output_cursor = value;
+            output_cursor++;
+        }
+        input_cursor++;
+    }
+    return output_cursor - output;
 }
 
 
