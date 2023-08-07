@@ -20,13 +20,15 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <memory>
 #include <optional>
 #include <vector>
-#include <algorithm>
 
 #if __has_include(<sys/mman.h>)
 #include <fcntl.h>
@@ -67,21 +69,6 @@ template <typename buffer_t>
 inline constexpr auto get_data_ptr(buffer_t& buffer) -> decltype(buffer.view(0UL))
 {
     return buffer.view(0UL);
-}
-
-template <typename stream_t>
-std::size_t filesize(stream_t& file)
-{
-    if (file.is_open())
-    {
-        file.seekg(0, file.beg);
-        auto pos = file.tellg();
-        file.seekg(0, file.end);
-        pos = file.tellg() - pos;
-        file.seekg(0, file.beg);
-        return static_cast<std::size_t>(pos);
-    }
-    return 0;
 }
 
 struct array_view
@@ -239,44 +226,49 @@ using owning_array_adapter = array_adapter<array_t, true>;
 
 struct mmap_adapter
 {
-    #ifdef USE_MMAP
+#ifdef USE_MMAP
     int fd = -1;
-    #endif
+#endif
     char* mapped_file = nullptr;
     std::size_t f_size = 0UL;
     using implements_view = std::true_type;
 #ifdef USE_MapViewOfFile
-    HANDLE hMapFile= NULL;
-    HANDLE hFile= NULL;
+    HANDLE hMapFile = NULL;
+    HANDLE hFile = NULL;
 #endif
 
     mmap_adapter(const std::string& path)
     {
-        #ifdef USE_MMAP
-        if (fd = open(path.c_str(), O_RDONLY, static_cast<mode_t>(0600)); fd != -1)
-        {
-            struct stat fileInfo;
-            if (fstat(fd, &fileInfo) != -1 && fileInfo.st_size != 0)
-            {
-                mapped_file = static_cast<char*>(
-                    mmap(nullptr, fileInfo.st_size, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0UL));
-                this->f_size = fileInfo.st_size;
-            }
-        }
-        #endif
-#ifdef USE_MapViewOfFile
-        hFile = ::CreateFile (path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, 0);
-        if (hFile != INVALID_HANDLE_VALUE)
-        {
-            f_size = ::GetFileSize (hFile, NULL);
-            hMapFile =  ::CreateFileMappingA(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
-            if(hMapFile!=NULL)
-            {
-                mapped_file = static_cast<char*>(::MapViewOfFile(hMapFile,FILE_MAP_READ,0,0,f_size));
-            }
 
-        }
+        if (std::filesystem::exists(path))
+        {
+            this->f_size = std::filesystem::file_size(path);
+            if (this->f_size)
+            {
+#ifdef USE_MMAP
+                if (fd = open(path.c_str(), O_RDONLY, static_cast<mode_t>(0600)); fd != -1)
+                {
+
+                    {
+                        mapped_file = static_cast<char*>(mmap(
+                            nullptr, this->f_size, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0UL));
+                    }
+                }
 #endif
+#ifdef USE_MapViewOfFile
+                hFile = ::CreateFile(path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, 0);
+                if (hFile != INVALID_HANDLE_VALUE)
+                {
+                    hMapFile = ::CreateFileMappingA(hFile, NULL, PAGE_READONLY, 0, 0, NULL);
+                    if (hMapFile != NULL)
+                    {
+                        mapped_file = static_cast<char*>(
+                            ::MapViewOfFile(hMapFile, FILE_MAP_READ, 0, 0, this->f_size));
+                    }
+                }
+#endif
+            }
+        }
     }
     ~mmap_adapter()
     {
@@ -315,13 +307,14 @@ struct mmap_adapter
 
     auto view(const std::size_t offset) const { return mapped_file + offset; }
 
-    bool is_valid() const {
-        #ifdef USE_MMAP
+    bool is_valid() const
+    {
+#ifdef USE_MMAP
         return fd != -1 && mapped_file != nullptr;
-        #endif
-        #ifdef USE_MapViewOfFile
+#endif
+#ifdef USE_MapViewOfFile
         return hFile != NULL && hMapFile != NULL && mapped_file != nullptr;
-        #endif
+#endif
     }
 };
 
