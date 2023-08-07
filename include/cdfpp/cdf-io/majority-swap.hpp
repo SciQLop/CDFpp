@@ -20,9 +20,9 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "cdf-debug.hpp"
-#include "cdf-data.hpp"
-#include "no_init_vector.hpp"
+#include "../cdf-debug.hpp"
+#include "../cdf-data.hpp"
+#include "../no_init_vector.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <cstring>

@@ -20,12 +20,13 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "../cdf-endianness.hpp"
-#include "../cdf-helpers.hpp"
-#include "cdf-io-buffers.hpp"
-#include "cdf-io-desc-records.hpp"
-#include "cdf-io-special-fields.hpp"
-#include "reflection.hpp"
+#include "../endianness.hpp"
+#include "cdfpp/cdf-helpers.hpp"
+#include "./buffers.hpp"
+#include "../desc-records.hpp"
+#include "../special-fields.hpp"
+#include "../reflection.hpp"
+#include <functional>
 #include <string>
 #include <variant>
 namespace cdf::io

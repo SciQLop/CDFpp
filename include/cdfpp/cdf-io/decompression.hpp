@@ -24,12 +24,12 @@
 #include <cdfpp_config.h>
 #include <vector>
 #ifdef CDFpp_USE_LIBDEFLATE
-#include "cdf-io-libdeflate.hpp"
+#include "./libdeflate.hpp"
 #else
-#include "cdf-io-zlib.hpp"
+#include "./zlib.hpp"
 #endif
 
-#include "cdf-io-rle.hpp"
+#include "./rle.hpp"
 
 namespace cdf::io::decompression
 {

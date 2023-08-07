@@ -21,7 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "../cdf-enums.hpp"
-#include "cdf-io-special-fields.hpp"
+#include "special-fields.hpp"
 #include <cstdint>
 #include <tuple>
 #include <type_traits>

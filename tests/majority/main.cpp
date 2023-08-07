@@ -4,7 +4,7 @@
 #else
 #include <catch.hpp>
 #endif
-#include "cdfpp/cdf-majority-swap.hpp"
+#include "cdfpp/cdf-io/majority-swap.hpp"
 #include "vector"
 
 

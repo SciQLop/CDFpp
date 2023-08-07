@@ -23,7 +23,7 @@
 #include "attribute.hpp"
 #include "cdf-enums.hpp"
 #include "cdf-map.hpp"
-#include "cdf-io/cdf-io-common.hpp"
+#include "cdf-io/common.hpp"
 #include "variable.hpp"
 #include <string>
 

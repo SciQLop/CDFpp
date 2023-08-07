@@ -21,7 +21,6 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include <cstddef>
-#include <functional>
 #include <string>
 #include <vector>
 #include "../no_init_vector.hpp"
