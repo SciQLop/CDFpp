@@ -101,6 +101,9 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-io/loading/attribute.hpp',
     'include/cdfpp/cdf-io/loading/buffers.hpp',
     'include/cdfpp/cdf-io/loading/variable.hpp',
+    'include/cdfpp/cdf-io/saving/saving.hpp',
+    'include/cdfpp/cdf-io/saving/records-saving.hpp',
+    'include/cdfpp/cdf-io/saving/buffers.hpp',
     'pycdfpp/chrono.hpp',
     'pycdfpp/buffers.hpp'
 )
@@ -177,6 +180,13 @@ install_headers(
     'include/cdfpp/cdf-io/loading/records-loading.hpp',
     'include/cdfpp/cdf-io/loading/variable.hpp',
 ], subdir:'cdfpp/cdf-io/loading')
+
+install_headers(
+[
+    'include/cdfpp/cdf-io/saving/saving.hpp',
+    'include/cdfpp/cdf-io/saving/records-saving.hpp',
+    'include/cdfpp/cdf-io/saving/buffers.hpp'
+], subdir:'cdfpp/cdf-io/saving')
 
 
 if get_option('with_tests')

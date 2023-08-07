@@ -24,10 +24,10 @@
 #include "cdf-data.hpp"
 #include "cdf-enums.hpp"
 #include "cdf-io/majority-swap.hpp"
+#include "cdf-map.hpp"
 #include "no_init_vector.hpp"
 #include <cstdint>
 #include <optional>
-#include "cdf-map.hpp"
 #include <vector>
 
 namespace cdf
@@ -91,12 +91,12 @@ struct Variable
         return _data().get<type>();
     }
 
-    [[nodiscard]] const std::string& name() const noexcept{ return p_name; }
+    [[nodiscard]] const std::string& name() const noexcept { return p_name; }
 
     [[nodiscard]] const shape_t& shape() const noexcept { return p_shape; }
     [[nodiscard]] std::size_t len() const noexcept
     {
-        if(std::size(p_shape)>=1)
+        if (std::size(p_shape) >= 1)
             return p_shape[0];
         return 0;
     }
@@ -115,6 +115,17 @@ struct Variable
 
     [[nodiscard]] std::optional<std::size_t> number() { return p_number; }
 
+
+    [[nodiscard]] std::size_t bytes() const noexcept
+    {
+        if (std::size(shape()))
+            return std::accumulate(std::cbegin(shape()), std::cend(shape()), 1UL,
+                       std::multiplies<std::size_t>())
+                * size(this->type());
+        else
+            return 0UL;
+    }
+
     [[nodiscard]] CDF_Types type() const
     {
         if (std::holds_alternative<var_data_t>(p_data))
@@ -122,7 +133,7 @@ struct Variable
         return std::get<lazy_data>(p_data).type();
     }
 
-    [[nodiscard]] inline bool values_loaded()const noexcept
+    [[nodiscard]] inline bool values_loaded() const noexcept
     {
         return not std::holds_alternative<lazy_data>(p_data);
     }
