@@ -20,12 +20,12 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "../endianness.hpp"
-#include "cdfpp/cdf-helpers.hpp"
-#include "./buffers.hpp"
 #include "../desc-records.hpp"
-#include "../special-fields.hpp"
+#include "../endianness.hpp"
 #include "../reflection.hpp"
+#include "../special-fields.hpp"
+#include "./buffers.hpp"
+#include "cdfpp/cdf-helpers.hpp"
 #include <functional>
 #include <string>
 #include <variant>
@@ -384,7 +384,7 @@ struct cdf_mutable_variable_record_t
 
     std::variant<std::monostate, vvr_t, cvvr_t, vxr_t> actual_record;
 
-    cdf_DR_header<version_t> header;
+    cdf_DR_header<version_t, cdf_record_type::UIR> header;
 
     template <typename... Ts>
     auto visit(Ts... lambdas) const
@@ -401,17 +401,17 @@ std::size_t load_record(
     load_record(s.header, parsing_context, offset);
     switch (s.header.record_type)
     {
-        case static_cast<uint32_t>(cdf_record_type::CVVR):
+        case cdf_record_type::CVVR:
             s.actual_record.template emplace<typename mutable_record::cvvr_t>();
             return load_record(std::get<typename mutable_record::cvvr_t>(s.actual_record),
                 parsing_context, offset);
             break;
-        case static_cast<uint32_t>(cdf_record_type::VVR):
+        case cdf_record_type::VVR:
             s.actual_record.template emplace<typename mutable_record::vvr_t>();
             return load_record(
                 std::get<typename mutable_record::vvr_t>(s.actual_record), parsing_context, offset);
             break;
-        case static_cast<uint32_t>(cdf_record_type::VXR):
+        case cdf_record_type::VXR:
             s.actual_record.template emplace<typename mutable_record::vxr_t>();
             return load_record(
                 std::get<typename mutable_record::vxr_t>(s.actual_record), parsing_context, offset);
@@ -507,8 +507,9 @@ template <typename parsing_context_t>
 auto begin_ADR(parsing_context_t& parsing_context)
 {
     using adr_t = cdf_ADR_t<typename parsing_context_t::version_tag>;
-    return blk_iterator<adr_t, parsing_context_t> { static_cast<std::size_t>(parsing_context.gdr.ADRhead), parsing_context,
-        [](const adr_t& adr) { return adr.ADRnext; } };
+    return blk_iterator<adr_t, parsing_context_t> { static_cast<std::size_t>(
+                                                        parsing_context.gdr.ADRhead),
+        parsing_context, [](const adr_t& adr) { return adr.ADRnext; } };
 }
 
 template <typename parsing_context_t>
@@ -516,31 +517,61 @@ auto end_ADR(parsing_context_t& parsing_context)
 {
     using adr_t = cdf_ADR_t<typename parsing_context_t::version_tag>;
     return blk_iterator<adr_t, parsing_context_t> { 0, parsing_context,
-        [](const auto& adr)->decltype(adr.ADRnext) { return 0; } };
+        [](const auto& adr) -> decltype(adr.ADRnext) { return 0; } };
+}
+
+template <typename version_t, typename buffer_t>
+auto begin_AgrEDR(const cdf_ADR_t<version_t>& adr, buffer_t& buffer)
+{
+    using aedr_t = cdf_AgrEDR_t<version_t>;
+
+    return blk_iterator<aedr_t, buffer_t> { adr.AgrEDRhead, buffer,
+        [](const aedr_t& aedr) { return aedr.AEDRnext; } };
+}
+
+template <typename version_t, typename buffer_t>
+auto end_AgrEDR(const cdf_ADR_t<version_t>&, buffer_t& buffer)
+{
+    return blk_iterator<cdf_AgrEDR_t<version_t>, buffer_t> { 0, buffer,
+        [](const auto& aedr) -> decltype(aedr.AEDRnext) { return 0; } };
+}
+
+template <typename version_t, typename buffer_t>
+auto begin_AzEDR(const cdf_ADR_t<version_t>& adr, buffer_t& buffer)
+{
+    using aedr_t = cdf_AzEDR_t<version_t>;
+
+    return blk_iterator<aedr_t, buffer_t> { adr.AzEDRhead, buffer,
+        [](const aedr_t& aedr) { return aedr.AEDRnext; } };
+}
+
+
+template <typename version_t, typename buffer_t>
+auto end_AzEDR(const cdf_ADR_t<version_t>&, buffer_t& buffer)
+{
+    return blk_iterator<cdf_AzEDR_t<version_t>, buffer_t> { 0, buffer,
+        [](const auto& aedr) -> decltype(aedr.AEDRnext) { return 0; } };
 }
 
 template <cdf_r_z type, typename version_t, typename buffer_t>
 auto begin_AEDR(const cdf_ADR_t<version_t>& adr, buffer_t& buffer)
 {
-    using aedr_t = cdf_AEDR_t<version_t>;
     if constexpr (type == cdf_r_z::r)
-    {
-        return blk_iterator<aedr_t, buffer_t> { adr.AgrEDRhead, buffer,
-            [](const aedr_t& aedr) { return aedr.AEDRnext; } };
-    }
-    else if constexpr (type == cdf_r_z::z)
-    {
-        return blk_iterator<aedr_t, buffer_t> { adr.AzEDRhead, buffer,
-            [](const aedr_t& aedr) { return aedr.AEDRnext; } };
-    }
+        return begin_AgrEDR(adr, buffer);
+    else
+        return begin_AzEDR(adr, buffer);
 }
 
+
 template <cdf_r_z type, typename version_t, typename buffer_t>
-auto end_AEDR(const cdf_ADR_t<version_t>&, buffer_t& buffer)
+auto end_AEDR(const cdf_ADR_t<version_t>& adr, buffer_t& buffer)
 {
-    return blk_iterator<cdf_AEDR_t<version_t>, buffer_t> { 0, buffer,
-        []( const auto& aedr)->decltype(aedr.AEDRnext) { return 0; } };
+    if constexpr (type == cdf_r_z::r)
+        return end_AgrEDR(adr, buffer);
+    else
+        return end_AzEDR(adr, buffer);
 }
+
 
 template <cdf_r_z type, typename parsing_context_t>
 auto begin_VDR(parsing_context_t& parsing_context)
@@ -549,14 +580,15 @@ auto begin_VDR(parsing_context_t& parsing_context)
     if constexpr (type == cdf_r_z::r)
     {
         using vdr_t = cdf_rVDR_t<version_t>;
-        return blk_iterator<vdr_t, parsing_context_t> { static_cast<std::size_t>(parsing_context.gdr.rVDRhead), parsing_context,
-            [](const vdr_t& vdr) { return vdr.VDRnext; } };
+        return blk_iterator<vdr_t, parsing_context_t> { static_cast<std::size_t>(
+                                                            parsing_context.gdr.rVDRhead),
+            parsing_context, [](const vdr_t& vdr) { return vdr.VDRnext; } };
     }
     else if constexpr (type == cdf_r_z::z)
     {
         using vdr_t = cdf_zVDR_t<version_t>;
-        return blk_iterator<vdr_t, parsing_context_t> { parsing_context.gdr.zVDRhead, parsing_context,
-            [](const vdr_t& vdr) { return vdr.VDRnext; } };
+        return blk_iterator<vdr_t, parsing_context_t> { parsing_context.gdr.zVDRhead,
+            parsing_context, [](const vdr_t& vdr) { return vdr.VDRnext; } };
     }
 }
 
@@ -568,13 +600,13 @@ auto end_VDR(parsing_context_t& parsing_context)
     {
         using vdr_t = cdf_rVDR_t<version_t>;
         return blk_iterator<vdr_t, parsing_context_t> { 0, parsing_context,
-            []( const auto& vdr)->decltype( vdr.VDRnext) { return 0; } };
+            [](const auto& vdr) -> decltype(vdr.VDRnext) { return 0; } };
     }
     else if constexpr (type == cdf_r_z::z)
     {
         using vdr_t = cdf_zVDR_t<version_t>;
         return blk_iterator<vdr_t, parsing_context_t> { 0, parsing_context,
-            []( const auto& vdr)->decltype( vdr.VDRnext) { return 0; } };
+            [](const auto& vdr) -> decltype(vdr.VDRnext) { return 0; } };
     }
 }
 

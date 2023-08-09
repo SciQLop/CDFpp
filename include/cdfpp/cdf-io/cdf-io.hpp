@@ -21,3 +21,4 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "loading/loading.hpp"
+#include "saving/saving.hpp"

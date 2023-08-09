@@ -549,42 +549,4 @@ inline std::size_t data_t::bytes() const noexcept
     return 0;
 }
 
-inline std::size_t size(const CDF_Types& cdf_type) noexcept
-{
-    switch (cdf_type)
-    {
-        case cdf::CDF_Types::CDF_BYTE:
-        case cdf::CDF_Types::CDF_INT1:
-        case cdf::CDF_Types::CDF_UINT1:
-        case cdf::CDF_Types::CDF_UCHAR:
-        case cdf::CDF_Types::CDF_CHAR:
-            return 1;
-            break;
-        case cdf::CDF_Types::CDF_INT2:
-        case cdf::CDF_Types::CDF_UINT2:
-            return 2;
-            break;
-        case cdf::CDF_Types::CDF_INT4:
-        case cdf::CDF_Types::CDF_UINT4:
-        case cdf::CDF_Types::CDF_FLOAT:
-        case cdf::CDF_Types::CDF_REAL4:
-            return 4;
-            break;
-        case cdf::CDF_Types::CDF_INT8:
-        case cdf::CDF_Types::CDF_DOUBLE:
-        case cdf::CDF_Types::CDF_REAL8:
-        case cdf::CDF_Types::CDF_EPOCH:
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-            return 8;
-            break;
-        case cdf::CDF_Types::CDF_EPOCH16:
-            return 16;
-            break;
-        default:
-            return 0;
-            break;
-    }
-    return 0;
-}
-
 }

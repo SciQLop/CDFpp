@@ -29,6 +29,7 @@
 #include "cdfpp/cdf-enums.hpp"
 #include "cdfpp/cdf-file.hpp"
 #include "cdfpp/no_init_vector.hpp"
+#include "cdfpp_config.h"
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -44,17 +45,45 @@ namespace
     std::size_t estimate_size(const CDF& cdf)
     {
         auto var_size = std::accumulate(std::cbegin(cdf.variables), std::cend(cdf.variables), 0UL,
-            [](const Variable& v, std::size_t sz) { return sz + v.bytes(); });
+            [](std::size_t sz, const auto& node) { return sz + node.mapped().bytes(); });
         return var_size + (1 << 16);
     }
+
+
+    template <typename T>
+    [[nodiscard]] std::size_t build_and_save_cdr(const CDF&, T& writer, std::size_t current_offset)
+    {
+        cdf_CDR_t<v3x_tag> cdr { {}, 0, 3, 8, CDFpp_ENCODING, 3, 0, 0, 0, 2, 0, { "" } };
+        cdr.GDRoffset = current_offset + record_size(cdr);
+        return save_record(cdr, writer);
+    }
+    template <typename T>
+    [[nodiscard]] std::size_t build_and_save_gdr(const CDF&, T& writer, std::size_t current_offset)
+    {
+        cdf_GDR_t<v3x_tag> gdr { {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {} };
+        gdr.eof = current_offset + record_size(gdr);
+        return save_record(gdr, writer);
+    }
+
+    template <typename T>
+    [[nodiscard]] bool uncompressed_impl_save(const CDF& cdf, T& writer)
+    {
+        common::magic_numbers_t magic { 0xCDF30001, 0x0000FFFF };
+        auto offset = save_record(magic, writer);
+        offset = build_and_save_cdr(cdf, writer, offset);
+        offset = build_and_save_gdr(cdf, writer, offset);
+        return true;
+    }
+
 
     template <typename T>
     [[nodiscard]] bool impl_save(const CDF& cdf, T& writer)
     {
-        common::magic_numbers_t magic { 0xCDF30001,
-            cdf.compression == cdf_compression_type::no_compression ? 0x0000FFFF : 0xCCCC0001 };
-        save_record(magic, writer);
-        return true;
+        if (cdf.compression == cdf_compression_type::no_compression)
+        {
+            return uncompressed_impl_save(cdf, writer);
+        }
+        return false;
     }
 
 } // namespace
