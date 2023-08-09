@@ -118,7 +118,7 @@ namespace
                 pos += decompression::rleinflate(cvvr.data.values, data + pos, data_len - pos);
             }
             else
-                throw std::runtime_error { "Unsuported variable compression algorithm" };
+                throw std::runtime_error { "Unsupported variable compression algorithm" };
         }
     }
 

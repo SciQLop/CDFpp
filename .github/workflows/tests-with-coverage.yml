@@ -21,7 +21,7 @@ jobs:
         run: ninja -C build
       - name: Run tests (meson)
         run: ninja test -C build
-      - name: Generate Coverage repport
+      - name: Generate Coverage report
         run: |
           lcov --capture --directory . --output-file coverage.info
           lcov --remove coverage.info '/usr/*' --output-file coverage.info

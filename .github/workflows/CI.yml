@@ -77,11 +77,11 @@ jobs:
         if: runner.os == 'Windows'
         with:
           arch: amd64
-      - name: bulid package
+      - name: build package
         if: runner.os == 'Windows'
         run: |
           python3 -m build --wheel --no-isolation  .
-      - name: bulid package
+      - name: build package
         if: runner.os != 'Windows'
         run: |
           CC=gcc-11 CXX=g++-11 python3 -m build --wheel --no-isolation  .
