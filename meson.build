@@ -29,8 +29,10 @@ endif
 
 if(target_machine.endian() == 'big')
     conf_data.set('CDFpp_BIG_ENDIAN', true)
+    conf_data.set('CDFpp_ENCODING', 'cdf_encoding::IBMRS')
 else
     conf_data.set('CDFpp_LITTLE_ENDIAN', true)
+    conf_data.set('CDFpp_ENCODING', 'cdf_encoding::IBMPC')
 endif
 configure_file(output : 'cdfpp_config.h',
                install : true,
@@ -200,7 +202,7 @@ if get_option('with_tests')
     catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
 
 
-    foreach test:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading']
+    foreach test:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving']
         exe = executable('test-'+test,'tests/'+test+'/main.cpp',
                         dependencies:[catch_dep, cdfpp_dep],
                         install: false

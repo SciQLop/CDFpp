@@ -23,10 +23,10 @@
 #include "chrono.hpp"
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf-map.hpp>
-#include <cdfpp/no_init_vector.hpp>
 #include <cdfpp/cdf-repr.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
+#include <cdfpp/no_init_vector.hpp>
 #include <cdfpp_config.h>
 using namespace cdf;
 
@@ -50,9 +50,10 @@ class pybind11::detail::type_caster<nomap_node<T1, T2>>
 };
 #endif
 
-using py_cdf_attr_data_t = std::variant<std::string, no_init_vector<char>, const no_init_vector<uint8_t>,
-    no_init_vector<uint16_t>, no_init_vector<uint32_t>, no_init_vector<int8_t>, no_init_vector<int16_t>,
-    no_init_vector<int32_t>, no_init_vector<int64_t>, no_init_vector<float>, no_init_vector<double>,
+using py_cdf_attr_data_t = std::variant<std::string, no_init_vector<char>,
+    const no_init_vector<uint8_t>, no_init_vector<uint16_t>, no_init_vector<uint32_t>,
+    no_init_vector<int8_t>, no_init_vector<int16_t>, no_init_vector<int32_t>,
+    no_init_vector<int64_t>, no_init_vector<float>, no_init_vector<double>,
     no_init_vector<tt2000_t>, no_init_vector<epoch>, no_init_vector<epoch16>>;
 
 namespace
@@ -285,15 +286,15 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
 
     py::class_<Variable>(m, "Variable", py::buffer_protocol())
         .def("__repr__", __repr__<Variable>)
-        .def_readonly("attributes", &Variable::attributes, py::return_value_policy::reference_internal)
+        .def_readonly(
+            "attributes", &Variable::attributes, py::return_value_policy::reference_internal)
         .def_property_readonly("name", &Variable::name)
         .def_property_readonly("type", &Variable::type)
         .def_property_readonly("shape", &Variable::shape)
         .def_property_readonly("majority", &Variable::majority)
         .def_property_readonly("values_loaded", &Variable::values_loaded)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
-        .def_property_readonly(
-            "values", make_values_view, py::keep_alive<0, 1>());
+        .def_property_readonly("values", make_values_view, py::keep_alive<0, 1>());
 
     m.def(
         "load",
@@ -303,8 +304,7 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
             return io::load(static_cast<char*>(info.ptr), static_cast<std::size_t>(info.size),
                 iso_8859_1_to_utf8);
         },
-        py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false,
-        py::return_value_policy::move);
+        py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false, py::return_value_policy::move);
 
     m.def(
         "lazy_load",
@@ -315,8 +315,8 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
                 throw std::runtime_error("Incompatible buffer dimension!");
             return io::load(static_cast<char*>(info.ptr), info.shape[0], iso_8859_1_to_utf8, true);
         },
-        py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false,
-        py::return_value_policy::move, py::keep_alive<0, 1>());
+        py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false, py::return_value_policy::move,
+        py::keep_alive<0, 1>());
 
     m.def(
         "load",
@@ -324,4 +324,9 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
         { return io::load(std::string { fname }, iso_8859_1_to_utf8, lazy_load); },
         py::arg("fname"), py::arg("iso_8859_1_to_utf8") = false, py::arg("lazy_load") = true,
         py::return_value_policy::move);
+
+    m.def(
+        "save",
+        [](const CDF& cdf, const char* fname) { return io::save(cdf, std::string { fname }); },
+        py::arg("cdf"), py::arg("fname"));
 }

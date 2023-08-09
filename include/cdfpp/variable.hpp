@@ -121,7 +121,7 @@ struct Variable
         if (std::size(shape()))
             return std::accumulate(std::cbegin(shape()), std::cend(shape()), 1UL,
                        std::multiplies<std::size_t>())
-                * size(this->type());
+                * cdf_type_size(this->type());
         else
             return 0UL;
     }
