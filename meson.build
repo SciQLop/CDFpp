@@ -232,6 +232,11 @@ if get_option('with_tests')
                     install: false
                     )
 
+    manual_load = executable('manual_save','tests/manual_save/main.cpp',
+                    dependencies:[cdfpp_dep],
+                    install: false
+                    )
+
 
     foreach example:['basic_cpp']
         exe = executable('example-'+example,'examples/'+example+'/main.cpp',

@@ -39,7 +39,7 @@ SCENARIO("nomap", "[CDF]")
         }
         WHEN("adding some items")
         {
-            auto var = cdf::Variable("Var1",0,cdf::data_t{},{0,1},cdf::cdf_majority::row);
+            auto var = cdf::Variable("Var1",0,cdf::data_t{},{0,1},cdf::cdf_majority::row, false);
             map["Var1"]=std::move(var);
             THEN("its size must be equals to the number of items added")
             {
