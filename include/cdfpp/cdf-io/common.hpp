@@ -98,10 +98,10 @@ auto majority(const T& cdr)
 template <typename src_endianess_t, typename buffer_t, typename container_t>
 void load_values(buffer_t& buffer, std::size_t offset, container_t& output)
 {
-    buffer.read(reinterpret_cast<char*>(output.data()), offset, std::size(output) * sizeof(typename container_t::value_type));
+    buffer.read(reinterpret_cast<char*>(output.data()), offset,
+        std::size(output) * sizeof(typename container_t::value_type));
     endianness::decode_v<src_endianess_t>(output.data(), std::size(output));
 }
-
 
 
 struct cdf_repr
@@ -155,19 +155,19 @@ void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name
 }
 
 void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
-    Variable::var_data_t&& data, Variable::shape_t&& shape)
+    Variable::var_data_t&& data, Variable::shape_t&& shape, bool is_nrv)
 {
     repr.variables[name]
-        = Variable { name, number, std::move(data), std::move(shape), repr.majority };
+        = Variable { name, number, std::move(data), std::move(shape), repr.majority, is_nrv };
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
     { return std::move(repr.var_attributes[number]); }();
 }
 
 void add_lazy_variable(cdf_repr& repr, const std::string& name, std::size_t number,
-    lazy_data&& data, Variable::shape_t&& shape)
+    lazy_data&& data, Variable::shape_t&& shape, bool is_nrv)
 {
     repr.variables[name]
-        = Variable { name, number, std::move(data), std::move(shape), repr.majority };
+        = Variable { name, number, std::move(data), std::move(shape), repr.majority, is_nrv };
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
     { return std::move(repr.var_attributes[number]); }();
 }

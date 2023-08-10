@@ -20,26 +20,25 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "cdfpp/cdf-data.hpp"
-#include "cdfpp/no_init_vector.hpp"
-#include "cdfpp/variable.hpp"
 #include "../common.hpp"
 #include "../decompression.hpp"
 #include "../desc-records.hpp"
 #include "./records-loading.hpp"
+#include "cdfpp/cdf-data.hpp"
+#include "cdfpp/no_init_vector.hpp"
+#include "cdfpp/variable.hpp"
+#include <algorithm>
 #include <cstdint>
 #include <numeric>
-#include <algorithm>
 
 namespace cdf::io::variable
 {
 namespace
 {
-    struct vvr_data_chunk
+    [[nodiscard]] std::size_t var_record_size(const no_init_vector<uint32_t>& shape, CDF_Types type)noexcept
     {
-        std::size_t offset;
-        std::size_t size;
-    };
+        return cdf_type_size(type) * flat_size(shape);
+    }
 
     template <cdf_r_z type, typename cdf_vdr_t, typename context_t>
     no_init_vector<uint32_t> get_variable_dimensions(const cdf_vdr_t& vdr, context_t& context)
@@ -97,7 +96,9 @@ namespace
         const cdf_VVR_t<cdf_version_tag_t>& vvr, const std::size_t vvr_records_count,
         const uint32_t record_size, std::size_t& pos, char* data, std::size_t data_len)
     {
-        std::size_t vvr_data_size = std::min(static_cast<std::size_t>(vvr_records_count * record_size), static_cast<std::size_t>(data_len - pos));
+        std::size_t vvr_data_size
+            = std::min(static_cast<std::size_t>(vvr_records_count * record_size),
+                static_cast<std::size_t>(data_len - pos));
         load_vvr_data<cdf_version_tag_t>(stream, offset, vvr_data_size, vvr, data + pos);
         pos += vvr_data_size;
     }
@@ -180,7 +181,7 @@ namespace
             vdr.DataType);
         std::size_t pos { 0UL };
         cdf_VXR_t<typename VDR_t::cdf_version_t> vxr;
-        const auto compression_type = [&, &stream=stream, &vdr=vdr]()
+        const auto compression_type = [&, &stream = stream, &vdr = vdr]()
         {
             if constexpr (maybe_compressed)
             {
@@ -214,12 +215,6 @@ namespace
         return data;
     }
 
-
-    std::size_t var_record_size(const no_init_vector<uint32_t>& shape, CDF_Types type)
-    {
-        return cdf_type_size(type)
-            * std::accumulate(std::cbegin(shape), std::cend(shape), 1, std::multiplies<uint32_t>());
-    }
 
     template <typename stream_t, typename encoding_t, typename VDR_t>
     struct defered_variable_loader
@@ -265,22 +260,21 @@ namespace
     template <cdf_r_z type, typename cdf_version_tag_t, typename context_t>
     bool load_all_Vars(context_t& context, common::cdf_repr& cdf, bool lazy_load = false)
     {
-        std::for_each(
-            begin_VDR<type>(context),
-            end_VDR<type>(context),
+        std::for_each(begin_VDR<type>(context), end_VDR<type>(context),
             [&](const auto& blk)
             {
                 const auto& [offset, vdr] = blk;
                 {
                     auto shape = get_variable_dimensions<type>(vdr, context);
-                    uint32_t record_size = var_record_size(shape, vdr.DataType);
-                    uint32_t record_count = [&vdr = vdr]() -> uint32_t
+                    const uint32_t record_size = var_record_size(shape, vdr.DataType);
+                    const auto is_nrv = common::is_nrv(vdr);
+                    const uint32_t record_count = [is_nrv, MaxRec = vdr.MaxRec]() -> uint32_t
                     {
-                        if (common::is_nrv(vdr) and vdr.MaxRec != -1)
+                        if (is_nrv and MaxRec != -1)
                             return 1;
                         else
                         {
-                            return vdr.MaxRec + 1;
+                            return MaxRec + 1;
                         }
                     }();
                     if ((vdr.DataType != CDF_Types::CDF_CHAR
@@ -295,7 +289,7 @@ namespace
                             lazy_data { defered_variable_loader { context.buffer,
                                             context.encoding(), vdr, record_count, record_size },
                                 vdr.DataType },
-                            std::move(shape));
+                            std::move(shape), is_nrv);
                     }
                     else
                     {
@@ -316,7 +310,7 @@ namespace
                                     return data_t {};
                                 }(),
                                 context.encoding()),
-                            std::move(shape));
+                            std::move(shape), is_nrv);
                     }
                 }
             });

@@ -549,4 +549,9 @@ inline std::size_t data_t::bytes() const noexcept
     return 0;
 }
 
+[[nodiscard]] constexpr bool is_string(const CDF_Types type)
+{
+    return type == CDF_Types::CDF_CHAR or type == CDF_Types::CDF_UCHAR;
+}
+
 }

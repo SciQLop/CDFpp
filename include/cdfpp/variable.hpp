@@ -32,6 +32,13 @@
 
 namespace cdf
 {
+
+[[nodiscard]] std::size_t flat_size(const no_init_vector<uint32_t>& shape) noexcept
+{
+    return std::accumulate(
+        std::cbegin(shape), std::cend(shape), 1UL, std::multiplies<std::size_t>());
+}
+
 struct Variable
 {
     using var_data_t = data_t;
@@ -43,26 +50,29 @@ struct Variable
     Variable& operator=(const Variable&) = default;
     Variable& operator=(Variable&&) = default;
     Variable(const std::string& name, std::size_t number, var_data_t&& data, shape_t&& shape,
-        cdf_majority majority)
+        cdf_majority majority, bool is_nrv)
             : p_name { name }
             , p_number { number }
             , p_data { std::move(data) }
             , p_shape { shape }
             , p_majority { majority }
+            , p_is_nrv { is_nrv }
     {
         if (this->majority() == cdf_majority::column)
         {
             majority::swap(_data(), p_shape);
         }
+        check_shape();
     }
 
     Variable(const std::string& name, std::size_t number, lazy_data&& data, shape_t&& shape,
-        cdf_majority majority)
+        cdf_majority majority, bool is_nrv)
             : p_name { name }
             , p_number { number }
             , p_data { std::move(data) }
             , p_shape { shape }
             , p_majority { majority }
+            , p_is_nrv { is_nrv }
     {
     }
 
@@ -101,27 +111,24 @@ struct Variable
         return 0;
     }
 
-    void set_data(const data_t& data, const shape_t& shape) noexcept
+    void set_data(const data_t& data, const shape_t& shape)
     {
         p_data = data;
         p_shape = shape;
+        check_shape();
     }
 
-    void set_data(data_t&& data, shape_t&& shape) noexcept
+    void set_data(data_t&& data, shape_t&& shape)
     {
         p_data = std::move(data);
         p_shape = std::move(shape);
+        check_shape();
     }
-
-    [[nodiscard]] std::optional<std::size_t> number() { return p_number; }
-
 
     [[nodiscard]] std::size_t bytes() const noexcept
     {
-        if (std::size(shape()))
-            return std::accumulate(std::cbegin(shape()), std::cend(shape()), 1UL,
-                       std::multiplies<std::size_t>())
-                * cdf_type_size(this->type());
+        if (std::size(p_shape))
+            return flat_size(p_shape) * cdf_type_size(this->type());
         else
             return 0UL;
     }
@@ -132,6 +139,10 @@ struct Variable
             return std::get<var_data_t>(p_data).type();
         return std::get<lazy_data>(p_data).type();
     }
+
+    [[nodiscard]] bool is_nrv() const noexcept { return p_is_nrv; }
+    [[nodiscard]] std::size_t number() const noexcept { return p_number; }
+    [[nodiscard]] cdf_majority majority() const noexcept { return p_majority; }
 
     [[nodiscard]] inline bool values_loaded() const noexcept
     {
@@ -148,10 +159,10 @@ struct Variable
             {
                 majority::swap(data, p_shape);
             }
+            check_shape();
         }
     }
 
-    [[nodiscard]] cdf_majority majority() const noexcept { return p_majority; }
 
     template <typename... Ts>
     friend auto visit(Variable& var, Ts... lambdas);
@@ -169,11 +180,18 @@ private:
         return std::get<var_data_t>(p_data);
     }
 
+    void check_shape() const
+    {
+        if (flat_size(p_shape) != _data().size())
+            throw std::invalid_argument { "Variable: given shape and data size doens't match" };
+    }
+
     std::string p_name;
-    std::optional<std::size_t> p_number;
+    std::size_t p_number;
     mutable std::variant<lazy_data, var_data_t> p_data;
     shape_t p_shape;
     cdf_majority p_majority;
+    bool p_is_nrv;
 };
 
 template <typename... Ts>

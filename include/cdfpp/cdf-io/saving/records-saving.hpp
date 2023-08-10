@@ -25,6 +25,8 @@
 #include "../endianness.hpp"
 #include "../reflection.hpp"
 #include "../special-fields.hpp"
+#include "cdfpp/attribute.hpp"
+#include "cdfpp/variable.hpp"
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -34,6 +36,51 @@
 
 namespace cdf::io
 {
+template <typename T>
+struct record_wrapper
+{
+    T record;
+    std::size_t size;
+    std::size_t offset;
+    record_wrapper(T&& r) : record { std::move(r) }, size { 0 }, offset { 0 } { }
+
+    template <typename... Args>
+    record_wrapper(Args... args) : record { std::forward<Args>(args)... }, size { 0 }, offset { 0 }
+    {
+    }
+};
+
+struct file_attribute_ctx
+{
+    std::size_t number;
+    const Attribute* attr;
+    record_wrapper<cdf_ADR_t<v3x_tag>> adr;
+    std::vector<record_wrapper<cdf_AgrEDR_t<v3x_tag>>> aedrs;
+};
+
+struct variable_attribute_ctx
+{
+    std::size_t number;
+    std::vector<const Attribute*> attrs;
+    record_wrapper<cdf_ADR_t<v3x_tag>> adr;
+    std::vector<record_wrapper<cdf_AzEDR_t<v3x_tag>>> aedrs;
+};
+
+struct variable_ctx
+{
+    std::size_t number;
+    const Variable* variable;
+    record_wrapper<cdf_zVDR_t<v3x_tag>> vdr;
+    std::vector<record_wrapper<cdf_VXR_t<v3x_tag>>> vxrs;
+    std::vector<record_wrapper<cdf_VVR_t<v3x_tag>>> vvrs;
+};
+
+struct saving_context
+{
+    std::vector<file_attribute_ctx> file_attributes;
+    nomap<std::string, variable_attribute_ctx> variable_attributes;
+    std::vector<variable_ctx> variables;
+};
 
 template <typename T>
 [[nodiscard]] constexpr std::size_t record_size(const T& s);
