@@ -57,6 +57,7 @@ List of features and roadmap:
     - [x] read ISO 8859-1(Latin-1) encoded files (converts to UTF-8 on the fly)
     - [x] variables values lazy loading
     - [ ] decode DEC's floating point encoding (Itanium, ALPHA and VAX)
+    - [ ] dimension variance (do not duplicate values when dimension variance is NOVARY)
 - CDF writing
     - [ ] write uncompressed headers
     - [ ] write uncompressed attributes
