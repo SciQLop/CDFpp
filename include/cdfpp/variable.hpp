@@ -39,6 +39,12 @@ namespace cdf
         std::cbegin(shape), std::cend(shape), 1UL, std::multiplies<std::size_t>());
 }
 
+template <typename T>
+[[nodiscard]] std::size_t flat_size(T&& cbegin, T&& cend) noexcept
+{
+    return std::accumulate(cbegin, cend, 1UL, std::multiplies<std::size_t>());
+}
+
 struct Variable
 {
     using var_data_t = data_t;
@@ -132,6 +138,8 @@ struct Variable
         else
             return 0UL;
     }
+
+    [[nodiscard]] const char* bytes_ptr() const noexcept { return _data().bytes_ptr(); }
 
     [[nodiscard]] CDF_Types type() const
     {

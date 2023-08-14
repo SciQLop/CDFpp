@@ -56,7 +56,7 @@ struct nomap_node : public std::pair<Key, details::base_type_t<T>>
     nomap_node& operator=(const nomap_node&) = default;
     nomap_node& operator=(nomap_node&&) = default;
 
-    [[nodiscard]] inline auto& key() const noexcept{ return this->first; }
+    [[nodiscard]] inline auto& key() const noexcept { return this->first; }
     [[nodiscard]] inline auto& mapped() const noexcept { return this->second; }
     [[nodiscard]] inline bool empty() const noexcept { return this->p_empty; };
 
@@ -166,13 +166,25 @@ struct nomap
 
     [[nodiscard]] inline iterator end() { return std::end(p_nodes); }
 
+    [[nodiscard]] inline auto rbegin() { return std::rbegin(p_nodes); }
+
+    [[nodiscard]] inline auto rend() { return std::rend(p_nodes); }
+
     [[nodiscard]] inline const_iterator begin() const { return std::cbegin(p_nodes); }
 
     [[nodiscard]] inline const_iterator end() const { return std::cend(p_nodes); }
 
+    [[nodiscard]] inline auto rbegin() const { return std::crbegin(p_nodes); }
+
+    [[nodiscard]] inline auto rend() const { return std::crend(p_nodes); }
+
     [[nodiscard]] inline const_iterator cbegin() const { return this->p_nodes.cbegin(); }
 
     [[nodiscard]] inline const_iterator cend() const { return this->p_nodes.cend(); }
+
+    [[nodiscard]] inline auto crbegin() const { return this->p_nodes.crbegin(); }
+
+    [[nodiscard]] inline auto crend() const { return this->p_nodes.crend(); }
 
     [[nodiscard]] inline value_type extract(const_iterator position)
     {

@@ -79,6 +79,7 @@ struct Attribute
     }
     [[nodiscard]] inline std::size_t size() const noexcept { return std::size(data); }
     [[nodiscard]] inline data_t& operator[](std::size_t index) { return data[index]; }
+    [[nodiscard]] inline const data_t& operator[](std::size_t index) const { return data[index]; }
 
     template <typename... Ts>
     friend void visit(Attribute& attr, Ts... lambdas);

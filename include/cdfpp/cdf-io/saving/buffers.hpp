@@ -49,10 +49,12 @@ struct in_memory_writer
     std::size_t fill(const char v, std::size_t count)
     {
         data.resize(global_offset + count);
-        memset(data.data() ,v,count);
+        memset(data.data() + global_offset, v, count);
         global_offset += count;
         return global_offset;
     }
+
+    [[nodiscard]] std::size_t offset() const noexcept { return this->global_offset; }
 };
 
 struct file_writer
@@ -84,10 +86,12 @@ struct file_writer
 
     std::size_t fill(const char v, std::size_t count)
     {
-        std::vector<char> values(count,v);
-        os.write(values.data(),count);
+        std::vector<char> values(count, v);
+        os.write(values.data(), count);
         global_offset += count;
         return global_offset;
     }
+
+    [[nodiscard]] std::size_t offset() const noexcept { return this->global_offset; }
 };
 }
