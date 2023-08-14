@@ -250,7 +250,9 @@ PYBIND11_MODULE(cdfpp_wrapper, m)
         .def_property_readonly(
             "distribution_version", [](const CDF& cdf) { return cdf.distribution_version; })
         .def_property_readonly("lazy_loaded", [](const CDF& cdf) { return cdf.lazy_loaded; })
-        .def_property_readonly("compression", [](const CDF& cdf) { return cdf.compression; })
+        .def_property(
+            "compression", [](const CDF& cdf) { return cdf.compression; },
+            [](CDF& cdf, cdf_compression_type ct) { cdf.compression = ct; })
         .def("__repr__", __repr__<CDF>)
         .def(
             "__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; },

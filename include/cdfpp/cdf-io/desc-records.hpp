@@ -111,14 +111,14 @@ struct cdf_ADR_t
     cdf_offset_field_t<version_t> ADRnext;
     cdf_offset_field_t<version_t> AgrEDRhead;
     cdf_attr_scope scope;
-    uint32_t num;
-    uint32_t NgrEntries;
-    uint32_t MAXgrEntries;
-    uint32_t rfuA;
+    int32_t num;
+    int32_t NgrEntries;
+    int32_t MAXgrEntries;
+    int32_t rfuA;
     cdf_offset_field_t<version_t> AzEDRhead;
-    uint32_t NzEntries;
-    uint32_t MAXzEntries;
-    uint32_t rfuE;
+    int32_t NzEntries;
+    int32_t MAXzEntries;
+    int32_t rfuE;
     cdf_string_field_t<version_t, 256, 64> Name;
 };
 
@@ -129,15 +129,15 @@ struct cdf_AgrEDR_t
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::AgrEDR> header;
     cdf_offset_field_t<version_t> AEDRnext;
-    uint32_t AttrNum;
+    int32_t AttrNum;
     CDF_Types DataType;
-    uint32_t Num;
-    uint32_t NumElements;
-    uint32_t NumStrings;
-    uint32_t rfB;
-    uint32_t rfC;
-    uint32_t rfD;
-    uint32_t rfE;
+    int32_t Num;
+    int32_t NumElements;
+    int32_t NumStrings;
+    int32_t rfB;
+    int32_t rfC;
+    int32_t rfD;
+    int32_t rfE;
     // table_field<uint32_t> Values;
 
     /*std::size_t size(const table_field<uint32_t, 0>&) const
@@ -153,15 +153,15 @@ struct cdf_AzEDR_t
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::AzEDR> header;
     cdf_offset_field_t<version_t> AEDRnext;
-    uint32_t AttrNum;
+    int32_t AttrNum;
     CDF_Types DataType;
-    uint32_t Num;
-    uint32_t NumElements;
-    uint32_t NumStrings;
-    uint32_t rfB;
-    uint32_t rfC;
-    uint32_t rfD;
-    uint32_t rfE;
+    int32_t Num;
+    int32_t NumElements;
+    int32_t NumStrings;
+    int32_t rfB;
+    int32_t rfC;
+    int32_t rfD;
+    int32_t rfE;
     // table_field<uint32_t> Values;
 
     /*std::size_t size(const table_field<uint32_t, 0>&) const
@@ -214,26 +214,26 @@ struct cdf_rVDR_t
     int32_t MaxRec;
     cdf_offset_field_t<version_t> VXRhead;
     cdf_offset_field_t<version_t> VXRtail;
-    uint32_t Flags;
-    uint32_t SRecords;
-    uint32_t rfuB;
-    uint32_t rfuC;
-    uint32_t rfuF;
-    uint32_t NumElems;
-    uint32_t Num;
+    int32_t Flags;
+    int32_t SRecords;
+    int32_t rfuB;
+    int32_t rfuC;
+    int32_t rfuF;
+    int32_t NumElems;
+    int32_t Num;
     cdf_offset_field_t<version_t> CPRorSPRoffset;
-    uint32_t BlockingFactor;
+    int32_t BlockingFactor;
     cdf_string_field_t<version_t, 256, 64> Name;
 
-    table_field<uint32_t, 0> DimVarys;
-    table_field<uint32_t, 1> PadValues;
+    table_field<int32_t, 0> DimVarys;
+    table_field<int32_t, 1> PadValues;
 
-    std::size_t size(const table_field<uint32_t, 0>&, uint32_t rNumDims = 0) const
+    std::size_t size(const table_field<int32_t, 0>&, int32_t rNumDims = 0) const
     {
-        return rNumDims * sizeof(uint32_t);
+        return rNumDims * sizeof(int32_t);
     }
 
-    std::size_t size(const table_field<uint32_t, 1>&) const { return 0; }
+    std::size_t size(const table_field<int32_t, 1>&) const { return 0; }
 };
 
 template <typename version_t>
@@ -247,31 +247,31 @@ struct cdf_zVDR_t
     int32_t MaxRec;
     cdf_offset_field_t<version_t> VXRhead;
     cdf_offset_field_t<version_t> VXRtail;
-    uint32_t Flags;
-    uint32_t SRecords;
-    uint32_t rfuB;
-    uint32_t rfuC;
-    uint32_t rfuF;
-    uint32_t NumElems;
-    uint32_t Num;
+    int32_t Flags;
+    int32_t SRecords;
+    int32_t rfuB;
+    int32_t rfuC;
+    int32_t rfuF;
+    int32_t NumElems;
+    int32_t Num;
     cdf_offset_field_t<version_t> CPRorSPRoffset;
-    uint32_t BlockingFactor;
+    int32_t BlockingFactor;
     cdf_string_field_t<version_t, 256, 64> Name;
-    uint32_t zNumDims;
-    table_field<uint32_t, 0> zDimSizes;
-    table_field<uint32_t, 1> DimVarys;
-    table_field<uint32_t, 2> PadValues;
+    int32_t zNumDims;
+    table_field<int32_t, 0> zDimSizes;
+    table_field<int32_t, 1> DimVarys;
+    table_field<int32_t, 2> PadValues;
 
-    std::size_t size(const table_field<uint32_t, 0>&) const
+    std::size_t size(const table_field<int32_t, 0>&) const
     {
-        return this->zNumDims * sizeof(uint32_t);
+        return this->zNumDims * sizeof(int32_t);
     }
-    std::size_t size(const table_field<uint32_t, 1>&) const
+    std::size_t size(const table_field<int32_t, 1>&) const
     {
-        return this->zNumDims * sizeof(uint32_t);
+        return this->zNumDims * sizeof(int32_t);
     }
 
-    std::size_t size(const table_field<uint32_t, 2>&) const { return 0; }
+    std::size_t size(const table_field<int32_t, 2>&) const { return 0; }
 };
 
 template <cdf_r_z type, typename version_t>

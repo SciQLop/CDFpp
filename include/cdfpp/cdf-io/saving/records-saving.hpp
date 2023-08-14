@@ -21,6 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 
+#include "../common.hpp"
 #include "../desc-records.hpp"
 #include "../endianness.hpp"
 #include "../reflection.hpp"
@@ -50,9 +51,16 @@ struct record_wrapper
     }
 };
 
+template <typename T>
+void update_size(record_wrapper<T>& record, std::size_t size_offset = 0)
+{
+    record.size = record_size(record.record) + size_offset;
+    record.record.header.record_size = record.size;
+}
+
 struct file_attribute_ctx
 {
-    std::size_t number;
+    int32_t number;
     const Attribute* attr;
     record_wrapper<cdf_ADR_t<v3x_tag>> adr;
     std::vector<record_wrapper<cdf_AgrEDR_t<v3x_tag>>> aedrs;
@@ -60,7 +68,7 @@ struct file_attribute_ctx
 
 struct variable_attribute_ctx
 {
-    std::size_t number;
+    int32_t number;
     std::vector<const Attribute*> attrs;
     record_wrapper<cdf_ADR_t<v3x_tag>> adr;
     std::vector<record_wrapper<cdf_AzEDR_t<v3x_tag>>> aedrs;
@@ -68,7 +76,7 @@ struct variable_attribute_ctx
 
 struct variable_ctx
 {
-    std::size_t number;
+    int32_t number;
     const Variable* variable;
     record_wrapper<cdf_zVDR_t<v3x_tag>> vdr;
     std::vector<record_wrapper<cdf_VXR_t<v3x_tag>>> vxrs;
@@ -77,6 +85,9 @@ struct variable_ctx
 
 struct saving_context
 {
+    common::magic_numbers_t magic;
+    record_wrapper<cdf_CDR_t<v3x_tag>> cdr;
+    record_wrapper<cdf_GDR_t<v3x_tag>> gdr;
     std::vector<file_attribute_ctx> file_attributes;
     nomap<std::string, variable_attribute_ctx> variable_attributes;
     std::vector<variable_ctx> variables;
@@ -361,6 +372,7 @@ std::size_t save_record(T& s, U& writer);
 template <typename writer_t, typename T>
 inline std::size_t save_field(writer_t& writer, T& field)
 {
+    using Field_t = std::remove_cv_t<std::remove_reference_t<T>>;
     if constexpr (is_string_field_v<T>)
     {
         writer.write(field.value.data(), field.value.length());
@@ -370,12 +382,19 @@ inline std::size_t save_field(writer_t& writer, T& field)
     {
         if constexpr (is_table_field_v<T>)
         {
-            return 0;
+            for (auto& v : field.values)
+            {
+                auto rv
+                    = endianness::decode<endianness::big_endian_t, typename Field_t::value_type>(
+                        &v);
+                writer.write(reinterpret_cast<char*>(&rv), sizeof(typename Field_t::value_type));
+            }
+            return writer.offset();
         }
         else
         {
-            auto v = endianness::decode<endianness::big_endian_t, T>(&field);
-            return writer.write(reinterpret_cast<char*>(&v), sizeof(T));
+            auto v = endianness::decode<endianness::big_endian_t, Field_t>(&field);
+            return writer.write(reinterpret_cast<char*>(&v), sizeof(Field_t));
         }
     }
 }
@@ -402,14 +421,14 @@ inline std::size_t save_fields(writer_t& writer, T&& field, Ts&&... fields)
 template <typename T>
 auto set_headers(T& s) -> decltype(s.header.record_size, s.header.record_type, void())
 {
-    s.header.record_size = record_size(s);
+    s.header.record_size = std::max(s.header.record_size, record_size(s));
     s.header.record_type = decltype(s.header)::expected_record_type;
 }
 
 
 // this looks quite ugly bit it is worth it!
 template <typename T, typename U>
-[[nodiscard]] std::size_t save_record(T& s, U& writer)
+std::size_t save_record(T& s, U& writer)
 {
     static constexpr std::size_t count = count_members<T>;
     static_assert(count <= 31);
@@ -645,5 +664,14 @@ template <typename T, typename U>
     }
 }
 
+template <typename U>
+[[nodiscard]] std::size_t save_record(
+    cdf_VVR_t<v3x_tag>& s, const char* data, std::size_t len, U& writer)
+{
+    s.header.record_type = cdf_record_type::VVR;
+    s.header.record_size = record_size(s.header) + len;
+    save_record(s.header, writer);
+    return writer.write(data, len);
+}
 
 }
