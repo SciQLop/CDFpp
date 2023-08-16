@@ -248,5 +248,14 @@ class PycdfTest(unittest.TestCase):
                     self.assertTrue(np.all(v_exp['values']== var.values), f"Broken var: {name}, values: {var.values}")
 
 
+class PycdfNonRegression(unittest.TestCase):
+    def test_ace_h0_mfi_bgsm_shape(self):
+        cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/ac_h0_mfi_00000000_v01.cdf')
+        self.assertEqual(cdf['BGSM'].shape, [0, 3])
+
+    def test_ace_h0_mfi_label_time_shape(self):
+        cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/ac_h0_mfi_00000000_v01.cdf')
+        self.assertEqual(cdf['label_time'].shape, [3, 27])
+
 if __name__ == '__main__':
     unittest.main()

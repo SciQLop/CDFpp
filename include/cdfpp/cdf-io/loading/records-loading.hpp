@@ -20,6 +20,8 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#pragma once
+
 #include "../desc-records.hpp"
 #include "../endianness.hpp"
 #include "../reflection.hpp"
@@ -54,12 +56,11 @@ struct parsing_context_t
     }
 };
 
-template <typename T, typename U>
-std::size_t load_record(T& s, const U& buffer, std::size_t offset);
+SPLIT_FIELDS_FW_DECL(std::size_t, load_record,);
 
-template <typename parsing_context_t, typename record_t, typename T>
+template <typename record_t, typename parsing_context_t, typename T>
 inline std::size_t load_field(
-    parsing_context_t& parsing_context, const record_t& r, std::size_t offset, T& field)
+    const record_t& r, parsing_context_t& parsing_context, std::size_t offset, T& field)
 {
     if constexpr (is_string_field_v<T>)
     {
@@ -96,10 +97,12 @@ inline std::size_t load_field(
     }
 }
 
-template <typename parsing_context_t, typename version_t, typename T>
-inline std::size_t load_field(parsing_context_t& parsing_context, const cdf_rVDR_t<version_t>& r,
+template <typename parsing_context_t, typename version_t>
+inline std::size_t load_field(const cdf_rVDR_t<version_t>& r, parsing_context_t& parsing_context,
     std::size_t offset, decltype(std::declval<cdf_rVDR_t<version_t>>().DimVarys)& field)
 {
+    using T = decltype(std::declval<cdf_rVDR_t<version_t>>().DimVarys);
+
     const auto bytes = r.size(field, parsing_context.gdr.rNumDims);
     field.values.resize(bytes / sizeof(typename T::value_type));
     if (bytes > 0)
@@ -111,8 +114,8 @@ inline std::size_t load_field(parsing_context_t& parsing_context, const cdf_rVDR
     return offset + bytes;
 }
 
-template <typename parsing_context_t, typename record_t, typename T>
-inline std::size_t load_fields(parsing_context_t& parsing_context, const record_t& r,
+template <typename record_t, typename parsing_context_t, typename T>
+inline std::size_t load_fields(const record_t& r, parsing_context_t& parsing_context,
     [[maybe_unused]] std::size_t offset, T&& field)
 {
     using Field_t = std::remove_cv_t<std::remove_reference_t<T>>;
@@ -121,258 +124,19 @@ inline std::size_t load_fields(parsing_context_t& parsing_context, const record_
         && (not is_string_field_v<Field_t>)&&(not is_table_field_v<Field_t>))
         return load_record(field, parsing_context, offset);
     else
-        return load_field(parsing_context, r, offset, std::forward<T>(field));
+        return load_field(r, parsing_context, offset, std::forward<T>(field));
 }
 
-template <typename parsing_context_t, typename record_t, typename T, typename... Ts>
-inline std::size_t load_fields(parsing_context_t& parsing_context, const record_t& r,
+template <typename record_t, typename parsing_context_t, typename T, typename... Ts>
+inline std::size_t load_fields(const record_t& r, parsing_context_t& parsing_context,
     [[maybe_unused]] std::size_t offset, T&& field, Ts&&... fields)
 {
-    offset = load_fields(parsing_context, r, offset, std::forward<T>(field));
-    return load_fields(parsing_context, r, offset, std::forward<Ts>(fields)...);
+    offset = load_fields(r, parsing_context, offset, std::forward<T>(field));
+    return load_fields(r, parsing_context, offset, std::forward<Ts>(fields)...);
 }
 
-// this looks quite ugly bit it is worth it!
-template <typename T, typename U>
-std::size_t load_record(T& s, const U& parsing_context, std::size_t offset)
-{
-    static constexpr std::size_t count = count_members<T>;
-    static_assert(count <= 31);
+SPLIT_FIELDS(std::size_t, load_record, load_fields,);
 
-    if constexpr (count == 1)
-    {
-        auto& [_0] = s;
-        return load_fields(parsing_context, s, offset, _0);
-    }
-
-    if constexpr (count == 2)
-    {
-        auto& [_0, _1] = s;
-        return load_fields(parsing_context, s, offset, _0, _1);
-    }
-
-    if constexpr (count == 3)
-    {
-        auto& [_0, _1, _2] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2);
-    }
-
-    if constexpr (count == 4)
-    {
-        auto& [_0, _1, _2, _3] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3);
-    }
-
-    if constexpr (count == 5)
-    {
-        auto& [_0, _1, _2, _3, _4] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4);
-    }
-
-    if constexpr (count == 6)
-    {
-        auto& [_0, _1, _2, _3, _4, _5] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5);
-    }
-
-    if constexpr (count == 7)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6);
-    }
-
-    if constexpr (count == 8)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7);
-    }
-
-    if constexpr (count == 9)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8);
-    }
-
-    if constexpr (count == 10)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9);
-    }
-
-    if constexpr (count == 11)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10);
-    }
-
-    if constexpr (count == 12)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11] = s;
-        return load_fields(
-            parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11);
-    }
-
-    if constexpr (count == 13)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12] = s;
-        return load_fields(
-            parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12);
-    }
-
-    if constexpr (count == 14)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13] = s;
-        return load_fields(
-            parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13);
-    }
-
-    if constexpr (count == 15)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14);
-    }
-
-    if constexpr (count == 16)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15);
-    }
-
-    if constexpr (count == 17)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16);
-    }
-
-    if constexpr (count == 18)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17] = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17);
-    }
-
-    if constexpr (count == 19)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18);
-    }
-
-    if constexpr (count == 20)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19);
-    }
-
-    if constexpr (count == 21)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20);
-    }
-
-    if constexpr (count == 22)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21);
-    }
-
-    if constexpr (count == 23)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22);
-    }
-
-    if constexpr (count == 24)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23);
-    }
-
-    if constexpr (count == 25)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24);
-    }
-
-    if constexpr (count == 26)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25);
-    }
-
-    if constexpr (count == 27)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26);
-    }
-
-    if constexpr (count == 28)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27);
-    }
-
-    if constexpr (count == 29)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27,
-            _28);
-    }
-
-    if constexpr (count == 30)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27,
-            _28, _29);
-    }
-
-    if constexpr (count == 31)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30]
-            = s;
-        return load_fields(parsing_context, s, offset, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10,
-            _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27,
-            _28, _29, _30);
-    }
-}
 
 template <typename version_t>
 struct cdf_mutable_variable_record_t
@@ -394,7 +158,7 @@ struct cdf_mutable_variable_record_t
 };
 
 template <typename T, typename U>
-std::size_t load_record(
+std::size_t load_mut_record(
     cdf_mutable_variable_record_t<T>& s, const U& parsing_context, std::size_t offset)
 {
     using mutable_record = cdf_mutable_variable_record_t<T>;

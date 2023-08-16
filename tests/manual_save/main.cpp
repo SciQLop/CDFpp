@@ -21,7 +21,8 @@ int main(int argc, char** argv)
         if (auto maybe_cdf = cdf::io::load(std::string { argv[1] }, false, false); maybe_cdf)
         {
             auto cdf = *maybe_cdf;
-            cdf.compression = cdf::cdf_compression_type::no_compression;
+            cdf.compression = cdf::cdf_compression_type::gzip_compression;
+            cdf::io::save(cdf, "/tmp/test.cdf");
             if (auto res = cdf::io::save(cdf); std::size(res))
                 std::cout << "success!\n";
             else

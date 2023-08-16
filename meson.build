@@ -95,6 +95,7 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-io/majority-swap.hpp',
     'include/cdfpp/cdf-io/special-fields.hpp',
     'include/cdfpp/cdf-io/decompression.hpp',
+    'include/cdfpp/cdf-io/compression.hpp',
     'include/cdfpp/cdf-io/zlib.hpp',
     'include/cdfpp/cdf-io/rle.hpp',
     'include/cdfpp/cdf-io/libdeflate.hpp',
@@ -106,8 +107,19 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-io/saving/saving.hpp',
     'include/cdfpp/cdf-io/saving/records-saving.hpp',
     'include/cdfpp/cdf-io/saving/buffers.hpp',
+    'include/cdfpp/cdf-io/saving/create_records.hpp',
+    'include/cdfpp/cdf-io/saving/layout_records.hpp',
+    'include/cdfpp/cdf-io/saving/link_records.hpp'
+)
+
+pycdfpp_headers = files(
     'pycdfpp/chrono.hpp',
-    'pycdfpp/buffers.hpp'
+    'pycdfpp/buffers.hpp',
+    'pycdfpp/cdf.hpp',
+    'pycdfpp/attribute.hpp',
+    'pycdfpp/variable.hpp',
+    'pycdfpp/enums.hpp',
+    'pycdfpp/repr.hpp'
 )
 
 cdfpp_extra_files = files(
@@ -118,10 +130,20 @@ cdfpp_extra_files = files(
     'version.txt',
     'scripts/build_wheel.py',
     'tests/resources/make_cdf.py',
-    'tests/python_wrapper/test.py',
+    'tests/python_loading/test.py',
+    'tests/python_saving/test.py',
     'tests/full_corpus/test_full_corpus.py',
     '.github/workflows/CI.yml',
-    '.github/workflows/tests-with-coverage.yml'
+    '.github/workflows/tests-with-coverage.yml',
+    'docs/conf.py',
+    'docs/Makefile',
+    'docs/requirements.txt',
+    'docs/index.rst',
+    'docs/authors.rst',
+    'docs/contributing.rst',
+    'docs/history.rst',
+    'docs/installation.rst',
+    'docs/examples/index.rst'
 )
 
 
@@ -129,7 +151,7 @@ cdfpp_dep_inc = include_directories('include', '.')
 
 
 cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
-                                dependencies: [zlib_dep, hedley_dep])
+                                dependencies: [zlib_dep, hedley_dep, fmt_dep])
 
 
 subdir('pycdfpp')
@@ -167,6 +189,7 @@ install_headers(
     'include/cdfpp/cdf-io/common.hpp',
     'include/cdfpp/cdf-io/desc-records.hpp',
     'include/cdfpp/cdf-io/decompression.hpp',
+    'include/cdfpp/cdf-io/compression.hpp',
     'include/cdfpp/cdf-io/zlib.hpp',
     'include/cdfpp/cdf-io/libdeflate.hpp',
     'include/cdfpp/cdf-io/rle.hpp',
@@ -187,7 +210,10 @@ install_headers(
 [
     'include/cdfpp/cdf-io/saving/saving.hpp',
     'include/cdfpp/cdf-io/saving/records-saving.hpp',
-    'include/cdfpp/cdf-io/saving/buffers.hpp'
+    'include/cdfpp/cdf-io/saving/buffers.hpp',
+    'include/cdfpp/cdf-io/saving/create_records.hpp',
+    'include/cdfpp/cdf-io/saving/layout_records.hpp',
+    'include/cdfpp/cdf-io/saving/link_records.hpp'
 ], subdir:'cdfpp/cdf-io/saving')
 
 
@@ -202,7 +228,8 @@ if get_option('with_tests')
     catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
 
 
-    foreach test:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving']
+    foreach test:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving',
+                  'rle_compression', 'libdeflate_compression', 'zlib_compression', 'simple_save']
         exe = executable('test-'+test,'tests/'+test+'/main.cpp',
                         dependencies:[catch_dep, cdfpp_dep],
                         install: false
@@ -210,8 +237,14 @@ if get_option('with_tests')
         test(test, exe)
     endforeach
 
-    test('python_wrapper_test', python3,
-        args:[meson.current_source_dir()+'/tests/python_wrapper/test.py'],
+    test('python_loading_test', python3,
+        args:[meson.current_source_dir()+'/tests/python_loading/test.py'],
+        env:['PYTHONPATH='+meson.current_build_dir()],
+        workdir:meson.current_build_dir())
+
+
+    test('python_saving_test', python3,
+        args:[meson.current_source_dir()+'/tests/python_saving/test.py'],
         env:['PYTHONPATH='+meson.current_build_dir()],
         workdir:meson.current_build_dir())
 

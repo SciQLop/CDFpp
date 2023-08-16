@@ -39,6 +39,23 @@ enum class cdf_majority
     row = 1
 };
 
+[[nodiscard]] inline std::string cdf_majority_str(cdf_majority type) noexcept
+{
+    switch (type)
+    {
+        case cdf_majority::row:
+            return "row";
+            break;
+        case cdf_majority::column:
+            return "Adaptative column";
+            break;
+        default:
+            break;
+    }
+    return "Unknown";
+}
+
+
 enum class cdf_record_type : int32_t
 {
     CDR = 1,
@@ -74,6 +91,31 @@ enum class cdf_compression_type : int32_t
     ahuff_compression = 3,
     gzip_compression = 5
 };
+
+[[nodiscard]] inline std::string cdf_compression_type_str(cdf_compression_type type) noexcept
+{
+    switch (type)
+    {
+        case cdf_compression_type::no_compression:
+            return "None";
+            break;
+        case cdf_compression_type::ahuff_compression:
+            return "Adaptative Huffman";
+            break;
+        case cdf_compression_type::huff_compression:
+            return "Huffman";
+            break;
+        case cdf_compression_type::rle_compression:
+            return "Run-Length Encoding";
+            break;
+        case cdf_compression_type::gzip_compression:
+            return "GNU GZIP";
+            break;
+        default:
+            break;
+    }
+    return "Unknown";
+}
 
 enum class cdf_encoding : int32_t
 {
@@ -211,9 +253,9 @@ std::size_t cdf_type_size(CDF_Types type)
         case CDF_Types::CDF_REAL4:
             return 4;
         case CDF_Types::CDF_INT8:
-        case CDF_Types::CDF_EPOCH:
         case CDF_Types::CDF_REAL8:
         case CDF_Types::CDF_DOUBLE:
+        case CDF_Types::CDF_EPOCH:
         case CDF_Types::CDF_TIME_TT2000:
             return 8;
         case CDF_Types::CDF_EPOCH16:
@@ -222,7 +264,7 @@ std::size_t cdf_type_size(CDF_Types type)
     return 0;
 }
 
-std::string cdf_type_str(CDF_Types type)
+[[nodiscard]] inline std::string cdf_type_str(CDF_Types type) noexcept
 {
     switch (type)
     {
@@ -252,14 +294,14 @@ std::string cdf_type_str(CDF_Types type)
             return "CDF_REAL4";
         case CDF_Types::CDF_INT8:
             return "CDF_INT8";
-        case CDF_Types::CDF_EPOCH:
-            return "CDF_EPOCH";
         case CDF_Types::CDF_REAL8:
             return "CDF_REAL8";
         case CDF_Types::CDF_DOUBLE:
             return "CDF_DOUBLE";
         case CDF_Types::CDF_TIME_TT2000:
             return "CDF_TIME_TT2000";
+        case CDF_Types::CDF_EPOCH:
+            return "CDF_EPOCH";
         case CDF_Types::CDF_EPOCH16:
             return "CDF_EPOCH16";
     }
@@ -290,6 +332,8 @@ constexpr CDF_Types to_cdf_type()
         return CDF_Types::CDF_INT8;
     if constexpr (std::is_same_v<type, epoch>)
         return CDF_Types::CDF_EPOCH;
+    if constexpr (std::is_same_v<type, epoch16>)
+        return CDF_Types::CDF_EPOCH16;
     if constexpr (std::is_same_v<type, tt2000_t>)
         return CDF_Types::CDF_TIME_TT2000;
     else

@@ -8,4 +8,8 @@ CMakeLists.txt.user
 *.user
 *.user.*
 *.ipynb_check*
+*__pycache__*
 version.txt
+docs/_build/*
+docs/generated/*
+dist/*

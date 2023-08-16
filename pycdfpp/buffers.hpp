@@ -19,9 +19,10 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#pragma once
 #if defined(_MSC_VER)
-#  pragma warning(push)
-#  pragma warning(disable: 4127) // warning C4127: Conditional expression is constant
+#pragma warning(push)
+#pragma warning(disable : 4127) // warning C4127: Conditional expression is constant
 #include <BaseTsd.h>
 typedef SSIZE_T ssize_t;
 #endif
@@ -41,7 +42,7 @@ namespace py = pybind11;
 namespace _details
 {
 
-std::vector<ssize_t> shape_ssize_t(const Variable& var)
+[[nodiscard]] std::vector<ssize_t> shape_ssize_t(const Variable& var)
 {
     auto shape = var.shape();
     std::vector<ssize_t> res(std::size(shape));
@@ -51,7 +52,7 @@ std::vector<ssize_t> shape_ssize_t(const Variable& var)
 }
 
 template <typename T>
-std::vector<ssize_t> strides(const Variable& var)
+[[nodiscard]] std::vector<ssize_t> strides(const Variable& var)
 {
     auto shape = var.shape();
     std::vector<ssize_t> res(std::size(shape));
@@ -67,7 +68,7 @@ std::vector<ssize_t> strides(const Variable& var)
 }
 
 template <CDF_Types data_t>
-py::array make_array(Variable& variable, py::object& obj)
+[[nodiscard]] py::array make_array(Variable& variable, py::object& obj)
 {
     // static_assert(data_t != CDF_Types::CDF_CHAR and data_t != CDF_Types::CDF_UCHAR);
     return py::array_t<from_cdf_type_t<data_t>>(shape_ssize_t(variable),
@@ -76,14 +77,14 @@ py::array make_array(Variable& variable, py::object& obj)
 }
 
 template <typename T, typename size_type>
-static inline std::string_view make_string_view(T* data, size_type len)
+[[nodiscard]] static inline std::string_view make_string_view(T* data, size_type len)
 {
     return std::string_view(
         reinterpret_cast<const char*>(data), static_cast<std::string_view::size_type>(len));
 }
 
 template <typename T>
-py::object make_list(
+[[nodiscard]] py::object make_list(
     const T* data, decltype(std::declval<Variable>().shape()) shape, py::object& obj)
 {
     if (std::size(shape) > 2)
@@ -95,7 +96,7 @@ py::object make_list(
             std::cbegin(inner_shape), std::cend(inner_shape), 1UL, std::multiplies<std::size_t>());
         for (auto i = 0UL; i < shape[0]; i++)
         {
-            res.append(make_list(data + offset, inner_shape,obj));
+            res.append(make_list(data + offset, inner_shape, obj));
             offset += jump;
         }
         return res;
@@ -119,14 +120,14 @@ py::object make_list(
 }
 
 template <CDF_Types data_t>
-py::object make_list(Variable& variable, py::object& obj)
+[[nodiscard]] py::object make_list(Variable& variable, py::object& obj)
 {
     static_assert(data_t == CDF_Types::CDF_CHAR or data_t == CDF_Types::CDF_UCHAR);
     return make_list(variable.get<from_cdf_type_t<data_t>>().data(), variable.shape(), obj);
 }
 
 template <CDF_Types T>
-py::buffer_info impl_make_buffer(cdf::Variable& var)
+[[nodiscard]] py::buffer_info impl_make_buffer(cdf::Variable& var)
 {
     using U = cdf::from_cdf_type_t<T>;
     return py::buffer_info(var.get<T>().data(), /* Pointer to buffer */
@@ -138,7 +139,7 @@ py::buffer_info impl_make_buffer(cdf::Variable& var)
 
 }
 
-py::object make_values_view(py::object& obj)
+[[nodiscard]] py::object make_values_view(py::object& obj)
 {
     Variable& variable = obj.cast<Variable&>();
     switch (variable.type())
@@ -185,7 +186,7 @@ py::object make_values_view(py::object& obj)
     return {};
 }
 
-py::buffer_info make_buffer(cdf::Variable& variable)
+[[nodiscard]] py::buffer_info make_buffer(cdf::Variable& variable)
 {
 
     using namespace cdf;

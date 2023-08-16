@@ -20,6 +20,8 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#pragma once
+
 
 #include "cdfpp/no_init_vector.hpp"
 #include <algorithm>
@@ -32,11 +34,11 @@
 namespace cdf::io::buffers
 {
 
-struct in_memory_writer
+struct vector_writer
 {
     no_init_vector<char>& data;
     std::size_t global_offset;
-    in_memory_writer(no_init_vector<char>& data) : data { data }, global_offset { 0 } { }
+    vector_writer(no_init_vector<char>& data) : data { data }, global_offset { 0 } { }
 
     std::size_t write(const char* const data_ptr, std::size_t count)
     {

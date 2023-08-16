@@ -20,6 +20,7 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#pragma once
 
 #include "../common.hpp"
 #include "../desc-records.hpp"
@@ -27,6 +28,7 @@
 #include "../reflection.hpp"
 #include "../special-fields.hpp"
 #include "cdfpp/attribute.hpp"
+#include "cdfpp/cdf-helpers.hpp"
 #include "cdfpp/variable.hpp"
 #include <algorithm>
 #include <fstream>
@@ -37,6 +39,10 @@
 
 namespace cdf::io
 {
+
+SPLIT_FIELDS_FW_DECL([[nodiscard]] constexpr std::size_t, record_size, const);
+
+
 template <typename T>
 struct record_wrapper
 {
@@ -58,6 +64,22 @@ void update_size(record_wrapper<T>& record, std::size_t size_offset = 0)
     record.record.header.record_size = record.size;
 }
 
+
+void update_size(record_wrapper<cdf_CCR_t<v3x_tag>>& record, std::size_t size_offset = 0)
+{
+    record.size = std::size(record.record.data.values) + record_size(record.record.header)
+        + sizeof(record.record.uSize) + sizeof(record.record.CPRoffset) + sizeof(record.record.rfuA)
+        + size_offset;
+    record.record.header.record_size = record.size;
+}
+
+void update_size(record_wrapper<cdf_CVVR_t<v3x_tag>>& record, std::size_t size_offset = 0)
+{
+    record.size = std::size(record.record.data.values) + record_size(record.record.header)
+        + sizeof(record.record.rfuA) + sizeof(record.record.cSize) + size_offset;
+    record.record.header.record_size = record.size;
+}
+
 struct file_attribute_ctx
 {
     int32_t number;
@@ -76,16 +98,31 @@ struct variable_attribute_ctx
 
 struct variable_ctx
 {
+    cdf_compression_type compression = cdf_compression_type::no_compression;
+    using values_records_t
+        = std::variant<record_wrapper<cdf_VVR_t<v3x_tag>>, record_wrapper<cdf_CVVR_t<v3x_tag>>>;
     int32_t number;
     const Variable* variable;
     record_wrapper<cdf_zVDR_t<v3x_tag>> vdr;
     std::vector<record_wrapper<cdf_VXR_t<v3x_tag>>> vxrs;
-    std::vector<record_wrapper<cdf_VVR_t<v3x_tag>>> vvrs;
+    std::vector<values_records_t> values_records;
+    std::optional<record_wrapper<cdf_CPR_t<v3x_tag>>> cpr = std::nullopt;
 };
 
-struct saving_context
+template <typename... Ts>
+auto visit(const variable_ctx::values_records_t& values_records, Ts... lambdas)
 {
-    common::magic_numbers_t magic;
+    return std::visit(helpers::make_visitor(lambdas...), values_records);
+}
+
+template <typename... Ts>
+auto visit(variable_ctx::values_records_t& values_records, Ts... lambdas)
+{
+    return std::visit(helpers::make_visitor(lambdas...), values_records);
+}
+
+struct cdf_body
+{
     record_wrapper<cdf_CDR_t<v3x_tag>> cdr;
     record_wrapper<cdf_GDR_t<v3x_tag>> gdr;
     std::vector<file_attribute_ctx> file_attributes;
@@ -93,8 +130,15 @@ struct saving_context
     std::vector<variable_ctx> variables;
 };
 
-template <typename T>
-[[nodiscard]] constexpr std::size_t record_size(const T& s);
+struct saving_context
+{
+    cdf_compression_type compression = cdf_compression_type::no_compression;
+    common::magic_numbers_t magic;
+    std::optional<record_wrapper<cdf_CCR_t<v3x_tag>>> ccr;
+    std::optional<record_wrapper<cdf_CPR_t<v3x_tag>>> cpr;
+    cdf_body body;
+};
+
 
 template <typename record_t, typename T>
 [[nodiscard]] constexpr std::size_t field_size(const record_t& s, T& field)
@@ -134,243 +178,13 @@ template <typename record_t, typename T, typename... Ts>
     return fields_size(s, std::forward<T>(field)) + fields_size(s, std::forward<Ts>(fields)...);
 }
 
-template <typename T>
-[[nodiscard]] constexpr std::size_t record_size(const T& s)
-{
-    constexpr std::size_t count = count_members<T>;
-    static_assert(count <= 31);
-    if constexpr (count == 1)
-    {
-        auto& [_0] = s;
-        return fields_size(s, _0);
-    }
-
-    if constexpr (count == 2)
-    {
-        auto& [_0, _1] = s;
-        return fields_size(s, _0, _1);
-    }
-
-    if constexpr (count == 3)
-    {
-        auto& [_0, _1, _2] = s;
-        return fields_size(s, _0, _1, _2);
-    }
-
-    if constexpr (count == 4)
-    {
-        auto& [_0, _1, _2, _3] = s;
-        return fields_size(s, _0, _1, _2, _3);
-    }
-
-    if constexpr (count == 5)
-    {
-        auto& [_0, _1, _2, _3, _4] = s;
-        return fields_size(s, _0, _1, _2, _3, _4);
-    }
-
-    if constexpr (count == 6)
-    {
-        auto& [_0, _1, _2, _3, _4, _5] = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5);
-    }
-
-    if constexpr (count == 7)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6] = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6);
-    }
-
-    if constexpr (count == 8)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7] = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7);
-    }
-
-    if constexpr (count == 9)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8] = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8);
-    }
-
-    if constexpr (count == 10)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9] = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9);
-    }
-
-    if constexpr (count == 11)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10] = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10);
-    }
-
-    if constexpr (count == 12)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11] = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11);
-    }
-
-    if constexpr (count == 13)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12] = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12);
-    }
-
-    if constexpr (count == 14)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13] = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13);
-    }
-
-    if constexpr (count == 15)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14] = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14);
-    }
-
-    if constexpr (count == 16)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15] = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15);
-    }
-
-    if constexpr (count == 17)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16] = s;
-        return fields_size(
-            _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16);
-    }
-
-    if constexpr (count == 18)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17] = s;
-        return fields_size(
-            _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17);
-    }
-
-    if constexpr (count == 19)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18]
-            = s;
-        return fields_size(
-            _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18);
-    }
-
-    if constexpr (count == 20)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19);
-    }
-
-    if constexpr (count == 21)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19, _20);
-    }
-
-    if constexpr (count == 22)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19, _20, _21);
-    }
-
-    if constexpr (count == 23)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19, _20, _21, _22);
-    }
-
-    if constexpr (count == 24)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19, _20, _21, _22, _23);
-    }
-
-    if constexpr (count == 25)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19, _20, _21, _22, _23, _24);
-    }
-
-    if constexpr (count == 26)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19, _20, _21, _22, _23, _24, _25);
-    }
-
-    if constexpr (count == 27)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26);
-    }
-
-    if constexpr (count == 28)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27);
-    }
-
-    if constexpr (count == 29)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28);
-    }
-
-    if constexpr (count == 30)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29);
-    }
-
-    if constexpr (count == 31)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30]
-            = s;
-        return fields_size(s, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15,
-            _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30);
-    }
-}
+SPLIT_FIELDS([[nodiscard]] constexpr std::size_t, record_size, fields_size, const);
 
 template <typename T, typename U>
-std::size_t save_record(T& s, U& writer);
+std::size_t save_record(const T& s, U& writer);
 
 template <typename writer_t, typename T>
-inline std::size_t save_field(writer_t& writer, T& field)
+inline std::size_t save_field(writer_t& writer, const T& field)
 {
     using Field_t = std::remove_cv_t<std::remove_reference_t<T>>;
     if constexpr (is_string_field_v<T>)
@@ -382,13 +196,22 @@ inline std::size_t save_field(writer_t& writer, T& field)
     {
         if constexpr (is_table_field_v<T>)
         {
-            for (auto& v : field.values)
+            if constexpr (sizeof(typename Field_t::value_type) == 1)
             {
-                auto rv
-                    = endianness::decode<endianness::big_endian_t, typename Field_t::value_type>(
-                        &v);
-                writer.write(reinterpret_cast<char*>(&rv), sizeof(typename Field_t::value_type));
+                writer.write(
+                    reinterpret_cast<const char*>(field.values.data()), std::size(field.values));
             }
+            else
+            {
+                for (auto& v : field.values)
+                {
+                    auto rv = endianness::decode<endianness::big_endian_t,
+                        typename Field_t::value_type>(&v);
+                    writer.write(
+                        reinterpret_cast<const char*>(&rv), sizeof(typename Field_t::value_type));
+                }
+            }
+
             return writer.offset();
         }
         else
@@ -399,278 +222,52 @@ inline std::size_t save_field(writer_t& writer, T& field)
     }
 }
 
-template <typename writer_t, typename T>
-inline std::size_t save_fields(writer_t& writer, T&& field)
+template <typename strurt_t, cdf_record_type record_type, typename U>
+std::size_t save_header(const strurt_t& s, const cdf_DR_header<v3x_tag, record_type>& h, U& writer)
+{
+    save_field(
+        writer, std::max(static_cast<decltype(h.record_size)>(record_size(s)), h.record_size));
+    return save_field(writer, record_type);
+}
+
+
+template <typename strurt_t, typename writer_t, typename T>
+inline std::size_t save_fields(const strurt_t& s, writer_t& writer, const T& field)
 {
     using Field_t = std::remove_cv_t<std::remove_reference_t<T>>;
     static constexpr std::size_t count = count_members<Field_t>;
-    if constexpr (std::is_compound_v<Field_t> && (count > 1)
+    if constexpr (is_cdf_DR_header_v<Field_t>)
+        return save_header(s, field, writer);
+    else if constexpr (std::is_compound_v<Field_t> && (count > 1)
         && (not is_string_field_v<Field_t>)&&(not is_table_field_v<Field_t>))
         return save_record(field, writer);
     else
-        return save_field(writer, std::forward<T>(field));
+        return save_field(writer, field);
 }
 
-template <typename writer_t, typename T, typename... Ts>
-inline std::size_t save_fields(writer_t& writer, T&& field, Ts&&... fields)
+template <typename strurt_t, typename writer_t, typename T, typename... Ts>
+inline std::size_t save_fields(
+    const strurt_t& s, writer_t& writer, const T& field, const Ts&... fields)
 {
-    save_fields(writer, std::forward<T>(field));
-    return save_fields(writer, std::forward<Ts>(fields)...);
-}
-
-template <typename T>
-auto set_headers(T& s) -> decltype(s.header.record_size, s.header.record_type, void())
-{
-    s.header.record_size = std::max(s.header.record_size, record_size(s));
-    s.header.record_type = decltype(s.header)::expected_record_type;
+    save_fields(s, writer, field);
+    return save_fields(s, writer, fields...);
 }
 
 
-// this looks quite ugly bit it is worth it!
+SPLIT_FIELDS(std::size_t, _save_record, save_fields, const);
+
 template <typename T, typename U>
-std::size_t save_record(T& s, U& writer)
+std::size_t save_record(const T& s, U& writer)
 {
-    static constexpr std::size_t count = count_members<T>;
-    static_assert(count <= 31);
-
-    if constexpr (is_record_v<T>)
-        set_headers(s);
-
-    if constexpr (count == 1)
-    {
-        auto& [_0] = s;
-        return save_fields(writer, _0);
-    }
-
-    if constexpr (count == 2)
-    {
-        auto& [_0, _1] = s;
-        return save_fields(writer, _0, _1);
-    }
-
-    if constexpr (count == 3)
-    {
-        auto& [_0, _1, _2] = s;
-        return save_fields(writer, _0, _1, _2);
-    }
-
-    if constexpr (count == 4)
-    {
-        auto& [_0, _1, _2, _3] = s;
-        return save_fields(writer, _0, _1, _2, _3);
-    }
-
-    if constexpr (count == 5)
-    {
-        auto& [_0, _1, _2, _3, _4] = s;
-        return save_fields(writer, _0, _1, _2, _3, _4);
-    }
-
-    if constexpr (count == 6)
-    {
-        auto& [_0, _1, _2, _3, _4, _5] = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5);
-    }
-
-    if constexpr (count == 7)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6] = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6);
-    }
-
-    if constexpr (count == 8)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7] = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7);
-    }
-
-    if constexpr (count == 9)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8] = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8);
-    }
-
-    if constexpr (count == 10)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9] = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9);
-    }
-
-    if constexpr (count == 11)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10] = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10);
-    }
-
-    if constexpr (count == 12)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11] = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11);
-    }
-
-    if constexpr (count == 13)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12] = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12);
-    }
-
-    if constexpr (count == 14)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13] = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13);
-    }
-
-    if constexpr (count == 15)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14] = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14);
-    }
-
-    if constexpr (count == 16)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15] = s;
-        return save_fields(
-            writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15);
-    }
-
-    if constexpr (count == 17)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16] = s;
-        return save_fields(
-            writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16);
-    }
-
-    if constexpr (count == 18)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17] = s;
-        return save_fields(
-            writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17);
-    }
-
-    if constexpr (count == 19)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18);
-    }
-
-    if constexpr (count == 20)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19);
-    }
-
-    if constexpr (count == 21)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19, _20);
-    }
-
-    if constexpr (count == 22)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19, _20, _21);
-    }
-
-    if constexpr (count == 23)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19, _20, _21, _22);
-    }
-
-    if constexpr (count == 24)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19, _20, _21, _22, _23);
-    }
-
-    if constexpr (count == 25)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19, _20, _21, _22, _23, _24);
-    }
-
-    if constexpr (count == 26)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25);
-    }
-
-    if constexpr (count == 27)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26);
-    }
-
-    if constexpr (count == 28)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27);
-    }
-
-    if constexpr (count == 29)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28);
-    }
-
-    if constexpr (count == 30)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29);
-    }
-
-    if constexpr (count == 31)
-    {
-        auto& [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18,
-            _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30]
-            = s;
-        return save_fields(writer, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14,
-            _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30);
-    }
+    return _save_record(s, writer);
 }
 
 template <typename U>
 [[nodiscard]] std::size_t save_record(
-    cdf_VVR_t<v3x_tag>& s, const char* data, std::size_t len, U& writer)
+    const cdf_VVR_t<v3x_tag>& s, const char* data, std::size_t len, U& writer)
 {
-    s.header.record_type = cdf_record_type::VVR;
-    s.header.record_size = record_size(s.header) + len;
-    save_record(s.header, writer);
+    save_field(writer, record_size(s.header) + len);
+    save_field(writer, cdf_record_type::VVR);
     return writer.write(data, len);
 }
 

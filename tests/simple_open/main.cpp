@@ -267,7 +267,7 @@ std::size_t filesize(std::fstream& file)
             'T', 'h', 'i', 's', ' ', 'i', 's', ' ', 'a', ' ', 's', 't', 'r', 'i', 'n', 'g' }))
 
 
-SCENARIO("Loading a cdf files", "[CDF]")
+SCENARIO("Loading cdf files", "[CDF]")
 {
     GIVEN("a cdf file")
     {

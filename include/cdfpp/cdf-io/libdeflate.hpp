@@ -21,6 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "../cdf-debug.hpp"
+#include "cdfpp/no_init_vector.hpp"
 
 #include <libdeflate.h>
 #include <vector>
@@ -50,6 +51,26 @@ namespace _internal
         }
     }
 
+    template <typename T>
+    CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(
+        const T& input)
+    {
+        no_init_vector<char> result(std::max(std::size(input),16*1024UL));
+        auto compressor = libdeflate_alloc_compressor(6);
+        auto compressed_size = libdeflate_gzip_compress(compressor, input.data(),
+            std::size(input), result.data(), std::size(result));
+        libdeflate_free_compressor(compressor);
+        if (compressed_size >0)
+        {
+            result.resize(compressed_size);
+            result.shrink_to_fit();
+            return result;
+        }
+        else
+        {
+            return {};
+        }
+    }
 }
 
 template <typename T>
@@ -59,5 +80,11 @@ std::size_t gzinflate(const T& input, char* output, const std::size_t output_siz
     return impl_inflate(input, output, output_size);
 }
 
+template <typename T>
+no_init_vector<char> gzdeflate(const T& input)
+{
+    using namespace _internal;
+    return impl_deflate(input);
+}
 
 }

@@ -25,24 +25,43 @@
 #include "cdf-enums.hpp"
 #include "cdf-io/majority-swap.hpp"
 #include "cdf-map.hpp"
+#include "cdf-repr.hpp"
 #include "no_init_vector.hpp"
+
 #include <cstdint>
+#include <iomanip>
 #include <optional>
 #include <vector>
+
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf_map<std::string, cdf::Attribute>& attributes)
+{
+    std::for_each(std::cbegin(attributes), std::cend(attributes),
+        [&os](const auto& item) { item.second.__repr__(os, indent_t {}); });
+    return os;
+}
 
 namespace cdf
 {
 
 [[nodiscard]] std::size_t flat_size(const no_init_vector<uint32_t>& shape) noexcept
 {
-    return std::accumulate(
-        std::cbegin(shape), std::cend(shape), 1UL, std::multiplies<std::size_t>());
+    if (std::size(shape) > 0)
+    {
+        return std::accumulate(
+            std::cbegin(shape), std::cend(shape), 1UL, std::multiplies<std::size_t>());
+    }
+    return 0UL;
 }
 
 template <typename T>
 [[nodiscard]] std::size_t flat_size(T&& cbegin, T&& cend) noexcept
 {
-    return std::accumulate(cbegin, cend, 1UL, std::multiplies<std::size_t>());
+    if (cbegin != cend)
+    {
+        return std::accumulate(cbegin, cend, 1UL, std::multiplies<std::size_t>());
+    }
+    return 0UL;
 }
 
 struct Variable
@@ -56,13 +75,15 @@ struct Variable
     Variable& operator=(const Variable&) = default;
     Variable& operator=(Variable&&) = default;
     Variable(const std::string& name, std::size_t number, var_data_t&& data, shape_t&& shape,
-        cdf_majority majority, bool is_nrv)
+        cdf_majority majority = cdf_majority::row, bool is_nrv = false,
+        cdf_compression_type compression_type = cdf_compression_type::no_compression)
             : p_name { name }
             , p_number { number }
             , p_data { std::move(data) }
             , p_shape { shape }
             , p_majority { majority }
             , p_is_nrv { is_nrv }
+            , p_compression { compression_type }
     {
         if (this->majority() == cdf_majority::column)
         {
@@ -72,13 +93,15 @@ struct Variable
     }
 
     Variable(const std::string& name, std::size_t number, lazy_data&& data, shape_t&& shape,
-        cdf_majority majority, bool is_nrv)
+        cdf_majority majority = cdf_majority::row, bool is_nrv = false,
+        cdf_compression_type compression_type = cdf_compression_type::no_compression)
             : p_name { name }
             , p_number { number }
             , p_data { std::move(data) }
             , p_shape { shape }
             , p_majority { majority }
             , p_is_nrv { is_nrv }
+            , p_compression { compression_type }
     {
     }
 
@@ -151,6 +174,8 @@ struct Variable
     [[nodiscard]] bool is_nrv() const noexcept { return p_is_nrv; }
     [[nodiscard]] std::size_t number() const noexcept { return p_number; }
     [[nodiscard]] cdf_majority majority() const noexcept { return p_majority; }
+    [[nodiscard]] cdf_compression_type compression_type() const noexcept { return p_compression; }
+    void set_compression_type(cdf_compression_type ct) noexcept { p_compression = ct; }
 
     [[nodiscard]] inline bool values_loaded() const noexcept
     {
@@ -174,6 +199,33 @@ struct Variable
 
     template <typename... Ts>
     friend auto visit(Variable& var, Ts... lambdas);
+
+    template <class stream_t>
+    inline stream_t& __repr__(stream_t& os, indent_t indent = {}, bool detailed = true) const
+    {
+        if (detailed)
+        {
+            os << indent << name() << ":\n" << indent + 2 << "shape: ";
+            stream_collection(os, shape(), ", ");
+            os << "\n"
+               << indent + 2 << "type: " << cdf_type_str(type()) << "\n"
+               << indent + 2 << "record varry: " << (is_nrv() ? "Flase" : "True") << indent + 2
+               << compression_type() << "\n\n";
+            os << indent + 2 << "Attributes:\n";
+            std::for_each(std::cbegin(attributes), std::cend(attributes),
+                [&os, indent](const auto& item) { item.second.__repr__(os, indent + 4); });
+        }
+        else
+        {
+            os << indent << name() << ": ";
+            stream_collection(os, shape(), ", ");
+            os << ", [" << cdf_type_str(type())
+               << "], record varry:" << (is_nrv() ? "Flase" : "True")
+               << ", compression: " << cdf_compression_type_str(compression_type()) << std::endl;
+        }
+        return os;
+    }
+
 
 private:
     [[nodiscard]] var_data_t& _data()
@@ -200,6 +252,7 @@ private:
     shape_t p_shape;
     cdf_majority p_majority;
     bool p_is_nrv;
+    cdf_compression_type p_compression;
 };
 
 template <typename... Ts>
@@ -207,4 +260,11 @@ auto visit(Variable& var, Ts... lambdas)
 {
     return visit(var.p_data, lambdas...);
 }
+
 } // namespace cdf
+
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf::Variable& variable)
+{
+    return variable.template __repr__<stream_t>(os, indent_t {});
+}

@@ -21,6 +21,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "../cdf-debug.hpp"
+#include "cdfpp/no_init_vector.hpp"
 #include <cstddef>
 #include <vector>
 #define ZLIB_CONST
@@ -60,6 +61,33 @@ namespace _internal
             return 0;
     }
 
+    template <typename T>
+    CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(const T& input)
+    {
+        no_init_vector<char> result(std::max(std::size(input), 16 * 1024UL));
+        z_stream fstream;
+        fstream.zalloc = Z_NULL;
+        fstream.zfree = Z_NULL;
+        fstream.opaque = Z_NULL;
+        fstream.avail_in = std::size(input);
+        fstream.next_in = reinterpret_cast<const Bytef*>(input.data());
+        fstream.avail_out = std::size(result);
+        fstream.next_out = reinterpret_cast<Bytef*>(result.data());
+        if (Z_OK
+            != deflateInit2(
+                &fstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 | 16, 6, Z_DEFAULT_STRATEGY))
+            return {};
+        auto ret = deflate(&fstream, Z_FINISH);
+        deflateEnd(&fstream);
+        if (ret == Z_STREAM_END)
+        {
+            result.resize(fstream.total_out);
+            result.shrink_to_fit();
+            return result;
+        }
+        else
+            return {};
+    }
 }
 
 template <typename T>
@@ -69,5 +97,10 @@ std::size_t gzinflate(const T& input, char* output, const std::size_t output_siz
     return impl_inflate(input, output, output_size);
 }
 
-
+template <typename T>
+no_init_vector<char> gzdeflate(const T& input)
+{
+    using namespace _internal;
+    return impl_deflate(input);
+}
 }
