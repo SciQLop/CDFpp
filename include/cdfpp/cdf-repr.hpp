@@ -23,14 +23,13 @@
 #include "cdfpp_config.h"
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf-map.hpp>
-#include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
 #include <chrono>
+#include <ctime>
 #include <fmt/core.h>
 #include <iomanip>
 #include <sstream>
 #include <string>
-#include  <ctime>
 using namespace cdf;
 
 template <class stream_t>
@@ -47,12 +46,12 @@ constexpr bool is_char_like_v
 
 
 template <class stream_t>
-inline stream_t& operator<<(
-    stream_t& os, const decltype( cdf::to_time_point(tt2000_t{}))& tp)
+inline stream_t& operator<<(stream_t& os, const decltype(cdf::to_time_point(tt2000_t {}))& tp)
 {
-    const auto tp_time_t = std::chrono::system_clock::to_time_t(std::chrono::time_point_cast<std::chrono::system_clock::time_point::duration>(tp));
+    const auto tp_time_t = std::chrono::system_clock::to_time_t(
+        std::chrono::time_point_cast<std::chrono::system_clock::time_point::duration>(tp));
     auto tt = std::gmtime(&tp_time_t);
-    if(tt)
+    if (tt)
     {
         const auto us
             = (std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch())
@@ -200,85 +199,32 @@ stream_t& operator<<(stream_t& os, const cdf::data_t& data)
     return os;
 }
 
-template <class stream_t>
-inline stream_t& operator<<(stream_t& os, const cdf::Attribute& attribute)
-{
-    if (std::size(attribute) == 1
-        and (attribute.front().type() == cdf::CDF_Types::CDF_CHAR
-            or attribute.front().type() == cdf::CDF_Types::CDF_UCHAR))
-    {
-        os << attribute.name << ": " << attribute.front() << std::endl;
-    }
-    else
-    {
-        os << attribute.name << ": [ ";
-        stream_collection(os, attribute, ", ");
-        os << " ]" << std::endl;
-    }
-    return os;
-}
-
-
-template <class stream_t>
-inline stream_t& operator<<(stream_t& os, const cdf::Variable& var)
-{
-    os << var.name() << ": (";
-    stream_collection(os, var.shape(), ", ");
-    os << ") [" << cdf_type_str(var.type()) << "]" << std::endl;
-    return os;
-}
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const cdf_majority& majority)
 {
-    if (majority == cdf_majority::row)
-        os << "majority: row";
-    else
-        os << "majority: column";
+    os << fmt::format("majority: {}", cdf_majority_str(majority));
     return os;
 }
 
 template <class stream_t>
-inline stream_t& operator<<(stream_t& os, const cdf::CDF& cdf_file)
+inline stream_t& operator<<(stream_t& os, const cdf_compression_type& compression)
 {
-    os << "CDF:\n"
-       << fmt::format("version: {}.{}.{}\n", std::get<0>(cdf_file.distribution_version),
-              std::get<1>(cdf_file.distribution_version),
-              std::get<2>(cdf_file.distribution_version))
-       << cdf_file.majority << "\n\nAttributes:\n";
-    std::for_each(std::cbegin(cdf_file.attributes), std::cend(cdf_file.attributes),
-        [&os](const auto& item) { os << "\t" << item.second; });
-    os << "\nVariables:\n";
-    std::for_each(std::cbegin(cdf_file.variables), std::cend(cdf_file.variables),
-        [&os](const auto& item) { os << "\t" << item.second; });
-    os << std::endl;
-
+    os << fmt::format("compression: {}", cdf_compression_type_str(compression));
     return os;
 }
 
-#ifdef CDFpp_USE_NOMAP
-template <class stream_t, typename key_t, typename Value_t>
-inline stream_t& operator<<(stream_t& os, const nomap_node<key_t, Value_t>& node)
+struct indent_t
 {
-    if (!node.empty())
-        os << node.key() << ": " << node.mapped() << std::endl;
-    return os;
-}
+    int n = 0;
+    char c = ' ';
+    indent_t operator+(int v) const { return indent_t { n + v, c }; }
+};
 
-template <class stream_t, typename key_t, typename Value_t>
-inline stream_t& operator<<(stream_t& os, const nomap<key_t, Value_t>& m)
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const indent_t& ind)
 {
-    os << "{" << std::endl;
-    std::for_each(std::cbegin(m), std::cend(m), [&](const auto& item) { os << item; });
-    os << "}" << std::endl;
+    for (int i = 0; i < ind.n; i++)
+        os << ind.c;
     return os;
-}
-#endif
-
-template <typename T>
-inline std::string __repr__(T& obj)
-{
-    std::stringstream sstr;
-    sstr << obj;
-    return sstr.str();
 }

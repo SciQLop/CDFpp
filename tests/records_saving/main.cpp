@@ -105,8 +105,18 @@ SCENARIO("record loading", "[CDF]")
         };
         THEN("we can load it from a buffer")
         {
-            record_table_fields s;
+            record_table_fields s{0,0.,{},0,{}};
             REQUIRE(cdf::io::record_size(s)==25);
+        }
+    }
+    GIVEN("a true CDF record")
+    {
+
+        THEN("we can load it from a buffer")
+        {
+            io::cdf_CDR_t<io::v3x_tag> s{};
+            static_assert(io::is_cdf_DR_header_v<decltype(s.header)>);
+            static_assert(cdf::io::record_size(s)==312);
         }
     }
 }

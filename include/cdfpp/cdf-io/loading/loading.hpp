@@ -85,7 +85,7 @@ namespace
         if (!attribute::load_all<typename parsing_context_t::version_tag, iso_8859_1_to_utf8>(
                 parsing_context, repr))
             return std::nullopt;
-        if (!variable::load_all<typename parsing_context_t::version_tag>(
+        if (!variable::load_all<typename parsing_context_t::version_tag, iso_8859_1_to_utf8>(
                 parsing_context, repr, lazy_load))
             return std::nullopt;
         return from_repr(std::move(repr));

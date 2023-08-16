@@ -21,6 +21,8 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "cdf-data.hpp"
+#include "cdf-repr.hpp"
+#include <iomanip>
 #include <string>
 #include <variant>
 
@@ -66,13 +68,13 @@ struct Attribute
 
     inline void swap(attr_data_t& new_data) { std::swap(data, new_data); }
 
-    Attribute& operator=(attr_data_t& new_data)
+    inline Attribute& operator=(attr_data_t& new_data)
     {
         data = new_data;
         return *this;
     }
 
-    Attribute& operator=(attr_data_t&& new_data)
+    inline Attribute& operator=(attr_data_t&& new_data)
     {
         data = new_data;
         return *this;
@@ -87,20 +89,38 @@ struct Attribute
     template <typename... Ts>
     friend void visit(const Attribute& attr, Ts... lambdas);
 
-    [[nodiscard]] auto begin() { return data.begin(); }
-    [[nodiscard]] auto end() { return data.end(); }
+    [[nodiscard]] inline auto begin() { return data.begin(); }
+    [[nodiscard]] inline auto end() { return data.end(); }
 
-    [[nodiscard]] auto begin() const { return data.begin(); }
-    [[nodiscard]] auto end() const { return data.end(); }
+    [[nodiscard]] inline auto begin() const { return data.begin(); }
+    [[nodiscard]] inline auto end() const { return data.end(); }
 
-    [[nodiscard]] auto cbegin() const { return data.cbegin(); }
-    [[nodiscard]] auto cend() const { return data.cend(); }
+    [[nodiscard]] inline auto cbegin() const { return data.cbegin(); }
+    [[nodiscard]] inline auto cend() const { return data.cend(); }
 
-    [[nodiscard]] auto& back() { return data.back(); }
-    [[nodiscard]] const auto& back() const { return data.back(); }
+    [[nodiscard]] inline data_t& back() { return data.back(); }
+    [[nodiscard]] inline const data_t& back() const { return data.back(); }
 
-    [[nodiscard]] auto& front() { return data.front(); }
-    [[nodiscard]] const auto& front() const { return data.front(); }
+    [[nodiscard]] inline data_t& front() { return data.front(); }
+    [[nodiscard]] inline const data_t& front() const { return data.front(); }
+
+    template <class stream_t>
+    inline stream_t& __repr__(stream_t& os, indent_t indent = {}) const
+    {
+        if (std::size(*this) == 1
+            and (front().type() == cdf::CDF_Types::CDF_CHAR
+                or front().type() == cdf::CDF_Types::CDF_UCHAR))
+        {
+            os << indent << name << ": " << front() << std::endl;
+        }
+        else
+        {
+            os << indent << name << ": [ ";
+            stream_collection(os, *this, ", ");
+            os << " ]" << std::endl;
+        }
+        return os;
+    }
 
 private:
     attr_data_t data;
@@ -119,3 +139,10 @@ void visit(const Attribute& attr, Ts... lambdas)
         [lambdas...](const auto& element) { visit(element, lambdas...); });
 }
 } // namespace cdf
+
+
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf::Attribute& attribute)
+{
+    return attribute.template __repr__<stream_t>(os);
+}

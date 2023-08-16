@@ -21,9 +21,11 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #include "cdf-chrono-constants.hpp"
+#include "cdf-leap-seconds.h"
 #include "cdfpp/cdf-debug.hpp"
 #include "cdfpp/cdf-enums.hpp"
-#include "cdf-leap-seconds.h"
+#include "cdfpp/no_init_vector.hpp"
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -61,7 +63,7 @@ inline int64_t leap_second(const tt2000_t& ep)
         if (ep.value < leap_seconds::leap_seconds_tt2000_reverse.back().first)
         {
             auto lc = std::cbegin(leap_seconds::leap_seconds_tt2000_reverse);
-            while (ep.value >= (lc+1)->first)
+            while (ep.value >= (lc + 1)->first)
             {
                 lc++;
             }
@@ -69,7 +71,7 @@ inline int64_t leap_second(const tt2000_t& ep)
         }
         else
         {
-            return  leap_seconds::leap_seconds_tt2000_reverse.back().second;
+            return leap_seconds::leap_seconds_tt2000_reverse.back().second;
         }
     }
     return 0;
@@ -81,6 +83,16 @@ epoch to_epoch(const std::chrono::time_point<Clock, Duration>& tp)
     using namespace std::chrono;
     return epoch { duration_cast<milliseconds>(tp.time_since_epoch()).count()
         + constants::epoch_offset_miliseconds };
+}
+
+template <class Clock, class Duration = typename Clock::duration>
+no_init_vector<epoch> to_epoch(const no_init_vector<std::chrono::time_point<Clock, Duration>>& tps)
+{
+    using namespace std::chrono;
+    no_init_vector<epoch> result(std::size(tps));
+    std::transform(std::cbegin(tps), std::cend(tps), std::begin(result),
+        [](const std::chrono::time_point<Clock, Duration>& v) { return to_epoch(v); });
+    return result;
 }
 
 template <class Clock, class Duration = typename Clock::duration>
@@ -96,11 +108,44 @@ epoch16 to_epoch16(const std::chrono::time_point<Clock, Duration>& tp)
 }
 
 template <class Clock, class Duration = typename Clock::duration>
+no_init_vector<epoch16> to_epoch16(
+    const no_init_vector<std::chrono::time_point<Clock, Duration>>& tps)
+{
+    using namespace std::chrono;
+    no_init_vector<epoch16> result(std::size(tps));
+    std::transform(std::cbegin(tps), std::cend(tps), std::begin(result),
+        [](const std::chrono::time_point<Clock, Duration>& v) { return to_epoch16(v); });
+    return result;
+}
+
+template <class Clock, class Duration = typename Clock::duration>
 tt2000_t to_tt2000(const std::chrono::time_point<Clock, Duration>& tp)
 {
     using namespace std::chrono;
     auto nsec = duration_cast<nanoseconds>(tp.time_since_epoch()).count();
     return tt2000_t { nsec - constants::tt2000_offset + leap_second(nsec) };
+}
+
+template <class Clock, class Duration = typename Clock::duration>
+no_init_vector<tt2000_t> to_tt2000(
+    const no_init_vector<std::chrono::time_point<Clock, Duration>>& tps)
+{
+    using namespace std::chrono;
+    no_init_vector<tt2000_t> result(std::size(tps));
+    std::transform(std::cbegin(tps), std::cend(tps), std::begin(result),
+        [](const std::chrono::time_point<Clock, Duration>& v) { return to_tt2000(v); });
+    return result;
+}
+
+template <typename T, class Clock, class Duration = typename Clock::duration>
+T to_cdf_time(const std::chrono::time_point<Clock, Duration>& tp)
+{
+    if constexpr (std::is_same_v<T, tt2000_t>)
+        return to_tt2000(tp);
+    else if constexpr (std::is_same_v<T, epoch>)
+        return to_epoch(tp);
+    else if constexpr (std::is_same_v<T, epoch16>)
+        return to_epoch16(tp);
 }
 
 inline auto to_time_point(const epoch& ep)
@@ -123,7 +168,9 @@ inline auto to_time_point(const epoch16& ep)
 inline auto to_time_point(const tt2000_t& ep)
 {
     using namespace std::chrono;
-    return time_point<system_clock> {} + nanoseconds(ep.value - leap_second(ep) + constants::tt2000_offset);
+    return time_point<system_clock> {}
+    + nanoseconds(ep.value - leap_second(ep) + constants::tt2000_offset);
 }
+
 
 }

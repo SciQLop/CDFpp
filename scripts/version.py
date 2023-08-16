@@ -6,13 +6,14 @@ import subprocess
 src_root = os.environ.get('SRC_ROOT', '.')
 
 def version_from_git():
-    try:
-        version = subprocess.run(['git', 'describe', '--tags'], capture_output=True).stdout.decode().strip()[1:]
-        if version.startswith('v'):
-            version = version[1:]
-        return version
-    except:
-        return ""
+    #try:
+    #    version = subprocess.run(['git', 'describe', '--tags'], capture_output=True).stdout.decode().strip()[1:]
+    #    if version.startswith('v'):
+    #        version = version[1:]
+    #    return version
+    #except:
+    #    return ""
+    return ""
 
 def version_from_file():
     try:

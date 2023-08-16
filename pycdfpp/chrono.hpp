@@ -21,6 +21,8 @@
 ----------------------------------------------------------------------------*/
 #pragma once
 
+#include "repr.hpp"
+
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
@@ -34,7 +36,7 @@ using namespace cdf;
 namespace py = pybind11;
 
 template <typename time_t, typename function_t>
-inline auto transform(time_t* input, std::size_t count, const function_t& f)
+[[nodiscard]] inline auto transform(time_t* input, std::size_t count, const function_t& f)
 {
     auto result = py::array_t<uint64_t>(count);
     py::buffer_info res_buff = result.request(true);
@@ -44,7 +46,7 @@ inline auto transform(time_t* input, std::size_t count, const function_t& f)
 }
 
 template <typename time_t, typename T, typename function_t>
-inline auto transform(const py::array_t<T>& input, const function_t& f)
+[[nodiscard]] inline auto transform(const py::array_t<T>& input, const function_t& f)
 {
     py::buffer_info in_buff = input.request();
     time_t* in_ptr = static_cast<time_t*>(in_buff.ptr);
@@ -52,7 +54,7 @@ inline auto transform(const py::array_t<T>& input, const function_t& f)
 }
 
 template <typename time_t, typename T, typename function_t>
-inline auto transform(const std::vector<T>& input, const function_t& f)
+[[nodiscard]] inline auto transform(const std::vector<T>& input, const function_t& f)
 {
     auto result = py::array_t<uint64_t>(std::size(input));
     py::buffer_info res_buff = result.request(true);
@@ -62,7 +64,7 @@ inline auto transform(const std::vector<T>& input, const function_t& f)
 }
 
 template <typename time_t>
-constexpr auto time_t_to_dtype()
+[[nodiscard]] constexpr auto time_t_to_dtype()
 {
     using period = typename decltype(cdf::to_time_point(std::declval<time_t>()))::duration::period;
     if constexpr (std::is_same_v<period, std::pico>)
@@ -78,7 +80,7 @@ constexpr auto time_t_to_dtype()
 }
 
 template <typename time_t>
-inline py::object array_to_datetime64(const py::array_t<time_t>& input)
+[[nodiscard]] inline py::object array_to_datetime64(const py::array_t<time_t>& input)
 {
     constexpr auto dtype = time_t_to_dtype<time_t>();
     if (input.ndim() > 0)
@@ -91,7 +93,7 @@ inline py::object array_to_datetime64(const py::array_t<time_t>& input)
 }
 
 template <typename time_t>
-inline py::object scalar_to_datetime64(const time_t& input)
+[[nodiscard]] inline py::object scalar_to_datetime64(const time_t& input)
 {
     constexpr auto dtype = time_t_to_dtype<time_t>();
     auto v = new int64_t;
@@ -100,7 +102,7 @@ inline py::object scalar_to_datetime64(const time_t& input)
 }
 
 template <typename time_t>
-inline py::object vector_to_datetime64(const std::vector<time_t>& input)
+[[nodiscard]] inline py::object vector_to_datetime64(const std::vector<time_t>& input)
 {
     constexpr auto dtype = time_t_to_dtype<time_t>();
 
@@ -110,7 +112,7 @@ inline py::object vector_to_datetime64(const std::vector<time_t>& input)
 }
 
 template <typename time_t>
-inline std::vector<decltype(to_time_point(time_t {}))> vector_to_datetime(
+[[nodiscard]] inline std::vector<decltype(to_time_point(time_t {}))> vector_to_datetime(
     const std::vector<time_t>& input)
 {
     std::vector<decltype(to_time_point(time_t {}))> result(std::size(input));
@@ -119,7 +121,7 @@ inline std::vector<decltype(to_time_point(time_t {}))> vector_to_datetime(
     return result;
 }
 
-inline py::object var_to_datetime64(const Variable& input)
+[[nodiscard]] inline py::object var_to_datetime64(const Variable& input)
 {
     switch (input.type())
     {
@@ -154,7 +156,8 @@ inline py::object var_to_datetime64(const Variable& input)
 }
 
 
-inline std::vector<decltype(to_time_point(epoch {}))> var_to_datetime(const Variable& input)
+[[nodiscard]] inline std::vector<decltype(to_time_point(epoch {}))> var_to_datetime(
+    const Variable& input)
 {
     switch (input.type())
     {
@@ -193,4 +196,78 @@ inline std::vector<decltype(to_time_point(epoch {}))> var_to_datetime(const Vari
             break;
     }
     return {};
+}
+
+template <typename T>
+void def_time_types_wrapper(T& mod)
+{
+    py::class_<tt2000_t>(mod, "tt2000_t")
+        .def_readwrite("value", &tt2000_t::value)
+        .def("__repr__", __repr__<tt2000_t>);
+    py::class_<epoch>(mod, "epoch")
+        .def_readwrite("value", &epoch::value)
+        .def("__repr__", __repr__<epoch>);
+    py::class_<epoch16>(mod, "epoch16")
+        .def_readwrite("seconds", &epoch16::seconds)
+        .def_readwrite("picoseconds", &epoch16::picoseconds)
+        .def("__repr__", __repr__<epoch16>);
+
+    PYBIND11_NUMPY_DTYPE(tt2000_t, value);
+    PYBIND11_NUMPY_DTYPE(epoch, value);
+    PYBIND11_NUMPY_DTYPE(epoch16, seconds, picoseconds);
+}
+
+template <typename T>
+auto def_time_conversion_functions(T& mod)
+{
+    // forward
+    {
+        mod.def("to_datetime64", array_to_datetime64<epoch>, py::arg { "values" }.noconvert());
+        mod.def("to_datetime64", array_to_datetime64<epoch16>, py::arg { "values" }.noconvert());
+        mod.def("to_datetime64", array_to_datetime64<tt2000_t>, py::arg { "values" }.noconvert());
+
+        mod.def("to_datetime64", scalar_to_datetime64<epoch>, py::arg { "value" });
+        mod.def("to_datetime64", scalar_to_datetime64<epoch16>, py::arg { "value" });
+        mod.def("to_datetime64", scalar_to_datetime64<tt2000_t>, py::arg { "value" });
+
+        mod.def("to_datetime64", vector_to_datetime64<epoch>, py::arg { "values" }.noconvert());
+        mod.def("to_datetime64", vector_to_datetime64<epoch16>, py::arg { "values" }.noconvert());
+        mod.def("to_datetime64", vector_to_datetime64<tt2000_t>, py::arg { "values" }.noconvert());
+
+        mod.def("to_datetime64", var_to_datetime64, py::arg { "variable" });
+
+        mod.def("to_datetime", vector_to_datetime<epoch>);
+        mod.def("to_datetime", vector_to_datetime<epoch16>);
+        mod.def("to_datetime", vector_to_datetime<tt2000_t>);
+        mod.def("to_datetime",
+            static_cast<decltype(to_time_point(epoch {})) (*)(const epoch&)>(to_time_point));
+        mod.def("to_datetime",
+            static_cast<decltype(to_time_point(epoch16 {})) (*)(const epoch16&)>(to_time_point));
+        mod.def("to_datetime",
+            static_cast<decltype(to_time_point(tt2000_t {})) (*)(const tt2000_t&)>(to_time_point));
+
+        mod.def("to_datetime", var_to_datetime);
+    }
+
+    // backward
+    {
+        mod.def("to_tt2000",
+            [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_tt2000(tp); });
+        mod.def("to_tt2000",
+            [](const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
+            { return cdf::to_tt2000(tps); });
+
+
+        mod.def("to_epoch",
+            [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_epoch(tp); });
+        mod.def("to_epoch",
+            [](const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
+            { return cdf::to_epoch(tps); });
+
+        mod.def("to_epoch16",
+            [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_epoch16(tp); });
+        mod.def("to_epoch16",
+            [](const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
+            { return cdf::to_epoch16(tps); });
+    }
 }

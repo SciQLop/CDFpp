@@ -23,21 +23,28 @@
 #include "attribute.hpp"
 #include "cdf-enums.hpp"
 #include "cdf-map.hpp"
-#include "cdf-io/common.hpp"
+#include "cdf-repr.hpp"
 #include "variable.hpp"
+
 #include <string>
+
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf_map<std::string, cdf::Variable>& variables)
+{
+    return os;
+}
 
 
 namespace cdf
 {
 struct CDF
 {
-    cdf_majority majority;
-    cdf_compression_type compression;
-    std::tuple<uint32_t,uint32_t,uint32_t> distribution_version;
+    cdf_majority majority = cdf_majority::row;
+    cdf_compression_type compression = cdf_compression_type::no_compression;
+    std::tuple<uint32_t, uint32_t, uint32_t> distribution_version = { 3, 9, 0 };
     cdf_map<std::string, Variable> variables;
     cdf_map<std::string, Attribute> attributes;
-    bool lazy_loaded;
+    bool lazy_loaded = false;
 
     CDF() = default;
     CDF(const CDF&) = default;
@@ -45,8 +52,28 @@ struct CDF
     CDF& operator=(CDF&&) = default;
     CDF& operator=(const CDF&) = default;
 
-    [[nodiscard]] const Variable& operator[](const std::string& name) const { return variables.at(name); }
+    [[nodiscard]] const Variable& operator[](const std::string& name) const
+    {
+        return variables.at(name);
+    }
     [[nodiscard]] Variable& operator[](const std::string& name) { return variables.at(name); }
+
+    template <class stream_t>
+    inline stream_t& __repr__(stream_t& os, indent_t indent = {}) const
+    {
+        os << indent << "CDF:\n"
+           << indent + 2
+           << fmt::format("version: {}.{}.{}\n", std::get<0>(distribution_version),
+                  std::get<1>(distribution_version), std::get<2>(distribution_version))
+           << indent + 2 << majority <<'\n' << indent + 2 << compression << "\n\nAttributes:\n";
+        std::for_each(std::cbegin(attributes), std::cend(attributes),
+            [&os, indent](const auto& item) { item.second.__repr__(os, indent + 2); });
+        os << indent << "\nVariables:\n";
+        std::for_each(std::cbegin(variables), std::cend(variables),
+            [&os, indent](const auto& item) { item.second.__repr__(os, indent + 2, false); });
+        os << std::endl;
+        return os;
+    }
 };
 
 void add_attribute(CDF& cdf_file, const std::string& name, Attribute::attr_data_t&& data)
@@ -60,3 +87,9 @@ void add_variable(CDF& cdf_file, const std::string& name, Variable&& var)
 }
 
 } // namespace cdf
+
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf::CDF& cdf_file)
+{
+    return cdf_file.__repr__(os);
+}

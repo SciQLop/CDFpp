@@ -51,7 +51,7 @@ List of features and roadmap:
     - [x] loads cdf files from memory (std::vector<char> or char*)
     - [x] handles both row and column major files
     - [x] read variables with nested VXRs
-    - [x] read compressed file (GZip, RLE)
+    - [x] read compressed files (GZip, RLE)
     - [x] read compressed variables (GZip, RLE)
     - [x] read UTF-8 encoded files
     - [x] read ISO 8859-1(Latin-1) encoded files (converts to UTF-8 on the fly)
@@ -59,14 +59,14 @@ List of features and roadmap:
     - [ ] decode DEC's floating point encoding (Itanium, ALPHA and VAX)
     - [ ] dimension variance (do not duplicate values when dimension variance is NOVARY)
 - CDF writing
-    - [ ] write uncompressed headers
-    - [ ] write uncompressed attributes
-    - [ ] write uncompressed variables
-    - [ ] write compressed attributes
-    - [ ] write compressed file variables
+    - [x] write uncompressed headers
+    - [x] write uncompressed attributes
+    - [x] write uncompressed variables
+    - [x] write compressed variables
+    - [x] write compressed files
 - General features
     - [x] uses [libdeflate](https://github.com/ebiggers/libdeflate) for faster GZip decompression
-    - [x] highly optimized CDF reads (up to 4GB/s read speed)
+    - [x] highly optimized CDF reads (up to ~4GB/s read speed from disk)
     - [x] handle leap seconds
     - [x] Python wrappers
     - [ ] Documentation

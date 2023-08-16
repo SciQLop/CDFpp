@@ -56,6 +56,23 @@ struct cdf_DR_header
     cdf_record_type record_type;
 };
 
+template <typename T, typename = void>
+struct is_cdf_DR_header : std::false_type
+{
+};
+
+template <typename T>
+struct is_cdf_DR_header<T,
+    decltype(std::is_same_v<cdf_DR_header<typename T::cdf_version_t, T::expected_record_type>, T>,
+        void())> : std::is_same<cdf_DR_header<typename T::cdf_version_t, T::expected_record_type>, T>
+{
+};
+
+template <typename T>
+static inline constexpr bool is_cdf_DR_header_v
+    = is_cdf_DR_header<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+
+
 template <typename version_t>
 struct cdf_CDR_t
 {

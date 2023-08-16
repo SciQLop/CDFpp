@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <ostream>
 #include <stdexcept>
 #include <vector>
 
@@ -272,7 +273,7 @@ struct nomap
         auto it = find(key);
         if (it == end())
         {
-            p_nodes.emplace_back(std::forward<Kt>(key), std::forward<Args>(args)...);
+            p_nodes.emplace_back(std::forward<Kt>(key), mapped_type{std::forward<Args>(args)...});
             return { p_nodes.end() - 1, true };
         }
         return { it, false };
@@ -289,3 +290,5 @@ private:
     }
     std::vector<value_type> p_nodes;
 };
+
+
