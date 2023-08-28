@@ -22,7 +22,7 @@ Indices and tables
 import numpy as np
 from ._pycdfpp import *
 from . import _pycdfpp
-from typing import ByteString
+from typing import ByteString, Mapping, List, Any
 import sys
 import os
 __here__ = os.path.dirname(os.path.abspath(__file__))
@@ -59,14 +59,15 @@ _NUMPY_TO_CDF_TYPE_ = (
     CDF_TIME_TT2000
 )
 
+
 def _values_from_np_array(values: np.ndarray, cdf_type=None):
     if values.dtype.num == 21:
         if cdf_type in (None, CDF_TIME_TT2000, CDF_EPOCH, CDF_EPOCH16):
             return (values.view(np.uint64),
-                             cdf_type or CDF_TIME_TT2000)
+                    cdf_type or CDF_TIME_TT2000)
     else:
         return (values, cdf_type or _NUMPY_TO_CDF_TYPE_[
-                         values.dtype.num])
+            values.dtype.num])
 
 
 def _patch_set_values():
@@ -75,18 +76,28 @@ def _patch_set_values():
 
     Variable.set_values = _set_values_wrapper
 
-def _patch_add_variable():
-        def _add_variable_wrapper(self,name:str, values: np.ndarray or None=None, cdf_type=None, is_nrv:bool=False,compression:CDF_compression_type=CDF_compression_type.no_compression):
-            if values is not None:
-                v,t=_values_from_np_array(values, cdf_type)
-                return self._add_variable(name=name, values=v, cdf_type=t, is_nrv=is_nrv, compression=compression)
-            else:
-                return self._add_variable(name=name, is_nrv=is_nrv, compression=compression)
 
-        CDF.add_variable = _add_variable_wrapper
+def _patch_add_variable():
+    def _add_variable_wrapper(self, name: str, values: np.ndarray or None = None, cdf_type=None, is_nrv: bool = False,
+                              compression: CDF_compression_type = CDF_compression_type.no_compression,
+                              attributes: Mapping[str, List[Any]] or None = None):
+        if values is not None:
+            v, t = _values_from_np_array(values, cdf_type)
+            var = self._add_variable(
+                name=name, values=v, cdf_type=t, is_nrv=is_nrv, compression=compression)
+        else:
+            var = self._add_variable(
+                name=name, is_nrv=is_nrv, compression=compression)
+        if attributes is not None and var is not None:
+            for name, values in attributes.items():
+                var.add_attribute(name, values)
+        return var
+    CDF.add_variable = _add_variable_wrapper
+
 
 _patch_set_values()
 _patch_add_variable()
+
 
 def to_datetime64(values):
     """
@@ -168,7 +179,7 @@ def to_epoch16(values):
     return _pycdfpp.to_epoch16(values)
 
 
-def load(file_or_buffer : str or ByteString, iso_8859_1_to_utf8:bool = False, lazy_load: bool =True):
+def load(file_or_buffer: str or ByteString, iso_8859_1_to_utf8: bool = False, lazy_load: bool = True):
     """
     Load and parse a CDF file.
 

@@ -24,6 +24,18 @@ class PycdfCreateCDFTest(unittest.TestCase):
         cdf = pycdfpp.CDF()
         cdf.add_attribute("test_attribute", [[1,2,3], [datetime(2018,1,1), datetime(2018,1,2)], "hello\nworld"])
 
+    def test_can_create_variable_and_attributes_at_once(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("test_variable", attributes={"attr1":[1,2,3], "attr2":[datetime(2018,1,1), datetime(2018,1,2)] })
+        self.assertListEqual(cdf["test_variable"].attributes["attr1"][0], [1,2,3])
+        self.assertListEqual(cdf["test_variable"].attributes["attr2"][0], [pycdfpp.to_tt2000(datetime(2018,1,1)), pycdfpp.to_tt2000(datetime(2018,1,2))])
+
+    def test_can_create_an_empty_variable(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("test_variable", values=np.ones((0,100,10), dtype=np.float32))
+        self.assertListEqual(cdf["test_variable"].shape, [0,100,10])
+
+
     def test_can_save_an_empty_CDF_object(self):
         with NamedTemporaryFile() as f:
             self.assertTrue(pycdfpp.save(pycdfpp.CDF(),f.name))

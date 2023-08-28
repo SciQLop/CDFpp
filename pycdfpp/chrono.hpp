@@ -32,6 +32,7 @@ using namespace cdf;
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/operators.h>
 
 namespace py = pybind11;
 
@@ -203,11 +204,14 @@ void def_time_types_wrapper(T& mod)
 {
     py::class_<tt2000_t>(mod, "tt2000_t")
         .def_readwrite("value", &tt2000_t::value)
+        .def(py::self == py::self)
         .def("__repr__", __repr__<tt2000_t>);
     py::class_<epoch>(mod, "epoch")
         .def_readwrite("value", &epoch::value)
+        .def(py::self == py::self)
         .def("__repr__", __repr__<epoch>);
     py::class_<epoch16>(mod, "epoch16")
+        .def(py::self == py::self)
         .def_readwrite("seconds", &epoch16::seconds)
         .def_readwrite("picoseconds", &epoch16::picoseconds)
         .def("__repr__", __repr__<epoch16>);
