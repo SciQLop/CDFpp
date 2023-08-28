@@ -32,7 +32,7 @@ class PycdfCreateCDFTest(unittest.TestCase):
         with NamedTemporaryFile() as f:
             cdf = pycdfpp.CDF()
             for dtype in (np.float64, np.float32, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32):
-                cdf.add_variable(f"test_{dtype}").set_values(np.ones((10),dtype=dtype))
+                cdf.add_variable(f"test_{dtype}", np.ones((10),dtype=dtype))
             self.assertTrue(pycdfpp.save(cdf,f.name))
 
     def test_can_save_a_CDF_object_with_several_numeric_nd_variables(self):
