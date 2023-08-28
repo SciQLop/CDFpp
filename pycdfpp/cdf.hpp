@@ -22,13 +22,14 @@
 #pragma once
 #include <cdfpp/attribute.hpp>
 #include <cdfpp/cdf-file.hpp>
-#include <cdfpp/no_init_vector.hpp>
-#include <cdfpp_config.h>
 #include <cdfpp/cdf-io/loading/loading.hpp>
 #include <cdfpp/cdf-io/saving/saving.hpp>
+#include <cdfpp/no_init_vector.hpp>
+#include <cdfpp_config.h>
 
-#include "repr.hpp"
 #include "attribute.hpp"
+#include "repr.hpp"
+#include "variable.hpp"
 
 
 using namespace cdf;
@@ -69,8 +70,9 @@ void def_cdf_wrapper(T& mod)
             py::keep_alive<0, 1>())
         .def("__len__", [](const CDF& cd) { return std::size(cd.variables); })
         .def(
-            "add_variable",
-            [](CDF& cdf, const std::string& name, bool is_nrv) -> Variable&
+            "_add_variable",
+            [](CDF& cdf, const std::string& name, bool is_nrv,
+                cdf_compression_type compression) -> Variable&
             {
                 if (cdf.variables.count(name) == 0)
                 {
@@ -84,7 +86,31 @@ void def_cdf_wrapper(T& mod)
                     throw std::invalid_argument { "Variable already exists" };
                 }
             },
-            py::arg("name"), py::arg("is_nrv") = false, py::return_value_policy::reference_internal)
+            py::arg("name"), py::arg("is_nrv") = false,
+            py::arg("compression") = cdf_compression_type::no_compression,
+            py::return_value_policy::reference_internal)
+        .def(
+            "_add_variable",
+            [](CDF& cdf, const std::string& name, const py::buffer& buffer, CDF_Types cdf_type,
+                bool is_nrv, cdf_compression_type compression) -> Variable&
+            {
+                if (cdf.variables.count(name) == 0)
+                {
+                    cdf.variables.emplace(name, name, std::size(cdf.variables), data_t {},
+                        typename Variable::shape_t {}, cdf_majority::row, is_nrv);
+                    auto& var = cdf[name];
+                    set_values(var, buffer, cdf_type);
+                    return var;
+                }
+                else
+                {
+                    throw std::invalid_argument { "Variable already exists" };
+                }
+            },
+            py::arg("name"), py::arg("values").noconvert(), py::arg("cdf_type"),
+            py::arg("is_nrv") = false,
+            py::arg("compression") = cdf_compression_type::no_compression,
+            py::return_value_policy::reference_internal)
         .def("add_attribute",
             static_cast<Attribute& (*)(CDF&, const std::string&, std::vector<py_cdf_attr_data_t>&)>(
                 add_attribute),
@@ -138,7 +164,7 @@ void def_cdf_saving_functions(T& mod)
         [](const CDF& cdf)
         {
             auto data = io::save(cdf);
-            return py::bytes{data.data(), std::size(data)};
+            return py::bytes { data.data(), std::size(data) };
         },
         py::arg("cdf"));
 }

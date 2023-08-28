@@ -96,6 +96,7 @@ sudo ninja install
 
 ## Python
 
+### Reading CDF files
 Basic example from a local file:
 
 ```python
@@ -153,6 +154,22 @@ epoch_dt = pycdfpp.to_datetime(mms2_fgm_srvy["Epoch"])
 epoch_dt64 = pycdfpp.to_datetime64(mms2_fgm_srvy["Epoch"])
 
 # note that using datetime64 is ~100x faster than datetime (~2ns/element on an average laptop)
+
+```
+
+### Writing CDF files
+
+Creating a basic CDF file:
+
+```python
+import pycdfpp
+import numpy as np
+from datetime import datetime
+
+cdf = pycdfpp.CDF()
+cdf.add_attribute("some attribute", [[1,2,3], [datetime(2018,1,1), datetime(2018,1,2)], "hello\nworld"])
+cdf.add_variable(f"some variable", values=np.ones((10),dtype=np.float64))
+pycdfpp.save(cdf, "some_cdf.cdf")
 
 ```
 

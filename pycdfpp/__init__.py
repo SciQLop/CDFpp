@@ -59,22 +59,34 @@ _NUMPY_TO_CDF_TYPE_ = (
     CDF_TIME_TT2000
 )
 
+def _values_from_np_array(values: np.ndarray, cdf_type=None):
+    if values.dtype.num == 21:
+        if cdf_type in (None, CDF_TIME_TT2000, CDF_EPOCH, CDF_EPOCH16):
+            return (values.view(np.uint64),
+                             cdf_type or CDF_TIME_TT2000)
+    else:
+        return (values, cdf_type or _NUMPY_TO_CDF_TYPE_[
+                         values.dtype.num])
+
 
 def _patch_set_values():
     def _set_values_wrapper(self, values: np.ndarray, cdf_type=None):
-        if values.dtype.num == 21:
-            if cdf_type in (None, CDF_TIME_TT2000, CDF_EPOCH, CDF_EPOCH16):
-                self._set_values(values.view(np.uint64),
-                                 cdf_type or CDF_TIME_TT2000)
-        else:
-            self._set_values(values, cdf_type or _NUMPY_TO_CDF_TYPE_[
-                             values.dtype.num])
+        self._set_values(*_values_from_np_array(values, cdf_type))
 
     Variable.set_values = _set_values_wrapper
 
+def _patch_add_variable():
+        def _add_variable_wrapper(self,name:str, values: np.ndarray or None=None, cdf_type=None, is_nrv:bool=False,compression:CDF_compression_type=CDF_compression_type.no_compression):
+            if values is not None:
+                v,t=_values_from_np_array(values, cdf_type)
+                return self._add_variable(name=name, values=v, cdf_type=t, is_nrv=is_nrv, compression=compression)
+            else:
+                return self._add_variable(name=name, is_nrv=is_nrv, compression=compression)
+
+        CDF.add_variable = _add_variable_wrapper
 
 _patch_set_values()
-
+_patch_add_variable()
 
 def to_datetime64(values):
     """
