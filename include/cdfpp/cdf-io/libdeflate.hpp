@@ -23,9 +23,9 @@
 #include "../cdf-debug.hpp"
 #include "cdfpp/no_init_vector.hpp"
 
+#include <cstddef>
 #include <libdeflate.h>
 #include <vector>
-#include <cstddef>
 
 namespace cdf::io::libdeflate
 {
@@ -38,8 +38,8 @@ namespace _internal
 
         auto decompressor = libdeflate_alloc_decompressor();
         std::size_t length;
-        auto result = libdeflate_gzip_decompress(decompressor, input.data(),
-            std::size(input), output, output_size, &length);
+        auto result = libdeflate_gzip_decompress(
+            decompressor, input.data(), std::size(input), output, output_size, &length);
         libdeflate_free_decompressor(decompressor);
         if (result == LIBDEFLATE_SUCCESS)
         {
@@ -52,15 +52,14 @@ namespace _internal
     }
 
     template <typename T>
-    CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(
-        const T& input)
+    CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(const T& input)
     {
-        no_init_vector<char> result(std::max(std::size(input),16*1024UL));
+        no_init_vector<char> result(std::max(std::size(input), std::size_t { 16 * 1024UL }));
         auto compressor = libdeflate_alloc_compressor(6);
-        auto compressed_size = libdeflate_gzip_compress(compressor, input.data(),
-            std::size(input), result.data(), std::size(result));
+        auto compressed_size = libdeflate_gzip_compress(
+            compressor, input.data(), std::size(input), result.data(), std::size(result));
         libdeflate_free_compressor(compressor);
-        if (compressed_size >0)
+        if (compressed_size > 0)
         {
             result.resize(compressed_size);
             result.shrink_to_fit();
