@@ -77,7 +77,7 @@ void def_cdf_wrapper(T& mod)
                 if (cdf.variables.count(name) == 0)
                 {
                     cdf.variables.emplace(name, name, std::size(cdf.variables), data_t {},
-                        typename Variable::shape_t {}, cdf_majority::row, is_nrv);
+                        typename Variable::shape_t {}, cdf_majority::row, is_nrv,compression);
                     auto& var = cdf[name];
                     return var;
                 }
@@ -97,7 +97,7 @@ void def_cdf_wrapper(T& mod)
                 if (cdf.variables.count(name) == 0)
                 {
                     cdf.variables.emplace(name, name, std::size(cdf.variables), data_t {},
-                        typename Variable::shape_t {}, cdf_majority::row, is_nrv);
+                        typename Variable::shape_t {}, cdf_majority::row, is_nrv,compression);
                     auto& var = cdf[name];
                     set_values(var, buffer, cdf_type);
                     return var;

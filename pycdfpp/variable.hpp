@@ -57,6 +57,18 @@ void _set_values(Variable& var, const py::buffer& buffer)
 }
 
 template <typename T>
+void _set_string_values(Variable& var, const py::buffer& buffer, CDF_Types cdf_type)
+{
+    py::buffer_info info = buffer.request();
+    typename Variable::shape_t shape(info.ndim + 1);
+    std::copy(std::cbegin(info.shape), std::cend(info.shape), std::begin(shape));
+    shape[info.ndim] = info.itemsize;
+    no_init_vector<T> values(flat_size(shape));
+    std::memcpy(values.data(), info.ptr, std::size(values));
+    var.set_data(data_t { std::move(values), cdf_type }, std::move(shape));
+}
+
+template <typename T>
 void _set_time_values(Variable& var, const py::buffer& buffer)
 {
     py::buffer_info info = buffer.request();
@@ -77,6 +89,12 @@ void set_values(Variable& var, const py::buffer& buffer, CDF_Types cdf_type)
 {
     switch (cdf_type)
     {
+        case cdf::CDF_Types::CDF_UCHAR: // string
+            _set_string_values<unsigned char>(var, buffer, cdf_type);
+            break;
+        case cdf::CDF_Types::CDF_CHAR: // string
+            _set_string_values<char>(var, buffer, cdf_type);
+            break;
         case cdf::CDF_Types::CDF_INT1: // int8
             _set_values<int8_t>(var, buffer);
             break;

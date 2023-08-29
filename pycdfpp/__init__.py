@@ -6,10 +6,10 @@ pycdfpp
 .. toctree::
     :maxdepth: 3
 
-#.. automodule:: pycdfpp._pycdfpp
-#   :members:
-#   :undoc-members:
-#   :show-inheritance:
+#..automodule::pycdfpp._pycdfpp
+# : members:
+# : undoc - members:
+# : show - inheritance:
 
 Indices and tables
 ------------------
@@ -53,26 +53,32 @@ _NUMPY_TO_CDF_TYPE_ = (
     CDF_NONE,
     CDF_NONE,
     CDF_NONE,
-    CDF_NONE,
+    CDF_CHAR,
     CDF_NONE,
     CDF_NONE,
     CDF_TIME_TT2000
 )
 
 
-def _values_from_np_array(values: np.ndarray, cdf_type=None):
-    if values.dtype.num == 21:
-        if cdf_type in (None, CDF_TIME_TT2000, CDF_EPOCH, CDF_EPOCH16):
-            return (values.view(np.uint64),
-                    cdf_type or CDF_TIME_TT2000)
+def _values_view_and_type(values: np.ndarray  or list, cdf_type=None):
+    if type(values) is list:
+        values = np.array(values)
+        if values.dtype.num == 19:
+            values = np.char.encode(values)
+        return _values_view_and_type(values, cdf_type)
     else:
-        return (values, cdf_type or _NUMPY_TO_CDF_TYPE_[
-            values.dtype.num])
+        if values.dtype.num == 21:
+            if cdf_type in (None, CDF_TIME_TT2000, CDF_EPOCH, CDF_EPOCH16):
+                return (values.view(np.uint64),
+                        cdf_type or CDF_TIME_TT2000)
+        else:
+            return (values, cdf_type or _NUMPY_TO_CDF_TYPE_[
+                values.dtype.num])
 
 
 def _patch_set_values():
     def _set_values_wrapper(self, values: np.ndarray, cdf_type=None):
-        self._set_values(*_values_from_np_array(values, cdf_type))
+        self._set_values(*_values_view_and_type(values, cdf_type))
 
     Variable.set_values = _set_values_wrapper
 
@@ -82,7 +88,7 @@ def _patch_add_variable():
                               compression: CDF_compression_type = CDF_compression_type.no_compression,
                               attributes: Mapping[str, List[Any]] or None = None):
         if values is not None:
-            v, t = _values_from_np_array(values, cdf_type)
+            v, t = _values_view_and_type(values, cdf_type)
             var = self._add_variable(
                 name=name, values=v, cdf_type=t, is_nrv=is_nrv, compression=compression)
         else:
@@ -106,7 +112,8 @@ def to_datetime64(values):
     Parameters
     ----------
     values: Variable or epoch or List[epoch] or numpy.ndarray[epoch] or epoch16 or List[epoch16] or numpy.ndarray[epoch16] or tt2000_t or List[tt2000_t] or numpy.ndarray[tt2000_t]
-        input value(s) to convert to numpy.datetime64
+        input value(s)
+to convert to numpy.datetime64
 
     Returns
     -------
@@ -122,7 +129,8 @@ def to_datetime(values):
     Parameters
     ----------
     values: Variable or epoch or List[epoch] or epoch16 or List[epoch16] or tt2000_t or List[tt2000_t]
-        input value(s) to convert to datetime.datetime
+        input value(s)
+to convert to datetime.datetime
 
     Returns
     -------
@@ -138,7 +146,8 @@ def to_tt2000(values):
     Parameters
     ----------
     values: datetime.datetime or List[datetime.datetime]
-        input value(s) to convert to CDF tt2000
+        input value(s)
+to convert to CDF tt2000
 
     Returns
     -------
@@ -154,7 +163,8 @@ def to_epoch(values):
     Parameters
     ----------
     values: datetime.datetime or List[datetime.datetime]
-        input value(s) to convert to CDF epoch
+        input value(s)
+to convert to CDF epoch
 
     Returns
     -------
@@ -170,7 +180,8 @@ def to_epoch16(values):
     Parameters
     ----------
     values: datetime.datetime or List[datetime.datetime]
-        input value(s) to convert to CDF epoch16
+        input value(s)
+to convert to CDF epoch16
 
     Returns
     -------

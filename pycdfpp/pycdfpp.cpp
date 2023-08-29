@@ -19,19 +19,19 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include <cdfpp/variable.hpp>
 #include <cdfpp/attribute.hpp>
 #include <cdfpp/cdf-map.hpp>
 #include <cdfpp/cdf-repr.hpp>
 #include <cdfpp/no_init_vector.hpp>
+#include <cdfpp/variable.hpp>
 #include <cdfpp_config.h>
 
 #include "attribute.hpp"
 #include "cdf.hpp"
 #include "chrono.hpp"
 #include "enums.hpp"
-#include "variable.hpp"
 #include "repr.hpp"
+#include "variable.hpp"
 
 using namespace cdf;
 
@@ -41,6 +41,8 @@ using namespace cdf;
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
+
+#include <fmt/ranges.h>
 
 PYBIND11_MAKE_OPAQUE(cdf_map<std::string, Attribute>);
 PYBIND11_MAKE_OPAQUE(cdf_map<std::string, Variable>);
@@ -87,7 +89,7 @@ auto def_cdf_map(T3& mod, const char* name)
 
 PYBIND11_MODULE(_pycdfpp, m)
 {
-    m.doc() =  R"pbdoc(
+    m.doc() = R"pbdoc(
         _pycdfpp
         --------
 
@@ -102,7 +104,6 @@ PYBIND11_MODULE(_pycdfpp, m)
     def_cdf_map<std::string, Attribute>(m, "AttributeMap");
 
 
-
     def_attribute_wrapper(m);
     def_variable_wrapper(m);
     def_time_conversion_functions(m);
@@ -110,4 +111,19 @@ PYBIND11_MODULE(_pycdfpp, m)
 
     def_cdf_loading_functions(m);
     def_cdf_saving_functions(m);
+    m.def("_buffer_info",
+        [](py::buffer& buff) -> std::string
+        {
+            auto info = buff.request();
+            return fmt::format(R"(
+format = {}
+itemsize = {}
+size = {}
+ndim = {}
+shape = [{}]
+strides = [{}]
+ )",
+                info.format, info.itemsize, info.size, info.ndim, fmt::join(info.shape, ", "),
+                fmt::join(info.strides, ", "));
+        });
 }

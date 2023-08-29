@@ -163,6 +163,7 @@ struct Variable
     }
 
     [[nodiscard]] const char* bytes_ptr() const noexcept { return _data().bytes_ptr(); }
+    [[nodiscard]] char* bytes_ptr() noexcept { return _data().bytes_ptr(); }
 
     [[nodiscard]] CDF_Types type() const
     {
