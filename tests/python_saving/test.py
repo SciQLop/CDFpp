@@ -35,6 +35,11 @@ class PycdfCreateCDFTest(unittest.TestCase):
         cdf.add_variable("test_variable", values=np.ones((0,100,10), dtype=np.float32))
         self.assertListEqual(cdf["test_variable"].shape, [0,100,10])
 
+    def test_can_create_an_nd_string_variable(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("test_1d_variable", values=["hello", "world"])
+        cdf.add_variable("test_2d_variable", values=[["hello", "world"], ["12345", "67890"]])
+        cdf.add_variable("utf8", ['ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ'])
 
     def test_can_save_an_empty_CDF_object(self):
         with NamedTemporaryFile() as f:

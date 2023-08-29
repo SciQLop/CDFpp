@@ -44,9 +44,18 @@ namespace _details
 
 [[nodiscard]] std::vector<ssize_t> shape_ssize_t(const Variable& var)
 {
-    auto shape = var.shape();
+    const auto& shape = var.shape();
     std::vector<ssize_t> res(std::size(shape));
     std::transform(std::cbegin(shape), std::cend(shape), std::begin(res),
+        [](auto v) { return static_cast<ssize_t>(v); });
+    return res;
+}
+
+[[nodiscard]] std::vector<ssize_t> str_shape_ssize_t(const Variable& var)
+{
+    const auto& shape = var.shape();
+    std::vector<ssize_t> res(std::size(shape) - 1);
+    std::transform(std::cbegin(shape), std::cend(shape) - 1, std::begin(res),
         [](auto v) { return static_cast<ssize_t>(v); });
     return res;
 }
@@ -54,10 +63,26 @@ namespace _details
 template <typename T>
 [[nodiscard]] std::vector<ssize_t> strides(const Variable& var)
 {
-    auto shape = var.shape();
+    const auto& shape = var.shape();
     std::vector<ssize_t> res(std::size(shape));
     std::transform(std::crbegin(shape), std::crend(shape), std::begin(res),
         [next = sizeof(T)](auto v) mutable
+        {
+            auto res = next;
+            next = static_cast<ssize_t>(v * next);
+            return res;
+        });
+    std::reverse(std::begin(res), std::end(res));
+    return res;
+}
+
+template <typename T>
+[[nodiscard]] std::vector<ssize_t> str_strides(const Variable& var)
+{
+    const auto& shape = var.shape();
+    std::vector<ssize_t> res(std::size(shape) - 1);
+    std::transform(std::crbegin(shape) + 1, std::crend(shape), std::begin(res),
+        [next = shape.back()](auto v) mutable
         {
             auto res = next;
             next = static_cast<ssize_t>(v * next);
@@ -130,11 +155,29 @@ template <CDF_Types T>
 [[nodiscard]] py::buffer_info impl_make_buffer(cdf::Variable& var)
 {
     using U = cdf::from_cdf_type_t<T>;
-    return py::buffer_info(var.get<T>().data(), /* Pointer to buffer */
-        sizeof(U), /* Size of one scalar */
-        py::format_descriptor<U>::format(),
-        static_cast<ssize_t>(std::size(var.shape())), /* Number of dimensions */
-        shape_ssize_t(var), strides<U>(var), true);
+    if constexpr ((T == CDF_Types::CDF_CHAR) or (T == CDF_Types::CDF_UCHAR))
+    {
+        return py::buffer_info(var.bytes_ptr(), /* Pointer to buffer */
+            var.shape().back(), /* Size of one scalar */
+            fmt::format("{}s", var.shape().back()),
+            static_cast<ssize_t>(std::size(var.shape()) - 1), /* Number of dimensions */
+            str_shape_ssize_t(var), str_strides<U>(var), true);
+    }
+    else
+    {
+        return py::buffer_info(var.bytes_ptr(), /* Pointer to buffer */
+            sizeof(U), /* Size of one scalar */
+            py::format_descriptor<U>::format(),
+            static_cast<ssize_t>(std::size(var.shape())), /* Number of dimensions */
+            shape_ssize_t(var), strides<U>(var), true);
+    }
+}
+
+template <CDF_Types data_t>
+[[nodiscard]] py::object make_str_values_view(py::object& obj)
+{
+    py::module_ np = py::module_::import("numpy");
+    return np.attr("char").attr("decode")(py::memoryview(obj));
 }
 
 }
@@ -145,9 +188,9 @@ template <CDF_Types T>
     switch (variable.type())
     {
         case cdf::CDF_Types::CDF_CHAR:
-            return _details::make_list<cdf::CDF_Types::CDF_CHAR>(variable, obj);
+            return _details::make_str_values_view<cdf::CDF_Types::CDF_CHAR>(obj);
         case cdf::CDF_Types::CDF_UCHAR:
-            return _details::make_list<cdf::CDF_Types::CDF_UCHAR>(variable, obj);
+            return _details::make_str_values_view<cdf::CDF_Types::CDF_UCHAR>(obj);
         case cdf::CDF_Types::CDF_INT1:
             return _details::make_array<CDF_Types::CDF_INT1>(variable, obj);
         case cdf::CDF_Types::CDF_INT2:
@@ -192,6 +235,10 @@ template <CDF_Types T>
     using namespace cdf;
     switch (variable.type())
     {
+        case CDF_Types::CDF_UCHAR:
+            return _details::impl_make_buffer<CDF_Types::CDF_UCHAR>(variable);
+        case CDF_Types::CDF_CHAR:
+            return _details::impl_make_buffer<CDF_Types::CDF_CHAR>(variable);
         case CDF_Types::CDF_INT1:
             return _details::impl_make_buffer<CDF_Types::CDF_INT1>(variable);
         case CDF_Types::CDF_INT2:
