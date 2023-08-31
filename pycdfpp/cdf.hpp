@@ -35,6 +35,7 @@
 using namespace cdf;
 
 #include <pybind11/pybind11.h>
+#include <pybind11/operators.h>
 
 namespace py = pybind11;
 
@@ -43,6 +44,8 @@ void def_cdf_wrapper(T& mod)
 {
     py::class_<CDF>(mod, "CDF")
         .def(py::init<>())
+        .def(py::self == py::self)
+        .def(py::self != py::self)
         .def_readonly("attributes", &CDF::attributes, py::return_value_policy::reference,
             py::keep_alive<0, 1>())
         .def_property_readonly("majority", [](const CDF& cdf) { return cdf.majority; })
@@ -77,7 +80,7 @@ void def_cdf_wrapper(T& mod)
                 if (cdf.variables.count(name) == 0)
                 {
                     cdf.variables.emplace(name, name, std::size(cdf.variables), data_t {},
-                        typename Variable::shape_t {}, cdf_majority::row, is_nrv,compression);
+                        typename Variable::shape_t {}, cdf_majority::row, is_nrv, compression);
                     auto& var = cdf[name];
                     return var;
                 }
@@ -97,7 +100,7 @@ void def_cdf_wrapper(T& mod)
                 if (cdf.variables.count(name) == 0)
                 {
                     cdf.variables.emplace(name, name, std::size(cdf.variables), data_t {},
-                        typename Variable::shape_t {}, cdf_majority::row, is_nrv,compression);
+                        typename Variable::shape_t {}, cdf_majority::row, is_nrv, compression);
                     auto& var = cdf[name];
                     set_values(var, buffer, cdf_type);
                     return var;
@@ -150,21 +153,25 @@ void def_cdf_loading_functions(T& mod)
         py::return_value_policy::move);
 }
 
+struct cdf_bytes
+{
+    no_init_vector<char> data;
+};
 
 template <typename T>
 void def_cdf_saving_functions(T& mod)
 {
+
     mod.def(
         "save",
         [](const CDF& cdf, const char* fname) { return io::save(cdf, std::string { fname }); },
         py::arg("cdf"), py::arg("fname"));
 
+
+    py::class_<cdf_bytes>(mod, "_cdf_bytes", py::buffer_protocol())
+        .def_buffer([](cdf_bytes& b) -> py::buffer_info
+            { return py::buffer_info(b.data.data(), std::size(b.data), true); });
+
     mod.def(
-        "save",
-        [](const CDF& cdf)
-        {
-            auto data = io::save(cdf);
-            return py::bytes { data.data(), std::size(data) };
-        },
-        py::arg("cdf"));
+        "save", [](const CDF& cdf) { return cdf_bytes { io::save(cdf) }; }, py::arg("cdf"));
 }
