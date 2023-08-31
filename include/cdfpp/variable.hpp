@@ -105,6 +105,14 @@ struct Variable
     {
     }
 
+    inline bool operator==(const Variable& other) const
+    {
+        return other.p_name == p_name && other.p_is_nrv == p_is_nrv && other.p_compression == p_compression && other.p_shape == p_shape &&
+            other.attributes == attributes && other._data() == _data();
+    }
+
+    inline bool operator!=(const Variable& other) const { return !(*this == other); }
+
 
     template <CDF_Types type>
     [[nodiscard]] decltype(auto) get()

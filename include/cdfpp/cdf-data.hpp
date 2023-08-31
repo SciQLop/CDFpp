@@ -77,6 +77,13 @@ struct data_t
     data_t& operator=(data_t&& other);
     data_t& operator=(const data_t& other);
 
+    inline bool operator==(const data_t& other) const
+    {
+        return other.p_type == p_type && other.p_values == p_values;
+    }
+
+    inline bool operator!=(const data_t& other) const { return !(*this == other); }
+
     data_t() : p_values { cdf_none {} }, p_type { CDF_Types::CDF_NONE } { }
     data_t(const data_t& other) = default;
     data_t(data_t&& other) = default;

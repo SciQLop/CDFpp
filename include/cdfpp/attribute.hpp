@@ -42,6 +42,13 @@ struct Attribute
         this->data = std::move(data);
     }
 
+    inline bool operator==(const Attribute& other) const
+    {
+        return other.name == name && other.data == data;
+    }
+
+    inline bool operator!=(const Attribute& other) const { return !(*this == other); }
+
     template <CDF_Types type>
     [[nodiscard]] inline decltype(auto) get(std::size_t index)
     {
