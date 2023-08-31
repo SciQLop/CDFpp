@@ -18,6 +18,7 @@ def make_cdf():
     cdf.add_variable("utf8", ['ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ'])
     cdf.add_variable("utf8_arr", np.array(['ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ']))
     cdf.add_variable("test_CDF_TIME_TT2000").set_values(np.arange(1e18,11e17,1e16, dtype=np.int64).astype("datetime64[ns]"), pycdfpp.CDF_TIME_TT2000)
+    cdf.add_variable("test_CDF_TIME_TT2000_2").set_values(np.arange(1e12,11e11,1e10, dtype=np.int64).astype("datetime64[ms]"), pycdfpp.CDF_TIME_TT2000)
     return cdf
 
 class PycdfCreateCDFTest(unittest.TestCase):
