@@ -11,10 +11,26 @@ import pycdfpp
 
 os.environ['TZ'] = 'UTC'
 
+def make_cdf():
+    cdf = pycdfpp.CDF()
+    cdf.add_attribute("test_attribute", [[1,2,3], [datetime(2018,1,1), datetime(2018,1,2)], "hello\nworld"])
+    cdf.add_variable("test_variable", attributes={"attr1":[1,2,3], "attr2":[datetime(2018,1,1), datetime(2018,1,2)] })
+    cdf.add_variable("utf8", ['ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ'])
+    cdf.add_variable("utf8_arr", np.array(['ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ']))
+    cdf.add_variable("test_CDF_TIME_TT2000").set_values(np.arange(1e18,11e17,1e16, dtype=np.int64).astype("datetime64[ns]"), pycdfpp.CDF_TIME_TT2000)
+    return cdf
+
 class PycdfCreateCDFTest(unittest.TestCase):
     def test_can_create_an_empty_CDF_object(self):
         cdf = pycdfpp.CDF()
         self.assertIsNotNone(cdf)
+
+    def test_compare_identical_cdfs(self):
+        self.assertEqual(make_cdf(),make_cdf())
+        self.assertEqual(pycdfpp.CDF(),pycdfpp.CDF())
+
+    def test_compare_differents_cdfs(self):
+        self.assertEqual(make_cdf(),pycdfpp.CDF())
 
     def test_inmemory_save_load_empty_CDF_object(self):
         cdf = pycdfpp.CDF()
@@ -40,6 +56,8 @@ class PycdfCreateCDFTest(unittest.TestCase):
         cdf.add_variable("test_1d_variable", values=["hello", "world"])
         cdf.add_variable("test_2d_variable", values=[["hello", "world"], ["12345", "67890"]])
         cdf.add_variable("utf8", ['ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ'])
+        cdf.add_variable("utf8_arr", np.array(['ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ']))
+        self.assertTrue(pycdfpp.load(pycdfpp.save(cdf)) == cdf)
 
     def test_can_save_an_empty_CDF_object(self):
         with NamedTemporaryFile() as f:

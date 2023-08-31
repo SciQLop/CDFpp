@@ -40,6 +40,37 @@ using namespace cdf;
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
+#include <pybind11/operators.h>
+
+namespace  docstrings
+{
+constexpr auto _Variable = R"(
+A CDF Variable (either R or Z variable)
+
+Attributes
+----------
+attributes: dict
+    variable attributes
+name: str
+    variable name
+type: CDF_Types
+    variable data type (ie CDF_DOUBLE, CDF_TIME_TT2000, ...)
+shape: List[int]
+    variable shape (records + record shape)
+majority: cdf_majority
+    variable majority as writen in the CDF file, note that pycdfpp will always expose row major data.
+values_loaded: bool
+    True if values are availbale in memory, this is usefull with lazy loading to know if values are already loaded.
+compression: cdf_compression_type
+    variable compression type (supported values are no_compression, rle_compression, gzip_compression)
+values: numpy.array
+    returns variable values as a numpy.array of the corresponding dtype and shape, note that no copies are involved, the returned array is just a view on variable data.
+values_encoded: numpy.array
+    same as `values` except that string variable are encoded wihch involves a data copy and since numpy uses UTF-32, expect a 4x memory increase for string values
+
+)";
+
+}
 
 namespace py = pybind11;
 
@@ -141,8 +172,10 @@ void set_values(Variable& var, const py::buffer& buffer, CDF_Types cdf_type)
 template <typename T>
 void def_variable_wrapper(T& mod)
 {
-    py::class_<Variable>(mod, "Variable", py::buffer_protocol())
+    py::class_<Variable>(mod, "Variable", py::buffer_protocol(), docstrings::_Variable)
         .def("__repr__", __repr__<Variable>)
+        .def(py::self == py::self)
+        .def(py::self != py::self)
         .def_readonly(
             "attributes", &Variable::attributes, py::return_value_policy::reference_internal)
         .def_property_readonly("name", &Variable::name)
@@ -152,7 +185,8 @@ void def_variable_wrapper(T& mod)
         .def_property_readonly("values_loaded", &Variable::values_loaded)
         .def_property("compression", &Variable::compression_type, &Variable::set_compression_type)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
-        .def_property_readonly("values", make_values_view, py::keep_alive<0, 1>())
+        .def_property_readonly("values", make_values_view<false>, py::keep_alive<0, 1>())
+        .def_property_readonly("values_encoded", make_values_view<true>, py::keep_alive<0, 1>())
         .def("_set_values", set_values, py::arg("values").noconvert(), py::arg("cdf_type"))
         .def("add_attribute",
             static_cast<Attribute& (*)(Variable&, const std::string&, py_cdf_attr_data_t&)>(

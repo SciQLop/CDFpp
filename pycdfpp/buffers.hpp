@@ -173,24 +173,33 @@ template <CDF_Types T>
     }
 }
 
-template <CDF_Types data_t>
-[[nodiscard]] py::object make_str_values_view(py::object& obj)
+template <CDF_Types data_t, bool encode_strings>
+[[nodiscard]] py::object make_str_array(py::object& obj)
 {
     py::module_ np = py::module_::import("numpy");
-    return np.attr("char").attr("decode")(py::memoryview(obj));
-}
+    if constexpr(encode_strings)
+    {
+        return np.attr("char").attr("decode")(py::memoryview(obj));
+    }
+    else
+    {
+        return np.attr("array")(py::memoryview(obj));
+    }
 
 }
 
+}
+
+template <bool encode_strings>
 [[nodiscard]] py::object make_values_view(py::object& obj)
 {
     Variable& variable = obj.cast<Variable&>();
     switch (variable.type())
     {
         case cdf::CDF_Types::CDF_CHAR:
-            return _details::make_str_values_view<cdf::CDF_Types::CDF_CHAR>(obj);
+            return _details::make_str_array<cdf::CDF_Types::CDF_CHAR, encode_strings>(obj);
         case cdf::CDF_Types::CDF_UCHAR:
-            return _details::make_str_values_view<cdf::CDF_Types::CDF_UCHAR>(obj);
+            return _details::make_str_array<cdf::CDF_Types::CDF_UCHAR, encode_strings>(obj);
         case cdf::CDF_Types::CDF_INT1:
             return _details::make_array<CDF_Types::CDF_INT1>(variable, obj);
         case cdf::CDF_Types::CDF_INT2:

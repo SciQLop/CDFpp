@@ -40,6 +40,7 @@ using namespace cdf;
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
+#include <pybind11/operators.h>
 
 namespace py = pybind11;
 
@@ -199,6 +200,8 @@ void def_attribute_wrapper(T& mod)
 {
     py::class_<Attribute>(mod, "Attribute")
         .def_property_readonly("name", [](Attribute& attr) { return attr.name; })
+        .def(py::self == py::self)
+        .def(py::self != py::self)
         .def("__repr__", __repr__<Attribute>)
         .def(
             "__getitem__",

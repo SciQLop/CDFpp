@@ -74,37 +74,37 @@ variables = {
 'empty_var_recvary_string':{
     'shape':[0,16],
     'type':pycdfpp.CDF_CHAR,
-    'values': [],
+    'values': np.array([], dtype='|S16'),
     'attributes':{}
 },
 'var_recvary_string':{
     'shape':[3,3],
     'type':pycdfpp.CDF_CHAR,
-    'values': ['001', '002', '003'],
+    'values': np.char.encode(['001', '002', '003']),
     'attributes':{}
 },
 'var_string':{
     'shape':[16],
     'type':pycdfpp.CDF_CHAR,
-    'values': 'This is a string',
+    'values': np.char.encode(['This is a string']),
     'attributes':{}
 },
 'var_string_uchar':{
     'shape':[16],
     'type':pycdfpp.CDF_UCHAR,
-    'values': 'This is a string',
+    'values': np.char.encode(['This is a string']),
     'attributes':{}
 },
 'var2d_string':{
     'shape':[2,18],
     'type':pycdfpp.CDF_CHAR,
-    'values': ['This is a string 1','This is a string 2'],
+    'values': np.char.encode(['This is a string 1','This is a string 2']),
     'attributes':{}
 },
 'var3d_string':{
     'shape':[2,2,9],
     'type':pycdfpp.CDF_CHAR,
-    'values': [['value[00]','value[01]'],['value[10]','value[11]']],
+    'values': np.char.encode([['value[00]','value[01]'],['value[10]','value[11]']]),
     'attributes':{}
 }
 }
