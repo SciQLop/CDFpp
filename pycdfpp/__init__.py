@@ -6,11 +6,6 @@ pycdfpp
 .. toctree::
     :maxdepth: 3
 
-#..automodule::pycdfpp._pycdfpp
-# : members:
-# : undoc - members:
-# : show - inheritance:
-
 Indices and tables
 ------------------
 * :ref:`genindex`
@@ -64,13 +59,15 @@ def _values_view_and_type(values: np.ndarray  or list, cdf_type=None):
     if type(values) is list:
         values = np.array(values)
         if values.dtype.num == 19:
-            values = np.char.encode(values)
+            values = np.char.encode(values, encoding='utf-8')
         return _values_view_and_type(values, cdf_type)
     else:
         if values.dtype.num == 21:
             if cdf_type in (None, CDF_TIME_TT2000, CDF_EPOCH, CDF_EPOCH16):
                 return (values.view(np.uint64),
                         cdf_type or CDF_TIME_TT2000)
+        if values.dtype.num == 19:
+            return _values_view_and_type(np.char.encode(values, encoding='utf-8'), cdf_type)
         else:
             return (values, cdf_type or _NUMPY_TO_CDF_TYPE_[
                 values.dtype.num])
