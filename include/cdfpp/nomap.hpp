@@ -110,6 +110,20 @@ struct nomap
     nomap& operator=(const nomap&) = default;
     nomap& operator=(nomap&&) = default;
 
+    inline bool operator==(const nomap& other) const
+    {
+        for (const auto& node : p_nodes)
+        {
+            if (!other.count(node.key()))
+                return false;
+            if (other[node.key()] != node.mapped())
+                return false;
+        }
+        return true;
+    }
+
+    inline bool operator!=(const nomap& other) const { return !(*this == other); }
+
     [[nodiscard]] inline bool empty() const noexcept { return p_nodes.empty(); }
     [[nodiscard]] inline size_type size() const noexcept { return std::size(p_nodes); }
 
@@ -273,7 +287,8 @@ struct nomap
         auto it = find(key);
         if (it == end())
         {
-            p_nodes.emplace_back(std::forward<Kt>(key), mapped_type{std::forward<Args>(args)...});
+            p_nodes.emplace_back(
+                std::forward<Kt>(key), mapped_type { std::forward<Args>(args)... });
             return { p_nodes.end() - 1, true };
         }
         return { it, false };
@@ -290,5 +305,3 @@ private:
     }
     std::vector<value_type> p_nodes;
 };
-
-

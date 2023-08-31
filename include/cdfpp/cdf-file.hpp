@@ -52,6 +52,13 @@ struct CDF
     CDF& operator=(CDF&&) = default;
     CDF& operator=(const CDF&) = default;
 
+    inline bool operator==(const CDF& other) const
+    {
+        return (other.attributes == attributes) && (other.variables == variables);
+    }
+
+    inline bool operator!=(const CDF& other) const { return !(*this == other); }
+
     [[nodiscard]] const Variable& operator[](const std::string& name) const
     {
         return variables.at(name);
@@ -65,7 +72,8 @@ struct CDF
            << indent + 2
            << fmt::format("version: {}.{}.{}\n", std::get<0>(distribution_version),
                   std::get<1>(distribution_version), std::get<2>(distribution_version))
-           << indent + 2 << majority <<'\n' << indent + 2 << compression << "\n\nAttributes:\n";
+           << indent + 2 << majority << '\n'
+           << indent + 2 << compression << "\n\nAttributes:\n";
         std::for_each(std::cbegin(attributes), std::cend(attributes),
             [&os, indent](const auto& item) { item.second.__repr__(os, indent + 2); });
         os << indent << "\nVariables:\n";
