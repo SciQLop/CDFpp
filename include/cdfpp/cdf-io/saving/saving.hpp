@@ -203,7 +203,13 @@ namespace saving
             svg_ctx.cpr = make_cpr(cdf.compression);
         }
         svg_ctx.body.cdr.record
-            = cdf_CDR_t<v3x_tag> { {}, 0, 3, 8, CDFpp_ENCODING, 3, 0, 0, 0, 2, 0, { "" } };
+            = cdf_CDR_t<v3x_tag> { {}, 0, 3, 8, CDFpp_ENCODING, 3, 0, 0, 0, 2, 0, { R"(
+Common Data Format (CDF)\nhttps://cdf.gsfc.nasa.gov
+Space Physics Data Facility
+NASA/Goddard Space Flight Center
+Greenbelt, Maryland 20771 USA
+(User support: gsfc-cdf-support@lists.nasa.gov)
+)" } };
         svg_ctx.body.gdr.record = { {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {} };
         update_size(svg_ctx.body.cdr);
         update_size(svg_ctx.body.gdr);
