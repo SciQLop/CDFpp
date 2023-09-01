@@ -21,15 +21,16 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
-#include "cdfpp/cdf-debug.hpp"
 #include <chrono>
 #include <utility>
 #include <array>
-#include "cdf-chrono-constants.hpp"
 namespace cdf::chrono::leap_seconds
 {    
 using namespace std::chrono;
-constexpr std::array leap_seconds_tt2000 = 
+
+    static inline constexpr uint32_t last_updated = 20170101;
+
+    constexpr std::array leap_seconds_tt2000 = 
     {// ('1', 'Jan', '1972')
     std::pair{ 63072000000000000  , 10000000000},
 // ('1', 'Jul', '1972')

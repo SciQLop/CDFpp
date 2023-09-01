@@ -32,6 +32,7 @@
 #include "./records-saving.hpp"
 #include "cdfpp/cdf-enums.hpp"
 #include "cdfpp/cdf-file.hpp"
+#include "cdfpp/chrono/cdf-leap-seconds.h"
 #include "cdfpp/no_init_vector.hpp"
 #include "cdfpp_config.h"
 #include <algorithm>
@@ -210,7 +211,8 @@ NASA/Goddard Space Flight Center
 Greenbelt, Maryland 20771 USA
 (User support: gsfc-cdf-support@lists.nasa.gov)
 )" } };
-        svg_ctx.body.gdr.record = { {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, {} };
+        svg_ctx.body.gdr.record
+            = { {}, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, chrono::leap_seconds::last_updated, 0, {} };
         update_size(svg_ctx.body.cdr);
         update_size(svg_ctx.body.gdr);
         return svg_ctx;
