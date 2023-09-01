@@ -71,6 +71,7 @@ namespace
         cdf.variables = std::move(repr.variables);
         cdf.lazy_loaded = repr.lazy;
         cdf.compression = repr.compression_type;
+        //cdf.leap_second_last_updated = repr.leap_second_last_updated;
         return cdf;
     }
 
