@@ -17,8 +17,8 @@ def make_cdf():
     cdf.add_variable("test_variable", attributes={"attr1":[1,2,3], "attr2":[datetime(2018,1,1), datetime(2018,1,2)] })
     cdf.add_variable("utf8", ['ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ'])
     cdf.add_variable("utf8_arr", np.array(['ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ']))
-    cdf.add_variable("test_CDF_TIME_TT2000").set_values(np.arange(1e18,11e17,1e16, dtype=np.int64).astype("datetime64[ns]"), pycdfpp.CDF_TIME_TT2000)
-    cdf.add_variable("test_CDF_TIME_TT2000_2").set_values(np.arange(1e12,11e11,1e10, dtype=np.int64).astype("datetime64[ms]"), pycdfpp.CDF_TIME_TT2000)
+    cdf.add_variable("test_CDF_TIME_TT2000").set_values(np.arange(1e18,11e17,1e16, dtype=np.int64).astype("datetime64[ns]"), pycdfpp.DataType.CDF_TIME_TT2000)
+    cdf.add_variable("test_CDF_TIME_TT2000_2").set_values(np.arange(1e12,11e11,1e10, dtype=np.int64).astype("datetime64[ms]"), pycdfpp.DataType.CDF_TIME_TT2000)
     return cdf
 
 class PycdfCreateCDFTest(unittest.TestCase):
@@ -50,7 +50,7 @@ class PycdfCreateCDFTest(unittest.TestCase):
     def test_can_create_an_empty_variable(self):
         cdf = pycdfpp.CDF()
         cdf.add_variable("test_variable", values=np.ones((0,100,10), dtype=np.float32))
-        self.assertListEqual(cdf["test_variable"].shape, [0,100,10])
+        self.assertEqual(cdf["test_variable"].shape, (0,100,10))
 
     def test_can_create_an_nd_string_variable(self):
         cdf = pycdfpp.CDF()
@@ -81,7 +81,7 @@ class PycdfCreateCDFTest(unittest.TestCase):
     def test_can_save_a_CDF_object_with_several_datetime_variables(self):
         with NamedTemporaryFile() as f:
             cdf = pycdfpp.CDF()
-            for cdf_type in (pycdfpp.CDF_TIME_TT2000, pycdfpp.CDF_EPOCH, pycdfpp.CDF_EPOCH16):
+            for cdf_type in (pycdfpp.DataType.CDF_TIME_TT2000, pycdfpp.DataType.CDF_EPOCH, pycdfpp.DataType.CDF_EPOCH16):
                 cdf.add_variable(f"test_{cdf_type}").set_values(np.arange(1e18,11e17,1e16, dtype=np.int64).astype("datetime64[ns]"), cdf_type)
             self.assertTrue(pycdfpp.save(cdf,f.name))
 
@@ -90,7 +90,7 @@ class PycdfCreateCDFTest(unittest.TestCase):
             cdf = pycdfpp.CDF()
             for dtype in (np.float64, np.float32, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32):
                 cdf.add_variable(f"test_{dtype}").set_values(np.ones((3,2,1),dtype=dtype))
-            cdf.compression = pycdfpp.CDF_compression_type.gzip_compression
+            cdf.compression = pycdfpp.CompressionType.gzip_compression
             self.assertTrue(pycdfpp.save(cdf,f.name))
 
 if __name__ == '__main__':

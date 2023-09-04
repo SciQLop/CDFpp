@@ -31,18 +31,18 @@ namespace py = pybind11;
 template <typename T>
 void def_enums_wrappers(T& mod)
 {
-    py::enum_<cdf_majority>(mod, "CDF_majority")
+    py::enum_<cdf_majority>(mod, "Majority")
         .value("row", cdf_majority::row)
         .value("column", cdf_majority::column);
 
-    py::enum_<cdf_compression_type>(mod, "CDF_compression_type")
+    py::enum_<cdf_compression_type>(mod, "CompressionType")
         .value("no_compression", cdf_compression_type::no_compression)
         .value("gzip_compression", cdf_compression_type::gzip_compression)
         .value("rle_compression", cdf_compression_type::rle_compression)
         .value("ahuff_compression", cdf_compression_type::ahuff_compression)
         .value("huff_compression", cdf_compression_type::huff_compression);
 
-    py::enum_<CDF_Types>(mod, "CDF_Types")
+    py::enum_<CDF_Types>(mod, "DataType")
         .value("CDF_BYTE", CDF_Types::CDF_BYTE)
         .value("CDF_CHAR", CDF_Types::CDF_CHAR)
         .value("CDF_INT1", CDF_Types::CDF_INT1)
@@ -60,6 +60,5 @@ void def_enums_wrappers(T& mod)
         .value("CDF_UINT4", CDF_Types::CDF_UINT4)
         .value("CDF_DOUBLE", CDF_Types::CDF_DOUBLE)
         .value("CDF_EPOCH16", CDF_Types::CDF_EPOCH16)
-        .value("CDF_TIME_TT2000", CDF_Types::CDF_TIME_TT2000)
-        .export_values();
+        .value("CDF_TIME_TT2000", CDF_Types::CDF_TIME_TT2000);
 }

@@ -144,7 +144,9 @@ cdfpp_extra_files = files(
     'docs/contributing.rst',
     'docs/history.rst',
     'docs/installation.rst',
-    'docs/examples/index.rst'
+    'docs/examples/index.rst',
+    'docs/examples/Loading_CDF.ipynb',
+    'docs/examples/Creating_CDF.ipynb'
 )
 
 

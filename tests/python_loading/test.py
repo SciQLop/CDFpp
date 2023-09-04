@@ -12,98 +12,98 @@ os.environ['TZ'] = 'UTC'
 
 variables = {
 'epoch':{
-    'shape':[101],
-    'type':pycdfpp.CDF_EPOCH,
+    'shape':(101,),
+    'type':pycdfpp.DataType.CDF_EPOCH,
     'values': [datetime(1970,1,1)+timedelta(days=180*i) for i in range(101)],
     'attributes':{'epoch_attr':["a variable attribute"]}
 },
 'tt2000':{
-    'shape':[101],
-    'type':pycdfpp.CDF_TIME_TT2000,
+    'shape':(101,),
+    'type':pycdfpp.DataType.CDF_TIME_TT2000,
     'values': [datetime(1970,1,1)+timedelta(days=180*i) for i in range(101)],
     'attributes':{}
 },
 'epoch16':{
-    'shape':[101],
-    'type':pycdfpp.CDF_EPOCH16,
+    'shape':(101,),
+    'type':pycdfpp.DataType.CDF_EPOCH16,
     'values': [datetime(1970,1,1)+timedelta(days=180*i) for i in range(101)],
     'attributes':{}
 },
 'var':{
-    'shape':[101],
-    'type':pycdfpp.CDF_DOUBLE,
+    'shape':(101,),
+    'type':pycdfpp.DataType.CDF_DOUBLE,
     'values':np.cos(np.arange(0.,(101)/100*2.*math.pi,2.*math.pi/100)),
     'attributes':{'var_attr':["a variable attribute"], "DEPEND0":["epoch"]}
 },
 'zeros':{
-    'shape':[2048],
-    'type':pycdfpp.CDF_DOUBLE,
+    'shape':(2048,),
+    'type':pycdfpp.DataType.CDF_DOUBLE,
     'values':np.zeros(2048),
     'attributes':{'attr1':["attr1_value"]}
 },
 'bytes':{
-    'shape':[10],
-    'type':pycdfpp.CDF_BYTE,
+    'shape':(10,),
+    'type':pycdfpp.DataType.CDF_BYTE,
     'values':np.ones(10),
     'attributes':{'attr1':["attr1_value"]}
 },
 'var2d':{
-    'shape':[3,4],
-    'type':pycdfpp.CDF_DOUBLE,
+    'shape':(3,4),
+    'type':pycdfpp.DataType.CDF_DOUBLE,
     'values': np.ones((3,4)),
     'attributes':{'attr1':["attr1_value"], 'attr2':["attr2_value"]}
 },
 'var2d_counter':{
-    'shape':[10,10],
-    'type':pycdfpp.CDF_DOUBLE,
+    'shape':(10,10),
+    'type':pycdfpp.DataType.CDF_DOUBLE,
     'values':np.arange(100, dtype=np.float64).reshape(10,10),
     'attributes':{}
 },
 'var3d_counter':{
-    'shape':[3,3,3],
-    'type':pycdfpp.CDF_DOUBLE,
+    'shape':(3,3,3),
+    'type':pycdfpp.DataType.CDF_DOUBLE,
     'values': np.arange(3**3, dtype=np.float64).reshape(3,3,3),
     'attributes':{'attr1':["attr1_value"], 'attr2':["attr2_value"]}
 },
 'var3d':{
-    'shape':[4,3,2],
-    'type':pycdfpp.CDF_DOUBLE,
+    'shape':(4,3,2),
+    'type':pycdfpp.DataType.CDF_DOUBLE,
     'values': np.ones((4,3,2)),
     'attributes':{"var3d_attr_multi":[[10,11]]}
 },
 'empty_var_recvary_string':{
-    'shape':[0,16],
-    'type':pycdfpp.CDF_CHAR,
+    'shape':(0,16),
+    'type':pycdfpp.DataType.CDF_CHAR,
     'values': np.array([], dtype='|S16'),
     'attributes':{}
 },
 'var_recvary_string':{
-    'shape':[3,3],
-    'type':pycdfpp.CDF_CHAR,
+    'shape':(3,3),
+    'type':pycdfpp.DataType.CDF_CHAR,
     'values': np.char.encode(['001', '002', '003']),
     'attributes':{}
 },
 'var_string':{
-    'shape':[16],
-    'type':pycdfpp.CDF_CHAR,
+    'shape':(16,),
+    'type':pycdfpp.DataType.CDF_CHAR,
     'values': np.char.encode(['This is a string']),
     'attributes':{}
 },
 'var_string_uchar':{
-    'shape':[16],
-    'type':pycdfpp.CDF_UCHAR,
+    'shape':(16,),
+    'type':pycdfpp.DataType.CDF_UCHAR,
     'values': np.char.encode(['This is a string']),
     'attributes':{}
 },
 'var2d_string':{
-    'shape':[2,18],
-    'type':pycdfpp.CDF_CHAR,
+    'shape':(2,18),
+    'type':pycdfpp.DataType.CDF_CHAR,
     'values': np.char.encode(['This is a string 1','This is a string 2']),
     'attributes':{}
 },
 'var3d_string':{
-    'shape':[2,2,9],
-    'type':pycdfpp.CDF_CHAR,
+    'shape':(2,2,9),
+    'type':pycdfpp.DataType.CDF_CHAR,
     'values': np.char.encode([['value[00]','value[01]'],['value[10]','value[11]']]),
     'attributes':{}
 }
@@ -216,7 +216,7 @@ class PycdfTest(unittest.TestCase):
     def test_non_string_vars_implements_buffer_protocol(self):
         for cdf in self.cdfs:
             for name,var in cdf.items():
-                if var.type not in (pycdfpp.CDF_CHAR, pycdfpp.CDF_UCHAR):
+                if var.type not in (pycdfpp.DataType.CDF_CHAR, pycdfpp.DataType.CDF_UCHAR):
                     arr_from_buffer = np.array(var)
                     self.assertTrue(np.all(arr_from_buffer==var.values))
 
@@ -238,11 +238,11 @@ class PycdfTest(unittest.TestCase):
                 self.assertEqual(v_exp['shape'], var.shape)
                 self.assertEqual(v_exp['type'], var.type)
                 self.assertTrue(compare_attributes(var.attributes, v_exp['attributes']), f"Broken var: {name}")
-                if var.type in [pycdfpp.CDF_EPOCH, pycdfpp.CDF_EPOCH16]:
+                if var.type in [pycdfpp.DataType.CDF_EPOCH, pycdfpp.DataType.CDF_EPOCH16]:
                     self.assertTrue(np.all(v_exp['values'] == pycdfpp.to_datetime(var)), f"Broken var: {name}")
-                elif var.type == pycdfpp.CDF_TIME_TT2000:
+                elif var.type == pycdfpp.DataType.CDF_TIME_TT2000:
                     self.assertTrue(np.all(v_exp['values'][5:] == pycdfpp.to_datetime(var)[5:]), f"Broken var: {name}")
-                elif var.type == pycdfpp.CDF_DOUBLE:
+                elif var.type == pycdfpp.DataType.CDF_DOUBLE:
                     self.assertTrue(np.allclose(v_exp['values'], var.values, rtol=1e-10, atol=0.), f"Broken var: {name}, values: {var.values}")
                 else:
                     self.assertTrue(np.all(v_exp['values']== var.values), f"Broken var: {name}, values: {var.values}")
@@ -251,11 +251,11 @@ class PycdfTest(unittest.TestCase):
 class PycdfNonRegression(unittest.TestCase):
     def test_ace_h0_mfi_bgsm_shape(self):
         cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/ac_h0_mfi_00000000_v01.cdf')
-        self.assertEqual(cdf['BGSM'].shape, [0, 3])
+        self.assertEqual(cdf['BGSM'].shape, (0, 3))
 
     def test_ace_h0_mfi_label_time_shape(self):
         cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/ac_h0_mfi_00000000_v01.cdf')
-        self.assertEqual(cdf['label_time'].shape, [3, 27])
+        self.assertEqual(cdf['label_time'].shape, (3, 27))
 
 if __name__ == '__main__':
     unittest.main()

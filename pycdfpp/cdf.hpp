@@ -94,7 +94,7 @@ void def_cdf_wrapper(T& mod)
             py::return_value_policy::reference_internal)
         .def(
             "_add_variable",
-            [](CDF& cdf, const std::string& name, const py::buffer& buffer, CDF_Types cdf_type,
+            [](CDF& cdf, const std::string& name, const py::buffer& buffer, CDF_Types data_type,
                 bool is_nrv, cdf_compression_type compression) -> Variable&
             {
                 if (cdf.variables.count(name) == 0)
@@ -102,7 +102,7 @@ void def_cdf_wrapper(T& mod)
                     cdf.variables.emplace(name, name, std::size(cdf.variables), data_t {},
                         typename Variable::shape_t {}, cdf_majority::row, is_nrv, compression);
                     auto& var = cdf[name];
-                    set_values(var, buffer, cdf_type);
+                    set_values(var, buffer, data_type);
                     return var;
                 }
                 else
@@ -110,7 +110,7 @@ void def_cdf_wrapper(T& mod)
                     throw std::invalid_argument { "Variable already exists" };
                 }
             },
-            py::arg("name"), py::arg("values").noconvert(), py::arg("cdf_type"),
+            py::arg("name"), py::arg("values").noconvert(), py::arg("data_type"),
             py::arg("is_nrv") = false,
             py::arg("compression") = cdf_compression_type::no_compression,
             py::return_value_policy::reference_internal)
