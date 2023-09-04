@@ -14,5 +14,5 @@ Browse example folder on Google Colab:
 .. nbgallery::
    :glob:
 
-   ./CDF_loading
-
+   ./Loading_CDF
+   ./Creating_CDF

@@ -107,8 +107,9 @@ struct Variable
 
     inline bool operator==(const Variable& other) const
     {
-        return other.p_name == p_name && other.p_is_nrv == p_is_nrv && other.p_compression == p_compression && other.p_shape == p_shape &&
-            other.attributes == attributes && other._data() == _data();
+        return other.p_name == p_name && other.p_is_nrv == p_is_nrv
+            && other.p_compression == p_compression && other.p_shape == p_shape
+            && other.attributes == attributes && other._data() == _data();
     }
 
     inline bool operator!=(const Variable& other) const { return !(*this == other); }
@@ -218,8 +219,8 @@ struct Variable
             stream_collection(os, shape(), ", ");
             os << "\n"
                << indent + 2 << "type: " << cdf_type_str(type()) << "\n"
-               << indent + 2 << "record varry: " << (is_nrv() ? "Flase" : "True") << indent + 2
-               << compression_type() << "\n\n";
+               << indent + 2 << "record varry: " << (is_nrv() ? "Flase" : "True") << "\n"
+               << indent + 2 << compression_type() << "\n\n";
             os << indent + 2 << "Attributes:\n";
             std::for_each(std::cbegin(attributes), std::cend(attributes),
                 [&os, indent](const auto& item) { item.second.__repr__(os, indent + 4); });

@@ -37,12 +37,12 @@ using namespace cdf;
 #include <pybind11/chrono.h>
 #include <pybind11/iostream.h>
 #include <pybind11/numpy.h>
+#include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
-#include <pybind11/operators.h>
 
-namespace  docstrings
+namespace docstrings
 {
 constexpr auto _Variable = R"(
 A CDF Variable (either R or Z variable)
@@ -75,7 +75,7 @@ values_encoded: numpy.array
 namespace py = pybind11;
 
 template <typename T>
-void _set_values(Variable& var, const py::buffer& buffer)
+void _set_values(Variable& var, const py::buffer& buffer, CDF_Types data_type)
 {
     py::buffer_info info = buffer.request();
     if (info.itemsize != static_cast<ssize_t>(sizeof(T)))
@@ -84,11 +84,11 @@ void _set_values(Variable& var, const py::buffer& buffer)
     std::copy(std::cbegin(info.shape), std::cend(info.shape), std::begin(shape));
     no_init_vector<T> values(info.size);
     std::memcpy(values.data(), info.ptr, info.size * sizeof(T));
-    var.set_data(data_t { std::move(values) }, std::move(shape));
+    var.set_data(data_t { std::move(values), data_type }, std::move(shape));
 }
 
 template <typename T>
-void _set_string_values(Variable& var, const py::buffer& buffer, CDF_Types cdf_type)
+void _set_string_values(Variable& var, const py::buffer& buffer, CDF_Types data_type)
 {
     py::buffer_info info = buffer.request();
     typename Variable::shape_t shape(info.ndim + 1);
@@ -96,7 +96,7 @@ void _set_string_values(Variable& var, const py::buffer& buffer, CDF_Types cdf_t
     shape[info.ndim] = info.itemsize;
     no_init_vector<T> values(flat_size(shape));
     std::memcpy(values.data(), info.ptr, std::size(values));
-    var.set_data(data_t { std::move(values), cdf_type }, std::move(shape));
+    var.set_data(data_t { std::move(values), data_type }, std::move(shape));
 }
 
 template <typename T>
@@ -116,42 +116,48 @@ void _set_time_values(Variable& var, const py::buffer& buffer)
     var.set_data(data_t { std::move(values) }, std::move(shape));
 }
 
-void set_values(Variable& var, const py::buffer& buffer, CDF_Types cdf_type)
+void set_values(Variable& var, const py::buffer& buffer, CDF_Types data_type)
 {
-    switch (cdf_type)
+    switch (data_type)
     {
         case cdf::CDF_Types::CDF_UCHAR: // string
-            _set_string_values<unsigned char>(var, buffer, cdf_type);
+            _set_string_values<unsigned char>(var, buffer, data_type);
             break;
         case cdf::CDF_Types::CDF_CHAR: // string
-            _set_string_values<char>(var, buffer, cdf_type);
+            _set_string_values<char>(var, buffer, data_type);
             break;
         case cdf::CDF_Types::CDF_INT1: // int8
-            _set_values<int8_t>(var, buffer);
+            _set_values<int8_t>(var, buffer, data_type);
             break;
         case cdf::CDF_Types::CDF_UINT1: // uint8
-            _set_values<uint8_t>(var, buffer);
+            _set_values<uint8_t>(var, buffer, data_type);
             break;
         case cdf::CDF_Types::CDF_INT2: // int16
-            _set_values<int16_t>(var, buffer);
+            _set_values<int16_t>(var, buffer, data_type);
             break;
         case cdf::CDF_Types::CDF_UINT2: // uint16
-            _set_values<uint16_t>(var, buffer);
+            _set_values<uint16_t>(var, buffer, data_type);
             break;
         case cdf::CDF_Types::CDF_INT4: // int32
-            _set_values<int32_t>(var, buffer);
+            _set_values<int32_t>(var, buffer, data_type);
             break;
         case cdf::CDF_Types::CDF_UINT4: // uint32
-            _set_values<uint32_t>(var, buffer);
+            _set_values<uint32_t>(var, buffer, data_type);
             break;
         case cdf::CDF_Types::CDF_INT8: // int64
-            _set_values<int64_t>(var, buffer);
+            _set_values<int64_t>(var, buffer, data_type);
             break;
         case cdf::CDF_Types::CDF_FLOAT: // float
-            _set_values<float>(var, buffer);
+            _set_values<float>(var, buffer, data_type);
+            break;
+        case cdf::CDF_Types::CDF_REAL4: // double
+            _set_values<double>(var, buffer, data_type);
             break;
         case cdf::CDF_Types::CDF_DOUBLE: // double
-            _set_values<double>(var, buffer);
+            _set_values<double>(var, buffer, data_type);
+            break;
+        case cdf::CDF_Types::CDF_REAL8: // double
+            _set_values<double>(var, buffer, data_type);
             break;
         case cdf::CDF_Types::CDF_TIME_TT2000:
             _set_time_values<tt2000_t>(var, buffer);
@@ -180,7 +186,16 @@ void def_variable_wrapper(T& mod)
             "attributes", &Variable::attributes, py::return_value_policy::reference_internal)
         .def_property_readonly("name", &Variable::name)
         .def_property_readonly("type", &Variable::type)
-        .def_property_readonly("shape", &Variable::shape)
+        .def_property_readonly("shape",
+            [](const Variable& v)
+            {
+                auto shape = py::tuple(std::size(v.shape()));
+                for (auto i = 0UL; i < std::size(v.shape()); i++)
+                {
+                    shape[i] = v.shape()[i];
+                }
+                return shape;
+            })
         .def_property_readonly("majority", &Variable::majority)
         .def_property_readonly("is_nrv", &Variable::is_nrv)
         .def_property_readonly("values_loaded", &Variable::values_loaded)
@@ -188,7 +203,7 @@ void def_variable_wrapper(T& mod)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
         .def_property_readonly("values", make_values_view<false>, py::keep_alive<0, 1>())
         .def_property_readonly("values_encoded", make_values_view<true>, py::keep_alive<0, 1>())
-        .def("_set_values", set_values, py::arg("values").noconvert(), py::arg("cdf_type"))
+        .def("_set_values", set_values, py::arg("values").noconvert(), py::arg("data_type"))
         .def("add_attribute",
             static_cast<Attribute& (*)(Variable&, const std::string&, py_cdf_attr_data_t&)>(
                 add_attribute),

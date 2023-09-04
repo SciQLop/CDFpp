@@ -103,7 +103,7 @@ epoch16 to_epoch16(const std::chrono::time_point<Clock, Duration>& tp)
     auto s = se + constants::epoch_offset_seconds;
     auto ps = (static_cast<double>(duration_cast<nanoseconds>(tp.time_since_epoch()).count())
                   - (se * 1e9))
-        * 1000;
+        * 1000.;
     return epoch16 { s, ps };
 }
 

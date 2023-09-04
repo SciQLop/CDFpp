@@ -16,6 +16,7 @@ Indices and tables
 
 import numpy as np
 from ._pycdfpp import *
+from datetime import datetime
 from . import _pycdfpp
 from typing import ByteString, Mapping, List, Any
 import sys
@@ -26,68 +27,107 @@ if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] 
     os.add_dll_directory(__here__)
 
 __all__ = ['tt2000_t', 'epoch', 'epoch16', 'save', 'CDF', 'Variable',
-           'Attribute', 'to_datetime64', 'to_datetime']
+           'Attribute', 'to_datetime64', 'to_datetime', 'DataType', 'CompressionType', 'Majority']
 
 
 _NUMPY_TO_CDF_TYPE_ = (
-    CDF_NONE,
-    CDF_INT1,
-    CDF_UINT1,
-    CDF_INT2,
-    CDF_UINT2,
-    CDF_INT4,
-    CDF_UINT4,
-    CDF_INT8,
-    CDF_NONE,
-    CDF_NONE,
-    CDF_NONE,
-    CDF_FLOAT,
-    CDF_DOUBLE,
-    CDF_NONE,
-    CDF_NONE,
-    CDF_NONE,
-    CDF_NONE,
-    CDF_NONE,
-    CDF_CHAR,
-    CDF_NONE,
-    CDF_NONE,
-    CDF_TIME_TT2000
+    DataType.CDF_NONE,
+    DataType.CDF_INT1,
+    DataType.CDF_UINT1,
+    DataType.CDF_INT2,
+    DataType.CDF_UINT2,
+    DataType.CDF_INT4,
+    DataType.CDF_UINT4,
+    DataType.CDF_INT8,
+    DataType.CDF_NONE,
+    DataType.CDF_NONE,
+    DataType.CDF_NONE,
+    DataType.CDF_FLOAT,
+    DataType.CDF_DOUBLE,
+    DataType.CDF_NONE,
+    DataType.CDF_NONE,
+    DataType.CDF_NONE,
+    DataType.CDF_NONE,
+    DataType.CDF_NONE,
+    DataType.CDF_CHAR,
+    DataType.CDF_NONE,
+    DataType.CDF_NONE,
+    DataType.CDF_TIME_TT2000
 )
 
+_CDF_TYPES_COMPATIBILITY_TABLE_ = {
+    DataType.CDF_NONE: (DataType.CDF_CHAR,DataType.CDF_UCHAR,DataType.CDF_INT1,DataType.CDF_BYTE,DataType.CDF_UINT1,DataType.CDF_UINT2,DataType.CDF_UINT4,DataType.CDF_INT1,DataType.CDF_INT2,DataType.CDF_INT4,DataType.CDF_INT8,DataType.CDF_FLOAT,DataType.CDF_REAL4,DataType.CDF_DOUBLE,DataType.CDF_REAL8,DataType.CDF_TIME_TT2000,DataType.CDF_EPOCH,DataType.CDF_EPOCH16),
+    DataType.CDF_CHAR: (DataType.CDF_CHAR,DataType.CDF_UCHAR),
+    DataType.CDF_UCHAR: (DataType.CDF_CHAR,DataType.CDF_UCHAR),
+    DataType.CDF_BYTE: (DataType.CDF_INT1,DataType.CDF_BYTE),
+    DataType.CDF_INT1: (DataType.CDF_INT1,DataType.CDF_BYTE),
+    DataType.CDF_UINT1: (DataType.CDF_UINT1,),
+    DataType.CDF_INT2: (DataType.CDF_INT2,),
+    DataType.CDF_UINT2: (DataType.CDF_UINT2,),
+    DataType.CDF_INT4: (DataType.CDF_INT4,),
+    DataType.CDF_UINT4: (DataType.CDF_UINT4,),
+    DataType.CDF_INT8: (DataType.CDF_INT8,),
+    DataType.CDF_FLOAT: (DataType.CDF_FLOAT,DataType.CDF_REAL4),
+    DataType.CDF_REAL4: (DataType.CDF_FLOAT,DataType.CDF_REAL4),
+    DataType.CDF_DOUBLE: (DataType.CDF_DOUBLE,DataType.CDF_REAL8),
+    DataType.CDF_REAL8: (DataType.CDF_DOUBLE,DataType.CDF_REAL8),
+    DataType.CDF_TIME_TT2000: (DataType.CDF_TIME_TT2000,),
+    DataType.CDF_EPOCH: (DataType.CDF_EPOCH,),
+    DataType.CDF_EPOCH16: (DataType.CDF_EPOCH16,),
+}
 
-def _values_view_and_type(values: np.ndarray  or list, cdf_type=None):
+def _holds_datetime(values:list):
+    if len(values):
+        if type(values[0]) is list:
+            return _holds_datetime(values[0])
+        if type(values[0]) is datetime:
+            return True
+    return False
+
+
+def _values_view_and_type(values: np.ndarray or list, data_type=None):
     if type(values) is list:
-        values = np.array(values)
+        if _holds_datetime(values):
+            values = np.array(values, dtype="datetime64[ns]")
+        else:
+            values = np.array(values)
         if values.dtype.num == 19:
             values = np.char.encode(values, encoding='utf-8')
-        return _values_view_and_type(values, cdf_type)
+        return _values_view_and_type(values, data_type)
     else:
         if values.dtype.num == 21:
-            if cdf_type in (None, CDF_TIME_TT2000, CDF_EPOCH, CDF_EPOCH16):
-                return (values.view(np.uint64),
-                        cdf_type or CDF_TIME_TT2000)
+            if data_type in (None, DataType.CDF_TIME_TT2000, DataType.CDF_EPOCH, DataType.CDF_EPOCH16):
+                return (values.astype(np.dtype('datetime64[ns]'), copy=False).view(np.uint64),
+                        data_type or DataType.CDF_TIME_TT2000)
         if values.dtype.num == 19:
-            return _values_view_and_type(np.char.encode(values, encoding='utf-8'), cdf_type)
+            return _values_view_and_type(np.char.encode(values, encoding='utf-8'), data_type)
         else:
-            return (values, cdf_type or _NUMPY_TO_CDF_TYPE_[
+            return (values, data_type or _NUMPY_TO_CDF_TYPE_[
                 values.dtype.num])
 
 
 def _patch_set_values():
-    def _set_values_wrapper(self, values: np.ndarray, cdf_type=None):
-        self._set_values(*_values_view_and_type(values, cdf_type))
+    def _set_values_wrapper(self, values: np.ndarray, data_type=None):
+        values, data_type = _values_view_and_type(values, data_type)
+        if data_type not in _CDF_TYPES_COMPATIBILITY_TABLE_[self.type]:
+            raise ValueError(
+                f"Can't set variable of type {self.type} with values of type {data_type}")
+        if self.type != DataType.CDF_NONE and self.shape[1:] != values.shape[1:]:
+            raise ValueError(
+                f"Can't sat variable of shape {self.shape} with values of shape {values.shape}")
+        self._set_values(values, data_type)
 
     Variable.set_values = _set_values_wrapper
 
 
 def _patch_add_variable():
-    def _add_variable_wrapper(self, name: str, values: np.ndarray or None = None, cdf_type=None, is_nrv: bool = False,
-                              compression: CDF_compression_type = CDF_compression_type.no_compression,
+    def _add_variable_wrapper(self, name: str, values: np.ndarray or None = None, data_type=None, is_nrv: bool = False,
+                              compression: CompressionType = CompressionType.no_compression,
                               attributes: Mapping[str, List[Any]] or None = None):
         if values is not None:
-            v, t = _values_view_and_type(values, cdf_type)
+            v, t = _values_view_and_type(values, data_type)
             var = self._add_variable(
-                name=name, values=v, cdf_type=t, is_nrv=is_nrv, compression=compression)
+                name=name, values=v, data_type=t, is_nrv=is_nrv, compression=compression)
         else:
             var = self._add_variable(
                 name=name, is_nrv=is_nrv, compression=compression)
