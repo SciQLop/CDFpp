@@ -2,6 +2,16 @@
 History
 =======
 
+0.5.0 (TBD)
+-----------
+
+* Add support for writing CDF files.
+* Add support for lazy loading variables (default behavior now).
+* Read performances improvements.
+* Exposes string variables values as numpy array of unencoded strings by default (.values).
+* Add support for encoding string variables values (.values_encoded).
+* Exposes CDF version, compression, majority,...
+
 0.4.6 (2023-06-22)
 ------------------
 

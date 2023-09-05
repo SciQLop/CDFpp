@@ -135,20 +135,22 @@ cdfpp_extra_files = files(
     'tests/python_variable_set_values/test.py',
     'tests/full_corpus/test_full_corpus.py',
     '.github/workflows/CI.yml',
-    '.github/workflows/tests-with-coverage.yml',
-    'docs/conf.py',
-    'docs/Makefile',
-    'docs/requirements.txt',
-    'docs/index.rst',
-    'docs/authors.rst',
-    'docs/contributing.rst',
-    'docs/history.rst',
-    'docs/installation.rst',
-    'docs/examples/index.rst',
-    'docs/examples/Loading_CDF.ipynb',
-    'docs/examples/Creating_CDF.ipynb'
+    '.github/workflows/tests-with-coverage.yml'
 )
 
+cdfpp_doc_extra_files =  files(
+'docs/conf.py',
+'docs/Makefile',
+'docs/requirements.txt',
+'docs/index.rst',
+'docs/authors.rst',
+'docs/contributing.rst',
+'docs/history.rst',
+'docs/installation.rst',
+'docs/examples/index.rst',
+'docs/examples/Loading_CDF.ipynb',
+'docs/examples/Creating_CDF.ipynb'
+)
 
 cdfpp_dep_inc = include_directories('include', '.')
 
@@ -158,8 +160,7 @@ cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
 
 
 subdir('pycdfpp')
-
-
+subdir('docs')
 
 install_headers(
 [
