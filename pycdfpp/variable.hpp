@@ -53,7 +53,7 @@ attributes: dict
     variable attributes
 name: str
     variable name
-type: CDF_Types
+type: DataType
     variable data type (ie CDF_DOUBLE, CDF_TIME_TT2000, ...)
 shape: List[int]
     variable shape (records + record shape)
@@ -61,12 +61,21 @@ majority: cdf_majority
     variable majority as writen in the CDF file, note that pycdfpp will always expose row major data.
 values_loaded: bool
     True if values are availbale in memory, this is usefull with lazy loading to know if values are already loaded.
-compression: cdf_compression_type
+compression: CompressionType
     variable compression type (supported values are no_compression, rle_compression, gzip_compression)
 values: numpy.array
     returns variable values as a numpy.array of the corresponding dtype and shape, note that no copies are involved, the returned array is just a view on variable data.
 values_encoded: numpy.array
     same as `values` except that string variable are encoded wihch involves a data copy and since numpy uses UTF-32, expect a 4x memory increase for string values
+
+Methods
+-------
+add_attribute
+    Adds an attribute to the variable. Raises an exception if the attribute already exists.
+set_compression_type
+    Sets the variable compression type
+set_values
+    Sets the variable values
 
 )";
 
@@ -207,5 +216,6 @@ void def_variable_wrapper(T& mod)
         .def("add_attribute",
             static_cast<Attribute& (*)(Variable&, const std::string&, py_cdf_attr_data_t&)>(
                 add_attribute),
-            py::arg { "name" }, py::arg { "value" }, py::return_value_policy::reference_internal);
+            docstrings::_VariableAddAttribute, py::arg { "name" }, py::arg { "value" },
+            py::return_value_policy::reference_internal);
 }

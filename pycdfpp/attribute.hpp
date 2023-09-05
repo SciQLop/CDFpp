@@ -44,6 +44,54 @@ using namespace cdf;
 
 namespace py = pybind11;
 
+
+namespace docstrings
+{
+constexpr auto _VariableAddAttribute = R"(
+Adds an attribute to the variable. Raises an exception if the attribute already exists.
+
+Parameters
+----------
+name: str
+    attribute name
+values: Union[str, List[Union[str, int, float, datetime, timedelta]]]
+    attribute values
+
+Returns
+-------
+Attribute
+    The created attribute
+
+Raises
+------
+ValueError
+    If the attribute already exists
+
+)";
+
+constexpr auto _CDFAddAttribute = R"(
+Adds a global attribute to the CDF. Raises an exception if the attribute already exists.
+
+Parameters
+----------
+name: str
+    attribute name
+values: Union[str, List[Union[str, int, float, datetime, timedelta]]]
+    attribute values
+
+Returns
+-------
+Attribute
+    The created attribute
+
+Raises
+------
+ValueError
+    If the attribute already exists
+
+)";
+}
+
 using py_cdf_attr_data_t = std::variant<std::monostate, std::string, no_init_vector<char>,
     no_init_vector<uint8_t>, no_init_vector<uint16_t>, no_init_vector<uint32_t>,
     no_init_vector<int8_t>, no_init_vector<int16_t>, no_init_vector<int32_t>,

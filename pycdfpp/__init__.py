@@ -124,6 +124,49 @@ def _patch_add_variable():
     def _add_variable_wrapper(self, name: str, values: np.ndarray or None = None, data_type=None, is_nrv: bool = False,
                               compression: CompressionType = CompressionType.no_compression,
                               attributes: Mapping[str, List[Any]] or None = None):
+        """Adds a new variable to the CDF. If values is None, the variable is created with no values. Otherwise, the variable is created with the given values. If attributes is not None, the variable is created with the given attributes.
+        If data_type is not None, the variable is created with the given data type. Otherwise, the data type is inferred from the values.
+
+        Parameters
+        ----------
+        name : str
+            The name of the variable to add.
+        values : numpy.ndarray or None, optional
+            The values to set for the variable. If None, the variable is created with no values. Otherwise, the variable is created with the given values. (Default is None)
+        data_type : DataType or None, optional
+            The data type of the variable. If None, the data type is inferred from the values. (Default is None)
+        is_nrv : bool, optional
+            Whether or not the variable is a non-record variable. (Default is False)
+        compression : CompressionType, optional
+            The compression type to use for the variable. (Default is CompressionType.no_compression)
+        attributes : Mapping[str, List[Any]] or None, optional
+            The attributes to set for the variable. If None, the variable is created with no attributes. (Default is None)
+
+        Returns
+        -------
+        Variable or None
+            Returns the newly created variable if successful. Otherwise, returns None.
+
+        Raises
+        ------
+        ValueError
+            If the variable already exists.
+
+        Example
+        -------
+        >>> from pycdfpp import CDF, DataType, CompressionType
+        >>> import numpy as np
+        >>> cdf = CDF()
+        >>> cdf.add_variable("var1", np.arange(10, dtype=np.int32), DataType.CDF_INT4, compression=CompressionType.gzip_compression)
+        var1:
+          shape: [ 10 ]
+          type: CDF_INT1
+          record varry: True
+          compression: GNU GZIP
+
+          Attributes:
+
+        """
         if values is not None:
             v, t = _values_view_and_type(values, data_type)
             var = self._add_variable(

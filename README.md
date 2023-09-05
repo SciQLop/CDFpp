@@ -57,7 +57,6 @@ List of features and roadmap:
     - [x] read ISO 8859-1(Latin-1) encoded files (converts to UTF-8 on the fly)
     - [x] variables values lazy loading
     - [ ] decode DEC's floating point encoding (Itanium, ALPHA and VAX)
-    - [ ] dimension variance (do not duplicate values when dimension variance is NOVARY)
 - CDF writing
     - [x] write uncompressed headers
     - [x] write uncompressed attributes
@@ -69,7 +68,7 @@ List of features and roadmap:
     - [x] highly optimized CDF reads (up to ~4GB/s read speed from disk)
     - [x] handle leap seconds
     - [x] Python wrappers
-    - [ ] Documentation
+    - [x] Documentation
     - [x] Examples (see below)
     - [x] [Benchmarks](https://github.com/SciQLop/CDFpp/tree/main/notebooks/benchmarks.ipynb)
 
