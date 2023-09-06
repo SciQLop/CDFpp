@@ -2,8 +2,8 @@
 History
 =======
 
-0.5.0 (TBD)
------------
+0.5.0 (2023-09-06)
+------------------
 
 * Add support for writing CDF files.
 * Add support for lazy loading variables (default behavior now).
