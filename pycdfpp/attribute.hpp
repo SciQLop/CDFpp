@@ -20,8 +20,16 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #pragma once
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4127) // warning C4127: Conditional expression is constant
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
 #include <cdfpp/attribute.hpp>
 #include <cdfpp/cdf-data.hpp>
+#include <cdfpp/cdf-enums.hpp>
 #include <cdfpp/cdf-file.hpp>
 #include <cdfpp/cdf-map.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
@@ -37,10 +45,10 @@ using namespace cdf;
 #include <pybind11/chrono.h>
 #include <pybind11/iostream.h>
 #include <pybind11/numpy.h>
+#include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
-#include <pybind11/operators.h>
 
 namespace py = pybind11;
 
@@ -99,6 +107,9 @@ using py_cdf_attr_data_t = std::variant<std::monostate, std::string, no_init_vec
     no_init_vector<tt2000_t>, no_init_vector<epoch>, no_init_vector<epoch16>,
     no_init_vector<decltype(std::chrono::system_clock::now())>>;
 
+using string_or_buffer_t = std::variant<std::string, std::vector<tt2000_t>, std::vector<epoch>,
+    std::vector<epoch16>, py::buffer>;
+
 template <typename... Ts>
 auto visit(const py_cdf_attr_data_t& data, Ts... lambdas)
 {
@@ -111,6 +122,17 @@ auto visit(py_cdf_attr_data_t& data, Ts... lambdas)
     return std::visit(helpers::make_visitor(lambdas...), data);
 }
 
+template <typename... Ts>
+auto visit(const string_or_buffer_t& data, Ts... lambdas)
+{
+    return std::visit(helpers::make_visitor(lambdas...), data);
+}
+
+template <typename... Ts>
+auto visit(string_or_buffer_t& data, Ts... lambdas)
+{
+    return std::visit(helpers::make_visitor(lambdas...), data);
+}
 
 [[nodiscard]] inline py_cdf_attr_data_t to_py_cdf_data(const cdf::data_t& data)
 {
@@ -175,30 +197,150 @@ auto visit(py_cdf_attr_data_t& data, Ts... lambdas)
     return {};
 }
 
-
-[[nodiscard]] Attribute& add_attribute(
-    CDF& cdf, const std::string& name, std::vector<py_cdf_attr_data_t>& values)
+data_t to_attr_data_entry(const std::string& values, CDF_Types data_type)
 {
-    if (cdf.attributes.count(name) == 0)
+    if (data_type == CDF_Types::CDF_CHAR or data_type == CDF_Types::CDF_UCHAR)
     {
-        typename Attribute::attr_data_t attr_values {};
-        for (auto& value : values)
+        return { no_init_vector<char>(std::cbegin(values), std::cend(values)), data_type };
+    }
+    else
+    {
+        throw std::invalid_argument { "Incorrect CDF type for string value" };
+    }
+}
+
+template <typename T>
+data_t _time_to_data_t(const py::buffer& buffer)
+{
+    py::buffer_info info = buffer.request();
+    if (info.ndim != 1)
+        throw std::invalid_argument { "Incorrect dimension for attribute value" };
+    no_init_vector<T> values(info.size);
+    std::transform(reinterpret_cast<uint64_t*>(info.ptr),
+        reinterpret_cast<uint64_t*>(info.ptr) + info.size, std::begin(values),
+        [](const uint64_t& value)
         {
-            visit(
-                value,
-                [&attr_values](std::string& value)
-                {
-                    no_init_vector<char> v(value.length());
-                    std::copy(std::cbegin(value), std::cend(value), std::begin(v));
-                    attr_values.emplace_back(std::move(v), CDF_Types::CDF_CHAR);
-                },
-                [&attr_values](no_init_vector<decltype(std::chrono::system_clock::now())>& value)
-                { attr_values.emplace_back(cdf::to_tt2000(value)); },
-                [&attr_values](auto& value) { attr_values.emplace_back(std::move(value)); },
-                [](std::monostate&) {});
-        }
-        cdf.attributes.emplace(name, name, std::move(attr_values));
-        auto& attr = cdf.attributes[name];
+            return to_cdf_time<T>(std::chrono::high_resolution_clock::time_point {
+                std::chrono::nanoseconds { value } });
+        });
+    return data_t { std::move(values) };
+}
+
+template <typename T>
+data_t time_to_data_t(const std::vector<T>& values)
+{
+    return data_t {no_init_vector<T>(std::cbegin(values), std::cend(values))};
+}
+
+template <CDF_Types data_type>
+data_t _numeric_to_data_t(const py::buffer& buffer)
+{
+    py::buffer_info info = buffer.request();
+    if (info.ndim != 1)
+        throw std::invalid_argument { "Incorrect dimension for attribute value" };
+    using T = from_cdf_type_t<data_type>;
+    if (info.itemsize != static_cast<ssize_t>(sizeof(T)))
+        throw std::invalid_argument { "Incompatible python and cdf types" };
+    no_init_vector<T> values(info.size);
+    std::memcpy(values.data(), info.ptr, info.size * sizeof(T));
+    return data_t { std::move(values), data_type };
+}
+
+template <CDF_Types data_type>
+data_t to_attr_data_entry(const py::buffer& buffer)
+{
+    if constexpr (data_type == cdf::CDF_Types::CDF_EPOCH or data_type == cdf::CDF_Types::CDF_EPOCH16
+        or data_type == cdf::CDF_Types::CDF_TIME_TT2000)
+    {
+        return _time_to_data_t<from_cdf_type_t<data_type>>(buffer);
+    }
+    else
+    {
+        return _numeric_to_data_t<data_type>(buffer);
+    }
+}
+
+data_t to_attr_data_entry(const py::buffer& buffer, CDF_Types data_type)
+{
+    switch (data_type)
+    {
+        case cdf::CDF_Types::CDF_INT1: // int8
+            return to_attr_data_entry<cdf::CDF_Types::CDF_INT1>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_INT2: // int16
+            return to_attr_data_entry<cdf::CDF_Types::CDF_INT2>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_INT4: // int32
+            return to_attr_data_entry<cdf::CDF_Types::CDF_INT4>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_INT8: // int64
+            return to_attr_data_entry<cdf::CDF_Types::CDF_INT8>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_UINT1: // uint8
+            return to_attr_data_entry<cdf::CDF_Types::CDF_UINT1>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_UINT2: // uint16
+            return to_attr_data_entry<cdf::CDF_Types::CDF_UINT2>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_UINT4: // uint32
+            return to_attr_data_entry<cdf::CDF_Types::CDF_UINT4>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_FLOAT: // float32
+            return to_attr_data_entry<cdf::CDF_Types::CDF_FLOAT>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_REAL4: // float32
+            return to_attr_data_entry<cdf::CDF_Types::CDF_REAL4>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_DOUBLE: // float64
+            return to_attr_data_entry<cdf::CDF_Types::CDF_DOUBLE>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_REAL8: // float64
+            return to_attr_data_entry<cdf::CDF_Types::CDF_REAL8>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_EPOCH: // epoch
+            return to_attr_data_entry<cdf::CDF_Types::CDF_EPOCH>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_EPOCH16: // epoch16
+            return to_attr_data_entry<cdf::CDF_Types::CDF_EPOCH16>(buffer);
+            break;
+        case cdf::CDF_Types::CDF_TIME_TT2000: // tt2000
+            return to_attr_data_entry<cdf::CDF_Types::CDF_TIME_TT2000>(buffer);
+            break;
+        default:
+            throw std::invalid_argument { "Unsuported CDF Type" };
+            break;
+    }
+}
+
+data_t to_attr_data_entry(const string_or_buffer_t& value, CDF_Types data_type)
+{
+    return visit(
+        value,
+        [data_type](const py::buffer& buffer) { return to_attr_data_entry(buffer, data_type); },
+        [](const std::vector<tt2000_t>& values) { return time_to_data_t<tt2000_t>(values); },
+        [](const std::vector<epoch>& values) { return time_to_data_t<epoch>(values); },
+        [](const std::vector<epoch16>& values) { return time_to_data_t<epoch16>(values); },
+        [data_type](const std::string& values) { return to_attr_data_entry(values, data_type); });
+}
+
+Attribute::attr_data_t to_attr_data_entries(
+    const std::vector<string_or_buffer_t>& values, const std::vector<CDF_Types>& cdf_types)
+{
+    Attribute::attr_data_t attr_values {};
+    std::transform(std::cbegin(values), std::cend(values), std::cbegin(cdf_types),
+        std::back_inserter(attr_values),
+        static_cast<data_t (*)(const string_or_buffer_t&, CDF_Types)>(to_attr_data_entry));
+    return attr_values;
+}
+
+[[nodiscard]] Attribute& add_attribute(CDF& cdf, const std::string& name,
+    const std::vector<string_or_buffer_t>& values, const std::vector<CDF_Types>& cdf_types)
+{
+    auto [it, success]
+        = cdf.attributes.emplace(name, name, to_attr_data_entries(values, cdf_types));
+    if (success)
+    {
+        Attribute& attr = it->second;
         return attr;
     }
     else
@@ -208,33 +350,13 @@ auto visit(py_cdf_attr_data_t& data, Ts... lambdas)
 }
 
 [[nodiscard]] Attribute& add_attribute(
-    Variable& var, const std::string& name, py_cdf_attr_data_t& values)
+    Variable& var, const std::string& name, const string_or_buffer_t& values, CDF_Types cdf_types)
 {
-    if (var.attributes.count(name) == 0)
+    auto [it, success] = var.attributes.emplace(
+        name, name, Attribute::attr_data_t { to_attr_data_entry(values, cdf_types) });
+    if (success)
     {
-        typename Attribute::attr_data_t attr_values = visit(
-            values,
-            [](std::string& value)
-            {
-                no_init_vector<char> v(std::size(value));
-                std::copy(std::cbegin(value), std::cend(value), std::begin(v));
-                return typename Attribute::attr_data_t { { std::move(v), CDF_Types::CDF_CHAR } };
-            },
-            [](no_init_vector<decltype(std::chrono::system_clock::now())>& value)
-            {
-                return typename Attribute::attr_data_t { { cdf::to_tt2000(value),
-                    CDF_Types::CDF_TIME_TT2000 } };
-            },
-            [](auto& value)
-            {
-                typename Attribute::attr_data_t data {};
-                data.emplace_back(std::move(value));
-                return data;
-            },
-            [](std::monostate&) { return typename Attribute::attr_data_t {}; });
-
-        var.attributes.emplace(name, name, std::move(attr_values));
-        auto& attr = var.attributes[name];
+        Attribute& attr = it->second;
         return attr;
     }
     else
@@ -242,6 +364,7 @@ auto visit(py_cdf_attr_data_t& data, Ts... lambdas)
         throw std::invalid_argument { "Attribute already exists" };
     }
 }
+
 
 template <typename T>
 void def_attribute_wrapper(T& mod)
@@ -261,5 +384,13 @@ void def_attribute_wrapper(T& mod)
                 return to_py_cdf_data(att[index]);
             },
             py::return_value_policy::copy)
-        .def("__len__", [](const Attribute& att) { return att.size(); });
+        .def("__len__", [](const Attribute& att) { return att.size(); })
+        .def("type",
+            [](Attribute& att, std::size_t index)
+            {
+                if (index >= att.size())
+                    throw std::out_of_range(
+                        "Trying to get an attribute value outside of its range");
+                return att[index].type();
+            });
 }

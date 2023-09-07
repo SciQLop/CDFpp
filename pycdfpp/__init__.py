@@ -21,6 +21,8 @@ from . import _pycdfpp
 from typing import ByteString, Mapping, List, Any
 import sys
 import os
+from functools import singledispatch
+
 __here__ = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(__here__)
 if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] >= 8:
@@ -56,27 +58,46 @@ _NUMPY_TO_CDF_TYPE_ = (
 )
 
 _CDF_TYPES_COMPATIBILITY_TABLE_ = {
-    DataType.CDF_NONE: (DataType.CDF_CHAR,DataType.CDF_UCHAR,DataType.CDF_INT1,DataType.CDF_BYTE,DataType.CDF_UINT1,DataType.CDF_UINT2,DataType.CDF_UINT4,DataType.CDF_INT1,DataType.CDF_INT2,DataType.CDF_INT4,DataType.CDF_INT8,DataType.CDF_FLOAT,DataType.CDF_REAL4,DataType.CDF_DOUBLE,DataType.CDF_REAL8,DataType.CDF_TIME_TT2000,DataType.CDF_EPOCH,DataType.CDF_EPOCH16),
-    DataType.CDF_CHAR: (DataType.CDF_CHAR,DataType.CDF_UCHAR),
-    DataType.CDF_UCHAR: (DataType.CDF_CHAR,DataType.CDF_UCHAR),
-    DataType.CDF_BYTE: (DataType.CDF_INT1,DataType.CDF_BYTE),
-    DataType.CDF_INT1: (DataType.CDF_INT1,DataType.CDF_BYTE),
+    DataType.CDF_NONE: (DataType.CDF_CHAR, DataType.CDF_UCHAR, DataType.CDF_INT1, DataType.CDF_BYTE, DataType.CDF_UINT1, DataType.CDF_UINT2, DataType.CDF_UINT4, DataType.CDF_INT1, DataType.CDF_INT2, DataType.CDF_INT4, DataType.CDF_INT8, DataType.CDF_FLOAT, DataType.CDF_REAL4, DataType.CDF_DOUBLE, DataType.CDF_REAL8, DataType.CDF_TIME_TT2000, DataType.CDF_EPOCH, DataType.CDF_EPOCH16),
+    DataType.CDF_CHAR: (DataType.CDF_CHAR, DataType.CDF_UCHAR),
+    DataType.CDF_UCHAR: (DataType.CDF_CHAR, DataType.CDF_UCHAR),
+    DataType.CDF_BYTE: (DataType.CDF_INT1, DataType.CDF_BYTE),
+    DataType.CDF_INT1: (DataType.CDF_INT1, DataType.CDF_BYTE),
     DataType.CDF_UINT1: (DataType.CDF_UINT1,),
     DataType.CDF_INT2: (DataType.CDF_INT2,),
     DataType.CDF_UINT2: (DataType.CDF_UINT2,),
     DataType.CDF_INT4: (DataType.CDF_INT4,),
     DataType.CDF_UINT4: (DataType.CDF_UINT4,),
     DataType.CDF_INT8: (DataType.CDF_INT8,),
-    DataType.CDF_FLOAT: (DataType.CDF_FLOAT,DataType.CDF_REAL4),
-    DataType.CDF_REAL4: (DataType.CDF_FLOAT,DataType.CDF_REAL4),
-    DataType.CDF_DOUBLE: (DataType.CDF_DOUBLE,DataType.CDF_REAL8),
-    DataType.CDF_REAL8: (DataType.CDF_DOUBLE,DataType.CDF_REAL8),
+    DataType.CDF_FLOAT: (DataType.CDF_FLOAT, DataType.CDF_REAL4),
+    DataType.CDF_REAL4: (DataType.CDF_FLOAT, DataType.CDF_REAL4),
+    DataType.CDF_DOUBLE: (DataType.CDF_DOUBLE, DataType.CDF_REAL8),
+    DataType.CDF_REAL8: (DataType.CDF_DOUBLE, DataType.CDF_REAL8),
     DataType.CDF_TIME_TT2000: (DataType.CDF_TIME_TT2000,),
     DataType.CDF_EPOCH: (DataType.CDF_EPOCH,),
     DataType.CDF_EPOCH16: (DataType.CDF_EPOCH16,),
 }
 
-def _holds_datetime(values:list):
+_CDF_TYPES_TO_NUMPY_DTYPE_ = {
+    DataType.CDF_NONE: None,
+    DataType.CDF_BYTE: np.int8,
+    DataType.CDF_INT1: np.int8,
+    DataType.CDF_UINT1: np.uint8,
+    DataType.CDF_INT2: np.int16,
+    DataType.CDF_UINT2: np.uint16,
+    DataType.CDF_INT4: np.int32,
+    DataType.CDF_UINT4: np.uint32,
+    DataType.CDF_INT8: np.int64,
+    DataType.CDF_FLOAT: np.float32,
+    DataType.CDF_REAL4: np.float32,
+    DataType.CDF_DOUBLE: np.float64,
+    DataType.CDF_REAL8: np.float64,
+    DataType.CDF_TIME_TT2000: np.int64,
+    DataType.CDF_EPOCH: np.float64
+}
+
+
+def _holds_datetime(values: list):
     if len(values):
         if type(values[0]) is list:
             return _holds_datetime(values[0])
@@ -90,9 +111,13 @@ def _values_view_and_type(values: np.ndarray or list, data_type=None):
         if _holds_datetime(values):
             values = np.array(values, dtype="datetime64[ns]")
         else:
-            values = np.array(values)
+            values = np.array(
+                values, dtype=_CDF_TYPES_TO_NUMPY_DTYPE_.get(data_type, None))
         if values.dtype.num == 19:
             values = np.char.encode(values, encoding='utf-8')
+        elif data_type is None and np.issubdtype(values.dtype, np.integer):
+            values = values.astype(np.result_type(
+                np.min_scalar_type(values.min()), values.max()))
         return _values_view_and_type(values, data_type)
     else:
         if values.dtype.num == 21:
@@ -131,8 +156,9 @@ def _patch_add_variable():
         ----------
         name : str
             The name of the variable to add.
-        values : numpy.ndarray or None, optional
+        values : numpy.ndarray or list or None, optional
             The values to set for the variable. If None, the variable is created with no values. Otherwise, the variable is created with the given values. (Default is None)
+            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type, with integers, it will choose the smallest data type that can hold all the values.
         data_type : DataType or None, optional
             The data type of the variable. If None, the data type is inferred from the values. (Default is None)
         is_nrv : bool, optional
@@ -181,6 +207,120 @@ def _patch_add_variable():
     CDF.add_variable = _add_variable_wrapper
 
 
+def _attribute_values_view_and_type(values: np.ndarray or list or str, data_type=None):
+    if type(values) is str:
+        if data_type is None:
+            data_type = DataType.CDF_CHAR
+        elif data_type == DataType.CDF_CHAR or data_type == DataType.CDF_UCHAR:
+            pass
+        else:
+            raise ValueError(
+                f"Can't set attribute of type {data_type} with values of type str")
+        return (values, data_type)
+    return _values_view_and_type(values, data_type)
+
+
+def _patch_add_variable_attribute():
+    def _add_attribute_wrapper(self, name: str, values: np.ndarray or List[float or int or datetime] or str, data_type=None):
+        """Adds a new attribute to the variable. If values is None, the attribute is created with no values. Otherwise, the attribute is created with the given values.
+        If data_type is not None, the attribute is created with the given data type. Otherwise, the data type is inferred from the values.
+
+        Parameters
+        ----------
+        name : str
+            The name of the attribute to add.
+        values : np.ndarray or List[float or int or datetime] or str
+            The values to set for the attribute.
+            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type, with integers, it will choose the smallest data type that can hold all the values.
+        data_type : DataType or None, optional
+            The data type of the attribute. If None, the data type is inferred from the values. (Default is None)
+
+        Returns
+        -------
+        Attribute or None
+            Returns the newly created attribute if successful. Otherwise, returns None.
+
+        Raises
+        ------
+        ValueError
+            If the attribute already exists.
+
+        Example
+        -------
+        >>> from pycdfpp import CDF, DataType
+        >>> import numpy as np
+        >>> cdf = CDF()
+        >>> cdf.add_variable("var1", np.arange(10, dtype=np.int32), DataType.CDF_INT4)
+        var1:
+          shape: [ 10 ]
+          type: CDF_INT1
+          record varry: True
+          compression: GNU GZIP
+
+          Attributes:
+
+        >>> cdf["var1"].add_attribute("attr1", np.arange(10, dtype=np.int32), DataType.CDF_INT4)
+        attr1:
+          shape: [ 10 ]
+          type: CDF_INT1
+          record varry: True
+          compression: GNU GZIP
+
+          Attributes:
+
+        """
+        v, t = _attribute_values_view_and_type(values, data_type)
+        return self._add_attribute(name=name, values=v, data_type=t)
+
+    Variable.add_attribute = _add_attribute_wrapper
+
+
+def _patch_add_cdf_attribute():
+    def _add_attribute_wrapper(self, name: str, entries_values: List[np.ndarray or List[float or int or datetime] or str], entries_types: List[DataType or None] or None = None):
+        """Adds a new attribute with the given values to the CDF object.
+        If entries_types is not None, the attribute is created with the given data type. Otherwise, the data type is inferred from the values.
+
+        Parameters
+        ----------
+        name : str
+            The name of the attribute to add.
+        entries_values : List[np.ndarray or List[float or int or datetime] or str]
+            The values entries to set for the attribute.
+            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type, with integers, it will choose the smallest data type that can hold all the values.
+        entries_types : List[DataType] or None, optional
+            The data type for each entry of the attribute. If None, the data type is inferred from the values. (Default is None)
+
+        Returns
+        -------
+        Attribute or None
+            Returns the newly created attribute if successful. Otherwise, returns None.
+
+        Raises
+        ------
+        ValueError
+            If the attribute already exists.
+
+        Example
+        -------
+        >>> from pycdfpp import CDF, DataType
+        >>> import numpy as np
+        >>> from datetime import datetime
+        >>> cdf = CDF()
+        >>> cdf.add_attribute("attr1", [np.arange(10, dtype=np.int32)], [DataType.CDF_INT4])
+        attr1: [ [ [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ] ] ]
+
+        >>> cdf.add_attribute("multi", [np.arange(2, dtype=np.int32), [1.,2.,3.], "hello", [datetime(2010,1,1), datetime(2020,1,1)]])
+
+        """
+        entries_types = entries_types or [None]*len(entries_values)
+        v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
+                                       for values, data_type in zip(entries_values, entries_types)])]
+        return self._add_attribute(name=name, entries_values=v, entries_types=t)
+    CDF.add_attribute = _add_attribute_wrapper
+
+
+_patch_add_cdf_attribute()
+_patch_add_variable_attribute()
 _patch_set_values()
 _patch_add_variable()
 
@@ -299,3 +439,88 @@ def load(file_or_buffer: str or ByteString, iso_8859_1_to_utf8: bool = False, la
         return _pycdfpp.lazy_load(file_or_buffer, iso_8859_1_to_utf8)
     else:
         return _pycdfpp.load(file_or_buffer, iso_8859_1_to_utf8)
+
+
+def _stringify_time_values(values, values_type):
+    if values_type in (DataType.CDF_TIME_TT2000, DataType.CDF_EPOCH, DataType.CDF_EPOCH16):
+        return list(map(str, values))
+    else:
+        return values
+
+@singledispatch
+def to_dict_skeleton(obj: Any) -> Any:
+    pass
+
+
+@to_dict_skeleton.register(Attribute)
+def _(attribute: Attribute) -> dict:
+    """
+    to_dict_skeleton builds a dictionary skeleton of the Attribute object for use with json.dumps or similar functions.
+
+    Parameters
+    ----------
+    attribute: Attribute
+        input Attribute object
+
+    Returns
+    -------
+    dict
+        dictionary skeleton of the Attribute
+    """
+    return {
+        "values": [_stringify_time_values(attribute[i], attribute.type(i)) for i in range(len(attribute))],
+        "types": [str(attribute.type(i)) for i in range(len(attribute))],
+    }
+
+
+@to_dict_skeleton.register(Variable)
+def _(variable: Variable) -> dict:
+    """
+    to_dict_skeleton builds a dictionary skeleton of the Variable object for use with json.dumps or similar functions.
+
+    Parameters
+    ----------
+    variable: Variable
+        input Variable object
+
+    Returns
+    -------
+    dict
+        dictionary skeleton of the Variable
+    """
+    return {
+        "attributes": {
+            k: to_dict_skeleton(a) for k, a in variable.attributes.items()
+        },
+        "type": str(variable.type),
+        "shape": variable.shape,
+        "compression": str(variable.compression),
+        "is_nrv": variable.is_nrv
+    }
+
+
+@to_dict_skeleton.register(CDF)
+def _(cdf: CDF) -> dict:
+    """
+    to_dict_skeleton builds a dictionary skeleton of the CDF object for use with json.dumps or similar functions.
+
+    Parameters
+    ----------
+    cdf: CDF
+        input CDF object
+
+    Returns
+    -------
+    dict
+        dictionary skeleton of the CDF
+    """
+    return {
+        "compression": str(cdf.compression),
+        "attributes": {
+            k: to_dict_skeleton(a) for k, a in cdf.attributes.items()
+        },
+        "variables": {
+            k: to_dict_skeleton(v) for k, v in cdf.items()
+        }
+    }
+
