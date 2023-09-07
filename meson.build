@@ -133,6 +133,7 @@ cdfpp_extra_files = files(
     'tests/python_loading/test.py',
     'tests/python_saving/test.py',
     'tests/python_variable_set_values/test.py',
+    'tests/python_skeletons/test.py',
     'tests/full_corpus/test_full_corpus.py',
     '.github/workflows/CI.yml',
     '.github/workflows/tests-with-coverage.yml'
@@ -246,9 +247,13 @@ if get_option('with_tests')
         env:['PYTHONPATH='+meson.current_build_dir()],
         workdir:meson.current_build_dir())
 
-
     test('python_saving_test', python3,
         args:[meson.current_source_dir()+'/tests/python_saving/test.py'],
+        env:['PYTHONPATH='+meson.current_build_dir()],
+        workdir:meson.current_build_dir())
+
+    test('python_skeletons_test', python3,
+        args:[meson.current_source_dir()+'/tests/python_skeletons/test.py'],
         env:['PYTHONPATH='+meson.current_build_dir()],
         workdir:meson.current_build_dir())
 

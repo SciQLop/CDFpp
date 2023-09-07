@@ -260,10 +260,10 @@ void def_cdf_wrapper(T& mod)
             py::arg("is_nrv") = false,
             py::arg("compression") = cdf_compression_type::no_compression,
             py::return_value_policy::reference_internal)
-        .def("add_attribute",
-            static_cast<Attribute& (*)(CDF&, const std::string&, std::vector<py_cdf_attr_data_t>&)>(
-                add_attribute),
-            docstrings::_CDFAddAttribute, py::arg { "name" }, py::arg { "values" },
+        .def("_add_attribute",
+            static_cast<Attribute& (*)(CDF&, const std::string&, const std::vector<string_or_buffer_t>&,
+                const std::vector<CDF_Types>&)>(add_attribute),
+            py::arg { "name" }, py::arg { "entries_values" }, py::arg { "entries_types" },
             py::return_value_policy::reference_internal);
 }
 

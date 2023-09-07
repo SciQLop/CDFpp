@@ -83,33 +83,34 @@ set_values
 
 namespace py = pybind11;
 
-template <typename T>
-void _set_values(Variable& var, const py::buffer& buffer, CDF_Types data_type)
+template <CDF_Types data_type>
+std::pair<data_t, typename Variable::shape_t> _numeric_to_nd_data_t(const py::buffer& buffer)
 {
     py::buffer_info info = buffer.request();
+    using T = from_cdf_type_t<data_type>;
     if (info.itemsize != static_cast<ssize_t>(sizeof(T)))
         throw std::invalid_argument { "Incompatible python and cdf types" };
     typename Variable::shape_t shape(info.ndim);
     std::copy(std::cbegin(info.shape), std::cend(info.shape), std::begin(shape));
     no_init_vector<T> values(info.size);
     std::memcpy(values.data(), info.ptr, info.size * sizeof(T));
-    var.set_data(data_t { std::move(values), data_type }, std::move(shape));
+    return { data_t { std::move(values), data_type }, std::move(shape) };
 }
 
-template <typename T>
-void _set_string_values(Variable& var, const py::buffer& buffer, CDF_Types data_type)
+template <CDF_Types data_type>
+std::pair<data_t, typename Variable::shape_t> _str_to_nd_data_t(const py::buffer& buffer)
 {
     py::buffer_info info = buffer.request();
     typename Variable::shape_t shape(info.ndim + 1);
     std::copy(std::cbegin(info.shape), std::cend(info.shape), std::begin(shape));
     shape[info.ndim] = info.itemsize;
-    no_init_vector<T> values(flat_size(shape));
+    no_init_vector<from_cdf_type_t<data_type>> values(flat_size(shape));
     std::memcpy(values.data(), info.ptr, std::size(values));
-    var.set_data(data_t { std::move(values), data_type }, std::move(shape));
+    return { data_t { std::move(values), data_type }, std::move(shape) };
 }
 
 template <typename T>
-void _set_time_values(Variable& var, const py::buffer& buffer)
+std::pair<data_t, typename Variable::shape_t> _time_to_nd_data_t(const py::buffer& buffer)
 {
     py::buffer_info info = buffer.request();
     typename Variable::shape_t shape(info.ndim);
@@ -122,7 +123,33 @@ void _set_time_values(Variable& var, const py::buffer& buffer)
             return to_cdf_time<T>(std::chrono::high_resolution_clock::time_point {
                 std::chrono::nanoseconds { value } });
         });
-    var.set_data(data_t { std::move(values) }, std::move(shape));
+    return { data_t { std::move(values) }, std::move(shape) };
+}
+
+template <CDF_Types cdf_type>
+void _set_var_data_t(Variable& var, const py::buffer& buffer)
+{
+
+    if constexpr (cdf_type == cdf::CDF_Types::CDF_UCHAR or cdf_type == cdf::CDF_Types::CDF_CHAR)
+    {
+        auto [data, shape] = _str_to_nd_data_t<cdf_type>(buffer);
+        var.set_data(std::move(data), std::move(shape));
+    }
+    else
+    {
+        if constexpr (cdf_type == cdf::CDF_Types::CDF_EPOCH
+            or cdf_type == cdf::CDF_Types::CDF_EPOCH16
+            or cdf_type == cdf::CDF_Types::CDF_TIME_TT2000)
+        {
+            auto [data, shape] = _time_to_nd_data_t<from_cdf_type_t<cdf_type>>(buffer);
+            var.set_data(std::move(data), std::move(shape));
+        }
+        else
+        {
+            auto [data, shape] = _numeric_to_nd_data_t<cdf_type>(buffer);
+            var.set_data(std::move(data), std::move(shape));
+        }
+    }
 }
 
 void set_values(Variable& var, const py::buffer& buffer, CDF_Types data_type)
@@ -130,52 +157,52 @@ void set_values(Variable& var, const py::buffer& buffer, CDF_Types data_type)
     switch (data_type)
     {
         case cdf::CDF_Types::CDF_UCHAR: // string
-            _set_string_values<unsigned char>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_UCHAR>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_CHAR: // string
-            _set_string_values<char>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_CHAR>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_INT1: // int8
-            _set_values<int8_t>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_INT1>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_UINT1: // uint8
-            _set_values<uint8_t>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_UINT1>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_INT2: // int16
-            _set_values<int16_t>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_INT2>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_UINT2: // uint16
-            _set_values<uint16_t>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_UINT2>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_INT4: // int32
-            _set_values<int32_t>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_INT4>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_UINT4: // uint32
-            _set_values<uint32_t>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_UINT4>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_INT8: // int64
-            _set_values<int64_t>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_INT8>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_FLOAT: // float
-            _set_values<float>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_FLOAT>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_REAL4: // double
-            _set_values<double>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_REAL4>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_DOUBLE: // double
-            _set_values<double>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_DOUBLE>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_REAL8: // double
-            _set_values<double>(var, buffer, data_type);
+            _set_var_data_t<cdf::CDF_Types::CDF_REAL8>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_TIME_TT2000:
-            _set_time_values<tt2000_t>(var, buffer);
+            _set_var_data_t<cdf::CDF_Types::CDF_TIME_TT2000>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_EPOCH:
-            _set_time_values<epoch>(var, buffer);
+            _set_var_data_t<cdf::CDF_Types::CDF_EPOCH>(var, buffer);
             break;
         case cdf::CDF_Types::CDF_EPOCH16:
-            _set_time_values<epoch16>(var, buffer);
+            _set_var_data_t<cdf::CDF_Types::CDF_EPOCH16>(var, buffer);
             break;
         default:
             throw std::invalid_argument { "Unsuported CDF Type" };
@@ -213,9 +240,9 @@ void def_variable_wrapper(T& mod)
         .def_property_readonly("values", make_values_view<false>, py::keep_alive<0, 1>())
         .def_property_readonly("values_encoded", make_values_view<true>, py::keep_alive<0, 1>())
         .def("_set_values", set_values, py::arg("values").noconvert(), py::arg("data_type"))
-        .def("add_attribute",
-            static_cast<Attribute& (*)(Variable&, const std::string&, py_cdf_attr_data_t&)>(
-                add_attribute),
-            docstrings::_VariableAddAttribute, py::arg { "name" }, py::arg { "value" },
+        .def("_add_attribute",
+            static_cast<Attribute& (*)(Variable&, const std::string&, const string_or_buffer_t&,
+                CDF_Types)>(add_attribute),
+            py::arg { "name" }, py::arg { "values" }, py::arg { "data_type" },
             py::return_value_policy::reference_internal);
 }

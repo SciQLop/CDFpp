@@ -41,6 +41,18 @@ class PycdfCreateCDFTest(unittest.TestCase):
         cdf = pycdfpp.CDF()
         cdf.add_attribute("test_attribute", [[1,2,3], [datetime(2018,1,1), datetime(2018,1,2)], "hello\nworld"])
 
+    def test_can_create_CDF_attributes_with_given_type(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("ints", [[1,2,3], [128,256,512]], [pycdfpp.DataType.CDF_UINT1, pycdfpp.DataType.CDF_UINT2])
+
+    def test_can_create_CDF_attributes_tt2000_special_values(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("tt2000", [[pycdfpp.tt2000_t(-9223372036854775808),pycdfpp.tt2000_t(-9223372036854775807),pycdfpp.tt2000_t(-9223372036854775805)]])
+        self.assertEqual(str(cdf.attributes["tt2000"][0][0]), '9999-12-31T23:59:59.999999999')
+        self.assertEqual(str(cdf.attributes["tt2000"][0][1]), '0000-01-01T00:00:00.000000000')
+        self.assertEqual(str(cdf.attributes["tt2000"][0][2]), '9999-12-31T23:59:59.999999999')
+
+
     def test_can_create_variable_and_attributes_at_once(self):
         cdf = pycdfpp.CDF()
         cdf.add_variable("test_variable", attributes={"attr1":[1,2,3], "attr2":[datetime(2018,1,1), datetime(2018,1,2)] })

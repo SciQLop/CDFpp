@@ -31,6 +31,19 @@ namespace cdf
 struct Attribute
 {
     using attr_data_t = std::vector<data_t>;
+    using iterator = attr_data_t::iterator;
+    using value_type = attr_data_t::value_type;
+    using const_iterator = attr_data_t::const_iterator;
+    using reference = attr_data_t::reference;
+    using const_reference = attr_data_t::const_reference;
+    using size_type = attr_data_t::size_type;
+    using difference_type = attr_data_t::difference_type;
+    using pointer = attr_data_t::pointer;
+    using const_pointer = attr_data_t::const_pointer;
+    using reverse_iterator = attr_data_t::reverse_iterator;
+    using const_reverse_iterator = attr_data_t::const_reverse_iterator;
+
+
     std::string name;
     Attribute() = default;
     Attribute(const Attribute&) = default;
@@ -89,6 +102,16 @@ struct Attribute
     [[nodiscard]] inline std::size_t size() const noexcept { return std::size(data); }
     [[nodiscard]] inline data_t& operator[](std::size_t index) { return data[index]; }
     [[nodiscard]] inline const data_t& operator[](std::size_t index) const { return data[index]; }
+
+    inline void push_back(const data_t& value) { data.push_back(value); }
+
+    inline void push_back(data_t&& value) { data.push_back(std::move(value)); }
+
+    template <class... Args>
+    auto emplace_back(Args&&... args)
+    {
+        return data.emplace_back(std::forward<Args>(args)...);
+    }
 
     template <typename... Ts>
     friend void visit(Attribute& attr, Ts... lambdas);

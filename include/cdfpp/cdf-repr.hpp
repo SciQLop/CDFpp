@@ -53,10 +53,9 @@ inline stream_t& operator<<(stream_t& os, const decltype(cdf::to_time_point(tt20
     auto tt = std::gmtime(&tp_time_t);
     if (tt)
     {
-        const auto us
-            = (std::chrono::duration_cast<std::chrono::microseconds>(tp.time_since_epoch())
-                % 1000000)
-                  .count();
+        const uint64_t ns = (std::chrono::duration_cast<std::chrono::nanoseconds>(tp.time_since_epoch())
+            % 1000000000)
+                            .count();
         // clang-format off
         os << std::setprecision(4) << std::setw(4) << std::setfill('0')  << tt->tm_year + 1900 << '-'
            << std::setprecision(2) << std::setw(2) << std::setfill('0')  << tt->tm_mon + 1     << '-'
@@ -64,7 +63,7 @@ inline stream_t& operator<<(stream_t& os, const decltype(cdf::to_time_point(tt20
            << std::setprecision(2) << std::setw(2) << std::setfill('0')  << tt->tm_hour        << ':'
            << std::setprecision(2) << std::setw(2) << std::setfill('0')  << tt->tm_min         << ':'
            << std::setprecision(2) << std::setw(2) << std::setfill('0')  << tt->tm_sec         << '.'
-           << std::setprecision(6) << std::setw(6) << std::setfill('0')  << us;
+           << std::setprecision(9) << std::setw(9) << std::setfill('0')  << ns;
         // clang-format on
     }
 
@@ -74,21 +73,36 @@ inline stream_t& operator<<(stream_t& os, const decltype(cdf::to_time_point(tt20
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const epoch& time)
 {
-    os << cdf::to_time_point(time) << std::endl;
+    os << cdf::to_time_point(time);
     return os;
 }
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const epoch16& time)
 {
-    os << cdf::to_time_point(time) << std::endl;
+    os << cdf::to_time_point(time);
     return os;
 }
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const tt2000_t& time)
 {
-    os << cdf::to_time_point(time) << std::endl;
+    if (time.value == static_cast<int64_t>(0x8000000000000000))
+    {
+        os << "9999-12-31T23:59:59.999999999";
+        return os;
+    }
+    if (time.value == static_cast<int64_t>(0x8000000000000001))
+    {
+        os << "0000-01-01T00:00:00.000000000";
+        return os;
+    }
+    if (time.value == static_cast<int64_t>(0x8000000000000003))
+    {
+        os << "9999-12-31T23:59:59.999999999";
+        return os;
+    }
+    os << cdf::to_time_point(time);
     return os;
 }
 

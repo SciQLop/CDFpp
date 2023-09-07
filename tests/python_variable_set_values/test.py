@@ -128,6 +128,25 @@ class PycdfVariableSetValues(unittest.TestCase):
         self.assertIn("datetime", cdf)
         self.assertTrue(np.all(pycdfpp.to_datetime(cdf["datetime"]) == values))
 
+    def test_setting_list_of_int_takes_the_smallest_dtype(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("uint8", values=[1,2,3,255])
+        self.assertEqual(cdf["uint8"].values.dtype, np.uint8)
+        cdf.add_variable("uint16", values=[1,2,3,256])
+        self.assertEqual(cdf["uint16"].values.dtype, np.uint16)
+        cdf.add_variable("uint32", values=[1,2,3,65536])
+        self.assertEqual(cdf["uint32"].values.dtype, np.uint32)
+        cdf.add_variable("int8", values=[1,2,3,-128])
+        self.assertEqual(cdf["int8"].values.dtype, np.int8)
+        cdf.add_variable("int16", values=[1,2,3,-129])
+        self.assertEqual(cdf["int16"].values.dtype, np.int16)
+        cdf.add_variable("int32", values=[1,2,3,-32769])
+        self.assertEqual(cdf["int32"].values.dtype, np.int32)
+        cdf.add_variable("int64", values=[1,2,3,-4294967296])
+        self.assertEqual(cdf["int64"].values.dtype, np.int64)
+        cdf.add_variable("float", values=[1,2,3,1e-38])
+        self.assertEqual(cdf["float"].values.dtype, np.float64)
+
 
 if __name__ == '__main__':
     unittest.main()

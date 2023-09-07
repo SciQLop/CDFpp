@@ -7,117 +7,160 @@ import math
 import unittest
 from glob import glob
 import pycdfpp
+from pycdfpp import tt2000_t, epoch, epoch16
 
 os.environ['TZ'] = 'UTC'
 
 variables = {
-'epoch':{
-    'shape':(101,),
-    'type':pycdfpp.DataType.CDF_EPOCH,
-    'values': [datetime(1970,1,1)+timedelta(days=180*i) for i in range(101)],
-    'attributes':{'epoch_attr':["a variable attribute"]}
-},
-'tt2000':{
-    'shape':(101,),
-    'type':pycdfpp.DataType.CDF_TIME_TT2000,
-    'values': [datetime(1970,1,1)+timedelta(days=180*i) for i in range(101)],
-    'attributes':{}
-},
-'epoch16':{
-    'shape':(101,),
-    'type':pycdfpp.DataType.CDF_EPOCH16,
-    'values': [datetime(1970,1,1)+timedelta(days=180*i) for i in range(101)],
-    'attributes':{}
-},
-'var':{
-    'shape':(101,),
-    'type':pycdfpp.DataType.CDF_DOUBLE,
-    'values':np.cos(np.arange(0.,(101)/100*2.*math.pi,2.*math.pi/100)),
-    'attributes':{'var_attr':["a variable attribute"], "DEPEND0":["epoch"]}
-},
-'zeros':{
-    'shape':(2048,),
-    'type':pycdfpp.DataType.CDF_DOUBLE,
-    'values':np.zeros(2048),
-    'attributes':{'attr1':["attr1_value"]}
-},
-'bytes':{
-    'shape':(10,),
-    'type':pycdfpp.DataType.CDF_BYTE,
-    'values':np.ones(10),
-    'attributes':{'attr1':["attr1_value"]}
-},
-'var2d':{
-    'shape':(3,4),
-    'type':pycdfpp.DataType.CDF_DOUBLE,
-    'values': np.ones((3,4)),
-    'attributes':{'attr1':["attr1_value"], 'attr2':["attr2_value"]}
-},
-'var2d_counter':{
-    'shape':(10,10),
-    'type':pycdfpp.DataType.CDF_DOUBLE,
-    'values':np.arange(100, dtype=np.float64).reshape(10,10),
-    'attributes':{}
-},
-'var3d_counter':{
-    'shape':(3,3,3),
-    'type':pycdfpp.DataType.CDF_DOUBLE,
-    'values': np.arange(3**3, dtype=np.float64).reshape(3,3,3),
-    'attributes':{'attr1':["attr1_value"], 'attr2':["attr2_value"]}
-},
-'var3d':{
-    'shape':(4,3,2),
-    'type':pycdfpp.DataType.CDF_DOUBLE,
-    'values': np.ones((4,3,2)),
-    'attributes':{"var3d_attr_multi":[[10,11]]}
-},
-'empty_var_recvary_string':{
-    'shape':(0,16),
-    'type':pycdfpp.DataType.CDF_CHAR,
-    'values': np.array([], dtype='|S16'),
-    'attributes':{}
-},
-'var_recvary_string':{
-    'shape':(3,3),
-    'type':pycdfpp.DataType.CDF_CHAR,
-    'values': np.char.encode(['001', '002', '003']),
-    'attributes':{}
-},
-'var_string':{
-    'shape':(16,),
-    'type':pycdfpp.DataType.CDF_CHAR,
-    'values': np.char.encode(['This is a string']),
-    'attributes':{}
-},
-'var_string_uchar':{
-    'shape':(16,),
-    'type':pycdfpp.DataType.CDF_UCHAR,
-    'values': np.char.encode(['This is a string']),
-    'attributes':{}
-},
-'var2d_string':{
-    'shape':(2,18),
-    'type':pycdfpp.DataType.CDF_CHAR,
-    'values': np.char.encode(['This is a string 1','This is a string 2']),
-    'attributes':{}
-},
-'var3d_string':{
-    'shape':(2,2,9),
-    'type':pycdfpp.DataType.CDF_CHAR,
-    'values': np.char.encode([['value[00]','value[01]'],['value[10]','value[11]']]),
-    'attributes':{}
-}
+    'epoch': {
+        'shape': (101,),
+        'type': pycdfpp.DataType.CDF_EPOCH,
+        'values': [datetime(1970, 1, 1)+timedelta(days=180*i) for i in range(101)],
+        'attributes': {'epoch_attr': ["a variable attribute"]}
+    },
+    'tt2000': {
+        'shape': (101,),
+        'type': pycdfpp.DataType.CDF_TIME_TT2000,
+        'values': [datetime(1970, 1, 1)+timedelta(days=180*i) for i in range(101)],
+        'attributes': {}
+    },
+    'epoch16': {
+        'shape': (101,),
+        'type': pycdfpp.DataType.CDF_EPOCH16,
+        'values': [datetime(1970, 1, 1)+timedelta(days=180*i) for i in range(101)],
+        'attributes': {}
+    },
+    'var': {
+        'shape': (101,),
+        'type': pycdfpp.DataType.CDF_DOUBLE,
+        'values': np.cos(np.arange(0., (101)/100*2.*math.pi, 2.*math.pi/100)),
+        'attributes': {'var_attr': ["a variable attribute"], "DEPEND0": ["epoch"]}
+    },
+    'zeros': {
+        'shape': (2048,),
+        'type': pycdfpp.DataType.CDF_DOUBLE,
+        'values': np.zeros(2048),
+        'attributes': {'attr1': ["attr1_value"]}
+    },
+    'bytes': {
+        'shape': (10,),
+        'type': pycdfpp.DataType.CDF_BYTE,
+        'values': np.ones(10),
+        'attributes': {'attr1': ["attr1_value"]}
+    },
+    'var2d': {
+        'shape': (3, 4),
+        'type': pycdfpp.DataType.CDF_DOUBLE,
+        'values': np.ones((3, 4)),
+        'attributes': {'attr1': ["attr1_value"], 'attr2': ["attr2_value"]}
+    },
+    'var2d_counter': {
+        'shape': (10, 10),
+        'type': pycdfpp.DataType.CDF_DOUBLE,
+        'values': np.arange(100, dtype=np.float64).reshape(10, 10),
+        'attributes': {}
+    },
+    'var3d_counter': {
+        'shape': (3, 3, 3),
+        'type': pycdfpp.DataType.CDF_DOUBLE,
+        'values': np.arange(3**3, dtype=np.float64).reshape(3, 3, 3),
+        'attributes': {'attr1': ["attr1_value"], 'attr2': ["attr2_value"]}
+    },
+    'var3d': {
+        'shape': (4, 3, 2),
+        'type': pycdfpp.DataType.CDF_DOUBLE,
+        'values': np.ones((4, 3, 2)),
+        'attributes': {"var3d_attr_multi": [[10, 11]]}
+    },
+    'empty_var_recvary_string': {
+        'shape': (0, 16),
+        'type': pycdfpp.DataType.CDF_CHAR,
+        'values': np.array([], dtype='|S16'),
+        'attributes': {}
+    },
+    'var_recvary_string': {
+        'shape': (3, 3),
+        'type': pycdfpp.DataType.CDF_CHAR,
+        'values': np.char.encode(['001', '002', '003']),
+        'attributes': {}
+    },
+    'var_string': {
+        'shape': (16,),
+        'type': pycdfpp.DataType.CDF_CHAR,
+        'values': np.char.encode(['This is a string']),
+        'attributes': {}
+    },
+    'var_string_uchar': {
+        'shape': (16,),
+        'type': pycdfpp.DataType.CDF_UCHAR,
+        'values': np.char.encode(['This is a string']),
+        'attributes': {}
+    },
+    'var2d_string': {
+        'shape': (2, 18),
+        'type': pycdfpp.DataType.CDF_CHAR,
+        'values': np.char.encode(['This is a string 1', 'This is a string 2']),
+        'attributes': {}
+    },
+    'var3d_string': {
+        'shape': (2, 2, 9),
+        'type': pycdfpp.DataType.CDF_CHAR,
+        'values': np.char.encode([['value[00]', 'value[01]'], ['value[10]', 'value[11]']]),
+        'attributes': {}
+    }
 }
 
-attributes = ['attr', 'attr_float', 'attr_int', 'attr_multi', 'empty']
+attributes = {'attr': {"values": ["a cdf text attribute"], "types": [pycdfpp.DataType.CDF_CHAR]},
+              'attr_float': {"values": [[1., 2., 3.], [4., 5., 6.]], "types": [pycdfpp.DataType.CDF_FLOAT, pycdfpp.DataType.CDF_FLOAT]},
+              'attr_int': {"values": [[1, 2, 3]], "types": [pycdfpp.DataType.CDF_BYTE]},
+              'attr_multi': {"values": [[1, 2], [2., 3.], "hello"], "types": [pycdfpp.DataType.CDF_BYTE, pycdfpp.DataType.CDF_FLOAT, pycdfpp.DataType.CDF_CHAR]},
+              'empty': {"values": [], "types": []},
+              'epoch': {"values": [
+                  [epoch(62167219200000.0),
+                   epoch(62182771200000.0),
+                   epoch(62198323200000.0),
+                   epoch(62213875200000.0),
+                   epoch(62229427200000.0),
+                   epoch(62244979200000.0),
+                   epoch(62260531200000.0),
+                   epoch(62276083200000.0),
+                   epoch(62291635200000.0),
+                   epoch(62307187200000.0),
+                   epoch(62322739200000.0)]], "types": [pycdfpp.DataType.CDF_EPOCH]},
+              'epoch16': {"values": [[
+                  epoch16(62167219200.0, 0.0),
+                  epoch16(62182771200.0, 0.0),
+                  epoch16(62198323200.0, 0.0),
+                  epoch16(62213875200.0, 0.0),
+                  epoch16(62229427200.0, 0.0),
+                  epoch16(62244979200.0, 0.0),
+                  epoch16(62260531200.0, 0.0),
+                  epoch16(62276083200.0, 0.0),
+                  epoch16(62291635200.0, 0.0),
+                  epoch16(62307187200.0, 0.0),
+                  epoch16(62322739200.0, 0.0)
+              ]], "types": [pycdfpp.DataType.CDF_EPOCH16]},
+              'tt2000': {"values": [[
+                  tt2000_t(-946727959814622001),
+                  tt2000_t(-931175959348062000),
+                  tt2000_t(-915623958881502000),
+                  tt2000_t(-900071958414942001),
+                  tt2000_t(-884519957948382000),
+                  tt2000_t(-868967957816000000),
+                  tt2000_t(-853415956816000000),
+                  tt2000_t(-837863955816000000),
+                  tt2000_t(-822311955816000000),
+                  tt2000_t(-806759954816000000),
+                  tt2000_t(-791207954816000000)]], "types": [pycdfpp.DataType.CDF_TIME_TT2000]}}
+
 
 def load_bytes(fname):
-    with open(fname,'rb') as f:
+    with open(fname, 'rb') as f:
         return f.read()
 
 
 def compare_attributes(attrs, ref):
-    for name,values in ref.items():
+    for name, values in ref.items():
         if name not in attrs:
             print(f"No {name} in {attrs}")
             return False
@@ -130,43 +173,56 @@ def compare_attributes(attrs, ref):
 
 class PycdfEncodingTest(unittest.TestCase):
     def test_can_load_and_repr_utf8(self):
-        cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/testutf8.cdf')
+        cdf = pycdfpp.load(
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/testutf8.cdf')
         str(cdf)
-        self.assertEqual(list(cdf.attributes["utf8"]), ['ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ'])
+        self.assertEqual(list(cdf.attributes["utf8"]), [
+                         'ASCII: ABCDEFG', 'Latin1: ©æêü÷Æ¼®¢¥', 'Chinese: 社安', 'Other: ႡႢႣႤႥႦ'])
 
     def test_can_load_and_repr_latin1_with_hack(self):
-        cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/wi_l2-30min_sms-stics-afm-magnetosphere_00000000_v01.cdf')
+        cdf = pycdfpp.load(
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/wi_l2-30min_sms-stics-afm-magnetosphere_00000000_v01.cdf')
         with self.assertRaises(UnicodeDecodeError):
             str(cdf)
-        cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/wi_l2-30min_sms-stics-afm-magnetosphere_00000000_v01.cdf', True)
+        cdf = pycdfpp.load(
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/wi_l2-30min_sms-stics-afm-magnetosphere_00000000_v01.cdf', True)
         str(cdf)
         self.assertIn('4ïÂ°', cdf.attributes['TEXT'][0])
 
+
 class PycdfLazyLoadingTest(unittest.TestCase):
     def test_lazy_in_memory_loading(self):
-        files = glob(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/a_*.cdf')
+        files = glob(
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/a_*.cdf')
         for f in files:
             cdf = pycdfpp.load(load_bytes(f))
-            data=[v.values for _,v in cdf.items()]
-            self.assertTrue(all([ d is not None for d in data ]))
+            data = [v.values for _, v in cdf.items()]
+            self.assertTrue(all([d is not None for d in data]))
+
 
 class PycdfDatetimeReprTest(unittest.TestCase):
     def test_can_repr_the_exact_expected_value_no_matter_what_TZ(self):
-        backup_TZ=os.environ.get("TZ", None)
+        backup_TZ = os.environ.get("TZ", None)
         for tz in ("UTC", "CEST", "JST", "Pacific/Niue"):
             os.environ["TZ"] = tz
-            cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/testutf8.cdf')
-            self.assertEqual(str(cdf.attributes['epTestDate'][0][0]).strip(), '2004-05-13T15:08:11.022033')
-            self.assertEqual(str(cdf.attributes['TestDate'][0][0]).strip(), '2002-04-25T00:00:00.000000')
-            self.assertEqual(str(cdf.attributes['TestDate'][1][0]).strip(), '2008-02-04T06:08:10.012014')
+            cdf = pycdfpp.load(
+                f'{os.path.dirname(os.path.abspath(__file__))}/../resources/testutf8.cdf')
+            self.assertEqual(
+                str(cdf.attributes['epTestDate'][0][0]).strip(), '2004-05-13T15:08:11.022033044')
+            self.assertEqual(
+                str(cdf.attributes['TestDate'][0][0]).strip(), '2002-04-25T00:00:00.000000000')
+            self.assertEqual(
+                str(cdf.attributes['TestDate'][1][0]).strip(), '2008-02-04T06:08:10.012014016')
         if backup_TZ is None:
             os.environ.pop("TZ")
         else:
             os.environ["TZ"] = backup_TZ
 
+
 class PycdfTest(unittest.TestCase):
     def setUp(self):
-        files = glob(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/a_*.cdf')
+        files = glob(
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/a_*.cdf')
         self.cdfs = list(map(pycdfpp.load, files)) + list(map(lambda f: pycdfpp.load(load_bytes(f)), files))
         for cdf in self.cdfs:
             self.assertIsNotNone(cdf)
@@ -176,7 +232,7 @@ class PycdfTest(unittest.TestCase):
 
     def test_cdflib_version(self):
         for cdf in self.cdfs:
-            self.assertEqual(cdf.distribution_version, (3,8,0))
+            self.assertEqual(cdf.distribution_version, (3, 8, 0))
 
     def test_has_all_expected_vars(self):
         for cdf in self.cdfs:
@@ -185,8 +241,13 @@ class PycdfTest(unittest.TestCase):
 
     def test_has_all_expected_attributes(self):
         for cdf in self.cdfs:
-            for name in attributes:
+            for name, desc in attributes.items():
                 self.assertTrue(name in cdf.attributes)
+                attr = cdf.attributes[name]
+                for i, t in enumerate(desc["types"]):
+                    self.assertEqual(t, attr.type(i))
+                for i, v in enumerate(desc["values"]):
+                    self.assertEqual(v, attr[i])
 
     def test_access_attribute_data_outside_of_range(self):
         attr = self.cdfs[0].attributes['attr_int']
@@ -203,59 +264,67 @@ class PycdfTest(unittest.TestCase):
                     self.assertIsNotNone(whole_var)
                     self.assertIsNotNone(values)
                     self.assertIsNotNone(one_by_one)
-                    self.assertTrue(np.all(whole_var==values))
-                    self.assertTrue(np.all(whole_var==one_by_one))
+                    self.assertTrue(np.all(whole_var == values))
+                    self.assertTrue(np.all(whole_var == one_by_one))
 
                 for attr in ('epoch', 'epoch16', 'tt2000'):
                     whole_attr = f(cdf.attributes[attr][0])
                     one_by_one = [f(v) for v in cdf.attributes[attr][0]]
                     self.assertIsNotNone(whole_attr)
                     self.assertIsNotNone(one_by_one)
-                    self.assertTrue(np.all(whole_attr==one_by_one))
+                    self.assertTrue(np.all(whole_attr == one_by_one))
 
     def test_non_string_vars_implements_buffer_protocol(self):
         for cdf in self.cdfs:
-            for name,var in cdf.items():
+            for name, var in cdf.items():
                 if var.type not in (pycdfpp.DataType.CDF_CHAR, pycdfpp.DataType.CDF_UCHAR):
                     arr_from_buffer = np.array(var)
-                    self.assertTrue(np.all(arr_from_buffer==var.values))
+                    self.assertTrue(np.all(arr_from_buffer == var.values))
 
     def test_everything_have_repr(self):
         for cdf in self.cdfs:
             self.assertIsNotNone(str(cdf))
             for attr in cdf.attributes.items():
                 self.assertIsNotNone(str(attr))
-            for _,var in cdf.items():
+            for _, var in cdf.items():
                 self.assertIsNotNone(str(var))
-                for __,attr in var.attributes.items():
+                for __, attr in var.attributes.items():
                     self.assertIsNotNone(str(attr))
 
     def test_vars_have_expected_type_and_shape(self):
         for cdf in self.cdfs:
-            for name,var in cdf.items():
+            for name, var in cdf.items():
                 self.assertTrue(name in variables)
                 v_exp = variables[name]
                 self.assertEqual(v_exp['shape'], var.shape)
                 self.assertEqual(v_exp['type'], var.type)
-                self.assertTrue(compare_attributes(var.attributes, v_exp['attributes']), f"Broken var: {name}")
+                self.assertTrue(compare_attributes(
+                    var.attributes, v_exp['attributes']), f"Broken var: {name}")
                 if var.type in [pycdfpp.DataType.CDF_EPOCH, pycdfpp.DataType.CDF_EPOCH16]:
-                    self.assertTrue(np.all(v_exp['values'] == pycdfpp.to_datetime(var)), f"Broken var: {name}")
+                    self.assertTrue(
+                        np.all(v_exp['values'] == pycdfpp.to_datetime(var)), f"Broken var: {name}")
                 elif var.type == pycdfpp.DataType.CDF_TIME_TT2000:
-                    self.assertTrue(np.all(v_exp['values'][5:] == pycdfpp.to_datetime(var)[5:]), f"Broken var: {name}")
+                    self.assertTrue(np.all(v_exp['values'][5:] == pycdfpp.to_datetime(var)[
+                                    5:]), f"Broken var: {name}")
                 elif var.type == pycdfpp.DataType.CDF_DOUBLE:
-                    self.assertTrue(np.allclose(v_exp['values'], var.values, rtol=1e-10, atol=0.), f"Broken var: {name}, values: {var.values}")
+                    self.assertTrue(np.allclose(
+                        v_exp['values'], var.values, rtol=1e-10, atol=0.), f"Broken var: {name}, values: {var.values}")
                 else:
-                    self.assertTrue(np.all(v_exp['values']== var.values), f"Broken var: {name}, values: {var.values}")
+                    self.assertTrue(np.all(
+                        v_exp['values'] == var.values), f"Broken var: {name}, values: {var.values}")
 
 
 class PycdfNonRegression(unittest.TestCase):
     def test_ace_h0_mfi_bgsm_shape(self):
-        cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/ac_h0_mfi_00000000_v01.cdf')
+        cdf = pycdfpp.load(
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/ac_h0_mfi_00000000_v01.cdf')
         self.assertEqual(cdf['BGSM'].shape, (0, 3))
 
     def test_ace_h0_mfi_label_time_shape(self):
-        cdf = pycdfpp.load(f'{os.path.dirname(os.path.abspath(__file__))}/../resources/ac_h0_mfi_00000000_v01.cdf')
+        cdf = pycdfpp.load(
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/ac_h0_mfi_00000000_v01.cdf')
         self.assertEqual(cdf['label_time'].shape, (3, 27))
+
 
 if __name__ == '__main__':
     unittest.main()
