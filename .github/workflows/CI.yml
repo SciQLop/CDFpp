@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['cp37-cp37m', 'cp38-cp38', 'cp39-cp39', 'cp310-cp310', 'cp311-cp311']
+        python-version: [ 'cp38-cp38', 'cp39-cp39', 'cp310-cp310', 'cp311-cp311', 'cp312-cp312']
     steps:
       - name: add Python dir to path
         run: |
@@ -59,7 +59,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-11, windows-2019]
-        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12']
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -68,6 +68,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
+          allow-prereleases: true
       - name: install dependencies
         run: |
           pip install --upgrade twine build ninja wheel meson numpy meson-python==0.12.1
@@ -90,7 +91,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-11, windows-2019, ubuntu-latest]
-        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11']
+        python-version: [ '3.8', '3.9', '3.10', '3.11', '3.12']
     runs-on: ${{ matrix.os }}
     steps:
       - name: Setup Python
@@ -98,6 +99,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
+          allow-prereleases: true
       - uses: actions/download-artifact@v3
         with:
           name: wheels
