@@ -1,26 +1,26 @@
 [build-system]
 build-backend = 'mesonpy'
-requires = ['meson-python==0.12.1', 'numpy']
+requires = ['meson-python>=0.14.0', 'numpy']
 
 [project]
 name = "pycdfpp"
 description="A modern C++ header only cdf library"
 authors = [{name="Alexis Jeandet", email="alexis.jeandet@member.fsf.org"}]
 summary = "A simple to use CDF files reader"
-requires-python=">=3.7"
+requires-python=">=3.8"
 license = {file="COPYING"}
 readme = "README.md"
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Natural Language :: English",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 dependencies = ['numpy', 'pyyaml']
 dynamic = [
@@ -28,3 +28,9 @@ dynamic = [
 ]
 [project.urls]
 homepage = "https://github.com/SciQLop/CDFpp"
+documentation = "https://pycdfpp.readthedocs.io/en/latest/"
+repository = "https://github.com/SciQLop/CDFpp"
+
+[tool.meson-python.args]
+install = ['--tags=runtime,python-runtime']
+setup = ['-Doptimization=3']
