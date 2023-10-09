@@ -7,8 +7,8 @@ build_script_template: &BUILD_SCRIPT_TEMPLATE
     brew update && brew upgrade pyenv
     pyenv install ${PYTHON_VERSION}
     pyenv local ${PYTHON_VERSION}
-    pip3 install meson build wheel twine
-    CC=gcc-11 CXX=g++-11 python3 scripts/build_wheel.py
+    pip3 install meson build wheel twine meson-python>=0.14.0
+    CC=gcc-11 CXX=g++-11 python3 -m build --wheel --no-isolation  .
 
 env:
   GITHUB_TOKEN: ENCRYPTED[b5d25acd3412fce54a451c9da6175903eaf78a047a033f7b6e39296326b13535d3490dbbe0c4dc158e373e9bb22fa7e1]
