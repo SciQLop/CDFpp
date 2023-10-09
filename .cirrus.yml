@@ -22,6 +22,7 @@ task:
     TWINE_USERNAME: __token__
     PATH: ~/.pyenv/shims:${PATH}
     matrix:
+      - PYTHON_VERSION: 3.12
       - PYTHON_VERSION: 3.11
       - PYTHON_VERSION: 3.10.6
       - PYTHON_VERSION: 3.9.13
@@ -64,6 +65,7 @@ task:
     TWINE_REPOSITORY: testpypi
     PATH: ~/.pyenv/shims:${PATH}
     matrix:
+    - PYTHON_VERSION: 3.12
     - PYTHON_VERSION: 3.11
     - PYTHON_VERSION: 3.10.6
     - PYTHON_VERSION: 3.9.13
