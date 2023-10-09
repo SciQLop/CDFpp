@@ -44,11 +44,11 @@ jobs:
           submodules: true
       - name: Build for Python ${{ matrix.python-version }}
         run: |
-            git config --global --add safe.directory '*'
-            pip install --upgrade "meson" "ninja" "numpy" "meson-python>=0.14.0" "build" "wheel" "twine" "auditwheel"
-            python3 -m build --wheel --no-isolation  .
-            rename 'linux_x86_64' 'manylinux_2_28_x86_64' dist/*.whl
-            #python scripts/build_wheel.py
+          git config --global --add safe.directory '*'
+          pip install --upgrade "meson" "ninja" "numpy" "meson-python>=0.14.0" "build" "wheel" "twine" "auditwheel"
+          python3 -m build --wheel --no-isolation  .
+          rename 'linux_x86_64' 'manylinux_2_28_x86_64' dist/*.whl
+          #python scripts/build_wheel.py
       - name: Make wheels universal
         run: for wheel in $(ls dist/*.whl); do auditwheel repair $wheel; done
       - name: Save packages as artifacts
@@ -108,11 +108,11 @@ jobs:
         with:
           name: wheels
           path: dist
-      - name: install wheel (Windows)
+      - name: install wheel (Unix)
         if: runner.os != 'Windows'
         run: |
           pip install --find-links $GITHUB_WORKSPACE/dist pycdfpp
-      - name: install wheel (Unix)
+      - name: install wheel (Windows)
         if: runner.os == 'Windows'
         run: |
           pip install --find-links $env:GITHUB_WORKSPACE\dist pycdfpp
@@ -122,10 +122,64 @@ jobs:
           pip install ddt requests
           python tests/full_corpus/test_full_corpus.py
 
+  build_macos_arm:
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+      - name: add pyenv to path
+        run: |
+          echo "$HOME/.pyenv/shims" >> $GITHUB_PATH
+      - name: install dependencies
+        run: |
+          brew install pyenv
+          pyenv install ${{ matrix.python-version }}
+          pyenv local ${{ matrix.python-version }}
+          python3 -m pip install meson numpy ninja build wheel twine meson-python>=0.14.0
+      - name: build package
+        run: |
+          pyenv local ${{ matrix.python-version }}
+          CC=gcc-13 CXX=g++-13 python3 -m build --wheel --no-isolation  .
+      - name: Save packages as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: dist/*.whl
+
+  test_wheels_macos_arm:
+    needs: build_macos_arm
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+    runs-on: self-hosted
+    steps:
+      - name: add pyenv to path
+        run: |
+          echo " ~/.pyenv/shims" >> $GITHUB_PATH
+      - name: install dependencies
+        run: |
+          brew install pyenv
+          pyenv install ${{ matrix.python-version }}
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheels
+          path: dist
+      - name: install wheel
+        run: |
+          pyenv local ${{ matrix.python-version }}
+          python3 -m pip install --find-links $GITHUB_WORKSPACE/dist pycdfpp
+      - uses: actions/checkout@v3
+      - name: run tests
+        run: |
+          pyenv local ${{ matrix.python-version }}
+          python3 -m pip install ddt requests
+          python3 tests/full_corpus/test_full_corpus.py
 
 
   upload_pypi:
-    needs: [build_osx_and_windows, build_linux, build_sdist, test_wheels]
+    needs: [build_osx_and_windows, build_linux, build_macos_arm, build_sdist, test_wheels, test_wheels_macos_arm]
     runs-on: ubuntu-latest
     # upload to PyPI only on github releases
     if: github.event_name == 'release' && github.event.action == 'published' && github.repository_owner == 'SciQLop'
@@ -145,7 +199,7 @@ jobs:
           skip-existing: true
 
   upload_test_pypi:
-    needs: [build_osx_and_windows, build_linux, build_sdist, test_wheels]
+    needs: [build_osx_and_windows, build_linux, build_macos_arm, build_sdist, test_wheels]
     runs-on: ubuntu-latest
     # upload to test PyPI on github pushes
     if: github.event_name == 'push' && github.repository_owner == 'SciQLop'

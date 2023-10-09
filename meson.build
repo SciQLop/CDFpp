@@ -126,7 +126,6 @@ cdfpp_extra_files = files(
     'pyproject.toml',
     'README.md',
     '.bumpversion.cfg',
-    '.cirrus.yml',
     'version.txt',
     'scripts/build_wheel.py',
     'tests/resources/make_cdf.py',
