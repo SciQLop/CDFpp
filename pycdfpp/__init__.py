@@ -15,7 +15,8 @@ Indices and tables
 
 
 import numpy as np
-from ._pycdfpp import *
+#from ._pycdfpp import *
+from ._pycdfpp import DataType, CompressionType, Majority, Variable, Attribute, CDF, tt2000_t, epoch, epoch16, save
 from datetime import datetime
 from . import _pycdfpp
 from typing import ByteString, Mapping, List, Any
@@ -105,19 +106,22 @@ def _holds_datetime(values: list):
             return True
     return False
 
-
-def _values_view_and_type(values: np.ndarray or list, data_type=None):
+def _values_view_and_type(values: np.ndarray or list, data_type:DataType or None=None, target_type:DataType or None=None):
     if type(values) is list:
         if _holds_datetime(values):
             values = np.array(values, dtype="datetime64[ns]")
         else:
             values = np.array(
                 values, dtype=_CDF_TYPES_TO_NUMPY_DTYPE_.get(data_type, None))
+
         if values.dtype.num == 19:
             values = np.char.encode(values, encoding='utf-8')
         elif data_type is None and np.issubdtype(values.dtype, np.integer):
+            target_type = _CDF_TYPES_TO_NUMPY_DTYPE_.get(target_type, np.float32)
+            if not np.issubdtype(target_type, np.integer):
+                target_type = 0
             values = values.astype(np.result_type(
-                np.min_scalar_type(values.min()), values.max()))
+                np.min_scalar_type(values.min()), values.max(), target_type))
         return _values_view_and_type(values, data_type)
     else:
         if values.dtype.num == 21:
@@ -132,21 +136,28 @@ def _values_view_and_type(values: np.ndarray or list, data_type=None):
 
 
 def _patch_set_values():
-    def _set_values_wrapper(self, values: np.ndarray, data_type=None):
-        values, data_type = _values_view_and_type(values, data_type)
+    def _set_values_wrapper(self:Variable, values: np.ndarray, data_type:DataType or None=None):
+        values, data_type = _values_view_and_type(values, data_type, target_type=self.type)
         if data_type not in _CDF_TYPES_COMPATIBILITY_TABLE_[self.type]:
             raise ValueError(
                 f"Can't set variable of type {self.type} with values of type {data_type}")
-        if self.type != DataType.CDF_NONE and self.shape[1:] != values.shape[1:]:
+        if self.is_nrv:
+            if self.shape[1:] != values.shape[1:]:
+                if self.shape[1:] != values.shape:
+                    raise ValueError(
+                        f"Can't set NRV variable of shape {self.shape} with values of shape {values.shape}")
+                else:
+                    values = values.reshape((1,)+values.shape)
+        elif self.type != DataType.CDF_NONE and self.shape[1:] != values.shape[1:]:
             raise ValueError(
-                f"Can't sat variable of shape {self.shape} with values of shape {values.shape}")
+                f"Can't set variable of shape {self.shape} with values of shape {values.shape}")
         self._set_values(values, data_type)
 
     Variable.set_values = _set_values_wrapper
 
 
 def _patch_add_variable():
-    def _add_variable_wrapper(self, name: str, values: np.ndarray or None = None, data_type=None, is_nrv: bool = False,
+    def _add_variable_wrapper(self, name: str, values: np.ndarray or None = None, data_type:DataType or None=None, is_nrv: bool = False,
                               compression: CompressionType = CompressionType.no_compression,
                               attributes: Mapping[str, List[Any]] or None = None):
         """Adds a new variable to the CDF. If values is None, the variable is created with no values. Otherwise, the variable is created with the given values. If attributes is not None, the variable is created with the given attributes.

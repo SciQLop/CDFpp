@@ -281,12 +281,12 @@ namespace
                             return MaxRec + 1;
                         }
                     }();
-                    if ((vdr.DataType != CDF_Types::CDF_CHAR
+                    /*if ((vdr.DataType != CDF_Types::CDF_CHAR
                             and vdr.DataType != CDF_Types::CDF_UCHAR)
                         or !common::is_nrv(vdr))
-                    {
-                        shape.insert(std::cbegin(shape), record_count);
-                    }
+                    {*/
+                    shape.insert(std::cbegin(shape), record_count);
+                    /*}*/
                     if (lazy_load)
                     {
                         common::add_lazy_variable(cdf, vdr.Name.value, vdr.Num,

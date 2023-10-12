@@ -89,12 +89,12 @@ struct CDF
 
 void add_attribute(CDF& cdf_file, const std::string& name, Attribute::attr_data_t&& data)
 {
-    cdf_file.attributes[name] = std::move(data);
+    cdf_file.attributes.emplace(name, name, std::move(data));
 }
 
 void add_variable(CDF& cdf_file, const std::string& name, Variable&& var)
 {
-    cdf_file.variables[name] = std::move(var);
+    cdf_file.variables.emplace(name, std::move(var));
 }
 
 } // namespace cdf

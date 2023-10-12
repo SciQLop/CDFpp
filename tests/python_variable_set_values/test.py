@@ -128,7 +128,7 @@ class PycdfVariableSetValues(unittest.TestCase):
         self.assertIn("datetime", cdf)
         self.assertTrue(np.all(pycdfpp.to_datetime(cdf["datetime"]) == values))
 
-    def test_setting_list_of_int_takes_the_smallest_dtype(self):
+    def test_creating_a_variable_with_a_list_of_int_takes_the_smallest_dtype(self):
         cdf = pycdfpp.CDF()
         cdf.add_variable("uint8", values=[1,2,3,255])
         self.assertEqual(cdf["uint8"].values.dtype, np.uint8)
@@ -147,6 +147,20 @@ class PycdfVariableSetValues(unittest.TestCase):
         cdf.add_variable("float", values=[1,2,3,1e-38])
         self.assertEqual(cdf["float"].values.dtype, np.float64)
 
+    def test_setting_values_with_a_list_of_int_converts_to_variable_dtype(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("uint32", values = [1,2,3,4], data_type=pycdfpp.DataType.CDF_UINT4)
+        cdf["uint32"].set_values([1,2,3,4])
+        self.assertEqual(pycdfpp.DataType.CDF_UINT4, cdf["uint32"].type)
+        cdf.add_variable("uint8", values = [1,2,3,4], data_type=pycdfpp.DataType.CDF_UINT1)
+        with self.assertRaises(ValueError):
+            cdf["uint8"].set_values([100000,2,3,4])
+
+    def test_setting_nrv_variable_skipping_record_dimension(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("nrv_var", values = np.empty(shape=[0,2,2]), is_nrv=True)
+        self.assertTrue(cdf["nrv_var"].is_nrv)
+        cdf["nrv_var"].set_values(np.ones(shape=[2,2]))
 
 if __name__ == '__main__':
     unittest.main()

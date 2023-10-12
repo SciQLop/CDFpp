@@ -252,7 +252,11 @@ private:
 
     void check_shape() const
     {
-        if (flat_size(p_shape) != _data().size())
+
+        if (flat_size(p_shape) != _data().size()
+            and not(is_nrv() and _data().size() == 0UL
+                and (_data().type() == CDF_Types::CDF_CHAR
+                    or _data().type() == CDF_Types::CDF_UCHAR)))
             throw std::invalid_argument { "Variable: given shape and data size doens't match" };
     }
 
