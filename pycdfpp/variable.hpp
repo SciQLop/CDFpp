@@ -218,6 +218,7 @@ void def_variable_wrapper(T& mod)
         .def("__repr__", __repr__<Variable>)
         .def(py::self == py::self)
         .def(py::self != py::self)
+        .def("__len__", &Variable::len)
         .def_readonly(
             "attributes", &Variable::attributes, py::return_value_policy::reference_internal)
         .def_property_readonly("name", &Variable::name)

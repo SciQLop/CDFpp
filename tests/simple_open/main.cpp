@@ -259,10 +259,10 @@ std::size_t filesize(std::fstream& file)
             std::iota(std::begin(result), std::end(result), 0.);                                   \
             return result;                                                                         \
         }));                                                                                       \
-    REQUIRE(check_variable(cd.variables["var_string"], { 16 },                                     \
+    REQUIRE(check_variable(cd.variables["var_string"], { 1, 16 },                                  \
         no_init_vector<char> {                                                                     \
             'T', 'h', 'i', 's', ' ', 'i', 's', ' ', 'a', ' ', 's', 't', 'r', 'i', 'n', 'g' }));    \
-    REQUIRE(check_variable(cd.variables["var_string_uchar"], { 16 },                               \
+    REQUIRE(check_variable(cd.variables["var_string_uchar"], { 1, 16 },                            \
         no_init_vector<unsigned char> {                                                            \
             'T', 'h', 'i', 's', ' ', 'i', 's', ' ', 'a', ' ', 's', 't', 'r', 'i', 'n', 'g' }))
 

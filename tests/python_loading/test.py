@@ -85,25 +85,25 @@ variables = {
         'attributes': {}
     },
     'var_string': {
-        'shape': (16,),
+        'shape': (1, 16),
         'type': pycdfpp.DataType.CDF_CHAR,
-        'values': np.char.encode(['This is a string']),
+        'values': np.char.encode([['This is a string']]),
         'attributes': {}
     },
     'var_string_uchar': {
-        'shape': (16,),
+        'shape': (1, 16),
         'type': pycdfpp.DataType.CDF_UCHAR,
-        'values': np.char.encode(['This is a string']),
+        'values': np.char.encode([['This is a string']]),
         'attributes': {}
     },
     'var2d_string': {
-        'shape': (2, 18),
+        'shape': (1, 2, 18),
         'type': pycdfpp.DataType.CDF_CHAR,
         'values': np.char.encode(['This is a string 1', 'This is a string 2']),
         'attributes': {}
     },
     'var3d_string': {
-        'shape': (2, 2, 9),
+        'shape': (1, 2, 2, 9),
         'type': pycdfpp.DataType.CDF_CHAR,
         'values': np.char.encode([['value[00]', 'value[01]'], ['value[10]', 'value[11]']]),
         'attributes': {}
@@ -323,7 +323,15 @@ class PycdfNonRegression(unittest.TestCase):
     def test_ace_h0_mfi_label_time_shape(self):
         cdf = pycdfpp.load(
             f'{os.path.dirname(os.path.abspath(__file__))}/../resources/ac_h0_mfi_00000000_v01.cdf')
-        self.assertEqual(cdf['label_time'].shape, (3, 27))
+        self.assertEqual(cdf['label_time'].shape, (1, 3, 27))
+
+    def test_empty_NRV_char_var_to_buffer(self):
+        cdf = pycdfpp.load(
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/uy_proton-distributions_swoops_00000000_v01.cdf')
+        self.assertIsNotNone(memoryview(cdf['Vpar']))
+        self.assertIsNotNone(memoryview(cdf['Vper']))
+        self.assertIsNotNone(cdf['Vpar'].values_encoded)
+        self.assertIsNotNone(cdf['Vper'].values_encoded)
 
 
 if __name__ == '__main__':
