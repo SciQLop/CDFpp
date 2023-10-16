@@ -17,8 +17,8 @@
 [4]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
 [5]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=release
 [6]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
-[7]: https://api.cirrus-ci.com/github/SciQLop/CDFpp.svg
-[8]: https://cirrus-ci.com/github/SciQLop/CDFpp
+[7]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=release
+[8]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
 
 
 # Unit Tests
@@ -58,12 +58,14 @@ List of features and roadmap:
     - [x] read ISO 8859-1(Latin-1) encoded files (converts to UTF-8 on the fly)
     - [x] variables values lazy loading
     - [ ] decode DEC's floating point encoding (Itanium, ALPHA and VAX)
+    - [ ] pad values 
 - CDF writing
     - [x] write uncompressed headers
     - [x] write uncompressed attributes
     - [x] write uncompressed variables
     - [x] write compressed variables
     - [x] write compressed files
+    - [ ] pad values
 - General features
     - [x] uses [libdeflate](https://github.com/ebiggers/libdeflate) for faster GZip decompression
     - [x] highly optimized CDF reads (up to ~4GB/s read speed from disk)
@@ -211,3 +213,6 @@ int main(int argc, char** argv)
     return -1;
 }
 ```
+
+## caveats
+- NRZ variables shape, in order to expose a consistent shape, PyCDFpp exposes the reccord count as first dimension and thus its value will be either 0 or 1 (0 mean empty variable).
