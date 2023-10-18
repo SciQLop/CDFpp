@@ -29,7 +29,7 @@ sys.path.append(__here__)
 if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] >= 8:
     os.add_dll_directory(__here__)
 
-__all__ = ['tt2000_t', 'epoch', 'epoch16', 'save', 'CDF', 'Variable',
+__all__ = ['tt2000_t', 'epoch', 'epoch16', 'load', 'save', 'CDF', 'Variable',
            'Attribute', 'to_datetime64', 'to_datetime', 'DataType', 'CompressionType', 'Majority']
 
 
@@ -189,8 +189,8 @@ def _patch_add_variable():
         ValueError
             If the variable already exists.
 
-        Example
-        -------
+        Examples
+        --------
         >>> from pycdfpp import CDF, DataType, CompressionType
         >>> import numpy as np
         >>> cdf = CDF()
@@ -200,8 +200,7 @@ def _patch_add_variable():
           type: CDF_INT1
           record varry: True
           compression: GNU GZIP
-
-          Attributes:
+          ...
 
         """
         if values is not None:
@@ -256,8 +255,10 @@ def _patch_add_variable_attribute():
         ValueError
             If the attribute already exists.
 
-        Example
-        -------
+        Examples
+        --------
+
+
         >>> from pycdfpp import CDF, DataType
         >>> import numpy as np
         >>> cdf = CDF()
@@ -266,19 +267,10 @@ def _patch_add_variable_attribute():
           shape: [ 10 ]
           type: CDF_INT1
           record varry: True
-          compression: GNU GZIP
-
-          Attributes:
-
+          compression: None
+          ...
         >>> cdf["var1"].add_attribute("attr1", np.arange(10, dtype=np.int32), DataType.CDF_INT4)
-        attr1:
-          shape: [ 10 ]
-          type: CDF_INT1
-          record varry: True
-          compression: GNU GZIP
-
-          Attributes:
-
+        attr1: [ [ [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ] ] ]
         """
         v, t = _attribute_values_view_and_type(values, data_type)
         return self._add_attribute(name=name, values=v, data_type=t)
@@ -311,15 +303,14 @@ def _patch_add_cdf_attribute():
         ValueError
             If the attribute already exists.
 
-        Example
-        -------
+        Examples
+        --------
         >>> from pycdfpp import CDF, DataType
         >>> import numpy as np
         >>> from datetime import datetime
         >>> cdf = CDF()
         >>> cdf.add_attribute("attr1", [np.arange(10, dtype=np.int32)], [DataType.CDF_INT4])
         attr1: [ [ [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ] ] ]
-
         >>> cdf.add_attribute("multi", [np.arange(2, dtype=np.int32), [1.,2.,3.], "hello", [datetime(2010,1,1), datetime(2020,1,1)]])
 
         """
