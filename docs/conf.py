@@ -24,7 +24,7 @@
 # If your documentation needs a minimal Sphinx version, state it here.
 #
 # needs_sphinx = '1.0'
-
+import os
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
     'sphinx.ext.autodoc',
@@ -38,7 +38,7 @@ extensions = [
     'nbsphinx',
     'numpydoc']
 
-apidoc_module_dir = '../pycdfpp'
+apidoc_module_dir = os.environ.get("PYCDFPP_PATH",'..')+'/pycdfpp'
 apidoc_output_dir = 'generated/'
 apidoc_separate_modules = True
 apidoc_module_first = True
@@ -205,10 +205,10 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'speasy',
+    (master_doc, 'PyCDFpp',
      u'PyCDFpp Documentation',
      author,
-     'speasy',
+     'PyCDFpp',
      'One line description of project.',
      'Miscellaneous'),
 ]
@@ -220,4 +220,6 @@ intersphinx_mapping = {'python3': ('https://docs.python.org/3', None),
                        'matplotlib': ('https://matplotlib.org/stable/', None),
                        'seaborn': ('https://seaborn.pydata.org/', None),
                        'astropy': ('https://docs.astropy.org/en/stable/', None),
+                       'requests': ('https://requests.readthedocs.io/en/latest/', None),
+                       'xarray': ('https://xarray.pydata.org/en/stable/', None),
                        }

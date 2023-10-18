@@ -2,6 +2,11 @@
 History
 =======
 
+0.6.0 (TBC)
+
+* Adds Python 3.12 support.
+* Builds with O3 optimizations instead of O2.
+
 0.5.0 (2023-09-06)
 ------------------
 

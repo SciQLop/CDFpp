@@ -82,7 +82,7 @@ If you want to understand how it works, how to use the code or what works, you m
 ## From PyPi
 
 ```bash
-pip3 install --user pycdfpp
+python3 -m pip install --user pycdfpp
 ```
 
 ## From sources
@@ -92,6 +92,13 @@ meson build
 cd build
 ninja
 sudo ninja install
+```
+
+Or if youl want to build a Python wheel:
+
+```bash
+python -m build . 
+# resulting wheel will be located into dist folder
 ```
 
 # Basic usage
