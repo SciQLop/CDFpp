@@ -81,16 +81,22 @@ struct array_view
             : p_buffer { buffer }, p_size { size }, p_offset { offset }
     {
     }
-    char& operator[](std::size_t index) { return *(p_buffer.get() + p_offset + index); }
-    char& operator[](std::size_t index) const { return *(p_buffer.get() + p_offset + index); }
+    [[nodiscard]] char& operator[](std::size_t index)
+    {
+        return *(p_buffer.get() + p_offset + index);
+    }
+    [[nodiscard]] char& operator[](std::size_t index) const
+    {
+        return *(p_buffer.get() + p_offset + index);
+    }
 
-    char* data() { return p_buffer.get() + p_offset; }
-    char* begin() { return p_buffer.get() + p_offset; }
-    char* end() { return p_buffer.get() + p_offset + p_size; }
-    const char* cbegin() const { return p_buffer.get() + p_offset; }
-    const char* cend() const { return p_buffer.get() + p_offset + p_size; }
-    std::size_t size() const { return p_size; }
-    std::size_t offset() const { return p_offset; }
+    [[nodiscard]] char* data() { return p_buffer.get() + p_offset; }
+    [[nodiscard]] char* begin() { return p_buffer.get() + p_offset; }
+    [[nodiscard]] char* end() { return p_buffer.get() + p_offset + p_size; }
+    [[nodiscard]] const char* cbegin() const { return p_buffer.get() + p_offset; }
+    [[nodiscard]] const char* cend() const { return p_buffer.get() + p_offset + p_size; }
+    [[nodiscard]] std::size_t size() const { return p_size; }
+    [[nodiscard]] std::size_t offset() const { return p_offset; }
 };
 
 struct buffer
