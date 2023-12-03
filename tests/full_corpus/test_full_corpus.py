@@ -59,7 +59,7 @@ class PycdfCorpus(unittest.TestCase):
     )
     @ddt.unpack
     def test_opens_in_memory_remote_files(self, fname, variables, attrs):
-        cdf = pycdfpp.load(requests.get(f"https://hephaistos.lpp.polytechnique.fr/data/mirrors/CDF/test_files/{fname}").content)
+        cdf = pycdfpp.load(requests.get(f"https://129.104.27.7/data/mirrors/CDF/test_files/{fname}", verify=False).content)
         self.assertIsNotNone(cdf)
         self.assertEqual(len(cdf), variables)
         self.assertEqual(len(cdf.attributes), attrs)
