@@ -207,6 +207,10 @@ def _patch_add_variable():
             v, t = _values_view_and_type(values, data_type)
             var = self._add_variable(
                 name=name, values=v, data_type=t, is_nrv=is_nrv, compression=compression)
+        elif data_type is not None:
+            v,t = _values_view_and_type([], data_type)
+            var = self._add_variable(
+                name=name, values=v, data_type=t, is_nrv=is_nrv, compression=compression)
         else:
             var = self._add_variable(
                 name=name, is_nrv=is_nrv, compression=compression)
