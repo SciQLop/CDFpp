@@ -222,4 +222,4 @@ int main(int argc, char** argv)
 ```
 
 ## caveats
-- NRZ variables shape, in order to expose a consistent shape, PyCDFpp exposes the reccord count as first dimension and thus its value will be either 0 or 1 (0 mean empty variable).
+- NRV variables shape, in order to expose a consistent shape, PyCDFpp exposes the reccord count as first dimension and thus its value will be either 0 or 1 (0 mean empty variable).
