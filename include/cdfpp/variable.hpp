@@ -219,7 +219,7 @@ struct Variable
             stream_collection(os, shape(), ", ");
             os << "\n"
                << indent + 2 << "type: " << cdf_type_str(type()) << "\n"
-               << indent + 2 << "record varry: " << (is_nrv() ? "Flase" : "True") << "\n"
+               << indent + 2 << "record vary: " << (is_nrv() ? "False" : "True") << "\n"
                << indent + 2 << compression_type() << "\n\n";
             os << indent + 2 << "Attributes:\n";
             std::for_each(std::cbegin(attributes), std::cend(attributes),
@@ -230,7 +230,7 @@ struct Variable
             os << indent << name() << ": ";
             stream_collection(os, shape(), ", ");
             os << ", [" << cdf_type_str(type())
-               << "], record varry:" << (is_nrv() ? "Flase" : "True")
+               << "], record vary:" << (is_nrv() ? "False" : "True")
                << ", compression: " << cdf_compression_type_str(compression_type()) << std::endl;
         }
         return os;
