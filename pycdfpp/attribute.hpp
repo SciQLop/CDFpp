@@ -201,7 +201,14 @@ data_t to_attr_data_entry(const std::string& values, CDF_Types data_type)
 {
     if (data_type == CDF_Types::CDF_CHAR or data_type == CDF_Types::CDF_UCHAR)
     {
-        return { no_init_vector<char>(std::cbegin(values), std::cend(values)), data_type };
+        if (std::size(values) != 0)
+        {
+            return { no_init_vector<char>(std::cbegin(values), std::cend(values)), data_type };
+        }
+        else
+        {
+            return { no_init_vector<char> { { 0 } }, data_type };
+        }
     }
     else
     {
@@ -229,7 +236,7 @@ data_t _time_to_data_t(const py::buffer& buffer)
 template <typename T>
 data_t time_to_data_t(const std::vector<T>& values)
 {
-    return data_t {no_init_vector<T>(std::cbegin(values), std::cend(values))};
+    return data_t { no_init_vector<T>(std::cbegin(values), std::cend(values)) };
 }
 
 template <CDF_Types data_type>
