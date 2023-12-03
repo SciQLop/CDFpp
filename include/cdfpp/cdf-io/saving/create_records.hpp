@@ -60,6 +60,13 @@ namespace saving
         return cpr;
     }
 
+    int32_t attribute_entry_num_elements(const data_t& entry)
+    {
+        return visit(
+            entry, [](const cdf_none&) -> int32_t { return 0; },
+            [](const auto& v) -> int32_t { return std::size(v); });
+    }
+
     inline void create_file_attributes_records(const CDF& cdf, saving_context& svg_ctx)
     {
         for (const auto& [name, attribute] : cdf.attributes)
@@ -96,9 +103,7 @@ namespace saving
                         },
                         [](const auto&) -> uint32_t { return 0; });
                 }
-                aedr.record.NumElements = visit(
-                    data, [](const cdf_none&) -> uint32_t { return 0; },
-                    [](const auto& v) -> uint32_t { return std::size(v); });
+                aedr.record.NumElements = attribute_entry_num_elements(data);
                 value_index += 1;
                 update_size(aedr, aedr.record.NumElements * cdf_type_size(aedr.record.DataType));
             }
@@ -143,9 +148,7 @@ namespace saving
                     },
                     [](const auto&) -> int32_t { return 0; });
             }
-            aedr.record.NumElements = visit(
-                data, [](const cdf_none&) -> int32_t { return 0; },
-                [](const auto& v) -> int32_t { return std::size(v); });
+            aedr.record.NumElements = attribute_entry_num_elements(data);
             update_size(aedr, aedr.record.NumElements * cdf_type_size(aedr.record.DataType));
             vac.adr.record.MAXzEntries = std::max(vac.adr.record.MAXzEntries, aedr.record.Num);
             vac.adr.record.NzEntries = std::size(vac.aedrs);
