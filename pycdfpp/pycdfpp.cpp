@@ -45,6 +45,7 @@ using namespace cdf;
 #include <fmt/ranges.h>
 
 PYBIND11_MAKE_OPAQUE(cdf_map<std::string, Attribute>);
+PYBIND11_MAKE_OPAQUE(cdf_map<std::string, VariableAttribute>);
 PYBIND11_MAKE_OPAQUE(cdf_map<std::string, Variable>);
 
 namespace py = pybind11;
@@ -102,6 +103,7 @@ PYBIND11_MODULE(_pycdfpp, m)
 
     def_cdf_map<std::string, Variable>(m, "VariablesMap");
     def_cdf_map<std::string, Attribute>(m, "AttributeMap");
+    def_cdf_map<std::string, VariableAttribute>(m, "VariableAttributeMap");
 
 
     def_attribute_wrapper(m);

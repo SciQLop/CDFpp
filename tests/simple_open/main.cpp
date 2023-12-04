@@ -57,6 +57,14 @@ std::enable_if_t<std::is_same_v<value_type, const char*>, bool> impl_compare_att
 }
 
 template <int index, typename value_type>
+std::enable_if_t<std::is_same_v<value_type, const char*>, bool> impl_compare_attribute_value(
+    const cdf::VariableAttribute& attribute, const value_type& value)
+{
+    auto attr_value = attribute.get<char>();
+    return std::string { attr_value.data(), std::size(attr_value) } == std::string { value };
+}
+
+template <int index, typename value_type>
 std::enable_if_t<std::is_scalar_v<value_type> && !std::is_same_v<value_type, const char*>, bool>
 impl_compare_attribute_value(const cdf::Attribute& attribute, const value_type& value)
 {
@@ -64,30 +72,45 @@ impl_compare_attribute_value(const cdf::Attribute& attribute, const value_type& 
 }
 
 template <int index, typename value_type>
-auto impl_compare_attribute_value(const cdf::Attribute& attribute, const value_type& value)
-    -> decltype(std::cbegin(value), value.at(0), true)
+std::enable_if_t<std::is_scalar_v<value_type> && !std::is_same_v<value_type, const char*>, bool>
+impl_compare_attribute_value(const cdf::VariableAttribute& attribute, const value_type& value)
+{
+    return attribute.get<value_type>() == no_init_vector<value_type> { value };
+}
+
+template <int index,typename attr_t, typename value_type>
+auto impl_compare_attribute_value(const attr_t& attribute, const value_type& value)
+    -> decltype(std::cbegin(value), value.at(0),attribute.value(), true)
+{
+    return attribute.template get<typename std::remove_const_t<std::remove_reference_t<value_type>>::value_type>()
+        == value;
+}
+
+template <int index,typename attr_t, typename value_type>
+auto impl_compare_attribute_value(const attr_t& attribute, const value_type& value)
+    -> decltype(std::cbegin(value), value.at(0), attribute[0], true)
 {
     return attribute
-               .get<typename std::remove_const_t<std::remove_reference_t<value_type>>::value_type>(
+               .template get<typename std::remove_const_t<std::remove_reference_t<value_type>>::value_type>(
                    index)
         == value;
 }
 
-template <int index, typename T>
-bool compare_attribute_value(const cdf::Attribute& attribute, const T& values)
+template <int index,typename attr_t,  typename T>
+bool compare_attribute_value(const attr_t& attribute, const T& values)
 {
     auto value = std::get<index>(values);
     return impl_compare_attribute_value<index>(attribute, value);
 }
 
-template <typename T, std::size_t... I>
-bool impl_compare_attribute_values(cdf::Attribute& attribute, T values, std::index_sequence<I...>)
+template <typename attr_t, typename T, std::size_t... I>
+bool impl_compare_attribute_values(attr_t& attribute, T values, std::index_sequence<I...>)
 {
     return (... && compare_attribute_value<I>(attribute, values));
 }
 
-template <typename... Ts>
-bool compare_attribute_values(cdf::Attribute& attribute, Ts... values)
+template <typename attr_t, typename... Ts>
+bool compare_attribute_values(attr_t& attribute, Ts... values)
 {
     return impl_compare_attribute_values(
         attribute, std::make_tuple(values...), std::make_index_sequence<sizeof...(values)> {});

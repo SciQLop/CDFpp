@@ -91,7 +91,7 @@ struct file_attribute_ctx
 struct variable_attribute_ctx
 {
     int32_t number;
-    std::vector<const Attribute*> attrs;
+    std::vector<const VariableAttribute*> attrs;
     record_wrapper<cdf_ADR_t<v3x_tag>> adr;
     std::vector<record_wrapper<cdf_AzEDR_t<v3x_tag>>> aedrs;
 };

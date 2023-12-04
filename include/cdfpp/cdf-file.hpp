@@ -35,6 +35,14 @@ inline stream_t& operator<<(stream_t& os, const cdf_map<std::string, cdf::Variab
     return os;
 }
 
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf_map<std::string, cdf::Attribute>& attributes)
+{
+    std::for_each(std::cbegin(attributes), std::cend(attributes),
+        [&os](const auto& item) { item.second.__repr__(os, indent_t {}); });
+    return os;
+}
+
 
 namespace cdf
 {

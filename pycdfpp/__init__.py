@@ -16,7 +16,7 @@ Indices and tables
 
 import numpy as np
 #from ._pycdfpp import *
-from ._pycdfpp import DataType, CompressionType, Majority, Variable, Attribute, CDF, tt2000_t, epoch, epoch16, save
+from ._pycdfpp import DataType, CompressionType, Majority, Variable, VariableAttribute, Attribute, CDF, tt2000_t, epoch, epoch16, save
 from datetime import datetime
 from . import _pycdfpp
 from typing import ByteString, Mapping, List, Any
@@ -324,11 +324,50 @@ def _patch_add_cdf_attribute():
         return self._add_attribute(name=name, entries_values=v, entries_types=t)
     CDF.add_attribute = _add_attribute_wrapper
 
+def _patch_attribute_set_values():
+    def _attribute_set_values(self, entries_values: List[np.ndarray or List[float or int or datetime] or str], entries_types: List[DataType or None] or None = None):
+        """Sets the values of the attribute with the given values.
+        If entries_types is not None, the attribute is created with the given data type. Otherwise, the data type is inferred from the values.
+
+        Parameters
+        ----------
+        entries_values : List[np.ndarray or List[float or int or datetime] or str]
+            The values entries to set for the attribute.
+            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type, with integers, it will choose the smallest data type that can hold all the values.
+        entries_types : List[DataType] or None, optional
+            The data type for each entry of the attribute. If None, the data type is inferred from the values. (Default is None)
+
+        """
+        entries_types = entries_types or [None]*len(entries_values)
+        v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
+                                       for values, data_type in zip(entries_values, entries_types)])]
+        self._set_values(v, t)
+    Attribute.set_values = _attribute_set_values
+
+def _patch_var_attribute_set_value():
+    def _attribute_set_value(self, value: np.ndarray or List[float or int or datetime] or str, data_type=None):
+        """Sets the value of the attribute with the given value.
+        If data_type is not None, the attribute is created with the given data type. Otherwise, the data type is inferred from the values.
+
+        Parameters
+        ----------
+        values : np.ndarray or List[float or int or datetime] or str
+            The values to set for the attribute.
+            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type, with integers, it will choose the smallest data type that can hold all the values.
+        data_type : DataType or None, optional
+            The data type of the attribute. If None, the data type is inferred from the values. (Default is None)
+
+        """
+        v, t = _attribute_values_view_and_type(value, data_type)
+        self._set_value(v, t)
+    VariableAttribute.set_value = _attribute_set_value
 
 _patch_add_cdf_attribute()
 _patch_add_variable_attribute()
 _patch_set_values()
 _patch_add_variable()
+_patch_attribute_set_values()
+_patch_var_attribute_set_value()
 
 
 def to_datetime64(values):

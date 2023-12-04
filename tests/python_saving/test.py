@@ -33,9 +33,22 @@ class PycdfCreateCDFTest(unittest.TestCase):
     def test_compare_differents_cdfs(self):
         self.assertEqual(make_cdf(),pycdfpp.CDF())
 
-    def test_inmemory_save_load_empty_CDF_object(self):
+    def test_in_memory_save_load_empty_CDF_object(self):
         cdf = pycdfpp.CDF()
         self.assertIsNotNone(pycdfpp.load(pycdfpp.save(cdf)))
+
+    def test_overwrite_attribute(self):
+        cdf = make_cdf()
+        self.assertEqual(cdf.attributes["test_attribute"][0], [1,2,3])
+        self.assertEqual(cdf.attributes["test_attribute"][2], "hello\nworld")
+        cdf.attributes["test_attribute"].set_values(["hello\nworld", [datetime(2018,1,1), datetime(2018,1,2)], [1,2,3]])
+        self.assertEqual(cdf.attributes["test_attribute"][0], "hello\nworld")
+        self.assertEqual(cdf.attributes["test_attribute"][2], [1,2,3])
+
+        cdf["test_variable"].attributes["attr1"].set_value([3,2,1])
+        self.assertEqual(cdf["test_variable"].attributes["attr1"][0], [3,2,1])
+        self.assertEqual(cdf["test_variable"].attributes["attr1"].value, [3,2,1])
+
 
     def test_can_create_CDF_attributes(self):
         cdf = pycdfpp.CDF()
