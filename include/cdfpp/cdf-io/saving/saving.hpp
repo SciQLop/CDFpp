@@ -86,7 +86,7 @@ namespace saving
     }
 
     template <typename U>
-    void write_records(const std::vector<const Attribute*> attrs,
+    void write_records(const std::vector<const VariableAttribute*> attrs,
         const std::vector<record_wrapper<cdf_AzEDR_t<v3x_tag>>>& aedrs, U&& writer,
         std::size_t virtual_offset = 0)
     {
@@ -96,7 +96,7 @@ namespace saving
             auto& aedr = aedrs[i];
             auto& attr = *attrs[i];
             save_record(aedr.record, writer);
-            const auto& values = attr[0];
+            const auto& values = *attr;
             auto offset = writer.write(values.bytes_ptr(), values.bytes()) + virtual_offset;
             assert(offset - aedr.size == aedr.offset);
         }

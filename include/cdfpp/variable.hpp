@@ -34,7 +34,7 @@
 #include <vector>
 
 template <class stream_t>
-inline stream_t& operator<<(stream_t& os, const cdf_map<std::string, cdf::Attribute>& attributes)
+inline stream_t& operator<<(stream_t& os, const cdf_map<std::string, cdf::VariableAttribute>& attributes)
 {
     std::for_each(std::cbegin(attributes), std::cend(attributes),
         [&os](const auto& item) { item.second.__repr__(os, indent_t {}); });
@@ -68,7 +68,7 @@ struct Variable
 {
     using var_data_t = data_t;
     using shape_t = no_init_vector<uint32_t>;
-    cdf_map<std::string, Attribute> attributes;
+    cdf_map<std::string, VariableAttribute> attributes;
     Variable() = default;
     Variable(Variable&&) = default;
     Variable(const Variable&) = default;

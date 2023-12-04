@@ -110,7 +110,7 @@ struct cdf_repr
     std::tuple<uint32_t, uint32_t, uint32_t> distribution_version;
     cdf_map<std::string, Variable> variables;
     cdf_map<std::string, Attribute> attributes;
-    std::vector<cdf_map<std::string, Attribute>> var_attributes;
+    std::vector<cdf_map<std::string, VariableAttribute>> var_attributes;
     cdf_majority majority;
     cdf_compression_type compression_type;
     bool lazy;
@@ -127,19 +127,19 @@ void add_global_attribute(cdf_repr& repr, const std::string& name, Attribute::at
 }
 
 void add_var_attribute(cdf_repr& repr, const std::vector<uint32_t>& variable_indexes,
-    const std::string& name, Attribute::attr_data_t&& data)
+    const std::string& name, std::vector<VariableAttribute::attr_data_t>&& data)
 {
     assert(std::size(data) == std::size(variable_indexes));
-    cdf_map<uint32_t, cdf_map<std::string, Attribute::attr_data_t>> storage;
+    cdf_map<uint32_t, cdf_map<std::string, VariableAttribute::attr_data_t>> storage;
     for (auto index = 0UL; index < std::size(data); index++)
     {
-        storage[variable_indexes[index]][name].push_back(data[index]);
+        storage[variable_indexes[index]][name] = data[index];
     }
     for (auto& [v_index, attr] : storage)
     {
         for (auto& [attr_name, attr_data] : attr)
         {
-            repr.var_attributes[v_index][attr_name] = Attribute { attr_name, std::move(attr_data) };
+            repr.var_attributes[v_index][attr_name] = VariableAttribute { attr_name, std::move(attr_data) };
         }
     }
 }

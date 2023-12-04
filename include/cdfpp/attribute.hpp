@@ -155,6 +155,91 @@ struct Attribute
 private:
     attr_data_t data;
 };
+
+struct VariableAttribute
+{
+    using attr_data_t = data_t;
+    std::string name;
+    VariableAttribute() = default;
+    VariableAttribute(const VariableAttribute&) = default;
+    VariableAttribute(VariableAttribute&&) = default;
+    VariableAttribute& operator=(VariableAttribute&&) = default;
+    VariableAttribute& operator=(const VariableAttribute&) = default;
+    VariableAttribute(const std::string& name, attr_data_t&& data) : name { name }
+    {
+        this->data = std::move(data);
+    }
+
+    inline bool operator==(const VariableAttribute& other) const
+    {
+        return other.name == name && other.data == data;
+    }
+
+    inline bool operator!=(const VariableAttribute& other) const { return !(*this == other); }
+
+    inline CDF_Types type() const noexcept { return data.type(); }
+
+    template <CDF_Types type>
+    [[nodiscard]] inline decltype(auto) get()
+    {
+        return data.get<type>();
+    }
+
+    template <CDF_Types type>
+    [[nodiscard]] inline decltype(auto) get() const
+    {
+        return data.get<type>();
+    }
+
+    template <typename type>
+    [[nodiscard]] inline decltype(auto) get()
+    {
+        return data.get<type>();
+    }
+
+    template <typename type>
+    [[nodiscard]] inline decltype(auto) get() const
+    {
+        return data.get<type>();
+    }
+
+    inline void swap(data_t& new_data) { std::swap(data, new_data); }
+
+    inline VariableAttribute& operator=(attr_data_t& new_data)
+    {
+        data = new_data;
+        return *this;
+    }
+
+    inline VariableAttribute& operator=(attr_data_t&& new_data)
+    {
+        data = new_data;
+        return *this;
+    }
+
+    inline data_t& operator*() { return data; }
+    inline const data_t& operator*()const { return data; }
+
+    [[nodiscard]] inline data_t& value() { return data; }
+    [[nodiscard]] inline const data_t& value() const { return data; }
+
+    template <typename... Ts>
+    friend void visit(Attribute& attr, Ts... lambdas);
+
+    template <typename... Ts>
+    friend void visit(const Attribute& attr, Ts... lambdas);
+
+    template <class stream_t>
+    inline stream_t& __repr__(stream_t& os, indent_t indent = {}) const
+    {
+        os << indent << name << ": " << data << std::endl;
+        return os;
+    }
+
+private:
+    data_t data;
+};
+
 template <typename... Ts>
 void visit(Attribute& attr, Ts... lambdas)
 {
@@ -173,6 +258,12 @@ void visit(const Attribute& attr, Ts... lambdas)
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const cdf::Attribute& attribute)
+{
+    return attribute.template __repr__<stream_t>(os);
+}
+
+template <class stream_t>
+inline stream_t& operator<<(stream_t& os, const cdf::VariableAttribute& attribute)
 {
     return attribute.template __repr__<stream_t>(os);
 }

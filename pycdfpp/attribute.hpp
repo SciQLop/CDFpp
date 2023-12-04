@@ -356,14 +356,14 @@ Attribute::attr_data_t to_attr_data_entries(
     }
 }
 
-[[nodiscard]] Attribute& add_attribute(
+[[nodiscard]] VariableAttribute& add_attribute(
     Variable& var, const std::string& name, const string_or_buffer_t& values, CDF_Types cdf_types)
 {
     auto [it, success] = var.attributes.emplace(
-        name, name, Attribute::attr_data_t { to_attr_data_entry(values, cdf_types) });
+        name, name, VariableAttribute::attr_data_t { to_attr_data_entry(values, cdf_types) });
     if (success)
     {
-        Attribute& attr = it->second;
+        VariableAttribute& attr = it->second;
         return attr;
     }
     else
@@ -372,6 +372,17 @@ Attribute::attr_data_t to_attr_data_entries(
     }
 }
 
+void set_vattr_value(
+    VariableAttribute& attr, const string_or_buffer_t& value, CDF_Types cdf_type)
+{
+    attr = to_attr_data_entry(value, cdf_type);
+}
+
+void set_attr_values(Attribute& attr, const std::vector<string_or_buffer_t>& values,
+    const std::vector<CDF_Types>& cdf_types)
+{
+    attr = to_attr_data_entries(values, cdf_types);
+}
 
 template <typename T>
 void def_attribute_wrapper(T& mod)
@@ -381,6 +392,7 @@ void def_attribute_wrapper(T& mod)
         .def(py::self == py::self)
         .def(py::self != py::self)
         .def("__repr__", __repr__<Attribute>)
+        .def("_set_values", set_attr_values, py::arg("values").noconvert(), py::arg("data_type"))
         .def(
             "__getitem__",
             [](Attribute& att, std::size_t index) -> py_cdf_attr_data_t
@@ -400,4 +412,24 @@ void def_attribute_wrapper(T& mod)
                         "Trying to get an attribute value outside of its range");
                 return att[index].type();
             });
+
+    py::class_<VariableAttribute>(mod, "VariableAttribute")
+        .def_property_readonly("name", [](VariableAttribute& attr) { return attr.name; })
+        .def(py::self == py::self)
+        .def(py::self != py::self)
+        .def("__repr__", __repr__<VariableAttribute>)
+        .def("_set_value", set_vattr_value, py::arg("value").noconvert(), py::arg("data_type"))
+        .def(
+            "__getitem__",
+            [](VariableAttribute& att, std::size_t index) -> py_cdf_attr_data_t
+            {
+                if (index !=0 )
+                    throw std::out_of_range(
+                        "Trying to get an attribute value outside of its range");
+                return to_py_cdf_data(*att);
+            },
+            py::return_value_policy::copy)
+        .def("__len__", [](const VariableAttribute& ) { return 1; })
+        .def_property_readonly("value", [](VariableAttribute& att) -> py_cdf_attr_data_t { return to_py_cdf_data(*att); })
+        .def("type", [](VariableAttribute& att) { return att.type(); });
 }
