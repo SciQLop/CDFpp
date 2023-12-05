@@ -2,10 +2,20 @@
 History
 =======
 
-0.6.0 (TBC)
+0.6.1 (2023-12-05)
+------------------
 
+* Fix writing empty attributes strings (ensure numElements cdf fields > 0)
+* set_values assume values=[] if only data_type is provided
+* Attributes values reset, user can now change attributes values once set
+
+0.6.0 (2023-10-18)
+------------------
+
+* Fixes + Unfinished skeletons export
 * Adds Python 3.12 support.
 * Builds with O3 optimizations instead of O2.
+* Always expose record count as first dimension (even with NRV variables)
 
 0.5.0 (2023-09-06)
 ------------------
