@@ -3,3 +3,4 @@ option('with_benchmarks', type : 'boolean', value : false, description : 'Disabl
 option('show_extra_files', type : 'boolean', value : false, description : 'adds dummy lib to show extra files into an IDE.')
 option('use_libdeflate', type : 'boolean', value : true, description : 'uses libdeflate instead of libz.')
 option('use_nomap', type : 'boolean', value : true, description : 'uses custom map like implementation.')
+option('disable_python_wrapper', type : 'boolean', value : false, description : 'build without Python wrapper.')

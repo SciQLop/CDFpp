@@ -158,9 +158,14 @@ cdfpp_dep_inc = include_directories('include', '.')
 cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
                                 dependencies: [zlib_dep, hedley_dep, fmt_dep])
 
+if get_option('disable_python_wrapper')
+    message('building without Python wrapper')
+else
+    subdir('pycdfpp')
+    subdir('docs')
+endif
 
-subdir('pycdfpp')
-subdir('docs')
+
 
 install_headers(
 [
