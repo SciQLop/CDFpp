@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<body>
+<canvas id="canvas" width="400" height="400"></canvas>
+<div id="container">
+  <p>
+    <input type="text" id="URL" name="URL" />
+    <input id="myButton" type=button value="Read CDF">
+    <output name="result" id="count"/>
+  </p>
+</div>
+<script>
+
+  console.log("loading wasm");
+
+  var Module = {
+    canvas: (function() {
+      var canvas = document.getElementById('canvas');
+      return canvas;
+    })(),
+
+    onRuntimeInitialized: function() {
+      console.log("wasm loaded");
+      console.log("wasm initialized");
+    }
+  };
+</script>
+<script src="wacdfpp.js"></script>
+
+<script>
+  function callback() {
+    const URL = document.getElementById("URL").value;
+
+    // Disable the button while the operation is in progress
+    document.getElementById("myButton").disabled = true;
+
+    // Fetch the data and process it asynchronously
+    Module.count_variables(URL).then(function(count) {
+      // Update the count and enable the button when processing is done
+      document.getElementById("count").innerHTML = count;
+      document.getElementById("myButton").disabled = false;
+    });
+  }
+
+  myButton.addEventListener('click', callback);
+</script>
+</body>
+</html>

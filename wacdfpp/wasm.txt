@@ -1,0 +1,23 @@
+[binaries]
+c = 'emcc'
+cpp = 'em++'
+ar = 'emar'
+exe_wrapper = 'node'
+
+[built-in options]
+c_args = []
+c_link_args = ['-sEXPORT_ALL=1', '-sWASM=2', '-sMODULARIZE', '-sEXPORTED_RUNTIME_METHODS=ccall']
+cpp_args = []
+cpp_link_args = []
+
+
+[properties]
+# Emscripten always needs an exe wrapper. Again,
+# maybe Meson could just know this.
+needs_exe_wrapper = true
+
+[host_machine]
+system = 'wasm'
+cpu_family = 'wasm'
+cpu = 'wasm'
+endian = 'little'

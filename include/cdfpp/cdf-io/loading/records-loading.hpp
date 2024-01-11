@@ -56,7 +56,7 @@ struct parsing_context_t
     }
 };
 
-SPLIT_FIELDS_FW_DECL(std::size_t, load_record,);
+SPLIT_FIELDS_FW_DECL(std::size_t, load_record, );
 
 template <typename record_t, typename parsing_context_t, typename T>
 inline std::size_t load_field(
@@ -135,7 +135,7 @@ inline std::size_t load_fields(const record_t& r, parsing_context_t& parsing_con
     return load_fields(r, parsing_context, offset, std::forward<Ts>(fields)...);
 }
 
-SPLIT_FIELDS(std::size_t, load_record, load_fields,);
+SPLIT_FIELDS(std::size_t, load_record, load_fields, );
 
 
 template <typename version_t>
@@ -289,7 +289,7 @@ auto begin_AgrEDR(const cdf_ADR_t<version_t>& adr, buffer_t& buffer)
 {
     using aedr_t = cdf_AgrEDR_t<version_t>;
 
-    return blk_iterator<aedr_t, buffer_t> { adr.AgrEDRhead, buffer,
+    return blk_iterator<aedr_t, buffer_t> { static_cast<std::size_t>(adr.AgrEDRhead), buffer,
         [](const aedr_t& aedr) { return aedr.AEDRnext; } };
 }
 
@@ -305,7 +305,7 @@ auto begin_AzEDR(const cdf_ADR_t<version_t>& adr, buffer_t& buffer)
 {
     using aedr_t = cdf_AzEDR_t<version_t>;
 
-    return blk_iterator<aedr_t, buffer_t> { adr.AzEDRhead, buffer,
+    return blk_iterator<aedr_t, buffer_t> { static_cast<std::size_t>(adr.AzEDRhead), buffer,
         [](const aedr_t& aedr) { return aedr.AEDRnext; } };
 }
 
@@ -351,7 +351,8 @@ auto begin_VDR(parsing_context_t& parsing_context)
     else if constexpr (type == cdf_r_z::z)
     {
         using vdr_t = cdf_zVDR_t<version_t>;
-        return blk_iterator<vdr_t, parsing_context_t> { parsing_context.gdr.zVDRhead,
+        return blk_iterator<vdr_t, parsing_context_t> { static_cast<std::size_t>(
+                                                            parsing_context.gdr.zVDRhead),
             parsing_context, [](const vdr_t& vdr) { return vdr.VDRnext; } };
     }
 }

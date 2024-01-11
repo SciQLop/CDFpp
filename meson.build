@@ -1,7 +1,7 @@
 project(
   'pycdfpp',
   'cpp','c',
-  meson_version: '>= 0.63.0',
+  meson_version: '>= 0.64.0',
   version : run_command('scripts/version.py',
                         capture:true,
                         env:{'SRC_ROOT':meson.project_source_root()}
@@ -224,6 +224,9 @@ install_headers(
     'include/cdfpp/cdf-io/saving/layout_records.hpp',
     'include/cdfpp/cdf-io/saving/link_records.hpp'
 ], subdir:'cdfpp/cdf-io/saving')
+
+
+subdir('wacdfpp')
 
 
 if get_option('with_tests')
