@@ -160,6 +160,7 @@ void def_cdf_loading_functions(T& mod)
         [](py::bytes& buffer, bool iso_8859_1_to_utf8)
         {
             py::buffer_info info(py::buffer(buffer).request());
+            py::gil_scoped_release release;
             return io::load(static_cast<char*>(info.ptr), static_cast<std::size_t>(info.size),
                 iso_8859_1_to_utf8);
         },
@@ -172,6 +173,7 @@ void def_cdf_loading_functions(T& mod)
             py::buffer_info info(buffer.request());
             if (info.ndim != 1)
                 throw std::runtime_error("Incompatible buffer dimension!");
+            py::gil_scoped_release release;
             return io::load(static_cast<char*>(info.ptr), info.shape[0], iso_8859_1_to_utf8, true);
         },
         py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false, py::return_value_policy::move,
@@ -180,7 +182,10 @@ void def_cdf_loading_functions(T& mod)
     mod.def(
         "load",
         [](const char* fname, bool iso_8859_1_to_utf8, bool lazy_load)
-        { return io::load(std::string { fname }, iso_8859_1_to_utf8, lazy_load); },
+        {
+            py::gil_scoped_release release;
+            return io::load(std::string { fname }, iso_8859_1_to_utf8, lazy_load);
+        },
         py::arg("fname"), py::arg("iso_8859_1_to_utf8") = false, py::arg("lazy_load") = true,
         py::return_value_policy::move);
 }
@@ -196,14 +201,28 @@ void def_cdf_saving_functions(T& mod)
 
     mod.def(
         "save",
-        [](const CDF& cdf, const char* fname) { return io::save(cdf, std::string { fname }); },
+        [](const CDF& cdf, const char* fname)
+        {
+            py::gil_scoped_release release;
+            return io::save(cdf, std::string { fname });
+        },
         py::arg("cdf"), py::arg("fname"));
 
 
     py::class_<cdf_bytes>(mod, "_cdf_bytes", py::buffer_protocol())
-        .def_buffer([](cdf_bytes& b) -> py::buffer_info
-            { return py::buffer_info(b.data.data(), std::size(b.data), true); });
+        .def_buffer(
+            [](cdf_bytes& b) -> py::buffer_info
+            {
+                py::gil_scoped_release release;
+                return py::buffer_info(b.data.data(), std::size(b.data), true);
+            });
 
     mod.def(
-        "save", [](const CDF& cdf) { return cdf_bytes { io::save(cdf) }; }, py::arg("cdf"));
+        "save",
+        [](const CDF& cdf)
+        {
+            py::gil_scoped_release release;
+            return cdf_bytes { io::save(cdf) };
+        },
+        py::arg("cdf"));
 }

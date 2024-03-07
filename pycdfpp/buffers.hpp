@@ -96,9 +96,13 @@ template <CDF_Types data_t>
 [[nodiscard]] py::array make_array(Variable& variable, py::object& obj)
 {
     // static_assert(data_t != CDF_Types::CDF_CHAR and data_t != CDF_Types::CDF_UCHAR);
-    return py::array_t<from_cdf_type_t<data_t>>(shape_ssize_t(variable),
-        strides<from_cdf_type_t<data_t>>(variable), variable.get<from_cdf_type_t<data_t>>().data(),
-        obj);
+    from_cdf_type_t<data_t>* ptr = nullptr;
+    {
+        py::gil_scoped_release release;
+        ptr = variable.get<from_cdf_type_t<data_t>>().data();
+    }
+    return py::array_t<from_cdf_type_t<data_t>>(
+        shape_ssize_t(variable), strides<from_cdf_type_t<data_t>>(variable), ptr, obj);
 }
 
 template <typename T, typename size_type>
@@ -155,9 +159,14 @@ template <CDF_Types T>
 [[nodiscard]] py::buffer_info impl_make_buffer(cdf::Variable& var)
 {
     using U = cdf::from_cdf_type_t<T>;
+    char* ptr = nullptr;
+    {
+        py::gil_scoped_release release;
+        ptr = var.bytes_ptr();
+    }
     if constexpr ((T == CDF_Types::CDF_CHAR) or (T == CDF_Types::CDF_UCHAR))
     {
-        return py::buffer_info(var.bytes_ptr(), /* Pointer to buffer */
+        return py::buffer_info(ptr, /* Pointer to buffer */
             var.shape().back(), /* Size of one scalar */
             fmt::format("{}s", var.shape().back()),
             static_cast<ssize_t>(std::size(var.shape()) - 1), /* Number of dimensions */
@@ -165,7 +174,7 @@ template <CDF_Types T>
     }
     else
     {
-        return py::buffer_info(var.bytes_ptr(), /* Pointer to buffer */
+        return py::buffer_info(ptr, /* Pointer to buffer */
             sizeof(U), /* Size of one scalar */
             py::format_descriptor<U>::format(),
             static_cast<ssize_t>(std::size(var.shape())), /* Number of dimensions */
@@ -177,7 +186,7 @@ template <CDF_Types data_t, bool encode_strings>
 [[nodiscard]] py::object make_str_array(py::object& obj)
 {
     py::module_ np = py::module_::import("numpy");
-    if constexpr(encode_strings)
+    if constexpr (encode_strings)
     {
         return np.attr("char").attr("decode")(py::memoryview(obj));
     }
@@ -185,7 +194,6 @@ template <CDF_Types data_t, bool encode_strings>
     {
         return np.attr("array")(py::memoryview(obj));
     }
-
 }
 
 }
