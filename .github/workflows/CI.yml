@@ -8,94 +8,44 @@ on:
 
 jobs:
   build_sdist:
+    name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          architecture: x64
+      - uses: actions/checkout@v4
       - name: Build sdist
-        run: |
-            python -m pip install --upgrade "meson" "ninja" "numpy" "meson-python>=0.14.0" "build" "wheel" "twine" "auditwheel"
-            python -m build -n --sdist .
+        run: pipx run build --sdist
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: source
+          name: cibw-sdist
           path: dist/*.tar.gz
 
-  build_linux:
-    runs-on: ubuntu-latest
-    container: quay.io/pypa/manylinux2014_x86_64
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['cp38-cp38', 'cp39-cp39', 'cp310-cp310', 'cp311-cp311', 'cp312-cp312']
-    steps:
-      - name: add Python dir to path
-        run: |
-            echo "/opt/python/${{ matrix.python-version }}/bin" >> $GITHUB_PATH
-      - uses: actions/checkout@v3
-        with:
-          submodules: true
-      - name: Build for Python ${{ matrix.python-version }}
-        run: |
-          git config --global --add safe.directory '*'
-          pip install --upgrade "meson" "ninja" "numpy" "meson-python>=0.14.0" "build" "wheel" "twine" "auditwheel"
-          python3 -m build --wheel --no-isolation  .
-          rename 'linux_x86_64' 'manylinux_2_28_x86_64' dist/*.whl
-          #python scripts/build_wheel.py
-      - name: Make wheels universal
-        run: for wheel in $(ls dist/*.whl); do auditwheel repair $wheel; done
-      - name: Save packages as artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: wheels
-          path: wheelhouse/*.whl
-
-  build_osx_and_windows:
-    strategy:
-      matrix:
-        os: [macos-11,  windows-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: windows-latest
+          - os: macos-13  # Intel
+            MACOSX_DEPLOYMENT_TARGET: "10.15"
+          - os: macos-14 # Apple Silicon
+            MACOSX_DEPLOYMENT_TARGET: "11.7"
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.16.5
+      - uses: actions/upload-artifact@v4
         with:
-          python-version: ${{ matrix.python-version }}
-          architecture: x64
-      - name: install dependencies
-        run: |
-          pip install --upgrade twine build ninja wheel meson numpy meson-python>=0.14.0
-      - uses: ilammy/msvc-dev-cmd@v1
-        if: runner.os == 'Windows'
-        with:
-          arch: amd64
-      - name: build package
-        if: runner.os == 'Windows'
-        run: |
-          python3 -m build --wheel --no-isolation  .
-      - name: build package
-        if: runner.os != 'Windows'
-        run: |
-          CC=gcc-11 CXX=g++-11 python3 -m build --wheel --no-isolation  .
-      - name: Save packages as artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: wheels
-          path: dist/*.whl
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          path: ./wheelhouse/*.whl
 
   test_wheels:
-    needs: [build_osx_and_windows, build_linux]
+    needs: [build_wheels]
     strategy:
       matrix:
-        os: [macos-11, windows-latest, ubuntu-latest]
+        os: [macos-11, windows-latest, ubuntu-latest, macos-14]
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
     runs-on: ${{ matrix.os }}
     steps:
@@ -104,10 +54,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: wheels
+          pattern: cibw-wheels-*
           path: dist
+          merge-multiple: true
       - name: install wheel (Unix)
         if: runner.os != 'Windows'
         run: |
@@ -122,76 +73,17 @@ jobs:
           pip install ddt requests
           python tests/full_corpus/test_full_corpus.py
 
-  build_macos_arm:
-    strategy:
-      matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v3
-      - name: add pyenv to path
-        run: |
-          echo "$HOME/.pyenv/shims" >> $GITHUB_PATH
-      - name: install dependencies
-        run: |
-          brew install pyenv
-          pyenv install ${{ matrix.python-version }}
-          pyenv local ${{ matrix.python-version }}
-          python3 -m pip install meson numpy ninja build wheel twine meson-python>=0.14.0
-      - name: build package
-        run: |
-          pyenv local ${{ matrix.python-version }}
-          CC=gcc-13 CXX=g++-13 python3 -m build --wheel --no-isolation  .
-      - name: Save packages as artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: wheels
-          path: dist/*.whl
-
-  test_wheels_macos_arm:
-    needs: build_macos_arm
-    strategy:
-      matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
-    runs-on: self-hosted
-    steps:
-      - name: add pyenv to path
-        run: |
-          echo " ~/.pyenv/shims" >> $GITHUB_PATH
-      - name: install dependencies
-        run: |
-          brew install pyenv
-          pyenv install ${{ matrix.python-version }}
-      - uses: actions/download-artifact@v3
-        with:
-          name: wheels
-          path: dist
-      - name: install wheel
-        run: |
-          pyenv local ${{ matrix.python-version }}
-          python3 -m pip install --find-links $GITHUB_WORKSPACE/dist pycdfpp
-      - uses: actions/checkout@v3
-      - name: run tests
-        run: |
-          pyenv local ${{ matrix.python-version }}
-          python3 -m pip install ddt requests
-          python3 tests/full_corpus/test_full_corpus.py
-
-
   upload_pypi:
-    needs: [build_osx_and_windows, build_linux, build_macos_arm, build_sdist, test_wheels, test_wheels_macos_arm]
+    needs: [build_sdist, build_wheels, test_wheels]
     runs-on: ubuntu-latest
     # upload to PyPI only on github releases
     if: github.event_name == 'release' && github.event.action == 'published' && github.repository_owner == 'SciQLop'
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: source
+          pattern: cibw-*
           path: dist
-      - uses: actions/download-artifact@v3
-        with:
-          name: wheels
-          path: dist
+          merge-multiple: true
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
@@ -199,19 +91,16 @@ jobs:
           skip-existing: true
 
   upload_test_pypi:
-    needs: [build_osx_and_windows, build_linux, build_macos_arm, build_sdist, test_wheels]
+    needs: [build_sdist, build_wheels, test_wheels]
     runs-on: ubuntu-latest
     # upload to test PyPI on github pushes
     if: github.event_name == 'push' && github.repository_owner == 'SciQLop'
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: source
+          pattern: cibw-*
           path: dist
-      - uses: actions/download-artifact@v3
-        with:
-          name: wheels
-          path: dist
+          merge-multiple: true
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
