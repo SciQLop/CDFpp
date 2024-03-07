@@ -51,7 +51,7 @@ fmt_dep = dependency('fmt')
 
 if build_machine.system() == 'windows'
     link_args = ['-static-libstdc++','-static-libgcc','-static']
-elif build_machine.system() == 'darwin'
+elif build_machine.system() == 'darwin' and cpp.get_id() != 'clang'
     link_args = ['-static-libstdc++','-static-libgcc']
 else
     link_args = []

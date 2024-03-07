@@ -51,16 +51,16 @@ using cdf_values_t = std::variant<cdf_none, no_init_vector<char>, no_init_vector
 struct data_t
 {
 
-    template <CDF_Types type>
+    template <CDF_Types _type>
     decltype(auto) get();
 
-    template <CDF_Types type>
+    template <CDF_Types _type>
     decltype(auto) get() const;
 
-    template <typename type>
+    template <typename _type>
     decltype(auto) get();
 
-    template <typename type>
+    template <typename _type>
     decltype(auto) get() const;
 
     const char* bytes_ptr() const;
@@ -159,23 +159,23 @@ data_t load_values(data_t& data, cdf_encoding encoding);
 ===================================================================================*/
 
 
-template <CDF_Types type>
+template <CDF_Types _type>
 inline decltype(auto) data_t::get()
 {
-    return std::get<no_init_vector<from_cdf_type_t<type>>>(this->p_values);
+    return std::get<no_init_vector<from_cdf_type_t<_type>>>(this->p_values);
 }
 
-template <CDF_Types type>
+template <CDF_Types _type>
 inline decltype(auto) data_t::get() const
 {
-    return std::get<no_init_vector<from_cdf_type_t<type>>>(this->p_values);
+    return std::get<no_init_vector<from_cdf_type_t<_type>>>(this->p_values);
 }
 
 
-template <typename T, typename type>
+template <typename T, typename _type>
 decltype(auto) _get_impl(T* self)
 {
-    return std::get<no_init_vector<type>>(self->p_values);
+    return std::get<no_init_vector<_type>>(self->p_values);
 }
 
 template <typename T>
@@ -227,18 +227,18 @@ template <typename T>
 }
 
 
-template <CDF_Types type, typename endianness_t, bool latin1_to_utf8_conv>
+template <CDF_Types _type, typename endianness_t, bool latin1_to_utf8_conv>
 [[nodiscard]] inline data_t load_values(data_t&& data) noexcept
 {
 
-    if constexpr (type == CDF_Types::CDF_CHAR
-        || type == CDF_Types::CDF_UCHAR) // special case for strings
+    if constexpr (_type == CDF_Types::CDF_CHAR
+        || _type == CDF_Types::CDF_UCHAR) // special case for strings
     {
         if constexpr (latin1_to_utf8_conv)
         {
-            return data_t { cdf_values_t { iso_8859_1_to_utf8<from_cdf_type_t<type>>(
+            return data_t { cdf_values_t { iso_8859_1_to_utf8<from_cdf_type_t<_type>>(
                                 data.bytes_ptr(), data.bytes()) },
-                type };
+                _type };
         }
         else
         {
@@ -249,7 +249,7 @@ template <CDF_Types type, typename endianness_t, bool latin1_to_utf8_conv>
     {
         if (std::size(data) != 0UL)
             endianness::decode_v<endianness_t>(
-                reinterpret_cast<from_cdf_type_t<type>*>(data.bytes_ptr()), data.size());
+                reinterpret_cast<from_cdf_type_t<_type>*>(data.bytes_ptr()), data.size());
         return std::move(data);
     }
 }
@@ -257,12 +257,12 @@ template <CDF_Types type, typename endianness_t, bool latin1_to_utf8_conv>
 template <bool iso_8859_1_to_utf8>
 [[nodiscard]] inline data_t load_values(data_t&& data, cdf_encoding encoding) noexcept
 {
-#define DATA_FROM_T(type)                                                                          \
-    case CDF_Types::type:                                                                          \
+#define DATA_FROM_T(_type)                                                                         \
+    case CDF_Types::_type:                                                                         \
         if (endianness::is_big_endian_encoding(encoding))                                          \
-            return load_values<CDF_Types::type, endianness::big_endian_t, iso_8859_1_to_utf8>(     \
+            return load_values<CDF_Types::_type, endianness::big_endian_t, iso_8859_1_to_utf8>(    \
                 std::move(data));                                                                  \
-        return load_values<CDF_Types::type, endianness::little_endian_t, iso_8859_1_to_utf8>(      \
+        return load_values<CDF_Types::_type, endianness::little_endian_t, iso_8859_1_to_utf8>(     \
             std::move(data));
 
 
@@ -291,22 +291,22 @@ template <bool iso_8859_1_to_utf8>
     return {};
 }
 
-template <CDF_Types type>
+template <CDF_Types _type>
 [[nodiscard]] cdf_values_t new_cdf_values_container(std::size_t len)
 {
-    using raw_type = from_cdf_type_t<type>;
+    using raw_type = from_cdf_type_t<_type>;
     std::size_t size = len / sizeof(raw_type);
     return cdf_values_t { no_init_vector<raw_type>(size) };
 }
 
 
-[[nodiscard]] inline data_t new_data_container(std::size_t bytes_len, CDF_Types type)
+[[nodiscard]] inline data_t new_data_container(std::size_t bytes_len, CDF_Types _type)
 {
-#define DC_FROM_T(type)                                                                            \
-    case CDF_Types::type:                                                                          \
-        return data_t { new_cdf_values_container<CDF_Types::type>(bytes_len), CDF_Types::type };
+#define DC_FROM_T(_type)                                                                           \
+    case CDF_Types::_type:                                                                         \
+        return data_t { new_cdf_values_container<CDF_Types::_type>(bytes_len), CDF_Types::_type };
 
-    switch (type)
+    switch (_type)
     {
         DC_FROM_T(CDF_FLOAT)
         DC_FROM_T(CDF_DOUBLE)
