@@ -55,7 +55,7 @@ jobs:
     needs: [build_wheels]
     strategy:
       matrix:
-        os: [macos-11, windows-latest, ubuntu-latest, macos-14]
+        os: [macos-11, windows-latest, ubuntu-latest]
         python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
     runs-on: ${{ matrix.os }}
     steps:
@@ -83,8 +83,39 @@ jobs:
           pip install ddt requests
           python tests/full_corpus/test_full_corpus.py
 
+  test_wheels_macos_14:
+    needs: [build_wheels]
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+    runs-on: macos-14
+    steps:
+      - name: add pyenv to path
+        run: |
+          echo " ~/.pyenv/shims" >> $GITHUB_PATH
+      - name: install dependencies
+        run: |
+          brew install pyenv
+          pyenv install ${{ matrix.python-version }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cibw-wheels-*
+          path: dist
+          merge-multiple: true
+      - name: install wheel
+        run: |
+          pyenv local ${{ matrix.python-version }}
+          python3 -m pip install --find-links $GITHUB_WORKSPACE/dist pycdfpp
+      - uses: actions/checkout@v3
+      - name: run tests
+        run: |
+          pyenv local ${{ matrix.python-version }}
+          python3 -m pip install ddt requests
+          python3 tests/full_corpus/test_full_corpus.py
+
+
   upload_pypi:
-    needs: [build_sdist, build_wheels, test_wheels]
+    needs: [build_sdist, build_wheels, test_wheels, test_wheels_macos_14]
     runs-on: ubuntu-latest
     # upload to PyPI only on github releases
     if: github.event_name == 'release' && github.event.action == 'published' && github.repository_owner == 'SciQLop'
@@ -101,7 +132,7 @@ jobs:
           skip-existing: true
 
   upload_test_pypi:
-    needs: [build_sdist, build_wheels, test_wheels]
+    needs: [build_sdist, build_wheels, test_wheels, test_wheels_macos_14]
     runs-on: ubuntu-latest
     # upload to test PyPI on github pushes
     if: github.event_name == 'push' && github.repository_owner == 'SciQLop'
