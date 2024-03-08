@@ -37,7 +37,7 @@ jobs:
     env:
       CIBW_ENVIRONMENT_MACOS: >
         MACOSX_DEPLOYMENT_TARGET='11.7'
-      CIBW_SKIP: "*-win32"
+      CIBW_SKIP: "*-win32 *i686"
     steps:
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
