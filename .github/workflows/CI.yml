@@ -81,7 +81,7 @@ jobs:
       - name: run tests
         run: |
           pip install ddt requests
-          python tests/full_corpus/test_full_corpus.py
+          python -vvv tests/full_corpus/test_full_corpus.py
 
   test_wheels_macos_14:
     needs: [build_wheels]
