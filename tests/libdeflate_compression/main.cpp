@@ -9,6 +9,7 @@
 #include "cdfpp/cdf-io/libdeflate.hpp"
 #endif
 #include <cstdint>
+#include <numeric>
 
 #ifdef CDFpp_USE_LIBDEFLATE
 no_init_vector<char> build_ref()
