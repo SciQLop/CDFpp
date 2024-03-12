@@ -28,17 +28,22 @@ jobs:
         include:
           - os: ubuntu-latest
             CIBW_ENVIRONMENT: ''
+            CIBW_ARCHS: "x86_64"
           - os: windows-latest
             CIBW_ENVIRONMENT: ''
+            CIBW_ARCHS: "AMD64"
           - os: macos-13  # Intel
             CIBW_ENVIRONMENT: >
               MACOSX_DEPLOYMENT_TARGET='10.15'
+            CIBW_ARCHS: "x86_64"
           - os: macos-14 # Apple Silicon
             CIBW_ENVIRONMENT: >
               MACOSX_DEPLOYMENT_TARGET='11.7'
+            CIBW_ARCHS: "arm64"
     env:
       CIBW_ENVIRONMENT: ${{ matrix.CIBW_ENVIRONMENT }}
       CIBW_SKIP: "*-win32 *i686"
+      CIBW_ARCHS: ${{ matrix.CIBW_ARCHS }}
     steps:
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
