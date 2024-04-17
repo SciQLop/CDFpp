@@ -98,7 +98,7 @@ jobs:
     steps:
       - name: add pyenv to path
         run: |
-          echo " ~/.pyenv/shims" >> $GITHUB_PATH
+          echo "~/.pyenv/shims" >> $GITHUB_PATH
       - name: install dependencies
         run: |
           brew install pyenv
@@ -111,12 +111,12 @@ jobs:
       - name: install wheel
         run: |
           pyenv local ${{ matrix.python-version }}
-          python3 -m pip install --find-links $GITHUB_WORKSPACE/dist pycdfpp
+          python3 -m pip install --break-system-packages --find-links $GITHUB_WORKSPACE/dist pycdfpp
       - uses: actions/checkout@v3
       - name: run tests
         run: |
           pyenv local ${{ matrix.python-version }}
-          python3 -m pip install ddt requests
+          python3 -m pip install --break-system-packages ddt requests
           python3 tests/full_corpus/test_full_corpus.py
 
 
