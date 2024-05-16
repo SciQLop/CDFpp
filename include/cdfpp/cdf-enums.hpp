@@ -47,7 +47,7 @@ enum class cdf_majority
             return "row";
             break;
         case cdf_majority::column:
-            return "Adaptative column";
+            return "column";
             break;
         default:
             break;
