@@ -78,10 +78,12 @@ jobs:
       - name: install wheel (Unix)
         if: runner.os != 'Windows'
         run: |
+          pip install numpy pyyaml
           pip install --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
       - name: install wheel (Windows)
         if: runner.os == 'Windows'
         run: |
+          pip install numpy pyyaml
           pip install --no-index --find-links $env:GITHUB_WORKSPACE\dist pycdfpp
       - uses: actions/checkout@v4
       - name: run tests
@@ -111,6 +113,7 @@ jobs:
       - name: install wheel
         run: |
           pyenv local ${{ matrix.python-version }}
+          python3 -m pip install --break-system-packages numpy pyyaml
           python3 -m pip install --break-system-packages --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
       - uses: actions/checkout@v4
       - name: run tests
