@@ -51,7 +51,7 @@ jobs:
           arch: amd64
       - uses: actions/checkout@v4
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.16.5
+        uses: pypa/cibuildwheel@v2.18.0
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
@@ -83,7 +83,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           pip install --no-index --find-links $env:GITHUB_WORKSPACE\dist pycdfpp
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: run tests
         run: |
           pip install ddt requests
@@ -112,7 +112,7 @@ jobs:
         run: |
           pyenv local ${{ matrix.python-version }}
           python3 -m pip install --break-system-packages --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: run tests
         run: |
           pyenv local ${{ matrix.python-version }}
