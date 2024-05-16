@@ -1,13 +1,14 @@
 [wrap-file]
-directory = benchmark-1.7.1
-source_url = https://github.com/google/benchmark/archive/refs/tags/v1.7.1.tar.gz
-source_filename = benchmark-1.7.1.tar.gz
-source_hash = 6430e4092653380d9dc4ccb45a1e2dc9259d581f4866dc0759713126056bc1d7
-patch_filename = google-benchmark_1.7.1-2_patch.zip
-patch_url = https://wrapdb.mesonbuild.com/v2/google-benchmark_1.7.1-2/get_patch
-patch_hash = 169304b7095ed39f2a260c84fe3fe368124a5a9ab66e529f11c71c9907fc4085
-source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/google-benchmark_1.7.1-2/benchmark-1.7.1.tar.gz
-wrapdb_version = 1.7.1-2
+directory = benchmark-1.8.3
+source_url = https://github.com/google/benchmark/archive/refs/tags/v1.8.3.tar.gz
+source_filename = benchmark-1.8.3.tar.gz
+source_hash = 6bc180a57d23d4d9515519f92b0c83d61b05b5bab188961f36ac7b06b0d9e9ce
+patch_filename = google-benchmark_1.8.3-1_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/google-benchmark_1.8.3-1/get_patch
+patch_hash = a7870d9a6deb4a3b7adfe60c8c44b94a5a67a09c4ad51c42b3e79ca41330da2f
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/google-benchmark_1.8.3-1/benchmark-1.8.3.tar.gz
+wrapdb_version = 1.8.3-1
 
 [provide]
 benchmark = google_benchmark_dep
+benchmark-main = google_benchmark_main_dep

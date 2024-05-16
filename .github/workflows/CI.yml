@@ -78,11 +78,11 @@ jobs:
       - name: install wheel (Unix)
         if: runner.os != 'Windows'
         run: |
-          pip install --find-links $GITHUB_WORKSPACE/dist pycdfpp
+          pip install --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
       - name: install wheel (Windows)
         if: runner.os == 'Windows'
         run: |
-          pip install --find-links $env:GITHUB_WORKSPACE\dist pycdfpp
+          pip install --no-index --find-links $env:GITHUB_WORKSPACE\dist pycdfpp
       - uses: actions/checkout@v3
       - name: run tests
         run: |
@@ -111,7 +111,7 @@ jobs:
       - name: install wheel
         run: |
           pyenv local ${{ matrix.python-version }}
-          python3 -m pip install --break-system-packages --find-links $GITHUB_WORKSPACE/dist pycdfpp
+          python3 -m pip install --break-system-packages --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
       - uses: actions/checkout@v3
       - name: run tests
         run: |
