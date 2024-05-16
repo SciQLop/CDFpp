@@ -57,11 +57,6 @@ inline bool is_v3x(const magic_numbers_t& magic)
     return cdf_version(magic).first >= 3;
 }
 
-inline bool is_v2_5_or_more(const magic_numbers_t& magic)
-{
-    return cdf_version(magic).first == 2 && cdf_version(magic).second >= 5;
-}
-
 inline bool is_cdf(const magic_numbers_t& magic_numbers) noexcept
 {
     return (((magic_numbers.first & 0xfff00000) == 0xCDF00000)

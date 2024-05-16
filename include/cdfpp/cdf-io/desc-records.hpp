@@ -33,6 +33,10 @@ struct v3x_tag
 {
 };
 
+struct v2x_tag
+{
+};
+
 struct v2_4_or_less_tag
 {
 };

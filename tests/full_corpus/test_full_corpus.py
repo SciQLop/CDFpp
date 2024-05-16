@@ -38,7 +38,7 @@ class PycdfCorpus(unittest.TestCase):
     ( "cl_sp_edi_00000000_v01.cdf", 7, 39 ),
     ( "cluster-2_cp3drl_2002052000000_v1.cdf", 40, 32 ),
     ( "de_uv_sai_19910218_v01.cdf", 39, 12 ),
-    ( "ge_k0_cpi_19921231_v02.cdf", 1, 18 ),
+    ( "ge_k0_cpi_19921231_v02.cdf", 25, 18 ),
     ( "i1_av_ott_1983351130734_v01.cdf", 47, 18 ),
     ( "im_k0_euv_20011231_v01.cdf", 12, 13 ),
     ( "im_k0_rpi_20051218_v01.cdf", 25, 14 ),
@@ -59,6 +59,7 @@ class PycdfCorpus(unittest.TestCase):
     )
     @ddt.unpack
     def test_opens_in_memory_remote_files(self, fname, variables, attrs):
+        print(fname)
         cdf = pycdfpp.load(requests.get(f"https://129.104.27.7/data/mirrors/CDF/test_files/{fname}", verify=False).content)
         self.assertIsNotNone(cdf)
         self.assertEqual(len(cdf), variables)

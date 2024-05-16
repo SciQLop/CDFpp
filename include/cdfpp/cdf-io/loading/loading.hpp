@@ -83,6 +83,7 @@ namespace
         repr.majority = parsing_context.majority;
         repr.distribution_version = parsing_context.distribution_version();
         repr.compression_type = parsing_context.compression_type;
+        repr.lazy = lazy_load;
         if (!attribute::load_all<typename parsing_context_t::version_tag, iso_8859_1_to_utf8>(
                 parsing_context, repr))
             return std::nullopt;
@@ -113,12 +114,32 @@ namespace
             }
             return std::nullopt;
         }
-        else
+        else // Compression was introduced in CDF V2.6
         {
             auto parsing_ctx = make_parsing_context(
                 cdf_version_tag_t {}, std::move(buffer), cdf_compression_type::no_compression);
-            return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
-                parsing_ctx, lazy_load);
+            if constexpr (!is_v3_v<cdf_version_tag_t>)
+            {
+                if (parsing_ctx.cdr.Release >= 5)
+                {
+                    auto new_ctx = make_parsing_context(v2_5_or_more_tag {},
+                        std::move(parsing_ctx.buffer), cdf_compression_type::no_compression);
+                    return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
+                        new_ctx, lazy_load);
+                }
+                else
+                {
+                    auto new_ctx = make_parsing_context(v2_4_or_less_tag {},
+                        std::move(parsing_ctx.buffer), cdf_compression_type::no_compression);
+                    return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
+                        new_ctx, lazy_load);
+                }
+            }
+            else
+            {
+                return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
+                    parsing_ctx, lazy_load);
+            }
         }
     }
 
@@ -135,14 +156,9 @@ namespace
                 return parse_cdf<v3x_tag>(std::move(buffer), iso_8859_1_to_utf8_tag,
                     common::is_compressed(magic), lazy_load);
             }
-            else if (common::is_v2_5_or_more(magic))
-            {
-                return parse_cdf<v2_5_or_more_tag>(std::move(buffer), iso_8859_1_to_utf8_tag,
-                    common::is_compressed(magic), lazy_load);
-            }
             else
             {
-                return parse_cdf<v2_4_or_less_tag>(std::move(buffer), iso_8859_1_to_utf8_tag,
+                return parse_cdf<v2x_tag>(std::move(buffer), iso_8859_1_to_utf8_tag,
                     common::is_compressed(magic), lazy_load);
             }
         }

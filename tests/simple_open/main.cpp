@@ -544,5 +544,29 @@ SCENARIO("Loading cdf files", "[CDF]")
                 REQUIRE(std::size(cd.variables) == 10);
             }
         }
+        WHEN("file is a 2.4.x cdf")
+        {
+            auto path = std::string(DATA_PATH) + "/ge_k0_cpi_19921231_v02.cdf";
+            REQUIRE(file_exists(path));
+            auto cd_opt = cdf::io::load(path);
+            REQUIRE(cd_opt != std::nullopt);
+            auto cd = *cd_opt;
+            THEN("All expected variables are found")
+            {
+                REQUIRE(std::size(cd.variables) == 25);
+            }
+        }
+        WHEN("file is a 2.5.x cdf")
+        {
+            auto path = std::string(DATA_PATH) + "/ac_h2_sis_20101105_v06.cdf";
+            REQUIRE(file_exists(path));
+            auto cd_opt = cdf::io::load(path);
+            REQUIRE(cd_opt != std::nullopt);
+            auto cd = *cd_opt;
+            THEN("All expected variables are found")
+            {
+                REQUIRE(std::size(cd.variables) == 61);
+            }
+        }
     }
 }

@@ -92,9 +92,16 @@ std::pair<data_t, typename Variable::shape_t> _numeric_to_nd_data_t(const py::bu
         throw std::invalid_argument { "Incompatible python and cdf types" };
     typename Variable::shape_t shape(info.ndim);
     std::copy(std::cbegin(info.shape), std::cend(info.shape), std::begin(shape));
-    no_init_vector<T> values(info.size);
-    std::memcpy(values.data(), info.ptr, info.size * sizeof(T));
-    return { data_t { std::move(values), data_type }, std::move(shape) };
+    if (info.size != 0)
+    {
+        no_init_vector<T> values(info.size);
+        std::memcpy(values.data(), info.ptr, info.size * sizeof(T));
+        return { data_t { std::move(values), data_type }, std::move(shape) };
+    }
+    else
+    {
+        return { data_t { no_init_vector<T>(0), data_type }, std::move(shape) };
+    }
 }
 
 template <CDF_Types data_type>
@@ -242,8 +249,8 @@ void def_variable_wrapper(T& mod)
         .def_property_readonly("values_encoded", make_values_view<true>, py::keep_alive<0, 1>())
         .def("_set_values", set_values, py::arg("values").noconvert(), py::arg("data_type"))
         .def("_add_attribute",
-            static_cast<VariableAttribute& (*)(Variable&, const std::string&, const string_or_buffer_t&,
-                CDF_Types)>(add_attribute),
+            static_cast<VariableAttribute& (*)(Variable&, const std::string&,
+                const string_or_buffer_t&, CDF_Types)>(add_attribute),
             py::arg { "name" }, py::arg { "values" }, py::arg { "data_type" },
             py::return_value_policy::reference_internal);
 }
