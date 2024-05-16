@@ -24,6 +24,7 @@ import sys
 import os
 from functools import singledispatch
 
+__version__ = _pycdfpp.__version__
 __here__ = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(__here__)
 if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] >= 8:
