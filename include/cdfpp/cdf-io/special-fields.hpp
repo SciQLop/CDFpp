@@ -20,10 +20,10 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "../no_init_vector.hpp"
 #include <cstddef>
 #include <string>
 #include <vector>
-#include "../no_init_vector.hpp"
 
 template <std::size_t _max_len>
 struct string_field
@@ -55,6 +55,13 @@ struct table_field
     static constexpr std::size_t index = _index;
     no_init_vector<T> values;
 };
+
+template <typename T>
+struct unused_field
+{
+    T value;
+};
+
 
 template <typename T, typename = void>
 struct is_table_field : std::false_type

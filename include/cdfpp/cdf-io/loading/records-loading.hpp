@@ -96,6 +96,29 @@ inline std::size_t load_field(
         }
     }
 }
+template <typename record_t, typename parsing_context_t, typename T>
+inline std::size_t load_field(const record_t& r, parsing_context_t& parsing_context,
+    std::size_t offset, unused_field<T>& field)
+{
+    (void)r;
+    (void)parsing_context;
+    if constexpr (is_string_field_v<T>)
+    {
+        return offset + T::max_len;
+    }
+    else
+    {
+        if constexpr (is_table_field_v<T>)
+        {
+            return offset + r.size(field.value);
+        }
+        else
+        {
+            return offset + sizeof(T);
+        }
+    }
+}
+
 
 template <typename parsing_context_t, typename version_t>
 inline std::size_t load_field(const cdf_rVDR_t<version_t>& r, parsing_context_t& parsing_context,
@@ -120,8 +143,8 @@ inline std::size_t load_fields(const record_t& r, parsing_context_t& parsing_con
 {
     using Field_t = std::remove_cv_t<std::remove_reference_t<T>>;
     static constexpr std::size_t count = count_members<Field_t>;
-    if constexpr (std::is_compound_v<Field_t> && (count > 1)
-        && (not is_string_field_v<Field_t>)&&(not is_table_field_v<Field_t>))
+    if constexpr (std::is_compound_v<Field_t> && (count > 1) && (not is_string_field_v<Field_t>)
+        && (not is_table_field_v<Field_t>))
         return load_record(field, parsing_context, offset);
     else
         return load_field(r, parsing_context, offset, std::forward<T>(field));

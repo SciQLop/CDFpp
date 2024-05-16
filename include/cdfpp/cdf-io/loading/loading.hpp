@@ -20,16 +20,16 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include "../common.hpp"
+#include "../decompression.hpp"
+#include "../desc-records.hpp"
 #include "../endianness.hpp"
-#include "cdfpp/cdf-enums.hpp"
-#include "cdfpp/cdf-file.hpp"
 #include "./attribute.hpp"
 #include "./buffers.hpp"
 #include "./records-loading.hpp"
 #include "./variable.hpp"
-#include "../common.hpp"
-#include "../decompression.hpp"
-#include "../desc-records.hpp"
+#include "cdfpp/cdf-enums.hpp"
+#include "cdfpp/cdf-file.hpp"
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -71,7 +71,7 @@ namespace
         cdf.variables = std::move(repr.variables);
         cdf.lazy_loaded = repr.lazy;
         cdf.compression = repr.compression_type;
-        //cdf.leap_second_last_updated = repr.leap_second_last_updated;
+        // cdf.leap_second_last_updated = repr.leap_second_last_updated;
         return cdf;
     }
 
@@ -123,9 +123,9 @@ namespace
     }
 
     template <typename buffer_t, typename iso_8859_1_to_utf8>
-    [[nodiscard]] auto _impl_load(
-        buffer_t&& buffer, iso_8859_1_to_utf8 iso_8859_1_to_utf8_tag, bool lazy_load = false)
-        -> decltype(buffer.read(std::declval<char*>(), 0UL, 0UL), std::optional<CDF> {})
+    [[nodiscard]] auto _impl_load(buffer_t&& buffer, iso_8859_1_to_utf8 iso_8859_1_to_utf8_tag,
+        bool lazy_load = false) -> decltype(buffer.read(std::declval<char*>(), 0UL, 0UL),
+                                    std::optional<CDF> {})
     {
         auto magic = get_magic(buffer);
         if (common::is_cdf(magic))
@@ -135,9 +135,14 @@ namespace
                 return parse_cdf<v3x_tag>(std::move(buffer), iso_8859_1_to_utf8_tag,
                     common::is_compressed(magic), lazy_load);
             }
+            else if (common::is_v2_5_or_more(magic))
+            {
+                return parse_cdf<v2_5_or_more_tag>(std::move(buffer), iso_8859_1_to_utf8_tag,
+                    common::is_compressed(magic), lazy_load);
+            }
             else
             {
-                return parse_cdf<v2x_tag>(std::move(buffer), iso_8859_1_to_utf8_tag,
+                return parse_cdf<v2_4_or_less_tag>(std::move(buffer), iso_8859_1_to_utf8_tag,
                     common::is_compressed(magic), lazy_load);
             }
         }

@@ -33,12 +33,19 @@ struct v3x_tag
 {
 };
 
-struct v2x_tag
+struct v2_4_or_less_tag
+{
+};
+
+struct v2_5_or_more_tag
 {
 };
 
 template <typename version_t>
 inline constexpr bool is_v3_v = std::is_same_v<version_t, v3x_tag>;
+
+template <typename version_t>
+inline constexpr bool is_v2_4_or_less_v = std::is_same_v<version_t, v2_4_or_less_tag>;
 
 template <typename version_t>
 using cdf_offset_field_t = std::conditional_t<is_v3_v<version_t>, uint64_t, uint32_t>;
@@ -64,7 +71,8 @@ struct is_cdf_DR_header : std::false_type
 template <typename T>
 struct is_cdf_DR_header<T,
     decltype(std::is_same_v<cdf_DR_header<typename T::cdf_version_t, T::expected_record_type>, T>,
-        void())> : std::is_same<cdf_DR_header<typename T::cdf_version_t, T::expected_record_type>, T>
+        void())>
+        : std::is_same<cdf_DR_header<typename T::cdf_version_t, T::expected_record_type>, T>
 {
 };
 
@@ -84,12 +92,13 @@ struct cdf_CDR_t
     uint32_t Release;
     cdf_encoding Encoding;
     uint32_t Flags;
-    uint32_t rfuA;
-    uint32_t rfuB;
+    unused_field<int32_t> rfuA;
+    unused_field<int32_t> rfuB;
     uint32_t Increment;
     uint32_t Identifier;
-    uint32_t rfuE;
-    string_field<256> copyright; // ignore format < 2.6
+    unused_field<int32_t> rfuE;
+    std::conditional_t<is_v2_4_or_less_v<version_t>, string_field<1945>, string_field<256>>
+        copyright;
 };
 
 template <typename version_t>
@@ -108,9 +117,9 @@ struct cdf_GDR_t
     uint32_t rNumDims;
     uint32_t NzVars;
     cdf_offset_field_t<version_t> UIRhead;
-    uint32_t rfuC;
+    unused_field<int32_t> rfuC;
     uint32_t LeapSecondLastUpdated;
-    uint32_t rfuE;
+    unused_field<int32_t> rfuE;
     table_field<uint32_t, 0> rDimSizes;
 
     std::size_t size(const table_field<uint32_t, 0>&) const
@@ -131,11 +140,11 @@ struct cdf_ADR_t
     int32_t num;
     int32_t NgrEntries;
     int32_t MAXgrEntries;
-    int32_t rfuA;
+    unused_field<int32_t> rfuA;
     cdf_offset_field_t<version_t> AzEDRhead;
     int32_t NzEntries;
     int32_t MAXzEntries;
-    int32_t rfuE;
+    unused_field<int32_t> rfuE;
     cdf_string_field_t<version_t, 256, 64> Name;
 };
 
@@ -151,10 +160,10 @@ struct cdf_AgrEDR_t
     int32_t Num;
     int32_t NumElements;
     int32_t NumStrings;
-    int32_t rfB;
-    int32_t rfC;
-    int32_t rfD;
-    int32_t rfE;
+    unused_field<int32_t> rfB;
+    unused_field<int32_t> rfC;
+    unused_field<int32_t> rfD;
+    unused_field<int32_t> rfE;
     // table_field<uint32_t> Values;
 
     /*std::size_t size(const table_field<uint32_t, 0>&) const
@@ -175,10 +184,10 @@ struct cdf_AzEDR_t
     int32_t Num;
     int32_t NumElements;
     int32_t NumStrings;
-    int32_t rfB;
-    int32_t rfC;
-    int32_t rfD;
-    int32_t rfE;
+    unused_field<int32_t> rfB;
+    unused_field<int32_t> rfC;
+    unused_field<int32_t> rfD;
+    unused_field<int32_t> rfE;
     // table_field<uint32_t> Values;
 
     /*std::size_t size(const table_field<uint32_t, 0>&) const
@@ -233,9 +242,10 @@ struct cdf_rVDR_t
     cdf_offset_field_t<version_t> VXRtail;
     int32_t Flags;
     int32_t SRecords;
-    int32_t rfuB;
-    int32_t rfuC;
-    int32_t rfuF;
+    unused_field<int32_t> rfuB;
+    unused_field<int32_t> rfuC;
+    unused_field<std::conditional_t<is_v2_4_or_less_v<version_t>, table_field<char, 2>, int32_t>>
+        rfuF;
     int32_t NumElems;
     int32_t Num;
     cdf_offset_field_t<version_t> CPRorSPRoffset;
@@ -250,7 +260,8 @@ struct cdf_rVDR_t
         return rNumDims * sizeof(int32_t);
     }
 
-    std::size_t size(const table_field<int32_t, 1>&) const { return 0; }
+    constexpr std::size_t size(const table_field<int32_t, 1>&) const { return 0; }
+    constexpr std::size_t size(const table_field<char, 2>&) const { return 132; }
 };
 
 template <typename version_t>
@@ -266,9 +277,10 @@ struct cdf_zVDR_t
     cdf_offset_field_t<version_t> VXRtail;
     int32_t Flags;
     int32_t SRecords;
-    int32_t rfuB;
-    int32_t rfuC;
-    int32_t rfuF;
+    unused_field<int32_t> rfuB;
+    unused_field<int32_t> rfuC;
+    unused_field<std::conditional_t<is_v2_4_or_less_v<version_t>, table_field<char, 2>, int32_t>>
+        rfuF;
     int32_t NumElems;
     int32_t Num;
     cdf_offset_field_t<version_t> CPRorSPRoffset;
@@ -288,7 +300,8 @@ struct cdf_zVDR_t
         return this->zNumDims * sizeof(int32_t);
     }
 
-    std::size_t size(const table_field<int32_t, 2>&) const { return 0; }
+    constexpr std::size_t size(const table_field<int32_t, 2>&) const { return 0; }
+    constexpr std::size_t size(const table_field<char, 2>&) const { return 132; }
 };
 
 template <cdf_r_z type, typename version_t>
@@ -341,7 +354,7 @@ struct cdf_CVVR_t
     using cdf_version_t = version_t;
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::CVVR> header;
-    uint32_t rfuA;
+    unused_field<uint32_t> rfuA;
     cdf_offset_field_t<version_t> cSize;
     table_field<char, 0> data;
     std::size_t size(const table_field<char, 0>&) const { return this->cSize; }
@@ -371,7 +384,7 @@ struct cdf_CPR_t
     inline static constexpr bool v3 = is_v3_v<version_t>;
     cdf_DR_header<version_t, cdf_record_type::CPR> header;
     cdf_compression_type cType;
-    uint32_t rfuA;
+    unused_field<uint32_t> rfuA;
     uint32_t pCount;
     table_field<uint32_t> cParms;
     std::size_t size(const table_field<uint32_t, 0>&) const

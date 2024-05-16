@@ -78,25 +78,25 @@ impl_compare_attribute_value(const cdf::VariableAttribute& attribute, const valu
     return attribute.get<value_type>() == no_init_vector<value_type> { value };
 }
 
-template <int index,typename attr_t, typename value_type>
-auto impl_compare_attribute_value(const attr_t& attribute, const value_type& value)
-    -> decltype(std::cbegin(value), value.at(0),attribute.value(), true)
+template <int index, typename attr_t, typename value_type>
+auto impl_compare_attribute_value(const attr_t& attribute,
+    const value_type& value) -> decltype(std::cbegin(value), value.at(0), attribute.value(), true)
 {
-    return attribute.template get<typename std::remove_const_t<std::remove_reference_t<value_type>>::value_type>()
+    return attribute.template get<
+               typename std::remove_const_t<std::remove_reference_t<value_type>>::value_type>()
         == value;
 }
 
-template <int index,typename attr_t, typename value_type>
-auto impl_compare_attribute_value(const attr_t& attribute, const value_type& value)
-    -> decltype(std::cbegin(value), value.at(0), attribute[0], true)
+template <int index, typename attr_t, typename value_type>
+auto impl_compare_attribute_value(const attr_t& attribute,
+    const value_type& value) -> decltype(std::cbegin(value), value.at(0), attribute[0], true)
 {
-    return attribute
-               .template get<typename std::remove_const_t<std::remove_reference_t<value_type>>::value_type>(
-                   index)
+    return attribute.template get<
+               typename std::remove_const_t<std::remove_reference_t<value_type>>::value_type>(index)
         == value;
 }
 
-template <int index,typename attr_t,  typename T>
+template <int index, typename attr_t, typename T>
 bool compare_attribute_value(const attr_t& attribute, const T& values)
 {
     auto value = std::get<index>(values);
@@ -530,6 +530,18 @@ SCENARIO("Loading cdf files", "[CDF]")
             THEN("All expected variables are loaded")
             {
                 CHECK_VARIABLES(cd);
+            }
+        }
+        WHEN("file is a 2.4.x cdf")
+        {
+            auto path = std::string(DATA_PATH) + "/ia_k0_epi_19970102_v01.cdf";
+            REQUIRE(file_exists(path));
+            auto cd_opt = cdf::io::load(path);
+            REQUIRE(cd_opt != std::nullopt);
+            auto cd = *cd_opt;
+            THEN("All expected variables are found")
+            {
+                REQUIRE(std::size(cd.variables) == 10);
             }
         }
     }

@@ -36,6 +36,22 @@ SCENARIO("record loading", "[CDF]")
             REQUIRE(s.b == 'd');
         }
     }
+    GIVEN("a simple two char fields record with an unused field")
+    {
+        struct two_chars
+        {
+            char a;
+            unused_field<char> b;
+        };
+        two_chars s { 'a', 'b' };
+        THEN("we can load it from a buffer")
+        {
+            std::string buffer { "cd" };
+            cdf::io::load_record(s, buffer.c_str(), 0);
+            REQUIRE(s.a == 'c');
+            REQUIRE(s.b.value == 'b');
+        }
+    }
     GIVEN("a more complex record")
     {
         struct complex_record

@@ -57,6 +57,11 @@ inline bool is_v3x(const magic_numbers_t& magic)
     return cdf_version(magic).first >= 3;
 }
 
+inline bool is_v2_5_or_more(const magic_numbers_t& magic)
+{
+    return cdf_version(magic).first == 2 && cdf_version(magic).second >= 5;
+}
+
 inline bool is_cdf(const magic_numbers_t& magic_numbers) noexcept
 {
     return (((magic_numbers.first & 0xfff00000) == 0xCDF00000)
@@ -139,7 +144,8 @@ void add_var_attribute(cdf_repr& repr, const std::vector<uint32_t>& variable_ind
     {
         for (auto& [attr_name, attr_data] : attr)
         {
-            repr.var_attributes[v_index][attr_name] = VariableAttribute { attr_name, std::move(attr_data) };
+            repr.var_attributes[v_index][attr_name]
+                = VariableAttribute { attr_name, std::move(attr_data) };
         }
     }
 }
