@@ -38,7 +38,7 @@ jobs:
             CIBW_ARCHS: "x86_64"
           - os: macos-14 # Apple Silicon
             CIBW_ENVIRONMENT: >
-              MACOSX_DEPLOYMENT_TARGET='11.7'
+              MACOSX_DEPLOYMENT_TARGET='11.0'
             CIBW_ARCHS: "arm64"
     env:
       CIBW_ENVIRONMENT: ${{ matrix.CIBW_ENVIRONMENT }}
@@ -113,7 +113,6 @@ jobs:
       - name: install wheel
         run: |
           pyenv local ${{ matrix.python-version }}
-          python3 -m pip install --break-system-packages --upgrade pip
           python3 -m pip install --break-system-packages numpy pyyaml
           python3 -m pip install --break-system-packages --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
       - uses: actions/checkout@v4
