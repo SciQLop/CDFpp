@@ -89,7 +89,7 @@ jobs:
       - name: run tests
         run: |
           pip install ddt requests
-          python -vvv tests/full_corpus/test_full_corpus.py
+          python -v tests/full_corpus/test_full_corpus.py
 
   test_wheels_macos_14:
     needs: [build_wheels]
@@ -113,6 +113,7 @@ jobs:
       - name: install wheel
         run: |
           pyenv local ${{ matrix.python-version }}
+          python3 -m pip install --break-system-packages --upgrade pip
           python3 -m pip install --break-system-packages numpy pyyaml
           python3 -m pip install --break-system-packages --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
       - uses: actions/checkout@v4
