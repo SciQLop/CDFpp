@@ -44,7 +44,8 @@ There are also Java and Python implementations which are not usable in C++.
 
 List of features and roadmap:
 
-- CDF reading
+- CDF reading 
+    - [x] read files from cdf version 2.2 to 3.x
     - [x] read uncompressed file headers
     - [x] read uncompressed attributes
     - [x] read uncompressed variables
