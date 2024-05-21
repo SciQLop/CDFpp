@@ -89,7 +89,10 @@ enum class cdf_compression_type : int32_t
     rle_compression = 1,
     huff_compression = 2,
     ahuff_compression = 3,
-    gzip_compression = 5
+    gzip_compression = 5,
+#ifdef CDFPP_USE_ZSTD
+    zstd_compression = 16,
+#endif
 };
 
 [[nodiscard]] inline std::string cdf_compression_type_str(cdf_compression_type type) noexcept
@@ -343,5 +346,4 @@ constexpr CDF_Types to_cdf_type()
 
 template <CDF_Types type>
 using from_cdf_type_t = decltype(from_cdf_type<type>());
-
 }

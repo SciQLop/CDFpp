@@ -121,19 +121,8 @@ namespace
     inline void load_cvvr_data(const cdf_CVVR_t<cdf_version_tag_t>& cvvr, std::size_t& pos,
         const cdf_compression_type compression_type, char* data, std::size_t data_len)
     {
-        if (compression_type == cdf_compression_type::gzip_compression)
-        {
-            pos += decompression::gzinflate(cvvr.data.values, data + pos, data_len - pos);
-        }
-        else
-        {
-            if (compression_type == cdf_compression_type::rle_compression)
-            {
-                pos += decompression::rleinflate(cvvr.data.values, data + pos, data_len - pos);
-            }
-            else
-                throw std::runtime_error { "Unsupported variable compression algorithm" };
-        }
+        pos += decompression::inflate(
+            compression_type, cvvr.data.values, data + pos, data_len - pos);
     }
 
     template <typename cdf_version_tag_t, typename stream_t>

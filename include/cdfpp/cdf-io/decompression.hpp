@@ -22,11 +22,15 @@
 ----------------------------------------------------------------------------*/
 #include "../cdf-enums.hpp"
 #include <cdfpp_config.h>
+#include <stdexcept>
 #include <vector>
 #ifdef CDFpp_USE_LIBDEFLATE
 #include "./libdeflate.hpp"
 #else
 #include "./zlib.hpp"
+#endif
+#ifdef CDFPP_USE_ZSTD
+#include "./zstd.hpp"
 #endif
 
 #include "./rle.hpp"
@@ -57,6 +61,11 @@ std::size_t inflate(const T& input, char* output, const std::size_t output_size)
         return gzinflate(input, output, output_size);
     if constexpr (type == cdf_compression_type::rle_compression)
         return rleinflate(input, output, output_size);
+#ifdef CDFPP_USE_ZSTD
+    if constexpr (type == cdf_compression_type::zstd_compression)
+        return zstd::inflate(input, output, output_size);
+#endif
+    throw std::runtime_error("Unknown compression type.");
 }
 
 template <typename T>
@@ -67,7 +76,11 @@ std::size_t inflate(
         return gzinflate(input, output, output_size);
     if (type == cdf_compression_type::rle_compression)
         return rleinflate(input, output, output_size);
-    return 0UL;
+#ifdef CDFPP_USE_ZSTD
+    if (type == cdf_compression_type::zstd_compression)
+        return zstd::inflate(input, output, output_size);
+#endif
+    throw std::runtime_error("Unknown compression type.");
 }
 
 }

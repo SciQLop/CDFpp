@@ -40,7 +40,11 @@ void def_enums_wrappers(T& mod)
         .value("gzip_compression", cdf_compression_type::gzip_compression)
         .value("rle_compression", cdf_compression_type::rle_compression)
         .value("ahuff_compression", cdf_compression_type::ahuff_compression)
-        .value("huff_compression", cdf_compression_type::huff_compression);
+        .value("huff_compression", cdf_compression_type::huff_compression)
+#ifdef CDFPP_USE_ZSTD
+        .value("zstd_compression", cdf_compression_type::zstd_compression)
+#endif
+        ;
 
     py::enum_<CDF_Types>(mod, "DataType")
         .value("CDF_BYTE", CDF_Types::CDF_BYTE)

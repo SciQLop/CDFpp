@@ -112,6 +112,17 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-io/saving/link_records.hpp'
 )
 
+if get_option('with_experimental_zstd')
+    add_project_arguments('-DCDFPP_USE_ZSTD', language : ['cpp'])
+    zstd_dep = dependency('libzstd')
+    cdfpp_headers += files(
+        'include/cdfpp/cdf-io/zstd.hpp'
+    )
+else
+    zstd_dep = declare_dependency()
+endif
+
+
 pycdfpp_headers = files(
     'pycdfpp/chrono.hpp',
     'pycdfpp/buffers.hpp',
@@ -156,7 +167,7 @@ cdfpp_dep_inc = include_directories('include', '.')
 
 
 cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
-                                dependencies: [zlib_dep, hedley_dep, fmt_dep])
+                                dependencies: [zlib_dep, hedley_dep, fmt_dep, zstd_dep])
 
 if get_option('disable_python_wrapper')
     message('building without Python wrapper')
@@ -241,7 +252,7 @@ if get_option('with_tests')
 
 
     foreach test:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving',
-                  'rle_compression', 'libdeflate_compression', 'zlib_compression', 'simple_save']
+                  'rle_compression', 'libdeflate_compression', 'zlib_compression', 'simple_save', 'zstd_compression']
         exe = executable('test-'+test,'tests/'+test+'/main.cpp',
                         dependencies:[catch_dep, cdfpp_dep],
                         install: false
