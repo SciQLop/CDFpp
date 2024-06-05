@@ -222,35 +222,37 @@ namespace saving
                 var_ctx.vdr.record.Flags |= 1 << 2;
                 var_ctx.vdr.record.BlockingFactor = 0x40;
             }
-
             update_size(var_ctx.vdr);
-
-            auto& vxr = var_ctx.vxrs.emplace_back(cdf_VXR_t<v3x_tag> { {}, 0, 0, 0, {}, {}, {} });
-            const auto var_record_size
-                = std::max(std::size_t { 1 },
-                      flat_size(std::cbegin(variable.shape()) + 1, std::cend(variable.shape())))
-                * cdf_type_size(variable.type());
+            if (variable.len())
             {
-                auto records = variable.len();
-                auto first_record = 0;
-                while (records > 0)
+                auto& vxr
+                    = var_ctx.vxrs.emplace_back(cdf_VXR_t<v3x_tag> { {}, 0, 0, 0, {}, {}, {} });
+                const auto var_record_size
+                    = std::max(std::size_t { 1 },
+                          flat_size(std::cbegin(variable.shape()) + 1, std::cend(variable.shape())))
+                    * cdf_type_size(variable.type());
                 {
-                    // this is an arbitrary decision to limit VVRs to 1GB
-                    auto records_in_vvr
-                        = std::min(static_cast<std::size_t>((1 << 30) / var_record_size),
-                            static_cast<std::size_t>(records));
-                    var_ctx.values_records.emplace_back(make_values_record(
-                        variable, records_in_vvr, var_record_size, first_record));
-                    vxr.record.First.values.push_back(first_record);
-                    vxr.record.Last.values.push_back(first_record + records_in_vvr - 1);
-                    first_record += records_in_vvr;
-                    records -= records_in_vvr;
+                    auto records = variable.len();
+                    auto first_record = 0;
+                    while (records > 0)
+                    {
+                        // this is an arbitrary decision to limit VVRs to 1GB
+                        auto records_in_vvr
+                            = std::min(static_cast<std::size_t>((1 << 30) / var_record_size),
+                                static_cast<std::size_t>(records));
+                        var_ctx.values_records.emplace_back(make_values_record(
+                            variable, records_in_vvr, var_record_size, first_record));
+                        vxr.record.First.values.push_back(first_record);
+                        vxr.record.Last.values.push_back(first_record + records_in_vvr - 1);
+                        first_record += records_in_vvr;
+                        records -= records_in_vvr;
+                    }
                 }
+                vxr.record.Offset.values.resize(std::size(vxr.record.First.values));
+                vxr.record.Nentries = std::size(vxr.record.First.values);
+                vxr.record.NusedEntries = std::size(vxr.record.First.values);
+                update_size(vxr);
             }
-            vxr.record.Offset.values.resize(std::size(vxr.record.First.values));
-            vxr.record.Nentries = std::size(vxr.record.First.values);
-            vxr.record.NusedEntries = std::size(vxr.record.First.values);
-            update_size(vxr);
             create_variable_attributes_records(var_ctx, svg_ctx);
         }
     }
