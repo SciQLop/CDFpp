@@ -125,6 +125,10 @@ def _values_view_and_type(values: np.ndarray or list, data_type:DataType or None
                 np.min_scalar_type(values.min()), values.max(), target_type))
         return _values_view_and_type(values, data_type)
     else:
+        if not values.flags['C_CONTIGUOUS']:
+            values = np.ascontiguousarray(values)
+        elif values.base is not None:
+            values = values.copy()
         if values.dtype.num == 21:
             if data_type in (None, DataType.CDF_TIME_TT2000, DataType.CDF_EPOCH, DataType.CDF_EPOCH16):
                 return (values.astype(np.dtype('datetime64[ns]'), copy=False).view(np.uint64),
