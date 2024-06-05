@@ -1,4 +1,10 @@
-#pragma endian big
+#pragma author Alexis Jeandet
+#pragma description Common Data Format File Format
+#pragma MIME application/x-cdf
+
+#include <std/core.pat>
+import std.io;
+import std.mem;
 
 enum CDF_Types: u32{
     CDF_NONE = 0,
@@ -21,14 +27,53 @@ enum CDF_Types: u32{
     CDF_UCHAR = 52
 };
 
+enum cdf_encoding: u32{
+    network = 1,
+    SUN = 2,
+    VAX = 3,
+    decstation = 4,
+    SGi = 5,
+    IBMPC = 6,
+    IBMRS = 7,
+    PPC = 9,
+    HP = 11,
+    NeXT = 12,
+    ALPHAOSF1 = 13,
+    ALPHAVMSd = 14,
+    ALPHAVMSg = 15,
+    ALPHAVMSi = 16,
+    ARM_LITTLE = 17,
+    ARM_BIG = 18,
+    IA64VMSi = 19,
+    IA64VMSd = 20,
+    IA64VMSg = 21
+};
+
+enum cdf_record_type : u32
+{
+    CDR = 1,
+    GDR = 2,
+    rVDR = 3,
+    ADR = 4,
+    AgrEDR = 5,
+    VXR = 6,
+    VVR = 7,
+    zVDR = 8,
+    AzEDR = 9,
+    CCR = 10,
+    CPR = 11,
+    SPR = 12,
+    CVVR = 13,
+    UIR = -1,
+};
+
 
 struct Header {
  be u64 RecordSize;
- be u32 RecordType;
+ be cdf_record_type RecordType;
 };
 
 struct CDR{
- Header;
  be u64 GDROffset;
  be u32 Version;
  be u32 Release;
@@ -39,11 +84,10 @@ struct CDR{
  be u32 Increment;
  be u32 Identifier;
  be u32 rfuE;
- u8 Copyright[256];
+ char Copyright[256];
 };
 
 struct GDR{
- Header;
  be u64 rVDRhead;
  be u64 zVDRhead;
  be u64 ADRhead;
@@ -60,7 +104,6 @@ struct GDR{
 };
 
 struct VDR{
- Header;
  be u64 VDRnext;
  be CDF_Types DataType;
  be u32 MaxRec;
@@ -75,17 +118,36 @@ struct VDR{
  be u32 Num;
  be u64 CPRorSPRoffset;
  be u32 BlockingFactor;
- u8 Name[256];
- be u32 zNumDims;
- be u32 zDimSizes;
- be u32 DimVarys;
+ char Name[256];
+ if (parent.header.RecordType == cdf_record_type::zVDR)
+ {
+    be u32 zNumDims;
+    be u32 zDimSizes[zNumDims];
+    be u32 DimVarys[zNumDims];
+ }
+ else
+ {
+    be u32 DimVarys[gdr.rNumDims];
+ }
+ 
 };
 
-be u32 Magic1 @ 0;
-be u32 Magic2 @ 4;
+struct CDF_Record{
+    Header header;
+    match(header.RecordType)
+    {
+    (cdf_record_type::GDR): GDR gdr;
+    (cdf_record_type::CDR): CDR cdr;
+    (cdf_record_type::zVDR): VDR zvdr;
+    (_): u8 data[header.RecordSize - sizeof(header)];
+    }
+};
 
-CDR cdr @ 0x08;
+struct CDF{
+    be u32 Magic1;
+    be u32 Magic2;
+    CDF_Record records [while(!std::mem::eof())];
+};
 
-GDR gdr @ cdr.GDROffset;
 
-VDR vdr1 @ gdr.zVDRhead;
+CDF cdf @ 0;
