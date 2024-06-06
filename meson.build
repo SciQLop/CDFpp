@@ -139,6 +139,7 @@ cdfpp_extra_files = files(
     '.bumpversion.cfg',
     'version.txt',
     'scripts/build_wheel.py',
+    'scripts/CDF.hexpat',
     'tests/resources/make_cdf.py',
     'tests/python_loading/test.py',
     'tests/python_saving/test.py',
