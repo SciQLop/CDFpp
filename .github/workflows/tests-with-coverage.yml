@@ -14,7 +14,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y python3-pip lcov g++
-          pip install --upgrade meson ninja numpy meson-python>=0.14.0 build wheel ddt requests
+          pip install --upgrade meson ninja 'numpy<2.0' meson-python>=0.14.0 build wheel ddt requests
       - name: Configure with meson
         run: meson -Db_coverage=true -Dwith_tests=true . build
       - name: Build (meson)
