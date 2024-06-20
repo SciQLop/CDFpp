@@ -8,31 +8,115 @@
 #include "vector"
 
 
+SCENARIO("Generating flat indexes")
+{
+    {
+        std::array index = { 0, 0, 0, 0 };
+        std::array shape = { 2, 3, 4, 5 };
+        REQUIRE(cdf::majority::flat_index(index, shape) == 0);
+        REQUIRE(cdf::majority::inverted_flat_index(index, shape) == 0);
+    }
+    {
+        std::array index = { 3, 3, 3 };
+        std::array shape = { 4, 4, 4 };
+        REQUIRE(cdf::majority::flat_index(index, shape) == 63);
+        REQUIRE(cdf::majority::inverted_flat_index(index, shape) == 63);
+    }
+    {
+        std::array index = { 1, 1 };
+        std::array shape = { 4, 4 };
+        REQUIRE(cdf::majority::flat_index(index, shape) == 5);
+        REQUIRE(cdf::majority::inverted_flat_index(index, shape) == 5);
+    }
+    {
+        std::array index = { 1, 2 };
+        std::array shape = { 3, 4 };
+        REQUIRE(cdf::majority::flat_index(index, shape) == 7);
+        REQUIRE(cdf::majority::inverted_flat_index(index, shape) == 6);
+    }
+    {
+        std::array index = { 1, 1, 1, 1 };
+        std::array shape = { 2, 3, 4, 5 };
+
+        REQUIRE(cdf::majority::flat_index(index, shape) == 33);
+        REQUIRE(cdf::majority::inverted_flat_index(index, shape) == 86);
+    }
+}
+
+
 SCENARIO("Swapping from col to row major", "[CDF]")
 {
     GIVEN("a column major array")
     {
-        std::vector<double> input { 0., 3., 6., 1., 4., 7., 2., 5., 8., 9., 12., 15., 10., 13., 16.,
-            11., 14., 17., 18., 21., 24., 19., 22., 25., 20., 23., 26. };
+        // clang-format off
+        std::vector<double> input {
+              1.,  21.,   0.,
+              6.,   0.,   0.,
+             11.,   0.,   0.,
+             16.,   0.,   0.,
+
+              2.,   0.,   0.,
+              7.,   0.,   0.,
+             12.,   0.,   0.,
+             17.,   0.,   0.,
+
+              3.,   0.,   0.,
+              8.,   0.,   0.,
+             13.,   0.,   0.,
+             18.,   0.,   0.,
+
+              4.,   0.,   0.,
+              9.,   0.,   0.,
+             14.,   0.,   0.,
+             19.,   0.,   0.,
+
+              5.,   0.,   0.,
+             10.,   0.,   0.,
+             15.,   0.,   0.,
+             20.,   0.,   0.,
+
+            111., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+            0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0. };
+        // clang-format on
         WHEN("Swapping to row major")
         {
-            cdf::majority::swap(input, std::array { 3, 3, 3 });
+            cdf::majority::swap(input, std::array { 2, 3, 4, 5 });
             THEN("array should be row major")
             {
+                // clang-format off
                 REQUIRE(input
-                    == std::vector<double> { 0., 1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12.,
-                        13., 14., 15., 16., 17., 18., 19., 20., 21., 22., 23., 24., 25., 26. });
-            }
-            WHEN("Swapping again")
-            {
-                cdf::majority::swap(input, std::array { 3, 3, 3 });
-                THEN("array should be back to column major")
-                {
-                    REQUIRE(input
-                        == std::vector<double> { 0., 3., 6., 1., 4., 7., 2., 5., 8., 9., 12., 15.,
-                            10., 13., 16., 11., 14., 17., 18., 21., 24., 19., 22., 25., 20., 23.,
-                            26. });
-                }
+    == std::vector<double> {
+              1.,   2.,   3.,
+              4.,   5.,   6.,
+              7.,   8,    9.,
+             10.,  11.,  12.,
+
+             13.,  14.,  15.,
+             16.,  17.,  18.,
+             19.,  20.,  21.,
+              0.,   0.,   0.,
+
+              0.,   0.,   0.,
+              0.,   0.,   0.,
+              0.,   0.,   0.,
+              0.,   0.,   0.,
+
+              0.,   0.,   0.,
+              0.,   0.,   0.,
+              0.,   0.,   0.,
+              0.,   0.,   0.,
+
+              0.,   0.,   0.,
+              0.,   0.,   0.,
+              0.,   0.,   0.,
+              0.,   0.,   0.,
+
+                        111., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,
+                        0., 0., 0., 0. });
+                // clang-format on
             }
         }
     }

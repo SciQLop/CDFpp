@@ -61,10 +61,16 @@ variables = {
         'attributes': {}
     },
     'var3d_counter': {
-        'shape': (3, 3, 3),
+        'shape': (10,3,5),
         'type': pycdfpp.DataType.CDF_DOUBLE,
-        'values': np.arange(3**3, dtype=np.float64).reshape(3, 3, 3),
+        'values': np.arange(10*3*5, dtype=np.float64).reshape(10,3,5),
         'attributes': {'attr1': ["attr1_value"], 'attr2': ["attr2_value"]}
+    },
+    'var5d_counter': {
+        'shape': (6,5,4,3,2),
+        'type': pycdfpp.DataType.CDF_DOUBLE,
+        'values': np.arange(6*5*4*3*2, dtype=np.float64).reshape(6,5,4,3,2),
+        'attributes': {}
     },
     'var3d': {
         'shape': (4, 3, 2),
@@ -232,7 +238,7 @@ class PycdfTest(unittest.TestCase):
 
     def test_cdflib_version(self):
         for cdf in self.cdfs:
-            self.assertEqual(cdf.distribution_version, (3, 8, 0))
+            self.assertEqual(cdf.distribution_version, (3, 9, 0))
 
     def test_has_all_expected_vars(self):
         for cdf in self.cdfs:

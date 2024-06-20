@@ -49,7 +49,8 @@ def add_varaibles(cd, compress=False):
                           ('var2d', np.ones((3,4)), {'attr1':"attr1_value", 'attr2':"attr2_value"}, pycdf.const.CDF_DOUBLE),
                           ('var3d', np.ones((4,3,2)), {"var3d_attr_multi":[10,11]}, pycdf.const.CDF_DOUBLE),
                           ('var2d_counter', np.arange(100, dtype=np.float64).reshape(10,10), None, pycdf.const.CDF_DOUBLE),
-                          ('var3d_counter', np.arange(3**3, dtype=np.float64).reshape(3,3,3), {'attr1':"attr1_value", 'attr2':"attr2_value"}, pycdf.const.CDF_DOUBLE)
+                          ('var3d_counter', np.arange(10*3*5, dtype=np.float64).reshape(10,3,5), {'attr1':"attr1_value", 'attr2':"attr2_value"}, pycdf.const.CDF_DOUBLE),
+                          ('var5d_counter', np.arange(6*5*4*3*2, dtype=np.float64).reshape(6,5,4,3,2) , {},  pycdf.const.CDF_DOUBLE)
                           ]:
         make_var(cd, name=name, compress=compress, values=values, attributes=attrs, dtype=dtype)
 
