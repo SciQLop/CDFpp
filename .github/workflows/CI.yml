@@ -113,7 +113,7 @@ jobs:
       - name: install wheel
         run: |
           pyenv local ${{ matrix.python-version }}
-          python3 -m pip install --break-system-packages numpy pyyaml
+          python3 -m pip install --break-system-packages 'numpy>=1.22.0,<=1.26.4' pyyaml
           python3 -m pip install --break-system-packages --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
       - uses: actions/checkout@v4
       - name: run tests

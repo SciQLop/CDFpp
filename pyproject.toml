@@ -1,6 +1,6 @@
 [build-system]
 build-backend = 'mesonpy'
-requires = ['meson-python>=0.14.0', 'numpy<2.0']
+requires = ['meson-python>=0.14.0', 'numpy>=1.22.0,<=1.26.4']
 
 [project]
 name = "pycdfpp"
@@ -22,7 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-dependencies = ['numpy<2.0', 'pyyaml']
+dependencies = ['numpy>=1.22.0,<=1.26.4', 'pyyaml']
 dynamic = [
   'version',
 ]
