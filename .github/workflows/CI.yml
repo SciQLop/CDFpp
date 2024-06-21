@@ -44,6 +44,7 @@ jobs:
       CIBW_ENVIRONMENT: ${{ matrix.CIBW_ENVIRONMENT }}
       CIBW_SKIP: "*-win32 *i686"
       CIBW_ARCHS: ${{ matrix.CIBW_ARCHS }}
+      CIBW_PRERELEASE_PYTHONS: "True"
     steps:
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
@@ -51,7 +52,7 @@ jobs:
           arch: amd64
       - uses: actions/checkout@v4
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.18.0
+        uses: pypa/cibuildwheel@v2.19.1
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
@@ -62,13 +63,14 @@ jobs:
     strategy:
       matrix:
         os: [macos-13, windows-latest, ubuntu-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
     runs-on: ${{ matrix.os }}
     steps:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
           architecture: x64
       - uses: actions/download-artifact@v4
         with:
@@ -95,7 +97,7 @@ jobs:
     needs: [build_wheels]
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13-dev']
     runs-on: macos-14
     steps:
       - name: add pyenv to path
@@ -113,7 +115,7 @@ jobs:
       - name: install wheel
         run: |
           pyenv local ${{ matrix.python-version }}
-          python3 -m pip install --break-system-packages 'numpy>=1.22.0,<=1.26.4' pyyaml
+          python3 -m pip install --break-system-packages numpy pyyaml
           python3 -m pip install --break-system-packages --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
       - uses: actions/checkout@v4
       - name: run tests

@@ -107,6 +107,43 @@ def _holds_datetime(values: list):
             return True
     return False
 
+
+def _max_integer_dtype(type1: np.dtype, type2: np.dtype):
+    if not np.issubdtype(type1, np.integer) :
+        return type2
+    if not np.issubdtype(type2, np.integer):
+        return type1
+
+    if np.dtype(type1).itemsize > np.dtype(type2).itemsize:
+        return type1
+    else:
+        return type2
+
+    return None
+
+def _min_integer_dtype(values: list, target_type:np.dtype or None=None):
+    min_v = np.min(values)
+    max_v = np.max(values)
+    if min_v < 0:
+        if min_v >= -128 and max_v <= 127:
+            return _max_integer_dtype(np.int8, target_type)
+        elif min_v >= -32768 and max_v <= 32767:
+            return _max_integer_dtype(np.int16, target_type)
+        elif min_v >= -2147483648 and max_v <= 2147483647:
+            return _max_integer_dtype(np.int32, target_type)
+        else:
+            return _max_integer_dtype(np.int64, target_type)
+    else:
+        if max_v <= 255:
+            return _max_integer_dtype(np.uint8, target_type)
+        elif max_v <= 65535:
+            return _max_integer_dtype(np.uint16, target_type)
+        elif max_v <= 4294967295:
+            return _max_integer_dtype(np.uint32, target_type)
+        else:
+            return _max_integer_dtype(np.uint64, target_type)
+    return None
+
 def _values_view_and_type(values: np.ndarray or list, data_type:DataType or None=None, target_type:DataType or None=None):
     if type(values) is list:
         if _holds_datetime(values):
@@ -120,9 +157,8 @@ def _values_view_and_type(values: np.ndarray or list, data_type:DataType or None
         elif data_type is None and np.issubdtype(values.dtype, np.integer):
             target_type = _CDF_TYPES_TO_NUMPY_DTYPE_.get(target_type, np.float32)
             if not np.issubdtype(target_type, np.integer):
-                target_type = 0
-            values = values.astype(np.result_type(
-                np.min_scalar_type(values.min()), values.max(), target_type))
+                target_type = None
+            values = values.astype(_min_integer_dtype(values, target_type))
         return _values_view_and_type(values, data_type)
     else:
         if not values.flags['C_CONTIGUOUS']:
@@ -143,6 +179,7 @@ def _values_view_and_type(values: np.ndarray or list, data_type:DataType or None
 def _patch_set_values():
     def _set_values_wrapper(self:Variable, values: np.ndarray, data_type:DataType or None=None):
         values, data_type = _values_view_and_type(values, data_type, target_type=self.type)
+        print(values, data_type)
         if data_type not in _CDF_TYPES_COMPATIBILITY_TABLE_[self.type]:
             raise ValueError(
                 f"Can't set variable of type {self.type} with values of type {data_type}")

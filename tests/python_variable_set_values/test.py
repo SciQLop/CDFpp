@@ -153,6 +153,7 @@ class PycdfVariableSetValues(unittest.TestCase):
         cdf["uint32"].set_values([1,2,3,4])
         self.assertEqual(pycdfpp.DataType.CDF_UINT4, cdf["uint32"].type)
         cdf.add_variable("uint8", values = [1,2,3,4], data_type=pycdfpp.DataType.CDF_UINT1)
+        self.assertEqual(pycdfpp.DataType.CDF_UINT1, cdf["uint8"].type)
         with self.assertRaises(ValueError):
             cdf["uint8"].set_values([100000,2,3,4])
 
