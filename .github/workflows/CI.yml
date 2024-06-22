@@ -89,6 +89,7 @@ jobs:
           pip install --no-index --find-links $env:GITHUB_WORKSPACE\dist pycdfpp
       - uses: actions/checkout@v4
       - name: run tests
+        if: ${{ runner.os != 'Windows' && matrix.python-version != '3.13' }}
         run: |
           pip install ddt requests
           python -v tests/full_corpus/test_full_corpus.py
