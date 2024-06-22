@@ -113,6 +113,15 @@ variables = {
         'type': pycdfpp.DataType.CDF_CHAR,
         'values': np.char.encode([['value[00]', 'value[01]'], ['value[10]', 'value[11]']]),
         'attributes': {}
+    },
+    'var4d_string': {
+        'shape': (1, 3, 2, 2, 10),
+        'type': pycdfpp.DataType.CDF_CHAR,
+        'values': np.char.encode([
+            [['value[000]','value[001]'],['value[010]','value[011]']],
+            [['value[100]','value[101]'],['value[110]','value[111]']],
+            [['value[200]','value[201]'],['value[210]','value[211]']]]),
+        'attributes': {}
     }
 }
 

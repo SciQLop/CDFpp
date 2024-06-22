@@ -58,6 +58,11 @@ def add_varaibles(cd, compress=False):
     cd.new('var_string', data='This is a string', recVary=False)
     cd.new('var2d_string', data=['This is a string 1','This is a string 2'], recVary=False)
     cd.new('var3d_string', data=[['value[00]','value[01]'],['value[10]','value[11]']], recVary=False)
+    cd.new('var4d_string', data=[
+                                    [['value[000]','value[001]'],['value[010]','value[011]']],
+                                    [['value[100]','value[101]'],['value[110]','value[111]']],
+                                    [['value[200]','value[201]'],['value[210]','value[211]']]
+                                ], recVary=False)
     cd.new('empty_var_recvary_string', type=pycdf.const.CDF_CHAR, recVary=True,n_elements=16)
     cd.new('var_recvary_string',data=['001','002','003'], type=pycdf.const.CDF_CHAR, recVary=True,n_elements=3)
     cd.new('epoch16', type=pycdf.const.CDF_EPOCH16, data=make_time_list(100))
