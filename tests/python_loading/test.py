@@ -340,6 +340,11 @@ class PycdfNonRegression(unittest.TestCase):
             f'{os.path.dirname(os.path.abspath(__file__))}/../resources/ac_h0_mfi_00000000_v01.cdf')
         self.assertEqual(cdf['label_time'].shape, (1, 3, 27))
 
+    def test_solo_l2_rpw_lfr_surv_swf_e_labels(self):
+        cdf = pycdfpp.load(
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/solo_l2_rpw-lfr-surv-swf-e_00000000_v01.cdf')
+        self.assertListEqual(cdf['VDC_LABEL'].values_encoded[0].tolist(), ["Vdc1", "Vdc2", "Vdc3"])
+
     def test_empty_NRV_char_var_to_buffer(self):
         cdf = pycdfpp.load(
             f'{os.path.dirname(os.path.abspath(__file__))}/../resources/uy_proton-distributions_swoops_00000000_v01.cdf')

@@ -127,13 +127,13 @@ namespace _private
     }
 
 }
-template <typename shape_t, typename data_t,
-    bool is_string = std::is_same_v<typename data_t::value_type, char>>
+
+template <bool is_string, typename shape_t, typename data_t>
 void swap(data_t& data, const shape_t& shape)
 {
     const auto dimensions = std::size(shape);
     // Basically a variable with shape=2 is a variable with 1D records
-    if (dimensions > 2 or (is_string and dimensions > 2))
+    if ((dimensions > 2 && !is_string) or (is_string and dimensions > 3))
     {
         const std::size_t records_count = is_string ? 1 : shape[0];
         const std::vector<std::size_t> record_shape(
@@ -174,48 +174,48 @@ void swap(data_t& data, const no_init_vector<uint32_t>& shape)
     {
         case CDF_Types::CDF_BYTE:
         case CDF_Types::CDF_INT1:
-            swap(data.get<int8_t>(), shape);
+            swap<false>(data.get<int8_t>(), shape);
             break;
         case CDF_Types::CDF_CHAR:
-            swap(data.get<CDF_Types::CDF_CHAR>(), shape);
+            swap<true>(data.get<CDF_Types::CDF_CHAR>(), shape);
             break;
         case CDF_Types::CDF_UCHAR:
-            swap(data.get<CDF_Types::CDF_UCHAR>(), shape);
+            swap<true>(data.get<CDF_Types::CDF_UCHAR>(), shape);
             break;
         case CDF_Types::CDF_UINT1:
-            swap(data.get<unsigned char>(), shape);
+            swap<false>(data.get<unsigned char>(), shape);
             break;
         case CDF_Types::CDF_UINT2:
-            swap(data.get<uint16_t>(), shape);
+            swap<false>(data.get<uint16_t>(), shape);
             break;
         case CDF_Types::CDF_UINT4:
-            swap(data.get<uint32_t>(), shape);
+            swap<false>(data.get<uint32_t>(), shape);
             break;
         case CDF_Types::CDF_INT2:
-            swap(data.get<int16_t>(), shape);
+            swap<false>(data.get<int16_t>(), shape);
             break;
         case CDF_Types::CDF_INT4:
-            swap(data.get<int32_t>(), shape);
+            swap<false>(data.get<int32_t>(), shape);
             break;
         case CDF_Types::CDF_INT8:
-            swap(data.get<int64_t>(), shape);
+            swap<false>(data.get<int64_t>(), shape);
             break;
         case CDF_Types::CDF_FLOAT:
         case CDF_Types::CDF_REAL4:
-            swap(data.get<float>(), shape);
+            swap<false>(data.get<float>(), shape);
             break;
         case CDF_Types::CDF_DOUBLE:
         case CDF_Types::CDF_REAL8:
-            swap(data.get<double>(), shape);
+            swap<false>(data.get<double>(), shape);
             break;
         case CDF_Types::CDF_EPOCH:
-            swap(data.get<epoch>(), shape);
+            swap<false>(data.get<epoch>(), shape);
             break;
         case CDF_Types::CDF_EPOCH16:
-            swap(data.get<epoch16>(), shape);
+            swap<false>(data.get<epoch16>(), shape);
             break;
         case CDF_Types::CDF_TIME_TT2000:
-            swap(data.get<tt2000_t>(), shape);
+            swap<false>(data.get<tt2000_t>(), shape);
             break;
         default:
             break;

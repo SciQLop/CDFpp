@@ -81,7 +81,7 @@ SCENARIO("Swapping from col to row major", "[CDF]")
         // clang-format on
         WHEN("Swapping to row major")
         {
-            cdf::majority::swap(input, std::array { 2, 3, 4, 5 });
+            cdf::majority::swap<false>(input, std::array { 2, 3, 4, 5 });
             THEN("array should be row major")
             {
                 // clang-format off
