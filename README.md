@@ -1,4 +1,4 @@
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![GitHub License](https://img.shields.io/github/license/SciQLop/CDFpp)](https://mit-license.org/)
 [![Documentation Status](https://readthedocs.org/projects/pycdfpp/badge/?version=latest)](https://pycdfpp.readthedocs.io/en/latest/?badge=latest)
 [![CPP17](https://img.shields.io/badge/Language-C++17-blue.svg)]()
 [![PyPi](https://img.shields.io/pypi/v/pycdfpp.svg)](https://pypi.python.org/pypi/pycdfpp)

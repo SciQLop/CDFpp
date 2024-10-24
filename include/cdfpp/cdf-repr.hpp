@@ -1,25 +1,29 @@
-#pragma once
 /*------------------------------------------------------------------------------
--- This file is a part of the CDFpp library
--- Copyright (C) 2019, Plasma Physics Laboratory - CNRS
+-- The MIT License (MIT)
 --
--- This program is free software; you can redistribute it and/or modify
--- it under the terms of the GNU General Public License as published by
--- the Free Software Foundation; either version 2 of the License, or
--- (at your option) any later version.
+-- Copyright © 2024, Laboratory of Plasma Physics- CNRS
 --
--- This program is distributed in the hope that it will be useful,
--- but WITHOUT ANY WARRANTY; without even the implied warranty of
--- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
--- GNU General Public License for more details.
+-- Permission is hereby granted, free of charge, to any person obtaining a copy
+-- of this software and associated documentation files (the “Software”), to deal
+-- in the Software without restriction, including without limitation the rights
+-- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+-- of the Software, and to permit persons to whom the Software is furnished to do
+-- so, subject to the following conditions:
 --
--- You should have received a copy of the GNU General Public License
--- along with this program; if not, write to the Free Software
--- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+-- The above copyright notice and this permission notice shall be included in all
+-- copies or substantial portions of the Software.
+--
+-- THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+-- INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+-- PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+-- HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+-- OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+-- SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 -------------------------------------------------------------------------------*/
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#pragma once
 #include "cdfpp_config.h"
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf-map.hpp>
@@ -53,9 +57,10 @@ inline stream_t& operator<<(stream_t& os, const decltype(cdf::to_time_point(tt20
     auto tt = std::gmtime(&tp_time_t);
     if (tt)
     {
-        const uint64_t ns = (std::chrono::duration_cast<std::chrono::nanoseconds>(tp.time_since_epoch())
-            % 1000000000)
-                            .count();
+        const uint64_t ns
+            = (std::chrono::duration_cast<std::chrono::nanoseconds>(tp.time_since_epoch())
+                % 1000000000)
+                  .count();
         // clang-format off
         os << std::setprecision(4) << std::setw(4) << std::setfill('0')  << tt->tm_year + 1900 << '-'
            << std::setprecision(2) << std::setw(2) << std::setfill('0')  << tt->tm_mon + 1     << '-'
@@ -107,8 +112,8 @@ inline stream_t& operator<<(stream_t& os, const tt2000_t& time)
 }
 
 template <class stream_t, class input_t, class item_t>
-inline auto stream_collection(stream_t& os, const input_t& input, const item_t& sep)
-    -> decltype(input.back(), os)
+inline auto stream_collection(
+    stream_t& os, const input_t& input, const item_t& sep) -> decltype(input.back(), os)
 {
     os << "[ ";
     if (std::size(input))
