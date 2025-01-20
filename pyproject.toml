@@ -16,7 +16,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -34,4 +33,9 @@ repository = "https://github.com/SciQLop/CDFpp"
 
 [tool.meson-python.args]
 install = ['--tags=runtime,python-runtime']
-setup = ['-Doptimization=3']
+setup = ['-Doptimization=3', '-Dcpp_std=c++17', '--force-fallback-for=libdeflate', '--vsenv']
+
+
+[tool.cibuildwheel]
+archs = ["auto"]
+build-frontend = "default"

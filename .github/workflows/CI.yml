@@ -28,10 +28,10 @@ jobs:
         include:
           - os: ubuntu-latest
             CIBW_ENVIRONMENT: ''
-            CIBW_ARCHS: "x86_64"
+            CIBW_ARCHS: "x86_64 aarch64 ppc64le s390x"
           - os: windows-latest
             CIBW_ENVIRONMENT: ''
-            CIBW_ARCHS: "AMD64"
+            CIBW_ARCHS: "AMD64 ARM64"
           - os: macos-13  # Intel
             CIBW_ENVIRONMENT: >
               MACOSX_DEPLOYMENT_TARGET='10.15'
@@ -46,13 +46,14 @@ jobs:
       CIBW_ARCHS: ${{ matrix.CIBW_ARCHS }}
       CIBW_PRERELEASE_PYTHONS: "True"
     steps:
-      - uses: ilammy/msvc-dev-cmd@v1
-        if: runner.os == 'Windows'
-        with:
-          arch: amd64
       - uses: actions/checkout@v4
+      - name: Set up QEMU
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21.3
+        uses: pypa/cibuildwheel@v2.22.0
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
@@ -63,7 +64,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-13, windows-latest, ubuntu-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
     runs-on: ${{ matrix.os }}
     steps:
       - name: Setup Python
@@ -97,7 +98,7 @@ jobs:
     needs: [build_wheels]
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13.0']
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
     runs-on: macos-14
     steps:
       - name: add pyenv to path
