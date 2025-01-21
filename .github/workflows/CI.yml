@@ -45,6 +45,11 @@ jobs:
       CIBW_SKIP: "*-win32 *i686"
       CIBW_ARCHS: ${{ matrix.CIBW_ARCHS }}
       CIBW_PRERELEASE_PYTHONS: "True"
+      # see https://github.com/matplotlib/matplotlib/pull/28687/files#diff-504e739c530d50b780e9a09ae8fd0c3ea8258ea7553be06afb06f03f95b1ee0aR103
+      CIBW_CONFIG_SETTINGS_WINDOWS: >-
+        setup-args="--vsenv"
+        setup-args="-Db_vscrt=mt"
+        setup-args="-Dcpp_link_args=['ucrt.lib','vcruntime.lib','/nodefaultlib:libucrt.lib','/nodefaultlib:libvcruntime.lib']"
     steps:
       - uses: actions/checkout@v4
       - name: Set up QEMU

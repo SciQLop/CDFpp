@@ -39,3 +39,7 @@ setup = ['-Doptimization=3', '-Dcpp_std=c++17', '--force-fallback-for=libdeflate
 [tool.cibuildwheel]
 archs = ["auto"]
 build-frontend = "default"
+
+[tool.cibuildwheel.windows]
+before-build = "python -m pip install delvewheel"
+repair-wheel-command = "python -m delvewheel repair -v --add-path C:/Windows/System32 -w {dest_dir} {wheel}"
