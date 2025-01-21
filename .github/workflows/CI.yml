@@ -21,7 +21,7 @@ jobs:
           path: dist/*.tar.gz
 
   build_wheels:
-    name: Build wheels on ${{ matrix.os }}
+    name: Build wheels on ${{ matrix.os }} for ${{ matrix.CIBW_ARCHS }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -62,7 +62,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up QEMU
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.CIBW_ARCHS != 'x86_64'
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
