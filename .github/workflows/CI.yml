@@ -28,7 +28,16 @@ jobs:
         include:
           - os: ubuntu-latest
             CIBW_ENVIRONMENT: ''
-            CIBW_ARCHS: "x86_64 aarch64 ppc64le s390x"
+            CIBW_ARCHS: "x86_64"
+          - os: ubuntu-latest
+            CIBW_ENVIRONMENT: ''
+            CIBW_ARCHS: "aarch64"
+          - os: ubuntu-latest
+            CIBW_ENVIRONMENT: ''
+            CIBW_ARCHS: "ppc64le"
+          - os: ubuntu-latest
+            CIBW_ENVIRONMENT: ''
+            CIBW_ARCHS: "s390x"
           - os: windows-latest
             CIBW_ENVIRONMENT: ''
             CIBW_ARCHS: "AMD64"
