@@ -5,11 +5,11 @@ numpy
 python_dateutil
 matplotlib
 PyYAML
-sphinx!=5.2.0.post0
+sphinx!=5.2.0.post0, <8.0.0
 sphinx-rtd-theme
 argh
 numpydoc
-sphinx-gallery  < 0.11.0
+sphinx-gallery
 nbsphinx
 ipympl
 ipywidgets
