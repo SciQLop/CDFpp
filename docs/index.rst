@@ -104,3 +104,39 @@ Creating a basic CDF file:
     pycdfpp.save(cdf, "some_cdf.cdf")
 
 
+
+FAQ
+===
+
+How to control integer attributes types?
+----------------------------------------
+
+Use numpy types to control the type of integer attributes:
+
+.. code-block:: python
+
+    import pycdfpp
+    import numpy as np
+
+    cdf = pycdfpp.CDF()
+    cdf.add_attribute("int8 attribute",  np.array([[1, 2, 3]], dtype=np.int8))
+    cdf.add_attribute("int16 attribute", np.array([[1, 2, 3]], dtype=np.int16))
+    cdf.add_attribute("int32 attribute", np.array([[1, 2, 3]], dtype=np.int32))
+    cdf.add_attribute("int64 attribute", np.array([[1, 2, 3]], dtype=np.int64))
+
+    # or:
+    cdf.add_attribute("int8 attribute2", [[np.int8(1)]])
+
+How to make special values (FILLVAL, Pad valuse, etc.)?
+-------------------------------------------------------
+
+Use the `pycdfpp.default_fill_value` and `pycdfpp.default_pad_value` functions to create Fill or Pad values depending on the CDF type:
+
+.. code-block:: python
+
+    import pycdfpp
+    import numpy as np
+
+    cdf = pycdfpp.CDF()
+    cdf.add_variable("int8 variable", values=np.ones((10), dtype=np.int8), attributes={"FILLVAL": [pycdfpp.default_fill_value(pycdfpp.DataType.CDF_INT1)]})
+    cdf.add_variable("tt2000 variable", values=np.ones((10), dtype=np.int64), attributes={"FILLVAL": [pycdfpp.default_fill_value(pycdfpp.DataType.CDF_TIME_TT2000)]})
