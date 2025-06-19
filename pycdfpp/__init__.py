@@ -13,16 +13,20 @@ Indices and tables
 * :ref:`search`
 """
 
-
-import numpy as np
-#from ._pycdfpp import *
-from ._pycdfpp import DataType, CompressionType, Majority, Variable, VariableAttribute, Attribute, CDF, tt2000_t, epoch, epoch16, save
-from datetime import datetime
-from . import _pycdfpp
-from typing import ByteString, Mapping, List, Any
+from typing import Mapping, List, Any, Union
 import sys
 import os
 from functools import singledispatch
+from datetime import datetime
+
+import numpy as np
+# from ._pycdfpp import *
+from ._pycdfpp import DataType, CompressionType, Majority, Variable, VariableAttribute, Attribute, CDF, tt2000_t, epoch, \
+    epoch16, save
+from . import _pycdfpp
+
+# ByteString is deprecated in Python 3.9+ and removed in Python 3.14
+ByteString = Union[bytes, bytearray, memoryview]
 
 __version__ = _pycdfpp.__version__
 __here__ = os.path.dirname(os.path.abspath(__file__))
@@ -32,7 +36,6 @@ if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] 
 
 __all__ = ['tt2000_t', 'epoch', 'epoch16', 'load', 'save', 'CDF', 'Variable',
            'Attribute', 'to_datetime64', 'to_datetime', 'DataType', 'CompressionType', 'Majority']
-
 
 _NUMPY_TO_CDF_TYPE_ = (
     DataType.CDF_NONE,
@@ -60,7 +63,10 @@ _NUMPY_TO_CDF_TYPE_ = (
 )
 
 _CDF_TYPES_COMPATIBILITY_TABLE_ = {
-    DataType.CDF_NONE: (DataType.CDF_CHAR, DataType.CDF_UCHAR, DataType.CDF_INT1, DataType.CDF_BYTE, DataType.CDF_UINT1, DataType.CDF_UINT2, DataType.CDF_UINT4, DataType.CDF_INT1, DataType.CDF_INT2, DataType.CDF_INT4, DataType.CDF_INT8, DataType.CDF_FLOAT, DataType.CDF_REAL4, DataType.CDF_DOUBLE, DataType.CDF_REAL8, DataType.CDF_TIME_TT2000, DataType.CDF_EPOCH, DataType.CDF_EPOCH16),
+    DataType.CDF_NONE: (DataType.CDF_CHAR, DataType.CDF_UCHAR, DataType.CDF_INT1, DataType.CDF_BYTE, DataType.CDF_UINT1,
+                        DataType.CDF_UINT2, DataType.CDF_UINT4, DataType.CDF_INT1, DataType.CDF_INT2, DataType.CDF_INT4,
+                        DataType.CDF_INT8, DataType.CDF_FLOAT, DataType.CDF_REAL4, DataType.CDF_DOUBLE,
+                        DataType.CDF_REAL8, DataType.CDF_TIME_TT2000, DataType.CDF_EPOCH, DataType.CDF_EPOCH16),
     DataType.CDF_CHAR: (DataType.CDF_CHAR, DataType.CDF_UCHAR),
     DataType.CDF_UCHAR: (DataType.CDF_CHAR, DataType.CDF_UCHAR),
     DataType.CDF_BYTE: (DataType.CDF_INT1, DataType.CDF_BYTE),
@@ -109,7 +115,7 @@ def _holds_datetime(values: list):
 
 
 def _max_integer_dtype(type1: np.dtype, type2: np.dtype):
-    if not np.issubdtype(type1, np.integer) :
+    if not np.issubdtype(type1, np.integer):
         return type2
     if not np.issubdtype(type2, np.integer):
         return type1
@@ -121,7 +127,8 @@ def _max_integer_dtype(type1: np.dtype, type2: np.dtype):
 
     return None
 
-def _min_integer_dtype(values: list, target_type:np.dtype or None=None):
+
+def _min_integer_dtype(values: list, target_type: np.dtype or None = None):
     min_v = np.min(values)
     max_v = np.max(values)
     if min_v < 0:
@@ -144,11 +151,17 @@ def _min_integer_dtype(values: list, target_type:np.dtype or None=None):
             return _max_integer_dtype(np.uint64, target_type)
     return None
 
-def _values_view_and_type(values: np.ndarray or list, data_type:DataType or None=None, target_type:DataType or None=None):
+
+def _values_view_and_type(values: np.ndarray or list, data_type: DataType or None = None,
+                          target_type: DataType or None = None):
+    shrink_int = True
     if type(values) is list:
         if _holds_datetime(values):
             values = np.array(values, dtype="datetime64[ns]")
         else:
+            if len(values) and type(values[0]) in (np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16,
+                                                   np.uint32, np.uint64):
+                shrink_int = False
             values = np.array(
                 values, dtype=_CDF_TYPES_TO_NUMPY_DTYPE_.get(data_type, None))
 
@@ -156,9 +169,12 @@ def _values_view_and_type(values: np.ndarray or list, data_type:DataType or None
             values = np.char.encode(values, encoding='utf-8')
         elif data_type is None and np.issubdtype(values.dtype, np.integer):
             target_type = _CDF_TYPES_TO_NUMPY_DTYPE_.get(target_type, np.float32)
-            if not np.issubdtype(target_type, np.integer):
-                target_type = None
-            values = values.astype(_min_integer_dtype(values, target_type))
+            if shrink_int:
+                if not np.issubdtype(target_type, np.integer):
+                    target_type = None
+                values = values.astype(_min_integer_dtype(values, target_type))
+            else:
+                return values, data_type or _NUMPY_TO_CDF_TYPE_[values.dtype.num]
         return _values_view_and_type(values, data_type)
     else:
         if not values.flags['C_CONTIGUOUS']:
@@ -177,7 +193,7 @@ def _values_view_and_type(values: np.ndarray or list, data_type:DataType or None
 
 
 def _patch_set_values():
-    def _set_values_wrapper(self:Variable, values: np.ndarray, data_type:DataType or None=None):
+    def _set_values_wrapper(self: Variable, values: np.ndarray, data_type: DataType or None = None):
         values, data_type = _values_view_and_type(values, data_type, target_type=self.type)
         print(values, data_type)
         if data_type not in _CDF_TYPES_COMPATIBILITY_TABLE_[self.type]:
@@ -189,7 +205,7 @@ def _patch_set_values():
                     raise ValueError(
                         f"Can't set NRV variable of shape {self.shape} with values of shape {values.shape}")
                 else:
-                    values = values.reshape((1,)+values.shape)
+                    values = values.reshape((1,) + values.shape)
         elif self.type != DataType.CDF_NONE and self.shape[1:] != values.shape[1:]:
             raise ValueError(
                 f"Can't set variable of shape {self.shape} with values of shape {values.shape}")
@@ -199,7 +215,8 @@ def _patch_set_values():
 
 
 def _patch_add_variable():
-    def _add_variable_wrapper(self, name: str, values: np.ndarray or None = None, data_type:DataType or None=None, is_nrv: bool = False,
+    def _add_variable_wrapper(self, name: str, values: np.ndarray or None = None, data_type: DataType or None = None,
+                              is_nrv: bool = False,
                               compression: CompressionType = CompressionType.no_compression,
                               attributes: Mapping[str, List[Any]] or None = None):
         """Adds a new variable to the CDF. If values is None, the variable is created with no values. Otherwise, the variable is created with the given values. If attributes is not None, the variable is created with the given attributes.
@@ -250,7 +267,7 @@ def _patch_add_variable():
             var = self._add_variable(
                 name=name, values=v, data_type=t, is_nrv=is_nrv, compression=compression)
         elif data_type is not None:
-            v,t = _values_view_and_type([], data_type)
+            v, t = _values_view_and_type([], data_type)
             var = self._add_variable(
                 name=name, values=v, data_type=t, is_nrv=is_nrv, compression=compression)
         else:
@@ -260,6 +277,7 @@ def _patch_add_variable():
             for name, values in attributes.items():
                 var.add_attribute(name, values)
         return var
+
     CDF.add_variable = _add_variable_wrapper
 
 
@@ -277,7 +295,9 @@ def _attribute_values_view_and_type(values: np.ndarray or list or str, data_type
 
 
 def _patch_add_variable_attribute():
-    def _add_attribute_wrapper(self, name: str, values: np.ndarray or List[float or int or datetime] or str, data_type=None):
+    def _add_attribute_wrapper(self, name: str,
+                               values: np.ndarray or List[float or int or datetime or np.integer] or str,
+                               data_type=None):
         """Adds a new attribute to the variable. If values is None, the attribute is created with no values. Otherwise, the attribute is created with the given values.
         If data_type is not None, the attribute is created with the given data type. Otherwise, the data type is inferred from the values.
 
@@ -325,7 +345,9 @@ def _patch_add_variable_attribute():
 
 
 def _patch_add_cdf_attribute():
-    def _add_attribute_wrapper(self, name: str, entries_values: List[np.ndarray or List[float or int or datetime] or str], entries_types: List[DataType or None] or None = None):
+    def _add_attribute_wrapper(self, name: str,
+                               entries_values: List[np.ndarray or List[float or int or datetime] or str],
+                               entries_types: List[DataType or None] or None = None):
         """Adds a new attribute with the given values to the CDF object.
         If entries_types is not None, the attribute is created with the given data type. Otherwise, the data type is inferred from the values.
 
@@ -360,14 +382,17 @@ def _patch_add_cdf_attribute():
         >>> cdf.add_attribute("multi", [np.arange(2, dtype=np.int32), [1.,2.,3.], "hello", [datetime(2010,1,1), datetime(2020,1,1)]])
 
         """
-        entries_types = entries_types or [None]*len(entries_values)
+        entries_types = entries_types or [None] * len(entries_values)
         v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
                                        for values, data_type in zip(entries_values, entries_types)])]
         return self._add_attribute(name=name, entries_values=v, entries_types=t)
+
     CDF.add_attribute = _add_attribute_wrapper
 
+
 def _patch_attribute_set_values():
-    def _attribute_set_values(self, entries_values: List[np.ndarray or List[float or int or datetime] or str], entries_types: List[DataType or None] or None = None):
+    def _attribute_set_values(self, entries_values: List[np.ndarray or List[float or int or datetime] or str],
+                              entries_types: List[DataType or None] or None = None):
         """Sets the values of the attribute with the given values.
         If entries_types is not None, the attribute is created with the given data type. Otherwise, the data type is inferred from the values.
 
@@ -380,11 +405,13 @@ def _patch_attribute_set_values():
             The data type for each entry of the attribute. If None, the data type is inferred from the values. (Default is None)
 
         """
-        entries_types = entries_types or [None]*len(entries_values)
+        entries_types = entries_types or [None] * len(entries_values)
         v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
                                        for values, data_type in zip(entries_values, entries_types)])]
         self._set_values(v, t)
+
     Attribute.set_values = _attribute_set_values
+
 
 def _patch_var_attribute_set_value():
     def _attribute_set_value(self, value: np.ndarray or List[float or int or datetime] or str, data_type=None):
@@ -402,7 +429,9 @@ def _patch_var_attribute_set_value():
         """
         v, t = _attribute_values_view_and_type(value, data_type)
         self._set_value(v, t)
+
     VariableAttribute.set_value = _attribute_set_value
+
 
 _patch_add_cdf_attribute()
 _patch_add_variable_attribute()
@@ -534,6 +563,7 @@ def _stringify_time_values(values, values_type):
     else:
         return values
 
+
 @singledispatch
 def to_dict_skeleton(obj: Any) -> Any:
     pass
@@ -610,4 +640,3 @@ def _(cdf: CDF) -> dict:
             k: to_dict_skeleton(v) for k, v in cdf.items()
         }
     }
-
