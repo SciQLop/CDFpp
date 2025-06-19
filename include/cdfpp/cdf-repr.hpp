@@ -78,6 +78,16 @@ inline stream_t& operator<<(stream_t& os, const decltype(cdf::to_time_point(tt20
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const epoch& time)
 {
+    if (time.value == -1e31)
+    {
+        os << "9999-12-31T23:59:59.999";
+        return os;
+    }
+    if (time.value == 0)
+    {
+        os << "0000-01-01T00:00:00.000";
+        return os;
+    }
     os << cdf::to_time_point(time);
     return os;
 }
@@ -85,6 +95,16 @@ inline stream_t& operator<<(stream_t& os, const epoch& time)
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const epoch16& time)
 {
+    if (time.seconds == -1e31 && time.picoseconds == -1e31)
+    {
+        os << "9999-12-31T23:59:59.999999999";
+        return os;
+    }
+    if (time.seconds == 0 && time.picoseconds == 0)
+    {
+        os << "0000-01-01T00:00:00.000000000000";
+        return os;
+    }
     os << cdf::to_time_point(time);
     return os;
 }

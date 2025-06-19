@@ -43,6 +43,19 @@ def make_cdf():
                          "numpy_mixed_i16": [np.uint8(1), np.int16(-2), np.int16(3)]
                      }
                      )
+
+    cdf.add_variable("tt2000_special_values",
+                     np.arange(1e18, 11e17, 1e16, dtype=np.int64).astype("datetime64[ns]"),
+                     data_type=pycdfpp.DataType.CDF_TIME_TT2000,
+                     attributes={"FILLVAL": [pycdfpp.default_fill_value(pycdfpp.DataType.CDF_TIME_TT2000)]})
+    cdf.add_variable("epoch_special_values",
+                     np.arange(1e18, 11e17, 1e16, dtype=np.int64).astype("datetime64[ns]"),
+                     data_type=pycdfpp.DataType.CDF_EPOCH,
+                     attributes={"FILLVAL": [pycdfpp.default_fill_value(pycdfpp.DataType.CDF_EPOCH)]})
+    cdf.add_variable("epoch16_special_values",
+                     np.arange(1e18, 11e17, 1e16, dtype=np.int64).astype("datetime64[ns]"),
+                     data_type=pycdfpp.DataType.CDF_EPOCH16,
+                     attributes={"FILLVAL": [pycdfpp.default_fill_value(pycdfpp.DataType.CDF_EPOCH16)]})
     return cdf
 
 
@@ -96,6 +109,15 @@ class PycdfCreateCDFTest(unittest.TestCase):
         self.assertEqual(cdf["test_integer_attributes"].attributes["numpy_i64"].type(), pycdfpp.DataType.CDF_INT8)
         self.assertEqual(cdf["test_integer_attributes"].attributes["numpy_mixed_i16"].type(),
                          pycdfpp.DataType.CDF_INT2)
+
+    def test_default_fill_values(self):
+        # https://spdf.gsfc.nasa.gov/istp_guide/vattributes.html#FILLVAL
+        cdf = make_cdf()
+        self.assertEqual(cdf["tt2000_special_values"].attributes["FILLVAL"][0][0],
+                         pycdfpp.tt2000_t(-9223372036854775808))
+        self.assertEqual(str(cdf["tt2000_special_values"].attributes["FILLVAL"][0][0]), '9999-12-31T23:59:59.999999999')
+        self.assertEqual(cdf["epoch_special_values"].attributes["FILLVAL"][0][0], pycdfpp.epoch(-1e31))
+        self.assertEqual(str(cdf["epoch_special_values"].attributes["FILLVAL"][0][0]), '9999-12-31T23:59:59.999')
 
     def test_can_create_CDF_attributes(self):
         cdf = pycdfpp.CDF()

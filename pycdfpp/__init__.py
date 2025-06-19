@@ -20,7 +20,7 @@ from functools import singledispatch
 from datetime import datetime
 
 import numpy as np
-# from ._pycdfpp import *
+
 from ._pycdfpp import DataType, CompressionType, Majority, Variable, VariableAttribute, Attribute, CDF, tt2000_t, epoch, \
     epoch16, save
 from . import _pycdfpp
@@ -640,3 +640,76 @@ def _(cdf: CDF) -> dict:
             k: to_dict_skeleton(v) for k, v in cdf.items()
         }
     }
+
+
+def default_pad_value(cdf_type: DataType):
+    """
+    Returns a default padding value for the given CDF data type.
+    """
+    if cdf_type in (DataType.CDF_INT1, DataType.CDF_BYTE):
+        return np.int8(-127)
+    if cdf_type == DataType.CDF_UINT1:
+        return np.uint8(254)
+    if cdf_type == DataType.CDF_INT2:
+        return np.int16(-32767)
+    if cdf_type == DataType.CDF_UINT2:
+        return np.uint16(65534)
+    if cdf_type == DataType.CDF_INT4:
+        return np.int32(-2147483647)
+    if cdf_type == DataType.CDF_UINT4:
+        return np.uint32(4294967294)
+    if cdf_type == DataType.CDF_INT8:
+        return np.int64(-9223372036854775807)
+    if cdf_type in (DataType.CDF_REAL4, DataType.CDF_FLOAT):
+        return np.float32(-1e30)
+    if cdf_type in (DataType.CDF_REAL8, DataType.CDF_DOUBLE):
+        return np.float64(-1e30)
+    if cdf_type in (DataType.CDF_CHAR, DataType.CDF_UCHAR):
+        return b'\x00'
+    if cdf_type == DataType.CDF_TIME_TT2000:
+        return tt2000_t(-9223372036854775807)
+    if cdf_type == DataType.CDF_EPOCH:
+        return epoch(0.0)
+    if cdf_type == DataType.CDF_EPOCH16:
+        return epoch16(0.0)
+    return None
+
+
+def default_fill_value(cdf_type: DataType):
+    """
+    Return a default fill value for the given CDF data type.
+
+    Parameters
+    ----------
+    cdf_type : DataType
+        The CDF data type for which to return the default fill value.
+    Returns
+    -------
+    Any
+        The default fill value for the specified CDF data type.
+    """
+    if cdf_type in (DataType.CDF_INT1, DataType.CDF_BYTE):
+        return np.int8(-128)
+    if cdf_type == DataType.CDF_UINT1:
+        return np.uint8(255)
+    if cdf_type == DataType.CDF_INT2:
+        return np.int16(-32768)
+    if cdf_type == DataType.CDF_UINT2:
+        return np.uint16(65535)
+    if cdf_type == DataType.CDF_INT4:
+        return np.int32(-2147483648)
+    if cdf_type == DataType.CDF_UINT4:
+        return np.uint32(4294967295)
+    if cdf_type == DataType.CDF_INT8:
+        return np.int64(-9223372036854775808)
+    if cdf_type in (DataType.CDF_REAL4, DataType.CDF_FLOAT):
+        return np.float32(-1e31)
+    if cdf_type in (DataType.CDF_REAL8, DataType.CDF_DOUBLE):
+        return np.float64(-1e31)
+    if cdf_type == DataType.CDF_TIME_TT2000:
+        return tt2000_t(-9223372036854775808)
+    if cdf_type == DataType.CDF_EPOCH:
+        return epoch(-1e31)
+    if cdf_type == DataType.CDF_EPOCH16:
+        return epoch16(-1e31, - 1e31)
+    return None
