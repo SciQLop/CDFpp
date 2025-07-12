@@ -13,7 +13,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip lcov g++
+          sudo apt install -y python3-pip python3-dev lcov g++ catch2
           pip install --upgrade meson ninja numpy meson-python>=0.14.0 build wheel ddt requests
       - name: Configure with meson
         run: meson -Db_coverage=true -Dwith_tests=true . build
@@ -23,9 +23,9 @@ jobs:
         run: ninja test -C build
       - name: Generate Coverage report
         run: |
-          lcov --capture --directory . --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' --output-file coverage.info
-          lcov --remove coverage.info '*/catch.hpp' --output-file coverage.info
+          lcov --capture --ignore-errors=inconsistent,mismatch --directory . --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' --ignore-errors=unused --output-file coverage.info
+          lcov --remove coverage.info '*/catch*' --ignore-errors=unused --output-file coverage.info
           lcov --list coverage.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
