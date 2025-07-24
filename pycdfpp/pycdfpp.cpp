@@ -89,7 +89,7 @@ auto def_cdf_map(T3& mod, const char* name)
         .def("__len__", [](const cdf_map<T1, T2>& m) { return std::size(m); });
 }
 
-PYBIND11_MODULE(_pycdfpp, m)
+PYBIND11_MODULE(_pycdfpp, m, py::mod_gil_not_used())
 {
     m.doc() = R"pbdoc(
         _pycdfpp
