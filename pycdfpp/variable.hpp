@@ -252,6 +252,12 @@ void def_variable_wrapper(T& mod)
         .def_property_readonly("values", make_values_view<false>, py::keep_alive<0, 1>())
         .def_property_readonly("values_encoded", make_values_view<true>, py::keep_alive<0, 1>())
         .def("_set_values", set_values, py::arg("values").noconvert(), py::arg("data_type"))
+        .def("_set_values",
+            [](Variable& var, const Variable& source)
+            {
+                var.set_data(source);
+            },
+            py::arg("source"))
         .def("_add_attribute",
             static_cast<VariableAttribute& (*)(Variable&, const std::string&,
                 const string_or_buffer_t&, CDF_Types)>(add_attribute),

@@ -193,23 +193,66 @@ def _values_view_and_type(values: np.ndarray or list, data_type: DataType or Non
 
 
 def _patch_set_values():
-    def _set_values_wrapper(self: Variable, values: np.ndarray, data_type: DataType or None = None):
-        values, data_type = _values_view_and_type(values, data_type, target_type=self.type)
-        print(values, data_type)
-        if data_type not in _CDF_TYPES_COMPATIBILITY_TABLE_[self.type]:
-            raise ValueError(
-                f"Can't set variable of type {self.type} with values of type {data_type}")
-        if self.is_nrv:
-            if self.shape[1:] != values.shape[1:]:
-                if self.shape[1:] != values.shape:
-                    raise ValueError(
-                        f"Can't set NRV variable of shape {self.shape} with values of shape {values.shape}")
+    @overload
+    def _set_values_wrapper(self: Variable, values: np.ndarray or list, data_type: DataType or None = None):
+        ...
+    @overload
+    def _set_values_wrapper(self: Variable, values: Variable):
+        ...
+
+    def _set_values_wrapper(self, *args, **kwargs):
+        """Sets the values of the variable.
+        
+        This method can be called in two ways:
+        1. With values and optional data type: set_values(values, data_type=None)
+        2. With another Variable object: set_values(variable)
+        
+        Parameters
+        ----------
+        values : np.ndarray or list
+            The values to set for the variable.
+            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type,
+            with integers, it will choose the smallest data type that can hold all the values.
+        data_type : DataType or None, optional
+            The data type of the variable. If None, the data type is inferred from the values. (Default is None)
+        variable : Variable
+            An existing Variable object to set the values from (for the second calling method).
+            
+        Raises
+        ------
+        ValueError
+            If the variable already exists or if the values are not compatible with the variable's type.
+        """
+
+        if len(args) == 1 and isinstance(args[0], Variable):
+            if self.type != DataType.CDF_NONE and self.type != args[0].type:
+                raise ValueError(
+                    f"Can't set variable of type {self.type} with values of type {args[0].type}")
+            self._set_values(args[0])
+        else:
+            arg_names = ['values', 'data_type']
+            for i, arg in enumerate(args):
+                if i < len(arg_names):
+                    kwargs[arg_names[i]] = arg
                 else:
-                    values = values.reshape((1,) + values.shape)
-        elif self.type != DataType.CDF_NONE and self.shape[1:] != values.shape[1:]:
-            raise ValueError(
-                f"Can't set variable of shape {self.shape} with values of shape {values.shape}")
-        self._set_values(values, data_type)
+                    raise TypeError(f"Unexpected argument {arg} at position {i+1}. Expected one of {arg_names}.")
+            values = kwargs.get('values')
+            data_type = kwargs.get('data_type')
+            values, data_type = _values_view_and_type(values, data_type, target_type=self.type)
+            if data_type not in _CDF_TYPES_COMPATIBILITY_TABLE_[self.type]:
+                raise ValueError(
+                    f"Can't set variable of type {self.type} with values of type {data_type}")
+            if self.is_nrv:
+                if self.shape[1:] != values.shape[1:]:
+                    if self.shape[1:] != values.shape:
+                        raise ValueError(
+                            f"Can't set NRV variable of shape {self.shape} with values of shape {values.shape}")
+                    else:
+                        values = values.reshape((1,) + values.shape)
+            elif self.type != DataType.CDF_NONE and self.shape[1:] != values.shape[1:]:
+                raise ValueError(
+                    f"Can't set variable of shape {self.shape} with values of shape {values.shape}")
+            self._set_values(values, data_type)
 
     Variable.set_values = _set_values_wrapper
 
@@ -232,8 +275,8 @@ def _patch_add_variable():
         """Adds a new variable to the CDF.
 
         This method can be called in two ways:
-        1. With a Variable object: add_variable(variable)
-        2. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None)
+        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None)
+        2. With a Variable object: add_variable(variable)
 
         Parameters
         ----------
@@ -346,8 +389,8 @@ def _patch_add_variable_attribute():
         """Adds a new attribute to the variable.
 
         This method can be called in two ways:
-        1. With a VariableAttribute object: add_attribute(attribute)
-        2. With attribute parameters: add_attribute(name, values, data_type=None)
+        1. With attribute parameters: add_attribute(name, values, data_type=None)
+        2. With a VariableAttribute object: add_attribute(attribute)
 
         Parameters
         ----------
@@ -359,7 +402,7 @@ def _patch_add_variable_attribute():
         data_type : DataType or None, optional
             The data type of the attribute. If None, the data type is inferred from the values. (Default is None)
         attribute : VariableAttribute
-            An existing VariableAttribute object to add to the variable (for the first calling method).
+            An existing VariableAttribute object to add to the variable (for the second calling method).
 
         Returns
         -------
@@ -421,8 +464,8 @@ def _patch_add_cdf_attribute():
         """Adds a new attribute to the CDF.
 
         This method can be called in two ways:
-        1. With an Attribute object: add_attribute(attribute)
-        2. With attribute parameters: add_attribute(name, entries_values, entries_types=None)
+        1. With attribute parameters: add_attribute(name, entries_values, entries_types=None)
+        2. With an Attribute object: add_attribute(attribute)
 
         Parameters
         ----------
@@ -434,7 +477,7 @@ def _patch_add_cdf_attribute():
         entries_types : List[DataType] or None, optional
             The data type for each entry of the attribute. If None, the data type is inferred from the values. (Default is None)
         attribute : Attribute
-            An existing Attribute object to add to the CDF (for the first calling method).
+            An existing Attribute object to add to the CDF (for the second calling method).
 
         Returns
         -------
@@ -485,44 +528,101 @@ def _patch_add_cdf_attribute():
 
 
 def _patch_attribute_set_values():
-    def _attribute_set_values(self, entries_values: List[np.ndarray or List[float or int or datetime] or str],
+    @overload
+    def _attribute_set_values(self: Attribute, entries_values: List[np.ndarray or List[float or int or datetime] or str],
                               entries_types: List[DataType or None] or None = None):
-        """Sets the values of the attribute with the given values.
-        If entries_types is not None, the attribute is created with the given data type. Otherwise, the data type is inferred from the values.
-
+        ...
+    @overload
+    def _attribute_set_values(self: Attribute, attribute: Attribute):
+        ...
+    def _attribute_set_values(self, *args, **kwargs):
+        """Sets the values of the attribute.
+        
+        This method can be called in two ways:
+        1. With values and optional types: set_values(entries_values, entries_types=None)
+        2. With another Attribute object: set_values(attribute)
+        
         Parameters
         ----------
         entries_values : List[np.ndarray or List[float or int or datetime] or str]
             The values entries to set for the attribute.
-            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type, with integers, it will choose the smallest data type that can hold all the values.
+            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type, 
+            with integers, it will choose the smallest data type that can hold all the values.
         entries_types : List[DataType] or None, optional
             The data type for each entry of the attribute. If None, the data type is inferred from the values. (Default is None)
-
+        attribute : Attribute
+            An existing Attribute object to set the values from (for the second calling method).
         """
-        entries_types = entries_types or [None] * len(entries_values)
-        v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
-                                       for values, data_type in zip(entries_values, entries_types)])]
-        self._set_values(v, t)
+        if len(args) == 1 and isinstance(args[0], Attribute):
+            self._set_values(args[0])
+        else:
+            arg_names = ['entries_values', 'entries_types']
+            for i, arg in enumerate(args):
+                if i < len(arg_names):
+                    kwargs[arg_names[i]] = arg
+                else:
+                    raise TypeError(f"Unexpected argument {arg} at position {i+1}. Expected one of {arg_names}.")
+            entries_values = kwargs.get('entries_values')
+            entries_types = kwargs.get('entries_types') or [None] * len(entries_values)
+            v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
+                                           for values, data_type in zip(entries_values, entries_types)])]
+            self._set_values(v, t)
 
     Attribute.set_values = _attribute_set_values
 
 
 def _patch_var_attribute_set_value():
-    def _attribute_set_value(self, value: np.ndarray or List[float or int or datetime] or str, data_type=None):
-        """Sets the value of the attribute with the given value.
-        If data_type is not None, the attribute is created with the given data type. Otherwise, the data type is inferred from the values.
-
+    @overload
+    def _attribute_set_value(self: VariableAttribute, value: np.ndarray or List[float or int or datetime] or str, data_type=None):
+        ...
+    @overload
+    def _attribute_set_value(self: VariableAttribute, value: VariableAttribute):
+        ...
+    def _attribute_set_value(self, *args, **kwargs):
+        """Sets the value of the variable attribute.
+        
+        This method can be called in two ways:
+        1. With value and optional data type: set_value(value, data_type=None)
+        2. With another VariableAttribute object: set_value(attribute)
+        
         Parameters
         ----------
-        values : np.ndarray or List[float or int or datetime] or str
-            The values to set for the attribute.
-            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type, with integers, it will choose the smallest data type that can hold all the values.
+        value : np.ndarray or List[float or int or datetime] or str
+            The value to set for the attribute.
+            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type,
+            with integers, it will choose the smallest data type that can hold all the values.
         data_type : DataType or None, optional
             The data type of the attribute. If None, the data type is inferred from the values. (Default is None)
-
+        attribute : VariableAttribute
+            An existing VariableAttribute object to set the value from (for the second calling method).
+            
+        Examples
+        --------
+        >>> from pycdfpp import CDF, DataType
+        >>> import numpy as np
+        >>> from datetime import datetime
+        >>> cdf = CDF()
+        >>> var = cdf.add_variable("var1", np.arange(10, dtype=np.int32), DataType.CDF_INT4)
+        >>> # First method: setting value with parameters
+        >>> var.attributes["attr1"].set_value([1, 2, 3])
+        >>> # Second method: setting from existing attribute
+        >>> var.attributes["attr2"].set_value(var.attributes["attr1"])
+        >>> var.attributes["attr2"]
+        [ 1, 2, 3 ]
         """
-        v, t = _attribute_values_view_and_type(value, data_type)
-        self._set_value(v, t)
+        if len(args) == 1 and isinstance(args[0], VariableAttribute):
+            self._set_value(args[0])
+        else:
+            arg_names = ['value', 'data_type']
+            for i, arg in enumerate(args):
+                if i < len(arg_names):
+                    kwargs[arg_names[i]] = arg
+                else:
+                    raise TypeError(f"Unexpected argument {arg} at position {i+1}. Expected one of {arg_names}.")
+            value = kwargs.get('value')
+            data_type = kwargs.get('data_type', None)
+            v, t = _attribute_values_view_and_type(value, data_type)
+            self._set_value(v, t)
 
     VariableAttribute.set_value = _attribute_set_value
 

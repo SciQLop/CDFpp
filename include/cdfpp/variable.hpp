@@ -154,6 +154,16 @@ struct Variable
         return 0;
     }
 
+    void set_data(const Variable& source)
+    {
+        p_data = source._data();
+        p_shape = source.p_shape;
+        p_is_nrv = source.p_is_nrv;
+        p_majority = source.p_majority;
+        p_compression = source.p_compression;
+        check_shape();
+    }
+
     void set_data(const data_t& data, const shape_t& shape)
     {
         p_data = data;

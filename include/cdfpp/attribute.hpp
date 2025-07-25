@@ -103,6 +103,12 @@ struct Attribute
         data = new_data;
         return *this;
     }
+
+    inline void set_data(const Attribute& other)
+    {
+        data = other.data;
+    }
+
     [[nodiscard]] inline std::size_t size() const noexcept { return std::size(data); }
     [[nodiscard]] inline data_t& operator[](std::size_t index) { return data[index]; }
     [[nodiscard]] inline const data_t& operator[](std::size_t index) const { return data[index]; }
@@ -219,6 +225,11 @@ struct VariableAttribute
     {
         data = new_data;
         return *this;
+    }
+
+    inline void set_data(const VariableAttribute& other)
+    {
+        data = other.data;
     }
 
     inline data_t& operator*() { return data; }

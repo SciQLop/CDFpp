@@ -184,5 +184,23 @@ class PycdfVariableSetValues(unittest.TestCase):
         self.assertIn("attr1", cdf2["var1"].attributes)
         self.assertEqual(cdf2["var1"].attributes["attr1"].value, "value1")
 
+    def test_can_set_values_from_another_variable(self):
+        cdf1 = pycdfpp.CDF()
+        cdf1.add_variable("var1", values=np.arange(10, dtype=np.float64))
+        cdf2 = pycdfpp.CDF()
+        cdf2.add_variable("var2")
+        cdf2["var2"].set_values(cdf1["var1"])
+        self.assertTrue(np.array_equal(cdf2["var2"].values, cdf1["var1"].values))
+
+    def test_can_set_values_from_another_variable_tt2000(self):
+        cdf1 = pycdfpp.CDF()
+        values = make_datetime64_values()
+        cdf1.add_variable("var1", values=values, data_type=pycdfpp.DataType.CDF_EPOCH)
+        cdf2 = pycdfpp.CDF()
+        cdf2.add_variable("var2")
+        cdf2["var2"].set_values(cdf1["var1"])
+        self.assertTrue(np.array_equal(pycdfpp.to_datetime64(cdf2["var2"]), values))
+
+
 if __name__ == '__main__':
     unittest.main()

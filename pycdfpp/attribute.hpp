@@ -397,6 +397,9 @@ void def_attribute_wrapper(T& mod)
         .def("__repr__", __repr__<Attribute>)
         .def("_set_values", set_attr_values, py::arg("values").noconvert(), py::arg("data_type"))
         .def(
+            "_set_values", [](Attribute& att, const Attribute& source) { att.set_data(source); },
+            py::arg("source"))
+        .def(
             "__getitem__",
             [](Attribute& att, std::size_t index) -> py_cdf_attr_data_t
             {
@@ -422,6 +425,9 @@ void def_attribute_wrapper(T& mod)
         .def(py::self != py::self)
         .def("__repr__", __repr__<VariableAttribute>)
         .def("_set_value", set_vattr_value, py::arg("value").noconvert(), py::arg("data_type"))
+        .def(
+            "_set_value", [](VariableAttribute& att, const VariableAttribute& source)
+            { att.set_data(source); }, py::arg("source"))
         .def(
             "__getitem__",
             [](VariableAttribute& att, std::size_t index) -> py_cdf_attr_data_t
