@@ -80,6 +80,12 @@ void def_cdf_wrapper(T& mod)
         .def(py::init<>())
         .def(py::self == py::self)
         .def(py::self != py::self)
+        .def(
+            "__copy__", [](const CDF& cdf) -> CDF { return CDF(cdf); },
+            py::return_value_policy::move)
+        .def(
+            "__deepcopy__", [](const CDF& cdf, py::dict) -> CDF { return CDF(cdf); },
+            py::return_value_policy::move)
         .def_readonly("attributes", &CDF::attributes, py::return_value_policy::reference,
             py::keep_alive<0, 1>())
         .def_property_readonly("majority", [](const CDF& cdf) { return cdf.majority; })
@@ -103,6 +109,14 @@ void def_cdf_wrapper(T& mod)
             "items", [](const CDF& cd)
             { return py::make_iterator(std::begin(cd.variables), std::end(cd.variables)); },
             py::keep_alive<0, 1>())
+        .def("keys",
+            [](const CDF& cd)
+            {
+                std::vector<std::string> keys(std::size(cd.variables));
+                std::transform(std::cbegin(cd.variables), std::cend(cd.variables), std::begin(keys),
+                    [](const auto& item) { return item.first; });
+                return keys;
+            })
         .def("__len__", [](const CDF& cd) { return std::size(cd.variables); })
         .def(
             "_add_variable",
@@ -161,6 +175,21 @@ void def_cdf_wrapper(T& mod)
                 }
             },
             py::arg("variable"), py::return_value_policy::reference_internal)
+        .def(
+            "_remove_variable",
+            [](CDF& cdf, const std::string& name)
+            {
+                auto it = cdf.variables.find(name);
+                if (it != cdf.variables.end())
+                {
+                    cdf.variables.erase(it);
+                }
+                else
+                {
+                    throw std::invalid_argument { "Variable does not exist" };
+                }
+            },
+            py::arg("name"))
         .def("_add_attribute",
             static_cast<Attribute& (*)(CDF&, const std::string&,
                 const std::vector<string_or_buffer_t>&, const std::vector<CDF_Types>&)>(
@@ -181,7 +210,22 @@ void def_cdf_wrapper(T& mod)
                     throw std::invalid_argument { "Attribute already exists" };
                 }
             },
-            py::arg("attribute"), py::return_value_policy::reference_internal);
+            py::arg("attribute"), py::return_value_policy::reference_internal)
+        .def(
+            "_remove_attribute",
+            [](CDF& cdf, const std::string& name)
+            {
+                auto it = cdf.attributes.find(name);
+                if (it != cdf.attributes.end())
+                {
+                    cdf.attributes.erase(it);
+                }
+                else
+                {
+                    throw std::invalid_argument { "Attribute does not exist" };
+                }
+            },
+            py::arg("name"));
 }
 
 template <typename T>

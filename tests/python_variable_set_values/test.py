@@ -201,6 +201,68 @@ class PycdfVariableSetValues(unittest.TestCase):
         cdf2["var2"].set_values(cdf1["var1"])
         self.assertTrue(np.array_equal(pycdfpp.to_datetime64(cdf2["var2"]), values))
 
+class PycdfFilterCDF(unittest.TestCase):
+
+    def setUp(self):
+        self.cdf = pycdfpp.CDF()
+        self.cdf.add_variable("var1", values=np.arange(10, dtype=np.float64))
+        self.cdf.add_variable("var2", values=np.arange(10, dtype=np.float64) * 2)
+        self.cdf.add_variable("var3", values=np.arange(10, dtype=np.float64) * 3)
+        self.cdf.add_attribute("global_attr", "global_value")
+        self.cdf.add_attribute("global_attr2", "global_value2")
+        self.cdf.add_attribute("global_attr3", "global_value3")
+
+
+    def test_filter_cdf_not_in_place(self):
+        filtered = self.cdf.filter(variables=["var1", "var2"],
+                                   attributes=["global_attr"],
+                                   inplace=False)
+        self.assertIsNot(filtered, self.cdf)
+        self.assertIn("var1", filtered)
+        self.assertIn("var2", filtered)
+        self.assertNotIn("var3", filtered)
+        self.assertIn("global_attr", filtered.attributes)
+        self.assertNotIn("global_attr2", filtered.attributes)
+        self.assertNotIn("global_attr3", filtered.attributes)
+        self.assertEqual(filtered["var1"], self.cdf["var1"])
+
+    def test_filter_cdf_in_place(self):
+        filtered = self.cdf.filter(variables=["var1", "var2"], attributes=["global_attr"], inplace=True)
+        self.assertIs(filtered, self.cdf)
+        self.assertIn("var1", self.cdf)
+        self.assertIn("var2", self.cdf)
+        self.assertNotIn("var3", self.cdf)
+        self.assertIn("global_attr", self.cdf.attributes)
+        self.assertNotIn("global_attr2", self.cdf.attributes)
+        self.assertNotIn("global_attr3", self.cdf.attributes)
+        self.assertListEqual(self.cdf["var1"].values.tolist(), np.arange(10, dtype=np.float64).tolist())
+
+    def test_filter_cdf_no_variables_no_attributes(self):
+        filtered = self.cdf.filter()
+        self.assertIsNot(filtered, self.cdf)
+        self.assertEqual(len(filtered), 0)
+        self.assertEqual(len(filtered.attributes), 0)
+
+    def test_filter_cdf_with_callable_predicate(self):
+        def predicate(var):
+            return var.name in ["var1", "var2"]
+
+        filtered = self.cdf.filter(variables=predicate, inplace=False)
+        self.assertIsNot(filtered, self.cdf)
+        self.assertIn("var1", filtered)
+        self.assertIn("var2", filtered)
+        self.assertNotIn("var3", filtered)
+        self.assertEqual(len(filtered.attributes), 0)
+
+    def test_filter_cdf_with_regex(self):
+        filtered = self.cdf.filter(variables="var[23]", attributes=".*")
+        self.assertNotIn("var1", filtered)
+        self.assertIn("var2", filtered)
+        self.assertIn("var3", filtered)
+        self.assertIn("global_attr", self.cdf.attributes)
+        self.assertIn("global_attr2", self.cdf.attributes)
+        self.assertIn("global_attr3", self.cdf.attributes)
+
 
 if __name__ == '__main__':
     unittest.main()
