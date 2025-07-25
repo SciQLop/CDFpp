@@ -256,5 +256,20 @@ void def_variable_wrapper(T& mod)
             static_cast<VariableAttribute& (*)(Variable&, const std::string&,
                 const string_or_buffer_t&, CDF_Types)>(add_attribute),
             py::arg { "name" }, py::arg { "values" }, py::arg { "data_type" },
-            py::return_value_policy::reference_internal);
+            py::return_value_policy::reference_internal)
+        .def(
+            "_add_attribute",
+            [](Variable& var, const VariableAttribute& attr)
+            {
+                if (var.attributes.count(attr.name) == 0)
+                {
+                    var.attributes.emplace(attr.name, attr);
+                    return var.attributes[attr.name];
+                }
+                else
+                {
+                    throw std::invalid_argument { "Attribute already exists" };
+                }
+            },
+            py::arg("attribute"), py::return_value_policy::reference_internal);
 }

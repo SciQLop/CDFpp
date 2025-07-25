@@ -146,12 +146,42 @@ void def_cdf_wrapper(T& mod)
             py::arg("is_nrv") = false,
             py::arg("compression") = cdf_compression_type::no_compression,
             py::return_value_policy::reference_internal)
+        .def(
+            "_add_variable",
+            [](CDF& cdf, const Variable& var)
+            {
+                if (cdf.variables.count(var.name()) == 0)
+                {
+                    cdf.variables.emplace(var.name(), var);
+                    return cdf[var.name()];
+                }
+                else
+                {
+                    throw std::invalid_argument { "Variable already exists" };
+                }
+            },
+            py::arg("variable"), py::return_value_policy::reference_internal)
         .def("_add_attribute",
             static_cast<Attribute& (*)(CDF&, const std::string&,
                 const std::vector<string_or_buffer_t>&, const std::vector<CDF_Types>&)>(
                 add_attribute),
             py::arg { "name" }, py::arg { "entries_values" }, py::arg { "entries_types" },
-            py::return_value_policy::reference_internal);
+            py::return_value_policy::reference_internal)
+        .def(
+            "_add_attribute",
+            [](CDF& cdf, const Attribute& attr)
+            {
+                if (cdf.attributes.count(attr.name) == 0)
+                {
+                    cdf.attributes.emplace(attr.name, attr);
+                    return cdf.attributes[attr.name];
+                }
+                else
+                {
+                    throw std::invalid_argument { "Attribute already exists" };
+                }
+            },
+            py::arg("attribute"), py::return_value_policy::reference_internal);
 }
 
 template <typename T>

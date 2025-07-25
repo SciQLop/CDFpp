@@ -163,5 +163,26 @@ class PycdfVariableSetValues(unittest.TestCase):
         self.assertTrue(cdf["nrv_var"].is_nrv)
         cdf["nrv_var"].set_values(np.ones(shape=[2,2]))
 
+    def test_can_clone_variables_from_another_CDF(self):
+        ref_values = np.arange(10, dtype=np.float64)
+        cdf1 = pycdfpp.CDF()
+        cdf1.add_variable("var1", values=ref_values)
+        cdf2 = pycdfpp.CDF()
+        cdf2.add_variable(cdf1["var1"])
+        self.assertIn("var1", cdf2)
+        self.assertTrue(np.array_equal(cdf2["var1"].values, ref_values))
+        self.assertEqual(cdf2["var1"].type, pycdfpp.DataType.CDF_DOUBLE)
+        cdf2["var1"].values[0] = 100.
+        self.assertNotEqual(cdf2["var1"].values[0], cdf1["var1"].values[0])
+
+    def test_can_clone_attributes_from_another_CDF(self):
+        cdf1 = pycdfpp.CDF()
+        cdf1.add_variable("var1", values=np.arange(10, dtype=np.float64))
+        cdf1["var1"].add_attribute("attr1", "value1")
+        cdf2 = pycdfpp.CDF()
+        cdf2.add_variable(cdf1["var1"])
+        self.assertIn("attr1", cdf2["var1"].attributes)
+        self.assertEqual(cdf2["var1"].attributes["attr1"].value, "value1")
+
 if __name__ == '__main__':
     unittest.main()
