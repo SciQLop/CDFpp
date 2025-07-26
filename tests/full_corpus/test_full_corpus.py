@@ -9,19 +9,11 @@ import ddt
 from glob import glob
 import pycdfpp
 import requests
+import threading
 
 os.environ['TZ'] = 'UTC'
 
-
-@ddt.ddt
-class PycdfCorpus(unittest.TestCase):
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
-    @ddt.data(
+files = (
     ( "a1_k0_mpa_20050804_v02.cdf", 39, 18 ),
     ( "ac_h2_sis_20101105_v06.cdf", 61, 26 ),
     ( "ac_or_ssc_20031101_v01.cdf", 7, 18 ),
@@ -55,7 +47,19 @@ class PycdfCorpus(unittest.TestCase):
     ( "tha_l2_scm_20160831_v01.cdf", 29, 34 ),
     ( "timed_L1Cdisk_guvi_20060601005849_v01.cdf", 67, 53 ),
     ( "twins1_l1_imager_2010102701_v01.cdf", 79, 18 ),
-    ( "ulysses.cdf", 15, 10 ),
+    ( "ulysses.cdf", 15, 10 )
+)
+
+@ddt.ddt
+class PycdfCorpus(unittest.TestCase):
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    @ddt.data(
+        *files
     )
     @ddt.unpack
     def test_opens_in_memory_remote_files(self, fname, variables, attrs):
@@ -64,6 +68,22 @@ class PycdfCorpus(unittest.TestCase):
         self.assertIsNotNone(cdf)
         self.assertEqual(len(cdf), variables)
         self.assertEqual(len(cdf.attributes), attrs)
+        
+    def test_multithreaded_load(self):
+        def load_file(fname, variables, attrs):
+            cdf = pycdfpp.load(requests.get(f"https://129.104.27.7/data/mirrors/CDF/test_files/{fname}", verify=False).content)
+            self.assertIsNotNone(cdf)
+            self.assertEqual(len(cdf), variables)
+            self.assertEqual(len(cdf.attributes), attrs)
+
+        threads = []
+        for fname, variables, attrs in files:
+            thread = threading.Thread(target=load_file, args=(fname, variables, attrs))
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
 
 if __name__ == '__main__':
     unittest.main()
