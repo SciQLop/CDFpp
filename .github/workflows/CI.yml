@@ -109,8 +109,8 @@ jobs:
           echo "~/.pyenv/shims" >> $GITHUB_PATH
       - name: install dependencies
         run: |
-          brew install pyenv
-          brew upgrade pyenv
+          brew update
+          brew install pyenv --head
           pyenv install ${{ matrix.python-version }}
       - uses: actions/download-artifact@v4
         with:
