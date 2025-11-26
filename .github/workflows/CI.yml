@@ -11,7 +11,7 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build sdist
         run: pipx run build --sdist
       - name: Upload artifact
@@ -54,7 +54,7 @@ jobs:
         setup-args="-Db_vscrt=mt"
         setup-args="-Dcpp_link_args=['ucrt.lib','vcruntime.lib','/nodefaultlib:libucrt.lib','/nodefaultlib:libvcruntime.lib']"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.0
       - uses: actions/upload-artifact@v4
@@ -91,7 +91,7 @@ jobs:
         run: |
           pip install numpy pyyaml
           pip install --no-index --find-links $env:GITHUB_WORKSPACE\dist pycdfpp
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: run tests
         run: |
           pip install ddt requests
@@ -122,7 +122,7 @@ jobs:
           pyenv local ${{ matrix.python-version }}
           python3 -m pip install --break-system-packages numpy pyyaml
           python3 -m pip install --break-system-packages --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: run tests
         run: |
           pyenv local ${{ matrix.python-version }}
