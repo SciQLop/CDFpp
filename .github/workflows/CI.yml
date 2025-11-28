@@ -29,24 +29,34 @@ jobs:
           - os: ubuntu-latest
             CIBW_ENVIRONMENT: ''
             CIBW_ARCHS: "x86_64"
+            CIBW_PLATFORM: "auto"
+          - os: ubuntu-latest
+            CIBW_ENVIRONMENT: ''
+            CIBW_ARCHS: "wasm32"
+            CIBW_PLATFORM: "pyodide"
           - os: ubuntu-24.04-arm
             CIBW_ENVIRONMENT: ''
             CIBW_ARCHS: "aarch64"
+            CIBW_PLATFORM: "auto"
           - os: windows-latest
             CIBW_ENVIRONMENT: ''
             CIBW_ARCHS: "AMD64"
+            CIBW_PLATFORM: "auto"
           - os: macos-13  # Intel
             CIBW_ENVIRONMENT: >
               MACOSX_DEPLOYMENT_TARGET='10.15'
             CIBW_ARCHS: "x86_64"
+            CIBW_PLATFORM: "auto"
           - os: macos-14 # Apple Silicon
             CIBW_ENVIRONMENT: >
               MACOSX_DEPLOYMENT_TARGET='11.0'
             CIBW_ARCHS: "arm64"
+            CIBW_PLATFORM: "auto"
     env:
       CIBW_ENVIRONMENT: ${{ matrix.CIBW_ENVIRONMENT }}
       CIBW_SKIP: "*-win32 *i686"
       CIBW_ARCHS: ${{ matrix.CIBW_ARCHS }}
+      CIBW_PLATFORM: ${{ matrix.CIBW_PLATFORM }}
       CIBW_PRERELEASE_PYTHONS: "True"
       # see https://github.com/matplotlib/matplotlib/pull/28687/files#diff-504e739c530d50b780e9a09ae8fd0c3ea8258ea7553be06afb06f03f95b1ee0aR103
       CIBW_CONFIG_SETTINGS_WINDOWS: >-

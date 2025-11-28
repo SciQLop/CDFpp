@@ -14,7 +14,6 @@ endif
 
 _pycdfpp = python3.extension_module('_pycdfpp', 'pycdfpp.cpp',
                          dependencies: [cdfpp_dep, fmt_dep, pybind11_dep,python3.dependency()],
-                         link_args: link_args,
                          cpp_args: pycdfpp_cpp_args,
                          subdir: 'pycdfpp',
                          install: true,

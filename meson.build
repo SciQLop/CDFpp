@@ -57,6 +57,13 @@ else
     link_args = []
 endif
 
+if('emscripten'==cpp.get_id())
+    link_args += ['-fexceptions']
+    compile_args = ['-fexceptions']
+else
+    compile_args = []
+endif
+
 if get_option('use_libdeflate')
     zlib_dep = dependency('libdeflate')
 else
@@ -168,7 +175,9 @@ cdfpp_dep_inc = include_directories('include', '.')
 
 
 cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
-                                dependencies: [zlib_dep, hedley_dep, fmt_dep, zstd_dep])
+                                dependencies: [zlib_dep, hedley_dep, fmt_dep, zstd_dep],
+                                link_args : link_args,
+                                compile_args : compile_args)
 
 if get_option('disable_python_wrapper')
     message('building without Python wrapper')
@@ -237,9 +246,9 @@ install_headers(
     'include/cdfpp/cdf-io/saving/link_records.hpp'
 ], subdir:'cdfpp/cdf-io/saving')
 
-
-subdir('wacdfpp')
-
+if get_option('with_experimental_wasm')
+    subdir('wacdfpp')
+endif
 
 if get_option('with_tests')
 
