@@ -148,9 +148,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@v6
         with:
-          pattern: cibw-*,!*-wasm32
+          pattern: cibw-*
           path: dist
           merge-multiple: true
+      - name: Remove wasm32 wheels
+        run: find dist -name "*-wasm32.whl" -delete
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
@@ -165,9 +167,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@v6
         with:
-          pattern: cibw-*,!*-wasm32
+          pattern: cibw-*
           path: dist
           merge-multiple: true
+      - name: Remove wasm32 wheels
+        run: find dist -name "*-wasm32.whl" -delete
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           user: __token__
