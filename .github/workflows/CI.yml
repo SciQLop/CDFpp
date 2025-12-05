@@ -1,4 +1,4 @@
-name: GH Actions
+name: Build and test wheels on multiple platforms
 
 on:
   release:
@@ -144,33 +144,40 @@ jobs:
     needs: [build_sdist, build_wheels, test_wheels, test_wheels_macos_14]
     runs-on: ubuntu-latest
     # upload to PyPI only on github releases
+    environment:
+      name: pypi
+      url: https://pypi.org/p/pycdfpp
+    permissions:
+      id-token: write
     if: github.event_name == 'release' && github.event.action == 'published' && github.repository_owner == 'SciQLop'
     steps:
       - uses: actions/download-artifact@v6
         with:
-          pattern: cibw-*,!*-wasm32
+          pattern: cibw-*
           path: dist
           merge-multiple: true
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_PASSWORD }}
-          skip-existing: true
+      - name: Remove wasm32 wheels (until PyPI PEP 783 is implemented)
+        run: find dist -name "*wasm32.whl" -delete
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
 
   upload_test_pypi:
     needs: [build_sdist, build_wheels, test_wheels, test_wheels_macos_14]
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://test.pypi.org/project/pycdfpp
+    permissions:
+      id-token: write
     # upload to test PyPI on github pushes
     if: github.event_name == 'push' && github.repository_owner == 'SciQLop'
     steps:
       - uses: actions/download-artifact@v6
         with:
-          pattern: cibw-*,!*-wasm32
+          pattern: cibw-*
           path: dist
           merge-multiple: true
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_TEST_PASSWORD }}
-          repository-url: https://test.pypi.org/legacy/
-          skip-existing: true
+      - name: Remove wasm32 wheels (until PyPI PEP 783 is implemented)
+        run: find dist -name "*wasm32.whl" -delete
+      - name: Publish to Test PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
