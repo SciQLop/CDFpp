@@ -33,7 +33,7 @@ repository = "https://github.com/SciQLop/CDFpp"
 
 [tool.meson-python.args]
 install = ['--tags=runtime,python-runtime']
-setup = ['-Doptimization=3', '-Dcpp_std=c++17', '--force-fallback-for=libdeflate', '--vsenv']
+setup = ['-Doptimization=3', '-Dcpp_std=c++17', '--force-fallback-for=libdeflate,fmt,pybind11', '--vsenv']
 
 
 [tool.cibuildwheel]
