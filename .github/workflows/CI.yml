@@ -65,6 +65,11 @@ jobs:
         setup-args="-Dcpp_link_args=['ucrt.lib','vcruntime.lib','/nodefaultlib:libucrt.lib','/nodefaultlib:libvcruntime.lib']"
     steps:
       - uses: actions/checkout@v6
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.CIBW_ARCHS }}  # Make cache specific to OS/ARCH
+          max-size: "5G"
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.0
       - uses: actions/upload-artifact@v5

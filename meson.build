@@ -154,7 +154,8 @@ cdfpp_extra_files = files(
     'tests/python_skeletons/test.py',
     'tests/full_corpus/test_full_corpus.py',
     '.github/workflows/CI.yml',
-    '.github/workflows/tests-with-coverage.yml'
+    '.github/workflows/tests-with-coverage.yml',
+    '.github/dependabot.yml'
 )
 
 cdfpp_doc_extra_files =  files(
