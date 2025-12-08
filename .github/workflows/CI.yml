@@ -42,14 +42,14 @@ jobs:
             CIBW_ENVIRONMENT: ''
             CIBW_ARCHS: "AMD64"
             CIBW_PLATFORM: "auto"
-          - os: macos-13  # Intel
+          - os: macos-15-intel
             CIBW_ENVIRONMENT: >
-              MACOSX_DEPLOYMENT_TARGET='10.15'
+              MACOSX_DEPLOYMENT_TARGET='13.0'
             CIBW_ARCHS: "x86_64"
             CIBW_PLATFORM: "auto"
           - os: macos-14 # Apple Silicon
             CIBW_ENVIRONMENT: >
-              MACOSX_DEPLOYMENT_TARGET='11.0'
+              MACOSX_DEPLOYMENT_TARGET='13.0'
             CIBW_ARCHS: "arm64"
             CIBW_PLATFORM: "auto"
     env:
