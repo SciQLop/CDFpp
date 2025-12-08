@@ -57,6 +57,7 @@ jobs:
       CIBW_SKIP: "*-win32 *i686"
       CIBW_ARCHS: ${{ matrix.CIBW_ARCHS }}
       CIBW_PLATFORM: ${{ matrix.CIBW_PLATFORM }}
+      CIBW_ENVIRONMENT_LINUX: PATH=/usr/local/bin:/usr/lib/ccache:$PATH CCACHE_DIR=/host${{ github.workspace }}/.ccache CCACHE_CONFIGPATH=/host/home/runner/.config/ccache/ccache.conf
       CIBW_PRERELEASE_PYTHONS: "True"
       # see https://github.com/matplotlib/matplotlib/pull/28687/files#diff-504e739c530d50b780e9a09ae8fd0c3ea8258ea7553be06afb06f03f95b1ee0aR103
       CIBW_CONFIG_SETTINGS_WINDOWS: >-
@@ -165,6 +166,8 @@ jobs:
         run: find dist -name "*wasm32.whl" -delete
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
   upload_test_pypi:
     needs: [build_sdist, build_wheels, test_wheels, test_wheels_macos_14]
@@ -186,3 +189,5 @@ jobs:
         run: find dist -name "*wasm32.whl" -delete
       - name: Publish to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
