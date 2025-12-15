@@ -92,7 +92,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
           #architecture: x64
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: cibw-wheels-*
           path: dist
@@ -128,7 +128,7 @@ jobs:
           brew update
           brew install pyenv --head
           pyenv install ${{ matrix.python-version }}
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: cibw-wheels-*
           path: dist
@@ -157,7 +157,7 @@ jobs:
       id-token: write
     if: github.event_name == 'release' && github.event.action == 'published' && github.repository_owner == 'SciQLop'
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: cibw-*
           path: dist
@@ -180,7 +180,7 @@ jobs:
     # upload to test PyPI on github pushes
     if: github.event_name == 'push' && github.repository_owner == 'SciQLop'
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           pattern: cibw-*
           path: dist
