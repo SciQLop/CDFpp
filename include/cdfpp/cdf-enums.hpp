@@ -174,7 +174,13 @@ struct tt2000_t
 {
     int64_t value;
 };
-bool operator==(const tt2000_t& lhs, const tt2000_t& rhs)
+
+static inline tt2000_t operator ""_tt2k(unsigned long long __val)
+{
+    return tt2000_t { static_cast<int64_t>(__val) };
+}
+
+inline bool operator==(const tt2000_t& lhs, const tt2000_t& rhs)
 {
     return lhs.value == rhs.value;
 }
@@ -184,7 +190,7 @@ struct epoch
 {
     double value;
 };
-bool operator==(const epoch& lhs, const epoch& rhs)
+inline bool operator==(const epoch& lhs, const epoch& rhs)
 {
     return lhs.value == rhs.value;
 }
@@ -195,7 +201,7 @@ struct epoch16
     double seconds;
     double picoseconds;
 };
-bool operator==(const epoch16& lhs, const epoch16& rhs)
+inline bool operator==(const epoch16& lhs, const epoch16& rhs)
 {
     return lhs.seconds == rhs.seconds && lhs.picoseconds == rhs.picoseconds;
 }
@@ -239,7 +245,7 @@ constexpr auto from_cdf_type()
         return epoch16 {};
 }
 
-std::size_t cdf_type_size(CDF_Types type)
+[[nodiscard]] inline std::size_t cdf_type_size(CDF_Types type)
 {
     switch (type)
     {

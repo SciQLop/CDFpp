@@ -34,6 +34,7 @@ typedef SSIZE_T ssize_t;
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
+#include <cdfpp/no_init_vector.hpp>
 using namespace cdf;
 
 #include <pybind11/chrono.h>
@@ -45,6 +46,51 @@ namespace py = pybind11;
 
 namespace _details
 {
+
+
+template <typename T>
+[[nodiscard]] inline std::size_t flat_size(const T& shape)
+{
+    return std::accumulate(
+        std::cbegin(shape), std::cend(shape), 1UL, std::multiplies<std::size_t>());
+}
+
+[[nodiscard]] inline std::size_t flat_size(const py::buffer_info& info)
+{
+    return std::accumulate(
+        std::cbegin(info.shape), std::cend(info.shape), 1UL, std::multiplies<std::size_t>());
+}
+
+template <typename T, typename U, typename V>
+[[nodiscard]] inline auto fast_allocate_array(const U& shape, const V& owner)
+{
+    using value_t = std::remove_const_t<T>;
+    using alloc_t = default_init_allocator<value_t>;
+    auto ptr = alloc_t().allocate(flat_size(shape));
+    return py::array_t<value_t>(shape, ptr, owner);
+}
+
+template <typename T, typename U>
+[[nodiscard]] inline auto fast_allocate_array(const U& shape)
+{
+    using value_t = std::remove_const_t<T>;
+    using alloc_t = default_init_allocator<value_t>;
+    auto ptr = alloc_t().allocate(flat_size(shape));
+    return py::array_t<value_t>(shape, ptr,
+        py::capsule(ptr, [](void* p) { alloc_t().deallocate(static_cast<value_t*>(p), 0); }));
+}
+
+template <typename T>
+[[nodiscard]] inline auto fast_allocate_array(const py::buffer_info& info)
+{
+    return fast_allocate_array<T>(info.shape);
+}
+
+template <typename T>
+[[nodiscard]] inline auto fast_allocate_array(const py::array& ref)
+{
+    return fast_allocate_array<T>(std::vector<ssize_t>(ref.shape(), ref.shape() + ref.ndim()));
+}
 
 [[nodiscard]] std::vector<ssize_t> shape_ssize_t(const Variable& var)
 {
