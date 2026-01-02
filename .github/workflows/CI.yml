@@ -111,7 +111,7 @@ jobs:
       - name: run tests
         run: |
           pip install ddt requests
-          python -v tests/full_corpus/test_full_corpus.py
+          python -v tests/full_corpus/test.py
 
   test_wheels_macos_14:
     needs: [build_wheels]
@@ -125,6 +125,7 @@ jobs:
           echo "~/.pyenv/shims" >> $GITHUB_PATH
       - name: install dependencies
         run: |
+          brew cleanup --prune=all && rm -rf "$(brew --cache)"
           brew update
           brew install pyenv
           pyenv install ${{ matrix.python-version }}
@@ -143,7 +144,7 @@ jobs:
         run: |
           pyenv local ${{ matrix.python-version }}
           python3 -m pip install --break-system-packages ddt requests
-          python3 tests/full_corpus/test_full_corpus.py
+          python3 tests/full_corpus/test.py
 
 
   upload_pypi:

@@ -34,9 +34,6 @@
 #include "cdfpp/cdf-helpers.hpp"
 #include "cdfpp/variable.hpp"
 #include <algorithm>
-#include <fstream>
-#include <iostream>
-#include <numeric>
 #include <optional>
 #include <utility>
 
@@ -164,7 +161,7 @@ template <typename record_t, typename T>
 }
 
 template <typename record_t, typename T>
-[[nodiscard]] constexpr inline std::size_t fields_size(const record_t& s, T&& field)
+[[nodiscard]] constexpr std::size_t fields_size(const record_t& s, T&& field)
 {
     using Field_t = std::remove_cv_t<std::remove_reference_t<T>>;
     constexpr std::size_t count = count_members<Field_t>;
@@ -176,7 +173,7 @@ template <typename record_t, typename T>
 }
 
 template <typename record_t, typename T, typename... Ts>
-[[nodiscard]] constexpr inline std::size_t fields_size(const record_t& s, T&& field, Ts&&... fields)
+[[nodiscard]] constexpr std::size_t fields_size(const record_t& s, T&& field, Ts&&... fields)
 {
     return fields_size(s, std::forward<T>(field)) + fields_size(s, std::forward<Ts>(fields)...);
 }

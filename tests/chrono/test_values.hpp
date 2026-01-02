@@ -13,7 +13,7 @@ struct test_entry
     
 };
 
-test_entry test_values[] = {
+inline constexpr test_entry test_values[] = {
 
     //1950-01-01 00:00:00+00:00
     test_entry{ -631152000, { -1577879967816000000 }, { 61536067200000.0 }, { 61536067200.0, 0.0 } },
