@@ -5,10 +5,12 @@ subprojects/*
 CMakeLists.txt.user
 .cache/*
 .cmake/*
+.idea/*
 *.user
 *.user.*
 *.ipynb_check*
 *__pycache__*
+*.patch
 version.txt
 docs/_build/*
 docs/generated/*

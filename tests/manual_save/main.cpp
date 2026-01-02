@@ -22,7 +22,10 @@ int main(int argc, char** argv)
         {
             auto cdf = *maybe_cdf;
             cdf.compression = cdf::cdf_compression_type::gzip_compression;
-            cdf::io::save(cdf, "/tmp/test.cdf");
+            if(!cdf::io::save(cdf, "/tmp/test.cdf"))
+                std::cout << "failed to save!\n";
+            else
+                std::cout << "saved to /tmp/test.cdf\n";
             if (auto res = cdf::io::save(cdf); std::size(res))
                 std::cout << "success!\n";
             else

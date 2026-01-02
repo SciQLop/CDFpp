@@ -27,6 +27,7 @@
 #include <cdfpp/cdf-enums.hpp>
 using namespace cdf;
 
+#include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
@@ -35,11 +36,13 @@ namespace py = pybind11;
 template <typename T>
 void def_enums_wrappers(T& mod)
 {
-    py::enum_<cdf_majority>(mod, "Majority")
+    py::native_enum<cdf_majority>(mod, "Majority", "enum.Enum")
         .value("row", cdf_majority::row)
-        .value("column", cdf_majority::column);
+        .value("column", cdf_majority::column)
+        .export_values()
+        .finalize();
 
-    py::enum_<cdf_compression_type>(mod, "CompressionType")
+    py::native_enum<cdf_compression_type>(mod, "CompressionType", "enum.Enum")
         .value("no_compression", cdf_compression_type::no_compression)
         .value("gzip_compression", cdf_compression_type::gzip_compression)
         .value("rle_compression", cdf_compression_type::rle_compression)
@@ -48,9 +51,10 @@ void def_enums_wrappers(T& mod)
 #ifdef CDFPP_USE_ZSTD
         .value("zstd_compression", cdf_compression_type::zstd_compression)
 #endif
-        ;
+        .export_values()
+        .finalize();
 
-    py::enum_<CDF_Types>(mod, "DataType")
+    py::native_enum<CDF_Types>(mod, "DataType", "enum.Enum")
         .value("CDF_BYTE", CDF_Types::CDF_BYTE)
         .value("CDF_CHAR", CDF_Types::CDF_CHAR)
         .value("CDF_INT1", CDF_Types::CDF_INT1)
@@ -68,5 +72,7 @@ void def_enums_wrappers(T& mod)
         .value("CDF_UINT4", CDF_Types::CDF_UINT4)
         .value("CDF_DOUBLE", CDF_Types::CDF_DOUBLE)
         .value("CDF_EPOCH16", CDF_Types::CDF_EPOCH16)
-        .value("CDF_TIME_TT2000", CDF_Types::CDF_TIME_TT2000);
+        .value("CDF_TIME_TT2000", CDF_Types::CDF_TIME_TT2000)
+        .export_values()
+        .finalize();
 }

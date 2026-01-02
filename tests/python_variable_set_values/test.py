@@ -102,10 +102,10 @@ class PycdfVariableSetValues(unittest.TestCase):
     def test_setting_datetime64_ms_values(self):
         cdf = pycdfpp.CDF()
         values = make_datetime64_values()
-        cdf.add_variable("datetime64[ns]", values=values.astype("datetime64[ms]"))
-        self.assertIn("datetime64[ns]", cdf)
+        cdf.add_variable("datetime64[ms]", values=values.astype("datetime64[ms]"))
+        self.assertIn("datetime64[ms]", cdf)
         self.assertTrue(np.all(pycdfpp.to_datetime64(
-            cdf["datetime64[ns]"]) == values))
+            cdf["datetime64[ms]"]) == values))
 
     def test_setting_datetime_values(self):
         cdf = pycdfpp.CDF()

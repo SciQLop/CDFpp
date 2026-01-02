@@ -195,67 +195,50 @@ def _values_view_and_type(values: np.ndarray or list, data_type: DataType or Non
 
 
 def _patch_set_values():
-    @overload
-    def _set_values_wrapper(self: Variable, values: np.ndarray or list, data_type: DataType or None = None):
-        ...
-    @overload
-    def _set_values_wrapper(self: Variable, values: Variable):
-        ...
+    def _set_values_wrapper(self, values, data_type=None, force=False):
+        """Sets or resets the values of the variable.
 
-    def _set_values_wrapper(self, *args, **kwargs):
-        """Sets the values of the variable.
-        
-        This method can be called in two ways:
-        1. With values and optional data type: set_values(values, data_type=None)
-        2. With another Variable object: set_values(variable)
-        
         Parameters
         ----------
-        values : np.ndarray or list
+        values : numpy.ndarray or list or tuple or Variable
             The values to set for the variable.
-            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type,
-            with integers, it will choose the smallest data type that can hold all the values.
         data_type : DataType or None, optional
             The data type of the variable. If None, the data type is inferred from the values. (Default is None)
-        variable : Variable
-            An existing Variable object to set the values from (for the second calling method).
-            
+            When passing integer values as a list or tuple, it will choose the smallest data type that can hold all the values.
+            When passing a Variable, the data type is taken from the Variable.
+        force : bool, optional
+            If True, allows to overwrite existing values even if the shape or data type do not match.
+            (Default is False)
+        Returns
+        -------
+        None
         Raises
         ------
         ValueError
-            If the variable already exists or if the values are not compatible with the variable's type.
+            If the shape or data type do not match and force is False.
+        Examples
+        --------
+        >>> from pycdfpp import CDF, DataType
+        >>> import numpy as np
+        >>> cdf = CDF()
+        >>> cdf.add_variable("var1")
+        var1:
+            shape: [  ]
+            type: CDF_NONE
+            record vary: True
+            compression: None
+          ...
+        >>> # Setting values with numpy array
+        >>> cdf["var1"].set_values(np.arange(10, 20, dtype=np.int32))
+        >>> cdf["var1"].values
+        array([10, 11, 12, 13, 14, 15, 16, 17, 18, 19], dtype=int32)
         """
-
-        if len(args) == 1 and isinstance(args[0], Variable):
-            if self.type != DataType.CDF_NONE and self.type != args[0].type:
-                raise ValueError(
-                    f"Can't set variable of type {self.type} with values of type {args[0].type}")
-            self._set_values(args[0])
+        if isinstance(values, Variable):
+            return self._set_values(values, force=force)
         else:
-            arg_names = ['values', 'data_type']
-            for i, arg in enumerate(args):
-                if i < len(arg_names):
-                    kwargs[arg_names[i]] = arg
-                else:
-                    raise TypeError(f"Unexpected argument {arg} at position {i+1}. Expected one of {arg_names}.")
-            values = kwargs.get('values')
-            data_type = kwargs.get('data_type')
-            values, data_type = _values_view_and_type(values, data_type, target_type=self.type)
-            if data_type not in _CDF_TYPES_COMPATIBILITY_TABLE_[self.type]:
-                raise ValueError(
-                    f"Can't set variable of type {self.type} with values of type {data_type}")
-            if self.is_nrv:
-                if self.shape[1:] != values.shape[1:]:
-                    if self.shape[1:] != values.shape:
-                        raise ValueError(
-                            f"Can't set NRV variable of shape {self.shape} with values of shape {values.shape}")
-                    else:
-                        values = values.reshape((1,) + values.shape)
-            elif self.type != DataType.CDF_NONE and self.shape[1:] != values.shape[1:]:
-                raise ValueError(
-                    f"Can't set variable of shape {self.shape} with values of shape {values.shape}")
-            self._set_values(values, data_type)
+            return self._set_values(values, data_type=data_type, force=force)
 
+    # Removed python injected wrappers, the logic is now implemented in C++
     Variable.set_values = _set_values_wrapper
 
 
@@ -347,17 +330,11 @@ def _patch_add_variable():
         compression = kwargs.get('compression', CompressionType.no_compression)
         attributes = kwargs.get('attributes', None)
 
+        var = self._add_variable(name, is_nrv=is_nrv, compression=compression)
         if values is not None:
-            v, t = _values_view_and_type(values, data_type)
-            var = self._add_variable(
-                name=name, values=v, data_type=t, is_nrv=is_nrv, compression=compression)
+            var.set_values(values, data_type)
         elif data_type is not None:
-            v, t = _values_view_and_type([], data_type)
-            var = self._add_variable(
-                name=name, values=v, data_type=t, is_nrv=is_nrv, compression=compression)
-        else:
-            var = self._add_variable(
-                name=name, is_nrv=is_nrv, compression=compression)
+            var.set_values([], data_type)
         if attributes is not None and var is not None:
             for name, values in attributes.items():
                 var.add_attribute(name, values)
@@ -688,18 +665,26 @@ def filter_cdf(cdf: CDF,
 CDF.filter = filter_cdf
 
 def to_datetime64(values):
-    """
-    to_datetime64
+    """Convert any compatible given collection of time values to a numpy.datetime64 array.
 
     Parameters
     ----------
-    values: Variable or epoch or List[epoch] or numpy.ndarray[epoch] or epoch16 or List[epoch16] or numpy.ndarray[epoch16] or tt2000_t or List[tt2000_t] or numpy.ndarray[tt2000_t]
+    values: Variable or epoch or List[epoch] or numpy.ndarray[epoch] or epoch16 or List[epoch16] or numpy.array[epoch16] or tt2000_t or List[tt2000_t] or numpy.array[tt2000_t]
         input value(s)
 to convert to numpy.datetime64
 
     Returns
     -------
     numpy.ndarray[numpy.datetime64]
+
+    Raises
+    ------
+    TypeError or IndexError
+        If the input values are not compatible time types.
+
+    Note
+    ----
+    On modern x86_64 systems, it will use the CPU's vectorized instructions to perform the conversion even faster.
     """
     return _pycdfpp.to_datetime64(values)
 
@@ -710,13 +695,18 @@ def to_datetime(values):
 
     Parameters
     ----------
-    values: Variable or epoch or List[epoch] or epoch16 or List[epoch16] or tt2000_t or List[tt2000_t]
+    values: Variable or epoch or List[epoch] or epoch16 or List[epoch16] or tt2000_t or List[tt2000_t] or numpy.array[numpy.datetime64[ns]]
         input value(s)
 to convert to datetime.datetime
 
     Returns
     -------
     List[datetime.datetime]
+
+    Raises
+    ------
+    TypeError or IndexError
+        If the input values are not compatible time types.
     """
     return _pycdfpp.to_datetime(values)
 
@@ -727,7 +717,7 @@ def to_tt2000(values):
 
     Parameters
     ----------
-    values: datetime.datetime or List[datetime.datetime]
+    values: datetime.datetime or List[datetime.datetime] or numpy.array[numpy.datetime64[ns]]
         input value(s)
 to convert to CDF tt2000
 
@@ -744,7 +734,7 @@ def to_epoch(values):
 
     Parameters
     ----------
-    values: datetime.datetime or List[datetime.datetime]
+    values: datetime.datetime or List[datetime.datetime] or numpy.array[numpy.datetime64[ns]]
         input value(s)
 to convert to CDF epoch
 
@@ -761,7 +751,7 @@ def to_epoch16(values):
 
     Parameters
     ----------
-    values: datetime.datetime or List[datetime.datetime]
+    values: datetime.datetime or List[datetime.datetime] or numpy.array[numpy.datetime64[ns]]
         input value(s)
 to convert to CDF epoch16
 

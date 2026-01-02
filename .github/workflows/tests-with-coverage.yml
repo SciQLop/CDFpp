@@ -1,6 +1,8 @@
 name: Tests Linux with coverage
 
-on: [push]
+on:
+  push:
+  pull_request:
 
 jobs:
   build:
@@ -10,11 +12,16 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: true
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip python3-dev lcov g++ catch2
-          pip install --upgrade meson ninja numpy meson-python>=0.14.0 build wheel ddt requests
+          sudo apt install -y lcov g++ catch2
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install Python dependencies
+        run: python3.13 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests
       - name: Configure with meson
         run: meson -Db_coverage=true -Dwith_tests=true . build
       - name: Build (meson)

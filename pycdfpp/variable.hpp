@@ -25,7 +25,9 @@
 ----------------------------------------------------------------------------*/
 #pragma once
 #include "attribute.hpp"
-#include "buffers.hpp"
+#include "chrono.hpp"
+#include "collections.hpp"
+#include "data_types.hpp"
 #include "repr.hpp"
 
 #include <cdfpp/cdf-data.hpp>
@@ -45,6 +47,7 @@ using namespace cdf;
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
+#include <pybind11/warnings.h>
 
 namespace docstrings
 {
@@ -87,6 +90,71 @@ set_values
 
 namespace py = pybind11;
 
+template <typename T>
+auto to_numerical(const PyObject* o)
+{
+    if constexpr (std::is_same_v<double, T>)
+    {
+        if (PyFloat_Check(const_cast<PyObject*>(o)))
+        {
+            return static_cast<T>(PyFloat_AS_DOUBLE(const_cast<PyObject*>(o)));
+        }
+        else if (PyLong_Check(const_cast<PyObject*>(o)))
+        {
+            return static_cast<T>(PyLong_AsDouble(const_cast<PyObject*>(o)));
+        }
+        else
+        {
+            throw std::invalid_argument { "Incompatible python and cdf types" };
+        }
+    }
+    if constexpr (helpers::is_any_of_v<T, uint8_t, uint16_t, uint32_t, uint64_t>)
+    {
+        if (PyLong_Check(const_cast<PyObject*>(o)))
+        {
+            return static_cast<T>(PyLong_AsUnsignedLongLong(const_cast<PyObject*>(o)));
+        }
+        else if (PyFloat_Check(const_cast<PyObject*>(o)))
+        {
+            return static_cast<T>(PyFloat_AsDouble(const_cast<PyObject*>(o)));
+        }
+        else
+        {
+            throw std::invalid_argument { "Incompatible python and cdf types" };
+        }
+    }
+    else if constexpr (helpers::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t>)
+    {
+        if (PyLong_Check(const_cast<PyObject*>(o)))
+        {
+            return static_cast<T>(PyLong_AsLongLong(const_cast<PyObject*>(o)));
+        }
+        else if (PyFloat_Check(const_cast<PyObject*>(o)))
+        {
+            return static_cast<T>(PyFloat_AS_DOUBLE(const_cast<PyObject*>(o)));
+        }
+        else
+        {
+            throw std::invalid_argument { "Incompatible python and cdf types" };
+        }
+    }
+    else if constexpr (std::is_same_v<float, T>)
+    {
+        if (PyFloat_Check(const_cast<PyObject*>(o)))
+        {
+            return static_cast<T>(PyFloat_AS_DOUBLE(const_cast<PyObject*>(o)));
+        }
+        else if (PyLong_Check(const_cast<PyObject*>(o)))
+        {
+            return static_cast<T>(PyLong_AsDouble(const_cast<PyObject*>(o)));
+        }
+        else
+        {
+            throw std::invalid_argument { "Incompatible python and cdf types" };
+        }
+    }
+}
+
 template <CDF_Types data_type>
 std::pair<data_t, typename Variable::shape_t> _numeric_to_nd_data_t(const py::buffer& buffer)
 {
@@ -98,6 +166,10 @@ std::pair<data_t, typename Variable::shape_t> _numeric_to_nd_data_t(const py::bu
     std::copy(std::cbegin(info.shape), std::cend(info.shape), std::begin(shape));
     if (info.size != 0)
     {
+        /*
+         * We could later imagine to avoid this copy by directly using the buffer memory
+         * this would require to tie the buffer lifetime to the variable lifetime
+         */
         no_init_vector<T> values(info.size);
         std::memcpy(values.data(), info.ptr, info.size * sizeof(T));
         return { data_t { std::move(values), data_type }, std::move(shape) };
@@ -106,6 +178,18 @@ std::pair<data_t, typename Variable::shape_t> _numeric_to_nd_data_t(const py::bu
     {
         return { data_t { no_init_vector<T>(0), data_type }, std::move(shape) };
     }
+}
+
+
+template <CDF_Types data_type>
+std::pair<data_t, typename Variable::shape_t> _numeric_to_nd_data_t(
+    const py_list_or_py_tuple auto& values)
+{
+    using T = from_cdf_type_t<data_type>;
+    auto [data, shape]
+        = _details::ranges::transform<no_init_vector<T>, typename Variable::shape_t>(values,
+            [](const PyObject* obj) -> T { return to_numerical<T>(const_cast<PyObject*>(obj)); });
+    return std::pair<data_t, typename Variable::shape_t>(data_t(std::move(data), data_type), shape);
 }
 
 template <CDF_Types data_type>
@@ -121,104 +205,354 @@ std::pair<data_t, typename Variable::shape_t> _str_to_nd_data_t(const py::buffer
 }
 
 template <typename T>
-std::pair<data_t, typename Variable::shape_t> _time_to_nd_data_t(const py::buffer& buffer)
+void to_cdf_string_t(PyObject* o, const std::span<T>& out)
 {
-    py::buffer_info info = buffer.request();
-    typename Variable::shape_t shape(info.ndim);
-    std::copy(std::cbegin(info.shape), std::cend(info.shape), std::begin(shape));
-    no_init_vector<T> values(info.size);
-    std::transform(reinterpret_cast<uint64_t*>(info.ptr),
-        reinterpret_cast<uint64_t*>(info.ptr) + info.size, std::begin(values),
-        [](const uint64_t& value)
-        {
-            return to_cdf_time<T>(std::chrono::high_resolution_clock::time_point {
-                std::chrono::nanoseconds { value } });
-        });
-    return { data_t { std::move(values) }, std::move(shape) };
-}
-
-template <CDF_Types cdf_type>
-void _set_var_data_t(Variable& var, const py::buffer& buffer)
-{
-
-    if constexpr (cdf_type == cdf::CDF_Types::CDF_UCHAR or cdf_type == cdf::CDF_Types::CDF_CHAR)
+    if (PyUnicode_Check(o))
     {
-        auto [data, shape] = _str_to_nd_data_t<cdf_type>(buffer);
-        var.set_data(std::move(data), std::move(shape));
-    }
-    else
-    {
-        if constexpr (cdf_type == cdf::CDF_Types::CDF_EPOCH
-            or cdf_type == cdf::CDF_Types::CDF_EPOCH16
-            or cdf_type == cdf::CDF_Types::CDF_TIME_TT2000)
+        Py_ssize_t size = 0;
+        auto py_str = PyUnicode_AsUTF8AndSize(o, &size);
+        if (static_cast<std::size_t>(size) <= out.size())
         {
-            auto [data, shape] = _time_to_nd_data_t<from_cdf_type_t<cdf_type>>(buffer);
-            var.set_data(std::move(data), std::move(shape));
+            std::memcpy(out.data(), py_str, size);
+            std::memset(out.data() + size, 0, out.size() - size);
         }
         else
         {
-            auto [data, shape] = _numeric_to_nd_data_t<cdf_type>(buffer);
-            var.set_data(std::move(data), std::move(shape));
+            throw std::invalid_argument { fmt::format(
+                "String size exceeds allocated size in CDF variable, max size is {} and got {}",
+                out.size(), size) };
+        }
+    }
+    else
+    {
+        throw std::invalid_argument { "Incompatible python and cdf string types" };
+    }
+}
+
+template <CDF_Types data_type>
+std::pair<data_t, typename Variable::shape_t> _str_to_nd_data_t(
+    const py_list_or_py_tuple auto& values, const auto& shape)
+{
+    using T = from_cdf_type_t<data_type>;
+    auto [_data, _shape]
+        = _details::ranges::string_transform<no_init_vector<T>, typename Variable::shape_t>(values,
+            shape, [](const PyObject* obj, const std::span<T>& out)
+            { to_cdf_string_t<T>(const_cast<PyObject*>(obj), out); });
+    return { data_t { std::move(_data), data_type }, std::move(_shape) };
+}
+
+template <CDF_Types data_type>
+std::pair<data_t, typename Variable::shape_t> _time_to_nd_data_t(const py::array& arr)
+{
+    using T = from_cdf_type_t<data_type>;
+    typename Variable::shape_t shape(arr.ndim());
+    std::copy(arr.shape(), arr.shape() + arr.ndim(), std::begin(shape));
+    no_init_vector<T> values(arr.size());
+    if (!to_cdf_time_t(arr, values.data()))
+    {
+        throw std::invalid_argument { "Incompatible python and cdf time types" };
+    }
+    return { data_t { std::move(values), data_type }, std::move(shape) };
+}
+
+template <CDF_Types data_type>
+std::pair<data_t, typename Variable::shape_t> _time_to_nd_data_t(
+    const py_list_or_py_tuple auto& values)
+{
+    using T = from_cdf_type_t<data_type>;
+    auto [data, shape]
+        = _details::ranges::transform<no_init_vector<T>, typename Variable::shape_t>(values,
+            [](const PyObject* obj) -> T { return to_cdf_time_t<T>(const_cast<PyObject*>(obj)); });
+    return { data_t { std::move(data), data_type }, std::move(shape) };
+}
+
+template <CDF_Types cdf_type>
+std::pair<data_t, typename Variable::shape_t> _set_var_data_t(const py::array& values)
+{
+
+    if constexpr (is_cdf_string_type(cdf_type))
+    {
+        return _str_to_nd_data_t<cdf_type>(values);
+    }
+    else
+    {
+        if constexpr (is_cdf_time_type(cdf_type))
+        {
+            return _time_to_nd_data_t<cdf_type>(values);
+        }
+        else
+        {
+            return _numeric_to_nd_data_t<cdf_type>(values);
         }
     }
 }
 
-void set_values(Variable& var, const py::buffer& buffer, CDF_Types data_type)
+template <CDF_Types cdf_type>
+std::pair<data_t, typename Variable::shape_t> _set_var_data_t(
+    const py_list_or_py_tuple auto& values, const auto& shape)
 {
-    switch (data_type)
+
+    if constexpr (is_cdf_string_type(cdf_type))
     {
-        case cdf::CDF_Types::CDF_UCHAR: // string
-            _set_var_data_t<cdf::CDF_Types::CDF_UCHAR>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_CHAR: // string
-            _set_var_data_t<cdf::CDF_Types::CDF_CHAR>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_INT1: // int8
-            _set_var_data_t<cdf::CDF_Types::CDF_INT1>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_UINT1: // uint8
-            _set_var_data_t<cdf::CDF_Types::CDF_UINT1>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_INT2: // int16
-            _set_var_data_t<cdf::CDF_Types::CDF_INT2>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_UINT2: // uint16
-            _set_var_data_t<cdf::CDF_Types::CDF_UINT2>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_INT4: // int32
-            _set_var_data_t<cdf::CDF_Types::CDF_INT4>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_UINT4: // uint32
-            _set_var_data_t<cdf::CDF_Types::CDF_UINT4>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_INT8: // int64
-            _set_var_data_t<cdf::CDF_Types::CDF_INT8>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_FLOAT: // float
-            _set_var_data_t<cdf::CDF_Types::CDF_FLOAT>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_REAL4: // double
-            _set_var_data_t<cdf::CDF_Types::CDF_REAL4>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_DOUBLE: // double
-            _set_var_data_t<cdf::CDF_Types::CDF_DOUBLE>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_REAL8: // double
-            _set_var_data_t<cdf::CDF_Types::CDF_REAL8>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-            _set_var_data_t<cdf::CDF_Types::CDF_TIME_TT2000>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_EPOCH:
-            _set_var_data_t<cdf::CDF_Types::CDF_EPOCH>(var, buffer);
-            break;
-        case cdf::CDF_Types::CDF_EPOCH16:
-            _set_var_data_t<cdf::CDF_Types::CDF_EPOCH16>(var, buffer);
-            break;
-        default:
-            throw std::invalid_argument { "Unsuported CDF Type" };
-            break;
+        return _str_to_nd_data_t<cdf_type>(values, shape);
     }
+    else
+    {
+        if constexpr (is_cdf_time_type(cdf_type))
+        {
+            return _time_to_nd_data_t<cdf_type>(values);
+        }
+        else
+        {
+            return _numeric_to_nd_data_t<cdf_type>(values);
+        }
+    }
+}
+
+struct _min_storage_result
+{
+    uint8_t size_in_bytes = 1;
+    bool is_signed = false;
+    bool use_double = false;
+
+    bool operator<(const _min_storage_result& other) const
+    {
+        if (use_double != other.use_double)
+        {
+            return other.use_double;
+        }
+        if (is_signed != other.is_signed)
+        {
+            return other.is_signed;
+        }
+        return size_in_bytes < other.size_in_bytes;
+    }
+    bool operator>(const _min_storage_result& other) const { return other < *this; }
+};
+
+[[nodiscard]] inline _min_storage_result _min_storage(PyObject* value)
+{
+    _min_storage_result min_storage;
+    if (PyLong_Check(value))
+    {
+        // CDF format only supports up to signed 64 bits integers and unsigned 32 bits integers
+        int64_t val = PyLong_AsLongLong(const_cast<PyObject*>(value));
+        if (val < 0)
+        {
+            min_storage.is_signed = true;
+            if (val < std::numeric_limits<int8_t>::min())
+            {
+                if (val < std::numeric_limits<int16_t>::min())
+                {
+                    if (val < std::numeric_limits<int32_t>::min())
+                    {
+                        min_storage.size_in_bytes = 8;
+                    }
+                    else
+                    {
+                        min_storage.size_in_bytes
+                            = min_storage.size_in_bytes > 4 ? min_storage.size_in_bytes : 4;
+                    }
+                }
+                else
+                {
+                    min_storage.size_in_bytes
+                        = min_storage.size_in_bytes > 2 ? min_storage.size_in_bytes : 2;
+                }
+            }
+        }
+        else
+        {
+            uint64_t uval = PyLong_AsUnsignedLongLong(const_cast<PyObject*>(value));
+            if (uval > std::numeric_limits<uint32_t>::max())
+            {
+                min_storage.size_in_bytes = 8;
+            }
+            else if (uval > std::numeric_limits<uint16_t>::max())
+            {
+                min_storage.size_in_bytes
+                    = min_storage.size_in_bytes > 4 ? min_storage.size_in_bytes : 4;
+            }
+            else if (uval > std::numeric_limits<uint8_t>::max())
+            {
+                min_storage.size_in_bytes
+                    = min_storage.size_in_bytes > 2 ? min_storage.size_in_bytes : 2;
+            }
+        }
+    }
+    else if (PyFloat_Check(value))
+    {
+        min_storage.use_double = true;
+    }
+    return min_storage;
+}
+
+
+[[nodiscard]] inline _min_storage_result _min_storage(const py_list_or_py_tuple auto& values)
+{
+    _min_storage_result min_storage;
+    for (const PyObject* obj : _details::ranges::py_list_or_tuple_view(values))
+    {
+        if (PyList_Check(obj))
+        {
+            auto inner_min_storage
+                = _min_storage(py::reinterpret_borrow<py::list>(const_cast<PyObject*>(obj)));
+            min_storage = min_storage > inner_min_storage ? min_storage : inner_min_storage;
+        }
+        else if (PyTuple_Check(obj))
+        {
+            auto inner_min_storage
+                = _min_storage(py::reinterpret_borrow<py::tuple>(const_cast<PyObject*>(obj)));
+            min_storage = min_storage > inner_min_storage ? min_storage : inner_min_storage;
+        }
+        else
+        {
+            auto inner_min_storage = _min_storage(const_cast<PyObject*>(obj));
+            min_storage = min_storage > inner_min_storage ? min_storage : inner_min_storage;
+        }
+    }
+    return min_storage;
+}
+
+
+[[nodiscard]] inline CDF_Types _infer_best_type(const py_list_or_py_tuple auto& values)
+{
+    static const auto signed_types = std::array { CDF_Types::CDF_INT1, CDF_Types::CDF_INT2,
+        CDF_Types::CDF_INT4, CDF_Types::CDF_INT8 };
+    static const auto unsigned_types = std::array { CDF_Types::CDF_UINT1, CDF_Types::CDF_UINT2,
+        CDF_Types::CDF_UINT4, CDF_Types::CDF_INT8 };
+    for (const PyObject* obj : _details::ranges::py_list_or_tuple_view(values))
+    {
+        if (PyBytes_Check(obj) or PyUnicode_Check(obj))
+        {
+            return CDF_Types::CDF_UCHAR;
+        }
+        else if (PyLong_Check(obj))
+        {
+            auto min_storage = _min_storage(values);
+            if (min_storage.use_double)
+            {
+                return CDF_Types::CDF_DOUBLE;
+            }
+            if (min_storage.is_signed)
+            {
+                return signed_types[(min_storage.size_in_bytes - 1) & 0x3];
+            }
+            else
+            {
+                return unsigned_types[(min_storage.size_in_bytes - 1) & 0x3];
+            }
+        }
+        else if (PyFloat_Check(obj))
+        {
+            return CDF_Types::CDF_DOUBLE;
+        }
+        else if (PyList_Check(obj) or PyTuple_Check(obj))
+        {
+            return _infer_best_type(py::reinterpret_borrow<py::list>(const_cast<PyObject*>(obj)));
+        }
+        else if (PyDateTime_Check(obj))
+        {
+            return CDF_Types::CDF_TIME_TT2000;
+        }
+        else
+        {
+            throw std::invalid_argument { "Unsupported data type in input values" };
+        }
+    }
+    return CDF_Types::CDF_NONE;
+}
+
+inline void set_values(Variable& var, const py_list_or_py_tuple auto& values,
+    std::optional<CDF_Types> data_type, bool force = false)
+{
+    auto spec = analyze_collection(values);
+    if ((!data_type.has_value()) or (*data_type == CDF_Types::CDF_NONE))
+    {
+        data_type = spec.inferred_cdf_type;
+    }
+    else
+    {
+        if (not force)
+        {
+            if (not are_compatible_types(*data_type, spec.inferred_cdf_type) and not spec.is_empty)
+            {
+                throw std::invalid_argument {
+                    "Incompatible specified CDF data type and input values"
+                };
+            }
+            if (not _details::are_compatible_shapes(var, spec.shape))
+            {
+                throw std::invalid_argument {
+                    "Incompatible specified CDF variable shape and input values"
+                };
+            }
+        }
+    }
+    if (not spec.is_empty)
+    {
+        var.set_data(cdf_type_dispatch(
+            *data_type, [&spec]<CDF_Types T>(const auto& values)
+            { return _set_var_data_t<T>(values, spec.shape); }, values));
+    }
+    else
+    {
+        var.set_data(cdf_type_dispatch(*data_type,
+            []<CDF_Types T>()
+            {
+                return std::pair { Variable::var_data_t {
+                                       no_init_vector<from_cdf_type_t<T>> {}, T },
+                    Variable::shape_t {} };
+            }));
+    }
+}
+
+inline py::array ensure_utf8(const py::array& values)
+{
+    if (values.dtype().kind() == 'U')
+    {
+        auto np = py::module::import("numpy");
+        py::array utf8_array = np.attr("char").attr("encode")(values, "utf-8");
+        return utf8_array;
+    }
+    return values;
+}
+
+inline void set_values(
+    Variable& var, const py::array& values, std::optional<CDF_Types> data_type, bool force = false)
+{
+    auto spec = analyze_collection(values);
+    if (!data_type.has_value() or (*data_type == CDF_Types::CDF_NONE))
+    {
+        data_type = spec.inferred_cdf_type;
+        if (data_type == CDF_Types::CDF_NONE)
+        {
+            throw std::invalid_argument {
+                "Could not infer a compatible CDF data type from input numpy array"
+            };
+        }
+    }
+    else
+    {
+        if (not force)
+        {
+            if (not are_compatible_types(var.type(), *data_type))
+            {
+                throw std::invalid_argument {
+                    "Incompatible specified CDF data type and input values"
+                };
+            }
+            if (not _details::are_compatible_shapes(var, spec.shape))
+            {
+                throw std::invalid_argument {
+                    "Incompatible specified CDF variable shape and input values"
+                };
+            }
+        }
+    }
+    var.set_data(cdf_type_dispatch(
+        *data_type, []<CDF_Types T>(const py::array& values) { return _set_var_data_t<T>(values); },
+        values));
 }
 
 
@@ -251,13 +585,70 @@ void def_variable_wrapper(T& mod)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
         .def_property_readonly("values", make_values_view<false>, py::keep_alive<0, 1>())
         .def_property_readonly("values_encoded", make_values_view<true>, py::keep_alive<0, 1>())
-        .def("_set_values", set_values, py::arg("values").noconvert(), py::arg("data_type"))
-        .def("_set_values",
-            [](Variable& var, const Variable& source)
+        .def(
+            "_set_values",
+            [](Variable& var, const py::array& values, std::optional<CDF_Types> data_type,
+                bool force)
             {
+                if (not force and var.type() != CDF_Types::CDF_NONE)
+                {
+                    py::warnings::warn(
+                        "Overriding existing variable values without force=True is deprecated and "
+                        "will raise an exception in future versions.",
+                        PyExc_DeprecationWarning, 3);
+                }
+                set_values(var, ensure_utf8(values), data_type ? data_type : var.type());
+            },
+            py::arg("values").noconvert(), py::arg("data_type") = std::nullopt,
+            py::arg("force") = false)
+        .def(
+            "_set_values",
+            [](Variable& var, const py::list& values, std::optional<CDF_Types> data_type,
+                bool force)
+            {
+                if (not force and var.type() != CDF_Types::CDF_NONE)
+                {
+                    py::warnings::warn(
+                        "Overriding existing variable values without force=True is deprecated and "
+                        "will raise an exception in future versions.",
+                        PyExc_DeprecationWarning, 3);
+                }
+                set_values(var, values, data_type ? data_type : var.type());
+            },
+            py::arg("values").noconvert(), py::arg("data_type") = std::nullopt,
+            py::arg("force") = false)
+        .def(
+            "_set_values",
+            [](Variable& var, const py::tuple& values, std::optional<CDF_Types> data_type,
+                bool force)
+            {
+                if (not force and var.type() != CDF_Types::CDF_NONE)
+                {
+                    py::warnings::warn(
+                        "Overriding existing variable values without force=True is deprecated and "
+                        "will raise an exception in future versions.",
+                        PyExc_DeprecationWarning, 3);
+                }
+                set_values(var, values, data_type ? data_type : var.type());
+            },
+            py::arg("values").noconvert(), py::arg("data_type") = std::nullopt,
+            py::arg("force") = false)
+        .def(
+            "_set_values",
+            [](Variable& var, const Variable& source, bool force)
+            {
+                if (var.type() != CDF_Types::CDF_NONE and not force)
+                {
+                    if (var.type() != source.type())
+                        throw std::invalid_argument { "Incompatible variable types" };
+                    if (var.is_nrv() != source.is_nrv())
+                        throw std::invalid_argument { "Incompatible variable record vary" };
+                    if (var.shape() != source.shape())
+                        throw std::invalid_argument { "Incompatible variable shapes" };
+                }
                 var.set_data(source);
             },
-            py::arg("source"))
+            py::arg("source"), py::arg("force") = false)
         .def("_add_attribute",
             static_cast<VariableAttribute& (*)(Variable&, const std::string&,
                 const string_or_buffer_t&, CDF_Types)>(add_attribute),

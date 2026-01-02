@@ -26,6 +26,7 @@
 #pragma once
 #include "attribute.hpp"
 #include "cdf-data.hpp"
+#include "cdf-debug.hpp"
 #include "cdf-enums.hpp"
 #include "cdf-io/majority-swap.hpp"
 #include "cdf-map.hpp"
@@ -35,7 +36,12 @@
 #include <cstdint>
 #include <iomanip>
 #include <optional>
+#include <source_location>
 #include <vector>
+
+#include <fmt/core.h>
+#include <fmt/ranges.h>
+#include <fmt/std.h>
 
 template <class stream_t>
 inline stream_t& operator<<(
@@ -69,6 +75,12 @@ template <typename T>
     return 0UL;
 }
 
+/*
+ * Before version 1.0 it would make sense to consider exposing a view to data instead of
+ * a vector. That would allow zero copy from and to any user defined data structure
+ * (when layout is compatible).
+ * For example, we could build a view on top of an existing numpy array without copy.
+ */
 struct Variable
 {
     using var_data_t = data_t;
@@ -164,6 +176,7 @@ struct Variable
         check_shape();
     }
 
+
     void set_data(const data_t& data, const shape_t& shape)
     {
         p_data = data;
@@ -171,10 +184,18 @@ struct Variable
         check_shape();
     }
 
+
     void set_data(data_t&& data, shape_t&& shape)
     {
         p_data = std::move(data);
         p_shape = std::move(shape);
+        check_shape();
+    }
+
+    void set_data(std::pair<data_t, shape_t>&& data)
+    {
+        p_data = std::move(data.first);
+        p_shape = std::move(data.second);
         check_shape();
     }
 
@@ -272,7 +293,14 @@ private:
             and not(is_nrv() and _data().size() == 0UL
                 and (_data().type() == CDF_Types::CDF_CHAR
                     or _data().type() == CDF_Types::CDF_UCHAR)))
-            throw std::invalid_argument { "Variable: given shape and data size doens't match" };
+            throw std::invalid_argument { exception_message(fmt::format(R"(
+Variable: given shape and data size doesn't match:
+Variable name: "{}"
+    Shape: {} , size {}
+Data:
+    size: {}
+)",
+                p_name, p_shape, flat_size(p_shape), _data().size())) };
     }
 
     std::string p_name;
