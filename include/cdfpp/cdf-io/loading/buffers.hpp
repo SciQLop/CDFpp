@@ -51,26 +51,26 @@ namespace cdf::io::buffers
 {
 
 template <typename buffer_t>
-inline constexpr auto get_data_ptr(buffer_t& buffer) -> decltype(buffer.data())
+constexpr auto get_data_ptr(buffer_t& buffer) -> decltype(buffer.data())
 {
     return buffer.data();
 }
 
 template <typename buffer_t>
-inline constexpr auto get_data_ptr(
+constexpr auto get_data_ptr(
     buffer_t& buffer, typename std::enable_if<std::is_pointer_v<buffer_t>>::type* = 0)
 {
     return buffer;
 }
 
 template <typename buffer_t>
-inline constexpr auto get_data_ptr(buffer_t& buffer) -> decltype(get_data_ptr(buffer.buffer))
+constexpr auto get_data_ptr(buffer_t& buffer) -> decltype(get_data_ptr(buffer.buffer))
 {
     return get_data_ptr(buffer.buffer);
 }
 
 template <typename buffer_t>
-inline constexpr auto get_data_ptr(buffer_t& buffer) -> decltype(buffer.view(0UL))
+constexpr auto get_data_ptr(buffer_t& buffer) -> decltype(buffer.view(0UL))
 {
     return buffer.view(0UL);
 }

@@ -23,6 +23,12 @@
 /*-- Author : Alexis Jeandet
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
+#include <source_location>
+
+#include <fmt/core.h>
+#include <fmt/std.h>
+#include <fmt/ranges.h>
+
 #pragma once
 #ifdef CDFPP_ENABLE_ASSERT
 #include <cassert>
@@ -44,3 +50,15 @@
 #define CDFPP_DIAGNOSTIC_DISABLE_DEPRECATED
 #define CDFPP_DIAGNOSTIC_POP
 #endif
+
+[[nodiscard]] constexpr auto exception_message(const auto& msg,
+    const std::source_location& location = std::source_location::current())
+{
+    return fmt::format(
+        R"(
+{}
+    at {}:{} in function {}
+    )",
+        msg, location.file_name(), location.line(), location.function_name());
+}
+

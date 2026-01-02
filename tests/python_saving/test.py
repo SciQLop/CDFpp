@@ -11,6 +11,7 @@ import pycdfpp
 
 os.environ['TZ'] = 'UTC'
 
+print(f"Running tests with pycdfpp version: {pycdfpp.__version__} from {pycdfpp.__file__}")
 
 def make_cdf():
     cdf = pycdfpp.CDF()
