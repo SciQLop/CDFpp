@@ -31,6 +31,7 @@
 #include <chrono>
 #include <ctime>
 #include <fmt/core.h>
+#include <fmt/chrono.h>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -78,17 +79,17 @@ inline stream_t& operator<<(stream_t& os, const decltype(cdf::to_time_point(tt20
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const epoch& time)
 {
-    if (time.value == -1e31)
+    if (time.mseconds == -1e31)
     {
         os << "9999-12-31T23:59:59.999";
         return os;
     }
-    if (time.value == 0)
+    if (time.mseconds == 0)
     {
         os << "0000-01-01T00:00:00.000";
         return os;
     }
-    os << cdf::to_time_point(time);
+    os <<  fmt::format("{:%Y-%m-%dT%H:%M:%S}", cdf::to_time_point(time));
     return os;
 }
 
@@ -105,29 +106,29 @@ inline stream_t& operator<<(stream_t& os, const epoch16& time)
         os << "0000-01-01T00:00:00.000000000000";
         return os;
     }
-    os << cdf::to_time_point(time);
+    os << fmt::format("{:%Y-%m-%dT%H:%M:%S}", cdf::to_time_point(time));
     return os;
 }
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const tt2000_t& time)
 {
-    if (time.value == static_cast<int64_t>(0x8000000000000000))
+    if (time.nseconds == static_cast<int64_t>(0x8000000000000000))
     {
         os << "9999-12-31T23:59:59.999999999";
         return os;
     }
-    if (time.value == static_cast<int64_t>(0x8000000000000001))
+    if (time.nseconds == static_cast<int64_t>(0x8000000000000001))
     {
         os << "0000-01-01T00:00:00.000000000";
         return os;
     }
-    if (time.value == static_cast<int64_t>(0x8000000000000003))
+    if (time.nseconds == static_cast<int64_t>(0x8000000000000003))
     {
         os << "9999-12-31T23:59:59.999999999";
         return os;
     }
-    os << cdf::to_time_point(time);
+    os << fmt::format("{:%Y-%m-%dT%H:%M:%S}", cdf::to_time_point(time));
     return os;
 }
 

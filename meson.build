@@ -6,7 +6,7 @@ project(
                         capture:true,
                         env:{'SRC_ROOT':meson.project_source_root()}
                         ).stdout().strip() ,
-  default_options : ['warning_level=3', 'cpp_std=c++17', 'default_library=static', 'buildtype=release'],
+  default_options : ['warning_level=3', 'cpp_std=c++20', 'default_library=static', 'buildtype=release'],
   license : 'GPL3'
 )
 
@@ -42,12 +42,17 @@ configure_file(output : 'cdfpp_config.h',
 cpp = meson.get_compiler('cpp')
 if('clang'==cpp.get_id())
     add_global_arguments('-fsized-deallocation', language : 'cpp')
+    add_global_arguments('-fvisibility=hidden', language : 'cpp')
+endif
+if('gcc'==cpp.get_id())
+    add_global_arguments('-fvisibility=hidden', language : 'cpp')
 endif
 
 
 pybind11_dep = dependency('pybind11')
 hedley_dep = dependency('hedley')
 fmt_dep = dependency('fmt')
+xsimd_dep = dependency('xsimd')
 
 if build_machine.system() == 'windows'
     link_args = ['-static-libstdc++','-static-libgcc','-static']
@@ -119,6 +124,8 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-io/saving/link_records.hpp'
 )
 
+subdir('simd')
+
 if get_option('with_experimental_zstd')
     add_project_arguments('-DCDFPP_USE_ZSTD', language : ['cpp'])
     zstd_dep = dependency('libzstd')
@@ -132,7 +139,7 @@ endif
 
 pycdfpp_headers = files(
     'pycdfpp/chrono.hpp',
-    'pycdfpp/buffers.hpp',
+    'pycdfpp/collections.hpp',
     'pycdfpp/cdf.hpp',
     'pycdfpp/attribute.hpp',
     'pycdfpp/variable.hpp',
@@ -151,7 +158,8 @@ cdfpp_extra_files = files(
     'tests/python_saving/test.py',
     'tests/python_variable_set_values/test.py',
     'tests/python_skeletons/test.py',
-    'tests/full_corpus/test_full_corpus.py',
+    'tests/python_chrono/test.py',
+    'tests/full_corpus/test.py',
     '.github/workflows/CI.yml',
     '.github/workflows/tests-with-coverage.yml',
     '.github/dependabot.yml'
@@ -175,7 +183,7 @@ cdfpp_dep_inc = include_directories('include', '.')
 
 
 cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
-                                dependencies: [zlib_dep, hedley_dep, fmt_dep, zstd_dep],
+                                dependencies: [zlib_dep, hedley_dep, fmt_dep, zstd_dep, simd_deps],
                                 link_args : link_args,
                                 compile_args : compile_args)
 
@@ -251,87 +259,33 @@ if get_option('with_experimental_wasm')
 endif
 
 if get_option('with_tests')
-
-    configure_file(output : 'tests_config.hpp',
-      configuration : {
-        'DATA_PATH' : '"' + meson.current_source_dir() / 'tests/resources' + '"'
-      }
-    )
-
-    catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
-
-
-    foreach test:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving',
-                  'rle_compression', 'libdeflate_compression', 'zlib_compression', 'simple_save', 'zstd_compression']
-        exe = executable('test-'+test,'tests/'+test+'/main.cpp',
-                        dependencies:[catch_dep, cdfpp_dep],
-                        install: false
-                        )
-        test(test, exe)
-    endforeach
-
-    test('python_loading_test', python3,
-        args:[meson.current_source_dir()+'/tests/python_loading/test.py'],
-        env:['PYTHONPATH='+meson.current_build_dir()],
-        workdir:meson.current_build_dir())
-
-    test('python_saving_test', python3,
-        args:[meson.current_source_dir()+'/tests/python_saving/test.py'],
-        env:['PYTHONPATH='+meson.current_build_dir()],
-        workdir:meson.current_build_dir())
-
-    test('python_skeletons_test', python3,
-        args:[meson.current_source_dir()+'/tests/python_skeletons/test.py'],
-        env:['PYTHONPATH='+meson.current_build_dir()],
-        workdir:meson.current_build_dir())
-
-    test('python_variable_set_values_test', python3,
-        args:[meson.current_source_dir()+'/tests/python_variable_set_values/test.py'],
-        env:['PYTHONPATH='+meson.current_build_dir()],
-        workdir:meson.current_build_dir())
-
-    test('full_corpus_test', python3,
-        args:[meson.current_source_dir()+'/tests/full_corpus/test_full_corpus.py'],
-        env:['PYTHONPATH='+meson.current_build_dir()],
-        timeout: 300,
-        workdir:meson.current_build_dir())
-
-    python_wrapper_cpp = executable('python_wrapper_cpp','tests/python_wrapper_cpp/main.cpp',
-                    dependencies:[pybind11_dep, python3.dependency(embed:true)],
-                    install: false
-                    )
-
-    manual_load = executable('manual_load','tests/manual_load/main.cpp',
-                    dependencies:[cdfpp_dep],
-                    install: false
-                    )
-
-    manual_load = executable('manual_save','tests/manual_save/main.cpp',
-                    dependencies:[cdfpp_dep],
-                    install: false
-                    )
-
-
-    foreach example:['basic_cpp']
-        exe = executable('example-'+example,'examples/'+example+'/main.cpp',
-                        dependencies:[cdfpp_dep],
-                        cpp_args: ['-DDATA_PATH="@0@/tests/resources"'.format(meson.current_source_dir())],
-                        install: false
-                        )
-    endforeach
+    subdir('tests')
 endif
 
 if get_option('with_benchmarks')
-    google_benchmarks_dep = dependency('benchmark', required : true)
-    foreach bench:['file_reader']
-        exe = executable('benchmark-'+bench,'benchmarks/'+bench+'/main.cpp',
-                        dependencies:[google_benchmarks_dep, cdfpp_dep],
-                        install: false
-                        )
-        benchmark(bench, exe)
-    endforeach
+    subdir('benchmarks')
 endif
 
-summary({'C': meson.get_compiler('c').cmd_array(),
-        'C++': meson.get_compiler('cpp').cmd_array()
+summary({
+    'C': meson.get_compiler('c').cmd_array(),
+    'C++': meson.get_compiler('cpp').cmd_array(),
+    'Architecture': target_machine.cpu_family(),
         }, section: 'Compilers')
+
+summary({
+    'Hedley': hedley_dep.version(),
+    'fmt': fmt_dep.version(),
+    'xsimd': xsimd_dep.version()
+        }, section: 'Dependencies')
+
+summary({
+    'CDFpp version': meson.project_version(),
+    'Build type': get_option('buildtype'),
+    'Libdeflate support': get_option('use_libdeflate'),
+    'NoMap support': get_option('use_nomap'),
+    'Python wrapper': not get_option('disable_python_wrapper'),
+    'Experimental Zstd support': get_option('with_experimental_zstd'),
+    'Experimental Wasm support': get_option('with_experimental_wasm'),
+    'Tests': get_option('with_tests'),
+    'Benchmarks': get_option('with_benchmarks')
+        }, section: 'Configuration Options')

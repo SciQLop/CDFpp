@@ -91,6 +91,8 @@ constexpr std::array leap_seconds_tt2000 = {
     // ('1', 'Jan', '2017')
     std::pair { 1483228800000000000, 37000000000 },
 };
+
+
 constexpr std::array leap_seconds_tt2000_reverse = {
     // ('1', 'Jan', '1972')
     std::pair { -883655957816000000, 10000000000 },
