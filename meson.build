@@ -6,7 +6,7 @@ project(
                         capture:true,
                         env:{'SRC_ROOT':meson.project_source_root()}
                         ).stdout().strip() ,
-  default_options : ['warning_level=3', 'cpp_std=c++17', 'default_library=static', 'buildtype=release'],
+  default_options : ['warning_level=3', 'cpp_std=c++20', 'default_library=static', 'buildtype=release'],
   license : 'GPL3'
 )
 
@@ -48,6 +48,7 @@ endif
 pybind11_dep = dependency('pybind11')
 hedley_dep = dependency('hedley')
 fmt_dep = dependency('fmt')
+xsimd_dep = dependency('xsimd')
 
 if build_machine.system() == 'windows'
     link_args = ['-static-libstdc++','-static-libgcc','-static']
@@ -119,6 +120,40 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-io/saving/link_records.hpp'
 )
 
+simd_deps = []
+
+
+if target_machine.cpu_family() == 'x86_64'
+
+    if cpp.get_id() == 'msvc'
+        x86_cpp_args = ['/arch:AVX2', '/arch:AVX-512', '/arch:AVX10.1', '/arch:AVX10.2']
+    else
+        x86_cpp_args = ['-mxsave','-msse2','-mavx','-mavx2','-mfma',
+        '-mavxvnni'
+        ,'-mavx512f','-mavx512bw','-mavx512dq','-mavx512vl'
+        ,'-mavx512vnni','-mavx512cd', '-mavx512vnni'
+        ]
+    endif
+
+    x86_vectorized_lib = static_library('cdfpp_x86_vectorized',
+        'src/arch/x86/chrono.cpp',
+        include_directories : 'include',
+        cpp_args : x86_cpp_args,
+        dependencies : [xsimd_dep],
+    )
+    x86_vectorized_dep = declare_dependency(
+        link_with : x86_vectorized_lib,
+        dependencies : [xsimd_dep]
+    )
+    simd_deps += [x86_vectorized_dep]
+
+elif target_machine.cpu_family() == 'aarch64'
+
+else
+    add_project_arguments('-DCDFPP_NO_SIMD', language : ['cpp'])
+endif
+
+
 if get_option('with_experimental_zstd')
     add_project_arguments('-DCDFPP_USE_ZSTD', language : ['cpp'])
     zstd_dep = dependency('libzstd')
@@ -152,7 +187,8 @@ cdfpp_extra_files = files(
     'tests/python_saving/test.py',
     'tests/python_variable_set_values/test.py',
     'tests/python_skeletons/test.py',
-    'tests/full_corpus/test_full_corpus.py',
+    'tests/python_chrono/test.py',
+    'tests/full_corpus/test.py',
     '.github/workflows/CI.yml',
     '.github/workflows/tests-with-coverage.yml',
     '.github/dependabot.yml'
@@ -176,7 +212,7 @@ cdfpp_dep_inc = include_directories('include', '.')
 
 
 cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
-                                dependencies: [zlib_dep, hedley_dep, fmt_dep, zstd_dep],
+                                dependencies: [zlib_dep, hedley_dep, fmt_dep, zstd_dep, simd_deps],
                                 link_args : link_args,
                                 compile_args : compile_args)
 
@@ -262,40 +298,23 @@ if get_option('with_tests')
     catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
 
 
-    foreach test:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving',
+    foreach test_name:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving',
                   'rle_compression', 'libdeflate_compression', 'zlib_compression', 'simple_save', 'zstd_compression']
-        exe = executable('test-'+test,'tests/'+test+'/main.cpp',
+        exe = executable('test-'+test_name,'tests/'+test_name+'/main.cpp',
                         dependencies:[catch_dep, cdfpp_dep],
                         install: false
                         )
-        test(test, exe)
+        test(test_name, exe)
     endforeach
 
-    test('python_loading_test', python3,
-        args:[meson.current_source_dir()+'/tests/python_loading/test.py'],
-        env:['PYTHONPATH='+meson.current_build_dir()],
-        workdir:meson.current_build_dir())
-
-    test('python_saving_test', python3,
-        args:[meson.current_source_dir()+'/tests/python_saving/test.py'],
-        env:['PYTHONPATH='+meson.current_build_dir()],
-        workdir:meson.current_build_dir())
-
-    test('python_skeletons_test', python3,
-        args:[meson.current_source_dir()+'/tests/python_skeletons/test.py'],
-        env:['PYTHONPATH='+meson.current_build_dir()],
-        workdir:meson.current_build_dir())
-
-    test('python_variable_set_values_test', python3,
-        args:[meson.current_source_dir()+'/tests/python_variable_set_values/test.py'],
-        env:['PYTHONPATH='+meson.current_build_dir()],
-        workdir:meson.current_build_dir())
-
-    test('full_corpus_test', python3,
-        args:[meson.current_source_dir()+'/tests/full_corpus/test_full_corpus.py'],
-        env:['PYTHONPATH='+meson.current_build_dir()],
-        timeout: 300,
-        workdir:meson.current_build_dir())
+    foreach py_test:['python_loading', 'python_saving', 'python_skeletons',
+                'python_variable_set_values', 'full_corpus', 'python_chrono']
+        test(py_test, python3,
+            args:[meson.current_source_dir()+'/tests/'+py_test+'/test.py'],
+            env:['PYTHONPATH='+meson.current_build_dir()],
+            timeout: 300,
+            workdir:meson.current_build_dir())
+    endforeach
 
     python_wrapper_cpp = executable('python_wrapper_cpp','tests/python_wrapper_cpp/main.cpp',
                     dependencies:[pybind11_dep, python3.dependency(embed:true)],
@@ -324,7 +343,7 @@ endif
 
 if get_option('with_benchmarks')
     google_benchmarks_dep = dependency('benchmark', required : true)
-    foreach bench:['file_reader']
+    foreach bench:['file_reader', 'chrono']
         exe = executable('benchmark-'+bench,'benchmarks/'+bench+'/main.cpp',
                         dependencies:[google_benchmarks_dep, cdfpp_dep],
                         install: false

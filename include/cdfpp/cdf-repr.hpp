@@ -31,6 +31,7 @@
 #include <chrono>
 #include <ctime>
 #include <fmt/core.h>
+#include <fmt/chrono.h>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -88,7 +89,7 @@ inline stream_t& operator<<(stream_t& os, const epoch& time)
         os << "0000-01-01T00:00:00.000";
         return os;
     }
-    os << cdf::to_time_point(time);
+    os <<  fmt::format("{:%Y-%m-%dT%H:%M:%S}", cdf::to_time_point(time));
     return os;
 }
 
@@ -105,7 +106,7 @@ inline stream_t& operator<<(stream_t& os, const epoch16& time)
         os << "0000-01-01T00:00:00.000000000000";
         return os;
     }
-    os << cdf::to_time_point(time);
+    os << fmt::format("{:%Y-%m-%dT%H:%M:%S}", cdf::to_time_point(time));
     return os;
 }
 
@@ -127,7 +128,7 @@ inline stream_t& operator<<(stream_t& os, const tt2000_t& time)
         os << "9999-12-31T23:59:59.999999999";
         return os;
     }
-    os << cdf::to_time_point(time);
+    os << fmt::format("{:%Y-%m-%dT%H:%M:%S}", cdf::to_time_point(time));
     return os;
 }
 

@@ -24,12 +24,14 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #pragma once
-
 #include "repr.hpp"
 
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
+#include <cdfpp/no_init_vector.hpp>
+#include "buffers.hpp"
+
 using namespace cdf;
 
 #include <pybind11/chrono.h>
@@ -40,22 +42,68 @@ using namespace cdf;
 
 namespace py = pybind11;
 
-template <typename time_t, typename function_t>
-[[nodiscard]] inline auto transform(time_t* input, std::size_t count, const function_t& f)
+namespace _details
 {
-    auto result = py::array_t<uint64_t>(count);
-    py::buffer_info res_buff = result.request(true);
+
+[[nodiscard]] inline bool is_dt64ns(const py::array& arr)
+{
+    return std::string(py::str(arr.attr("dtype").attr("name"))) == "datetime64[ns]";
+}
+
+[[nodiscard]] inline void to_datetime64(const tt2000_t* const input,
+    const std::size_t count,
+    int64_t* const output)
+{
+    py::gil_scoped_release release;
+    cdf::to_ns_from_1970(input, count, output);
+}
+
+[[nodiscard]] inline void to_datetime64(const epoch* const input,
+    const std::size_t count,
+    int64_t* const output)
+{
+    py::gil_scoped_release release;
+    cdf::to_ns_from_1970(input, count, output);
+}
+
+[[nodiscard]] inline void to_datetime64(const epoch16* const input,
+    const std::size_t count,
+    int64_t* const output)
+{
+    py::gil_scoped_release release;
+    cdf::to_ns_from_1970(input, count, output);
+}
+
+} // namespace _details
+
+template <typename time_t, typename function_t>
+inline void transform(time_t* input, const py::array_t<uint64_t>& output, const function_t& f)
+{
+    py::buffer_info res_buff = output.request(true);
+    const auto count = _details::flat_size(res_buff);
     int64_t* res_ptr = static_cast<int64_t*>(res_buff.ptr);
     std::transform(input, input + count, res_ptr, f);
-    return result;
+}
+
+
+template <typename function_t>
+inline void transform(tt2000_t* input, const py::array_t<uint64_t>& output, const function_t&)
+{
+    py::buffer_info res_buff = output.request(true);
+    const auto count = _details::flat_size(res_buff);
+    int64_t* res_ptr = static_cast<int64_t*>(res_buff.ptr);
+    py::gil_scoped_release release;
+    cdf::to_ns_from_1970(input, count, res_ptr);
 }
 
 template <typename time_t, typename T, typename function_t>
 [[nodiscard]] inline auto transform(const py::array_t<T>& input, const function_t& f)
 {
     py::buffer_info in_buff = input.request();
+    auto result = _details::fast_allocate_array<uint64_t>(in_buff);
     time_t* in_ptr = static_cast<time_t*>(in_buff.ptr);
-    return transform(in_ptr, in_buff.shape[0], f);
+    transform(in_ptr, result, f);
+    return result;
 }
 
 template <typename time_t, typename T, typename function_t>
@@ -67,6 +115,7 @@ template <typename time_t, typename T, typename function_t>
     std::transform(std::cbegin(input), std::cend(input), res_ptr, f);
     return result;
 }
+
 
 template <typename time_t>
 [[nodiscard]] constexpr auto time_t_to_dtype()
@@ -92,7 +141,7 @@ template <typename time_t>
     {
         auto result = transform<time_t>(input,
             [](const time_t& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
-        return py::cast(&result).attr("astype")(dtype);
+        return result.attr("view")(dtype);
     }
     return py::none();
 }
@@ -113,7 +162,7 @@ template <typename time_t>
 
     auto result = transform<time_t>(
         input, [](const time_t& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
-    return py::cast(&result).attr("astype")(dtype);
+    return result.attr("astype")(dtype);
 }
 
 template <typename time_t>
@@ -128,29 +177,27 @@ template <typename time_t>
 
 [[nodiscard]] inline py::object var_to_datetime64(const Variable& input)
 {
+    auto result = _details::fast_allocate_array<uint64_t>(input.shape());
+    auto out_ptr = static_cast<int64_t*>(result.request(true).ptr);
+    auto size = result.size();
     switch (input.type())
     {
         case cdf::CDF_Types::CDF_EPOCH:
         {
-            auto result = transform(input.get<cdf::CDF_Types::CDF_EPOCH>().data(), input.shape()[0],
-                [](const epoch& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
-            return py::cast(&result).attr("astype")("datetime64[ns]");
+            _details::to_datetime64(input.get<cdf::CDF_Types::CDF_EPOCH>().data(), size, out_ptr);
+            return result.attr("view")("datetime64[ns]");
         }
         break;
         case cdf::CDF_Types::CDF_EPOCH16:
         {
-            auto result = transform(input.get<cdf::CDF_Types::CDF_EPOCH16>().data(),
-                input.shape()[0],
-                [](const epoch16& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
-            return py::cast(&result).attr("astype")("datetime64[ns]");
+            _details::to_datetime64(input.get<cdf::CDF_Types::CDF_EPOCH16>().data(), size, out_ptr);
+            return result.attr("view")("datetime64[ns]");
         }
         break;
         case cdf::CDF_Types::CDF_TIME_TT2000:
         {
-            auto result = transform(input.get<cdf::CDF_Types::CDF_TIME_TT2000>().data(),
-                input.shape()[0],
-                [](const tt2000_t& v) { return cdf::to_time_point(v).time_since_epoch().count(); });
-            return py::cast(&result).attr("astype")("datetime64[ns]");
+            _details::to_datetime64(input.get<cdf::CDF_Types::CDF_TIME_TT2000>().data(), size, out_ptr);
+            return result.attr("view")("datetime64[ns]");
         }
         break;
         default:
@@ -201,6 +248,27 @@ template <typename time_t>
             break;
     }
     return {};
+}
+
+[[nodiscard]] inline auto to_tt2000(
+    const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
+{
+    auto result = cdf::to_tt2000(tps);
+    return py::array_t<tt2000_t>(std::size(result), result.data());
+}
+
+[[nodiscard]] inline auto to_epoch(
+    const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
+{
+    auto result = cdf::to_epoch(tps);
+    return py::array_t<epoch>(std::size(result), result.data());
+}
+
+[[nodiscard]] inline auto to_epoch16(
+    const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
+{
+    auto result = cdf::to_epoch16(tps);
+    return py::array_t<epoch16>(std::size(result), result.data());
 }
 
 template <typename T>
@@ -266,19 +334,38 @@ auto def_time_conversion_functions(T& mod)
             [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_tt2000(tp); });
         mod.def("to_tt2000",
             [](const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
-            { return cdf::to_tt2000(tps); });
+            { return to_tt2000(tps); });
+        mod.def("to_tt2000",
+            [](const py::array& input) -> py::object
+            {
+                if (_details::is_dt64ns(input))
+                {
+                    auto res = _details::fast_allocate_array<tt2000_t>(input);
+                    auto inview = py::array(input.attr("view")("int64"));
+                    int64_t* in = reinterpret_cast<int64_t*>(inview.request().ptr);
+                    tt2000_t* out = reinterpret_cast<tt2000_t*>(res.request().ptr);
+                    for (ssize_t i = 0; i < inview.size(); i++)
+                    {
+                        out[i] = cdf::to_tt2000(
+                            std::chrono::system_clock::time_point(std::chrono::nanoseconds(in[i])));
+                    }
 
+                    return res;
+                }
+                std::cout << "is datetime64[ns] " << _details::is_dt64ns(input) << std::endl;
+                return py::none();
+            });
 
         mod.def("to_epoch",
             [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_epoch(tp); });
         mod.def("to_epoch",
             [](const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
-            { return cdf::to_epoch(tps); });
+            { return to_epoch(tps); });
 
         mod.def("to_epoch16",
             [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_epoch16(tp); });
         mod.def("to_epoch16",
             [](const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
-            { return cdf::to_epoch16(tps); });
+            { return to_epoch16(tps); });
     }
 }

@@ -24,61 +24,144 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #pragma once
+
 #include "cdf-chrono-constants.hpp"
-#include "cdf-leap-seconds.h"
+#include "cdf-chrono-impl.hpp"
 #include "cdfpp/cdf-debug.hpp"
 #include "cdfpp/cdf-enums.hpp"
 #include "cdfpp/no_init_vector.hpp"
 #include <algorithm>
 #include <array>
+#include <cdfpp/vectorized/cdf-chrono.hpp>
 #include <chrono>
 #include <cmath>
+#include <thread>
+#ifndef CDFPP_NO_SIMD
+#include "cdfpp/vectorized/cdf-chrono.hpp"
+#endif
+
+
+using namespace std::chrono;
 
 namespace cdf
 {
-using namespace std::chrono;
+
 using namespace cdf::chrono;
 
-inline int64_t leap_second(int64_t ns_from_1970)
+namespace chrono::_impl
 {
-    if (ns_from_1970 > leap_seconds::leap_seconds_tt2000.front().first)
+    static inline std::size_t ideal_threads_count()
     {
-        if (ns_from_1970 < leap_seconds::leap_seconds_tt2000.back().first)
+        static const auto threads_count = std::thread::hardware_concurrency() >= 32 ? 8U : 2U;
+        return threads_count;
+    }
+
+    /* the takeaway is that threading is worth it on platforms with many cores where we infer
+     * big memory bandwidht because of many memry channels.
+     * On a typical 4 core laptop with 8 threads, threading is not worth it because we already
+     * top reach ~70% of memory bandwidth with a single thread.
+     */
+    template <std::size_t min_chunk_size = 1 * 1024 * 1024>
+    static inline void _thread_if_needed(
+        const auto* const input, const std::size_t count, auto* const output, const auto& function)
+    {
+        static const auto threads_count = ideal_threads_count();
+        if ((count >= (min_chunk_size * threads_count)))
         {
-            auto lc = std::cbegin(leap_seconds::leap_seconds_tt2000);
-            while (ns_from_1970 >= (lc + 1)->first)
+            const auto chunk_size = [count]()
             {
-                lc++;
+                auto cs = (count / threads_count);
+                while ((cs * threads_count) < count)
+                {
+                    cs += min_chunk_size;
+                }
+                return cs;
+            }();
+            std::vector<std::thread> threads;
+            threads.reserve(threads_count);
+            std::size_t start = 0;
+            std::size_t end = chunk_size;
+            for (std::size_t i = 0; i < threads_count; ++i)
+            {
+                threads.emplace_back([input, start, end, output, &function]()
+                    { function(input + start, end - start, output + start); });
+                start = end;
+                end = ((end + chunk_size) > count) ? count : end + chunk_size;
             }
-            return lc->second;
+            for (auto& t : threads)
+            {
+                t.join();
+            }
         }
         else
         {
-            return leap_seconds::leap_seconds_tt2000.back().second;
+            function(input, count, output);
         }
     }
-    return 0;
+
 }
 
-inline int64_t leap_second(const tt2000_t& ep)
+static inline void to_ns_from_1970(
+    const tt2000_t* const input, const std::size_t count, int64_t* output)
 {
-    if (ep.value > leap_seconds::leap_seconds_tt2000_reverse.front().first)
-    {
-        if (ep.value < leap_seconds::leap_seconds_tt2000_reverse.back().first)
+    chrono::_impl::_thread_if_needed<1 * 1024 * 1024>(input, count, output,
+        [](const tt2000_t* const input, const std::size_t count, int64_t* const output)
         {
-            auto lc = std::cbegin(leap_seconds::leap_seconds_tt2000_reverse);
-            while (ep.value >= (lc + 1)->first)
+#ifndef CDFPP_NO_SIMD
+            if (count >= 8)
             {
-                lc++;
+                vectorized_to_ns_from_1970(input, count, output);
             }
-            return lc->second;
-        }
-        else
+            else
+            {
+                _impl::scalar_to_ns_from_1970(input, count, output);
+            }
+#else
+        _impl::scalar_to_ns_from_1970(input, count, output);
+#endif
+        });
+}
+
+static inline void to_ns_from_1970(
+    const epoch* const input, const std::size_t count, int64_t* output)
+{
+    chrono::_impl::_thread_if_needed<1 * 1024 * 1024>(input, count, output,
+        [](const epoch* const input, const std::size_t count, int64_t* const output)
         {
-            return leap_seconds::leap_seconds_tt2000_reverse.back().second;
-        }
-    }
-    return 0;
+#ifndef CDFPP_NO_SIMD
+            if (count >= 8)
+            {
+                vectorized_to_ns_from_1970(input, count, output);
+            }
+            else
+            {
+                _impl::scalar_to_ns_from_1970(input, count, output);
+            }
+#else
+        _impl::scalar_to_ns_from_1970(input, count, output);
+#endif
+        });
+}
+
+static inline void to_ns_from_1970(
+    const epoch16* const input, const std::size_t count, int64_t* output)
+{
+    chrono::_impl::_thread_if_needed<1 * 1024 * 1024>(input, count, output,
+        [](const epoch16* const input, const std::size_t count, int64_t* const output)
+        {
+#ifndef CDFPP_NO_SIMD
+            if (count >= 8)
+            {
+                vectorized_to_ns_from_1970(input, count, output);
+            }
+            else
+            {
+                _impl::scalar_to_ns_from_1970(input, count, output);
+            }
+#else
+            _impl::scalar_to_ns_from_1970(input, count, output);
+#endif
+        });
 }
 
 template <class Clock, class Duration = typename Clock::duration>
@@ -127,7 +210,7 @@ tt2000_t to_tt2000(const std::chrono::time_point<Clock, Duration>& tp)
 {
     using namespace std::chrono;
     auto nsec = duration_cast<nanoseconds>(tp.time_since_epoch()).count();
-    return tt2000_t { nsec - constants::tt2000_offset + leap_second(nsec) };
+    return tt2000_t { nsec - constants::tt2000_offset + _impl::leap_second(nsec) };
 }
 
 template <class Clock, class Duration = typename Clock::duration>
@@ -173,7 +256,7 @@ inline auto to_time_point(const tt2000_t& ep)
 {
     using namespace std::chrono;
     return time_point<system_clock> {}
-    + nanoseconds(ep.value - leap_second(ep) + constants::tt2000_offset);
+    + nanoseconds(ep.value - _impl::leap_second(ep) + constants::tt2000_offset);
 }
 
 
