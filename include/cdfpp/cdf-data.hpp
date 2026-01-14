@@ -208,11 +208,53 @@ inline data_t& data_t::operator=(const data_t& other)
     return *this;
 }
 
+// https://bjoern.hoehrmann.de/utf-8/decoder/dfa/
+
+[[nodiscard]] auto inline decode(uint32_t state, uint32_t codep, uint32_t byte)
+{
+    // clang-format off
+    static const uint8_t utf8d[] = {
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 00..1f
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 20..3f
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 40..5f
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, // 60..7f
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9, // 80..9f
+        7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7, // a0..bf
+        8,8,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, // c0..df
+        0xa,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x3,0x4,0x3,0x3, // e0..ef
+        0xb,0x6,0x6,0x6,0x5,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8,0x8, // f0..ff
+        0x0,0x1,0x2,0x3,0x5,0x8,0x7,0x1,0x1,0x1,0x4,0x6,0x1,0x1,0x1,0x1, // s0..s0
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1, // s1..s2
+        1,2,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1, // s3..s4
+        1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,3,1,1,1,1,1,1, // s5..s6
+        1,3,1,1,1,1,1,3,1,3,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1, // s7..s8
+    };
+    // clang-format on
+    uint32_t type = utf8d[byte];
+
+    codep = (state != 0) ? (byte & 0x3fu) | (codep << 6) : (0xff >> type) & (byte);
+
+    state = utf8d[256 + state * 16 + type];
+    return std::tuple{ state, codep };
+}
+
+// switch to SIMD later together with XSIMD integration
+[[nodiscard]] inline bool is_valid_utf8(const char* buffer, std::size_t buffer_size)
+{
+    uint32_t state = 0;
+    uint32_t codepoint = 0;
+    for (std::size_t i = 0; i < buffer_size; ++i)
+    {
+        std::tie(state, codepoint) = decode(state, codepoint, static_cast<uint8_t>(buffer[i]));
+    }
+    return state == 0;
+}
+
 // https://stackoverflow.com/questions/4059775/convert-iso-8859-1-strings-to-utf-8-in-c-c
 template <typename T>
-[[nodiscard]] no_init_vector<T> iso_8859_1_to_utf8(const char* buffer, std::size_t buffer_size)
+[[nodiscard]] T iso_8859_1_to_utf8(const char* buffer, std::size_t buffer_size)
 {
-    no_init_vector<T> out;
+    T out;
     out.reserve(buffer_size);
     std::for_each(buffer, buffer + buffer_size,
         [&out](const uint8_t c)
@@ -230,6 +272,19 @@ template <typename T>
     return out;
 }
 
+template <typename T>
+[[nodiscard]] T ensure_utf8(const char* buffer, std::size_t buffer_size)
+{
+    if (is_valid_utf8(buffer, buffer_size))
+    {
+        return T { buffer, buffer + buffer_size };
+    }
+    else
+    {
+        return iso_8859_1_to_utf8<T>(buffer, buffer_size);
+    }
+}
+
 
 template <CDF_Types _type, typename endianness_t, bool latin1_to_utf8_conv>
 [[nodiscard]] inline data_t load_values(data_t&& data) noexcept
@@ -240,8 +295,9 @@ template <CDF_Types _type, typename endianness_t, bool latin1_to_utf8_conv>
     {
         if constexpr (latin1_to_utf8_conv)
         {
-            return data_t { cdf_values_t { iso_8859_1_to_utf8<from_cdf_type_t<_type>>(
-                                data.bytes_ptr(), data.bytes()) },
+            return data_t { cdf_values_t {
+                                ensure_utf8<no_init_vector<from_cdf_type_t<_type>>>(
+                                    data.bytes_ptr(), data.bytes()) },
                 _type };
         }
         else

@@ -184,13 +184,13 @@ auto visit(string_or_buffer_t& data, Ts... lambdas)
         case cdf::CDF_Types::CDF_UCHAR:
         {
             auto v = data.get<cdf::CDF_Types::CDF_UCHAR>();
-            return std::string { reinterpret_cast<char*>(v.data()), std::size(v) };
+            return std::string(reinterpret_cast<const char*>(v.data()), std::size(v));
         }
         break;
         case cdf::CDF_Types::CDF_CHAR:
         {
             auto v = data.get<char>();
-            return std::string { v.data(), std::size(v) };
+            return std::string(v.data(), std::size(v));
         }
         break;
         default:

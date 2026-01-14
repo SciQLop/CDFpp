@@ -168,8 +168,7 @@ template <class stream_t, class input_t>
 inline stream_t& stream_string_like(stream_t& os, const input_t& input)
 {
     os << "\"";
-    std::string_view sv { reinterpret_cast<const char*>(input.data()), std::size(input) };
-    os << sv;
+    os << ensure_utf8<std::string>(reinterpret_cast<const char*>(input.data()), std::size(input));
     os << "\"";
     return os;
 }

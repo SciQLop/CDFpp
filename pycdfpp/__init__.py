@@ -772,7 +772,7 @@ to convert to CDF epoch16
     return _pycdfpp.to_epoch16(values)
 
 
-def load(file_or_buffer: str or ByteString, iso_8859_1_to_utf8: bool = False, lazy_load: bool = True):
+def load(file_or_buffer: str or ByteString, iso_8859_1_to_utf8: bool = True, lazy_load: bool = True):
     """
     Load and parse a CDF file.
 
@@ -783,7 +783,8 @@ def load(file_or_buffer: str or ByteString, iso_8859_1_to_utf8: bool = False, la
     iso_8859_1_to_utf8 : bool, optional
         Automatically convert Latin-1 characters to their equivalent UTF counterparts when True.
         For CDF files prior to version 3.8, UTF-8 wasn't supported and some CDF files might contain "illegal" Latin-1 characters.
-        (Default is False)
+        This option has no impact on valid UTF-8 characters.
+        (Default is True)
     lazy_load : bool, optional
         Controls whether variable values are loaded immediately or only when accessed by the user.
         If True, variables' values are loaded on demand. If False, all variable values are loaded during parsing.
