@@ -143,7 +143,6 @@ pycdfpp_headers = files(
 cdfpp_extra_files = files(
     'pyproject.toml',
     'README.md',
-    '.bumpversion.cfg',
     'version.txt',
     'scripts/build_wheel.py',
     'scripts/CDF.hexpat',
