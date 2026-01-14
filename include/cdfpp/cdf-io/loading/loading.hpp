@@ -181,7 +181,7 @@ namespace
 
 
 [[nodiscard]] std::optional<CDF> load(
-    const std::string& path, bool iso_8859_1_to_utf8 = false, bool lazy_load = true)
+    const std::string& path, bool iso_8859_1_to_utf8 = true, bool lazy_load = true)
 {
     auto buffer = buffers::make_shared_file_adapter(path);
     if (buffer.is_valid())
@@ -192,7 +192,7 @@ namespace
 }
 
 [[nodiscard]] std::optional<CDF> load(
-    const std::vector<char>& data, bool iso_8859_1_to_utf8 = false, bool lazy_load = false)
+    const std::vector<char>& data, bool iso_8859_1_to_utf8 = true, bool lazy_load = false)
 {
     if (std::size(data))
     {
@@ -202,7 +202,7 @@ namespace
 }
 
 [[nodiscard]] std::optional<CDF> load(
-    const std::vector<char>&& data, bool iso_8859_1_to_utf8 = false, bool lazy_load = true)
+    const std::vector<char>&& data, bool iso_8859_1_to_utf8 = true, bool lazy_load = true)
 {
     if (std::size(data))
     {
@@ -213,7 +213,7 @@ namespace
 }
 
 [[nodiscard]] std::optional<CDF> load(
-    const char* data, std::size_t size, bool iso_8859_1_to_utf8 = false, bool lazy_load = false)
+    const char* data, std::size_t size, bool iso_8859_1_to_utf8 = true, bool lazy_load = false)
 {
     if (size != 0 && data != nullptr)
     {

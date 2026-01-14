@@ -196,9 +196,9 @@ class PycdfEncodingTest(unittest.TestCase):
 
     def test_can_load_and_repr_latin1_with_hack(self):
         cdf = pycdfpp.load(
-            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/wi_l2-30min_sms-stics-afm-magnetosphere_00000000_v01.cdf')
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/wi_l2-30min_sms-stics-afm-magnetosphere_00000000_v01.cdf', False)
         with self.assertRaises(UnicodeDecodeError):
-            str(cdf)
+            v = cdf.attributes['TEXT'][0]
         cdf = pycdfpp.load(
             f'{os.path.dirname(os.path.abspath(__file__))}/../resources/wi_l2-30min_sms-stics-afm-magnetosphere_00000000_v01.cdf', True)
         str(cdf)
@@ -352,6 +352,11 @@ class PycdfNonRegression(unittest.TestCase):
         self.assertIsNotNone(memoryview(cdf['Vper']))
         self.assertIsNotNone(cdf['Vpar'].values_encoded)
         self.assertIsNotNone(cdf['Vper'].values_encoded)
+
+    def test_latin1_attribute_repr(self):
+        cdf = pycdfpp.load(
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/thg_l2_mag_mek_00000000_v01.cdf')
+        str(cdf)
 
 
 if __name__ == '__main__':

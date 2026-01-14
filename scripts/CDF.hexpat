@@ -142,6 +142,21 @@ struct GDR : CDF_Record
     u32 rfuE;
 };
 
+struct AgrEDR: CDF_Record
+{
+    offset_t AEDRnext;
+    s32 AttrNum;
+    CDF_Types DataType;
+    s32 Num;
+    s32 NumElements;
+    s32 NumStrings;
+    u32 rfuB;
+    u32 rfuC;
+    u32 rfuD;
+    u32 rfuE;
+    u8 data[RecordSize.value - ($-addressof(RecordSize))];
+};
+
 struct VDR : CDF_Record
 {
     offset_t VDRnext;
@@ -203,6 +218,7 @@ struct PolymorphicRecord
         (cdf_record_type::CDR) : CDR cdr;
         (cdf_record_type::zVDR) : VDR zvdr;
         (cdf_record_type::VXR) : VXR vxr;
+        (cdf_record_type::AgrEDR) : AgrEDR agedr;
         (_) : UhandledRecord _r;
     }
 };

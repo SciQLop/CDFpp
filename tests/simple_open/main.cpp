@@ -568,5 +568,21 @@ SCENARIO("Loading cdf files", "[CDF]")
                 REQUIRE(std::size(cd.variables) == 61);
             }
         }
+        WHEN("File contains LATIN-1 (ISO-8859-1) encoded attributes")
+        {
+            auto path = std::string(DATA_PATH) + "/thg_l2_mag_mek_00000000_v01.cdf";
+            REQUIRE(file_exists(path));
+            auto cd_opt = cdf::io::load(path);
+            REQUIRE(cd_opt != std::nullopt);
+            auto cd = *cd_opt;
+            THEN("We can access Rules_of_use attribute")
+            {
+                REQUIRE(has_attribute(cd, "Rules_of_use"));
+                REQUIRE(compare_attribute_values(
+                    cd.attributes["Rules_of_use"],
+                    u8"Access to the data is provided as-is, without any additional promises to respond quickly to outages, data quality, etc. We request that you acknowledge the Finnish Meteorological Institute, Tromsø Geophysical Observatory of the University of Tromsø, and Tartu Observatory for use of the FMI data."
+                    ));
+            }
+        }
     }
 }

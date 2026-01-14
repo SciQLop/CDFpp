@@ -126,7 +126,7 @@ jobs:
       - name: install dependencies
         run: |
           brew update
-          brew install pyenv --head
+          brew install pyenv
           pyenv install ${{ matrix.python-version }}
       - uses: actions/download-artifact@v7
         with:
