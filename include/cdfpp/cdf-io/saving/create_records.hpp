@@ -80,7 +80,7 @@ namespace saving
                 = svg_ctx.body.file_attributes.emplace_back(file_attribute_ctx { index, &attribute,
                     cdf_ADR_t<v3x_tag> { {}, 0, 0, cdf_attr_scope::global, index,
                         static_cast<int32_t>(attribute.size()),
-                        static_cast<int32_t>(attribute.size()) - 1, 0, 0, 0, -1, 0, { name } },
+                        static_cast<int32_t>(attribute.size()) - 1, {0}, 0, 0, -1, {-1}, { name } },
                     {} });
             update_size(fac.adr);
             int32_t value_index = 0UL;
