@@ -1,9 +1,6 @@
-#if __has_include(<catch2/catch_all.hpp>)
 #include <catch2/catch_all.hpp>
 #include <catch2/catch_test_macros.hpp>
-#else
-#include <catch.hpp>
-#endif
+
 #include <cdfpp_config.h>
 #ifdef CDFPP_USE_ZSTD
 #include "cdfpp/cdf-io/zstd.hpp"

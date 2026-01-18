@@ -688,18 +688,26 @@ def filter_cdf(cdf: CDF,
 CDF.filter = filter_cdf
 
 def to_datetime64(values):
-    """
-    to_datetime64
+    """Convert any compatible given collection of time values to a numpy.datetime64 array.
 
     Parameters
     ----------
-    values: Variable or epoch or List[epoch] or numpy.ndarray[epoch] or epoch16 or List[epoch16] or numpy.ndarray[epoch16] or tt2000_t or List[tt2000_t] or numpy.ndarray[tt2000_t]
+    values: Variable or epoch or List[epoch] or numpy.ndarray[epoch] or epoch16 or List[epoch16] or numpy.array[epoch16] or tt2000_t or List[tt2000_t] or numpy.array[tt2000_t]
         input value(s)
 to convert to numpy.datetime64
 
     Returns
     -------
     numpy.ndarray[numpy.datetime64]
+
+    Raises
+    ------
+    TypeError or IndexError
+        If the input values are not compatible time types.
+
+    Note
+    ----
+    On modern x86_64 systems, it will use the CPU's vectorized instructions to perform the conversion even faster.
     """
     return _pycdfpp.to_datetime64(values)
 
@@ -710,13 +718,18 @@ def to_datetime(values):
 
     Parameters
     ----------
-    values: Variable or epoch or List[epoch] or epoch16 or List[epoch16] or tt2000_t or List[tt2000_t]
+    values: Variable or epoch or List[epoch] or epoch16 or List[epoch16] or tt2000_t or List[tt2000_t] or numpy.array[numpy.datetime64[ns]]
         input value(s)
 to convert to datetime.datetime
 
     Returns
     -------
     List[datetime.datetime]
+
+    Raises
+    ------
+    TypeError or IndexError
+        If the input values are not compatible time types.
     """
     return _pycdfpp.to_datetime(values)
 
@@ -727,7 +740,7 @@ def to_tt2000(values):
 
     Parameters
     ----------
-    values: datetime.datetime or List[datetime.datetime]
+    values: datetime.datetime or List[datetime.datetime] or numpy.array[numpy.datetime64[ns]]
         input value(s)
 to convert to CDF tt2000
 
@@ -744,7 +757,7 @@ def to_epoch(values):
 
     Parameters
     ----------
-    values: datetime.datetime or List[datetime.datetime]
+    values: datetime.datetime or List[datetime.datetime] or numpy.array[numpy.datetime64[ns]]
         input value(s)
 to convert to CDF epoch
 
@@ -761,7 +774,7 @@ def to_epoch16(values):
 
     Parameters
     ----------
-    values: datetime.datetime or List[datetime.datetime]
+    values: datetime.datetime or List[datetime.datetime] or numpy.array[numpy.datetime64[ns]]
         input value(s)
 to convert to CDF epoch16
 

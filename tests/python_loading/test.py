@@ -276,11 +276,16 @@ class PycdfTest(unittest.TestCase):
                     whole_var = f(cdf[var])
                     values = f(cdf[var].values)
                     one_by_one = [f(v) for v in cdf[var].values]
+                    if var == 'tt2000':
+                        # tt2000 conv is volontarily broken for dates before 1970-01-01
+                        values = values[5:]
+                        one_by_one = one_by_one[5:]
+                        whole_var = whole_var[5:]
                     self.assertIsNotNone(whole_var)
                     self.assertIsNotNone(values)
                     self.assertIsNotNone(one_by_one)
-                    self.assertTrue(np.all(whole_var == values))
-                    self.assertTrue(np.all(whole_var == one_by_one))
+                    self.assertTrue(np.all(whole_var == values), f"Mismatch in var {var}, for func {f}")
+                    self.assertTrue(np.all(whole_var == one_by_one), f"Mismatch in var {var}, for func {f}")
 
                 for attr in ('epoch', 'epoch16', 'tt2000'):
                     whole_attr = f(cdf.attributes[attr][0])

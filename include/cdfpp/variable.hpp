@@ -69,6 +69,12 @@ template <typename T>
     return 0UL;
 }
 
+/*
+ * Before version 1.0 it would make sense to consider exposing a view to data instead of
+ * a vector. That would allow zero copy from and to any user defined data structure
+ * (when layout is compatible).
+ * For example, we could build a view on top of an existing numpy array without copy.
+*/
 struct Variable
 {
     using var_data_t = data_t;

@@ -25,8 +25,9 @@
 ----------------------------------------------------------------------------*/
 #pragma once
 #include "attribute.hpp"
-#include "buffers.hpp"
+#include "collections.hpp"
 #include "repr.hpp"
+#include "chrono.hpp"
 
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf-map.hpp>
@@ -98,6 +99,10 @@ std::pair<data_t, typename Variable::shape_t> _numeric_to_nd_data_t(const py::bu
     std::copy(std::cbegin(info.shape), std::cend(info.shape), std::begin(shape));
     if (info.size != 0)
     {
+        /*
+         * We could later imagine to avoid this copy by directly using the buffer memory
+         * this would require to tie the buffer lifetime to the variable lifetime
+        */
         no_init_vector<T> values(info.size);
         std::memcpy(values.data(), info.ptr, info.size * sizeof(T));
         return { data_t { std::move(values), data_type }, std::move(shape) };

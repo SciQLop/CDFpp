@@ -1,6 +1,7 @@
 #pragma author Alexis Jeandet
 #pragma description Common Data Format File Format
 #pragma MIME application / x - cdf
+#pragma eval_depth -1
 
 #include "std/core.pat"
 #include "std/mem.pat"
@@ -11,6 +12,8 @@ std::core::set_endian(std::mem::Endian::Big);
 
 u32 Magic1 @0;
 u32 Magic2 @4;
+
+using PolymorphicRecord;
 
 enum CDF_Types : u32
 {
@@ -80,13 +83,29 @@ fn is_cdf_v3()
     return Magic1 == 0xCDF30001;
 };
 
-struct offset_t
-{
+struct offset_ptr_t<T> {
     if (is_cdf_v3())
-        be u64 value;
+    {
+        if (std::mem::read_signed($, 8, std::mem::Endian::Big)==-1)
+             u64 value;
+        else
+            std::ptr::NullablePtr<T, u64> [[inline, name("Offset")]];
+    }
     else
-        be u32 value;
+    {
+        if (std::mem::read_signed($, 4, std::mem::Endian::Big)==-1)
+            u32 value;
+        else
+            std::ptr::NullablePtr<T, u32>[[inline, name("Offset")]];
+    }
 };
+
+struct offset_t {
+    if (is_cdf_v3())
+        u64 value;
+    else
+        u32 value;
+} [[inline]];
 
 struct ptr_t<Pointee_t>
 {
@@ -99,12 +118,16 @@ struct ptr_t<Pointee_t>
 
 struct Header
 {
-    offset_t RecordSize;
+    if (is_cdf_v3())
+        u64 RecordSize;
+    else
+        u32 RecordSize;
     cdf_record_type RecordType;
-};
+}[[inline]];
 
 struct CDF_Record : Header
 {
+    std::print("{} @0x{:X}", RecordType, addressof(RecordSize));
 };
 
 
@@ -112,7 +135,7 @@ using GDR;
 
 struct CDR : CDF_Record
 {
-    ptr_t<GDR> GDROffset;
+    offset_ptr_t<PolymorphicRecord> GDROffset;
     u32 Version;
     u32 Release;
     u32 Encoding;
@@ -127,16 +150,16 @@ struct CDR : CDF_Record
 
 struct GDR : CDF_Record
 {
-    offset_t rVDRhead;
-    offset_t zVDRhead;
-    offset_t ADRhead;
+    offset_ptr_t<PolymorphicRecord> rVDRhead;
+    offset_ptr_t<PolymorphicRecord> zVDRhead;
+    offset_ptr_t<PolymorphicRecord> ADRhead;
     offset_t eof;
     u32 NrVars;
     u32 NumAttr;
     u32 rMaxRec;
     u32 rNumDims;
     u32 NzVars;
-    offset_t UIRhead;
+    offset_ptr_t<PolymorphicRecord> UIRhead;
     u32 rfuC;
     u32 LeapSecondLastUpdated;
     u32 rfuE;
@@ -144,7 +167,7 @@ struct GDR : CDF_Record
 
 struct AgrEDR: CDF_Record
 {
-    offset_t AEDRnext;
+    offset_ptr_t<PolymorphicRecord> AEDRnext;
     s32 AttrNum;
     CDF_Types DataType;
     s32 Num;
@@ -154,24 +177,31 @@ struct AgrEDR: CDF_Record
     u32 rfuC;
     u32 rfuD;
     u32 rfuE;
-    u8 data[RecordSize.value - ($-addressof(RecordSize))];
+    u8 data[RecordSize - ($-addressof(RecordSize))];
+};
+
+bitfield VDR_Flags {
+    bool record_variance :1;
+    bool has_pad_value :1;
+    bool compressed :1;
+    padding :29[[hidden]];
 };
 
 struct VDR : CDF_Record
 {
-    offset_t VDRnext;
+    offset_ptr_t<PolymorphicRecord> VDRnext;
     CDF_Types DataType;
     u32 MaxRec;
-    offset_t VXRhead;
-    offset_t VXRtail;
-    u32 Flags;
+    offset_ptr_t<PolymorphicRecord> VXRhead;
+    offset_ptr_t<PolymorphicRecord> VXRtail;
+    VDR_Flags Flags;
     u32 SRecords;
     u32 rfuB;
     u32 rfuC;
     u32 rfuF;
     u32 NumElems;
     u32 Num;
-    offset_t CPRorSPRoffset;
+    offset_ptr_t<PolymorphicRecord> CPRorSPRoffset;
     u32 BlockingFactor;
     char Name[256];
     if (RecordType == cdf_record_type::zVDR)
@@ -187,26 +217,25 @@ struct VDR : CDF_Record
     {
         u32 DimVarys[gdr.rNumDims];
     }
-    if (Flags & 2 == 2)
+    if (Flags.has_pad_value)
     {
-        u8 pad_values[RecordSize.value - ($ - addressof(parent))];
+        u8 pad_values[RecordSize - ($ - addressof(parent))];
     }
 };
 
 struct VXR : CDF_Record
 {
-    offset_t VXRnext;
+    offset_ptr_t<PolymorphicRecord> VXRnext;
     s32 Nentries;
-    std::print("{}", Nentries);
     u32 NusedEntries;
     u32 First[Nentries];
     u32 Last[Nentries];
-    offset_t Offsets[Nentries];
+    offset_ptr_t<PolymorphicRecord> Offsets[Nentries];
 };
 
 struct UhandledRecord : CDF_Record
 {
-    u8 data[RecordSize.value - sizeof(Header)];
+    u8 data[RecordSize - sizeof(Header)];
 };
 
 
@@ -228,7 +257,8 @@ struct CDF
 {
     u32 Magic1;
     u32 Magic2;
-    PolymorphicRecord records[while (!std::mem::eof())];
+    CDR cdr;
+    // PolymorphicRecord  records[while (!std::mem::eof())];
 };
 
 
