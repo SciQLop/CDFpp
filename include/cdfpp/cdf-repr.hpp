@@ -24,15 +24,14 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #pragma once
-#include "cdfpp_config.h"
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf-map.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
 #include <chrono>
 #include <ctime>
 #include <fmt/core.h>
+#include <fmt/chrono.h>
 #include <iomanip>
-#include <sstream>
 #include <string>
 using namespace cdf;
 
@@ -78,17 +77,17 @@ inline stream_t& operator<<(stream_t& os, const decltype(cdf::to_time_point(tt20
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const epoch& time)
 {
-    if (time.value == -1e31)
+    if (time.mseconds == -1e31)
     {
         os << "9999-12-31T23:59:59.999";
         return os;
     }
-    if (time.value == 0)
+    if (time.mseconds == 0)
     {
         os << "0000-01-01T00:00:00.000";
         return os;
     }
-    os << cdf::to_time_point(time);
+    os <<  fmt::format("{:%Y-%m-%dT%H:%M:%S}", cdf::to_time_point(time));
     return os;
 }
 
@@ -105,29 +104,29 @@ inline stream_t& operator<<(stream_t& os, const epoch16& time)
         os << "0000-01-01T00:00:00.000000000000";
         return os;
     }
-    os << cdf::to_time_point(time);
+    os << fmt::format("{:%Y-%m-%dT%H:%M:%S}", cdf::to_time_point(time));
     return os;
 }
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const tt2000_t& time)
 {
-    if (time.value == static_cast<int64_t>(0x8000000000000000))
+    if (time.nseconds == static_cast<int64_t>(0x8000000000000000))
     {
         os << "9999-12-31T23:59:59.999999999";
         return os;
     }
-    if (time.value == static_cast<int64_t>(0x8000000000000001))
+    if (time.nseconds == static_cast<int64_t>(0x8000000000000001))
     {
         os << "0000-01-01T00:00:00.000000000";
         return os;
     }
-    if (time.value == static_cast<int64_t>(0x8000000000000003))
+    if (time.nseconds == static_cast<int64_t>(0x8000000000000003))
     {
         os << "9999-12-31T23:59:59.999999999";
         return os;
     }
-    os << cdf::to_time_point(time);
+    os << fmt::format("{:%Y-%m-%dT%H:%M:%S}", cdf::to_time_point(time));
     return os;
 }
 
@@ -176,64 +175,19 @@ inline stream_t& stream_string_like(stream_t& os, const input_t& input)
 template <class stream_t>
 stream_t& operator<<(stream_t& os, const cdf::data_t& data)
 {
-    using namespace cdf;
-    switch (data.type())
-    {
-        case CDF_Types::CDF_BYTE:
-            stream_collection(os, data.get<CDF_Types::CDF_BYTE>(), ", ");
-            break;
-        case CDF_Types::CDF_INT1:
-            stream_collection(os, data.get<CDF_Types::CDF_INT1>(), ", ");
-            break;
-        case CDF_Types::CDF_UINT1:
-            stream_collection(os, data.get<CDF_Types::CDF_UINT1>(), ", ");
-            break;
-        case CDF_Types::CDF_INT2:
-            stream_collection(os, data.get<CDF_Types::CDF_INT2>(), ", ");
-            break;
-        case CDF_Types::CDF_INT4:
-            stream_collection(os, data.get<CDF_Types::CDF_INT4>(), ", ");
-            break;
-        case CDF_Types::CDF_INT8:
-            stream_collection(os, data.get<CDF_Types::CDF_INT8>(), ", ");
-            break;
-        case CDF_Types::CDF_UINT2:
-            stream_collection(os, data.get<CDF_Types::CDF_UINT2>(), ", ");
-            break;
-        case CDF_Types::CDF_UINT4:
-            stream_collection(os, data.get<CDF_Types::CDF_UINT4>(), ", ");
-            break;
-        case CDF_Types::CDF_DOUBLE:
-            stream_collection(os, data.get<CDF_Types::CDF_DOUBLE>(), ", ");
-            break;
-        case CDF_Types::CDF_REAL8:
-            stream_collection(os, data.get<CDF_Types::CDF_REAL8>(), ", ");
-            break;
-        case CDF_Types::CDF_FLOAT:
-            stream_collection(os, data.get<CDF_Types::CDF_FLOAT>(), ", ");
-            break;
-        case CDF_Types::CDF_REAL4:
-            stream_collection(os, data.get<CDF_Types::CDF_REAL4>(), ", ");
-            break;
-        case CDF_Types::CDF_EPOCH:
-            stream_collection(os, data.get<CDF_Types::CDF_EPOCH>(), ", ");
-            break;
-        case CDF_Types::CDF_EPOCH16:
-            stream_collection(os, data.get<CDF_Types::CDF_EPOCH16>(), ", ");
-            break;
-        case CDF_Types::CDF_TIME_TT2000:
-            stream_collection(os, data.get<CDF_Types::CDF_TIME_TT2000>(), ", ");
-            break;
-        case cdf::CDF_Types::CDF_UCHAR:
-            stream_string_like(os, data.get<CDF_Types::CDF_UCHAR>());
-            break;
-        case cdf::CDF_Types::CDF_CHAR:
-            stream_string_like(os, data.get<CDF_Types::CDF_CHAR>());
-            break;
-        default:
-            break;
-    }
-
+    cdf_type_dipatch(data.type(),
+        []<cdf::CDF_Types T>(stream_t& os, const cdf::data_t& data)
+        {
+            if constexpr (is_cdf_string_type(T))
+            {
+                stream_string_like(os, data.get<T>());
+            }
+            else
+            {
+                stream_collection(os, data.get<T>(), ", ");
+            }
+        },
+        os, data);
     return os;
 }
 

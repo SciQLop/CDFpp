@@ -1,7 +1,7 @@
 /*------------------------------------------------------------------------------
 -- The MIT License (MIT)
 --
--- Copyright © 2024, Laboratory of Plasma Physics- CNRS
+-- Copyright © 2025, Laboratory of Plasma Physics- CNRS
 --
 -- Permission is hereby granted, free of charge, to any person obtaining a copy
 -- of this software and associated documentation files (the “Software”), to deal
@@ -24,42 +24,13 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #pragma once
-#include <algorithm>
-#include <cstdint>
-#include <string>
-#include <variant>
-#include <vector>
+#include "cdfpp/cdf-enums.hpp"
 
-namespace cdf
-{
+extern void vectorized_to_ns_from_1970(
+    const std::span<const cdf::tt2000_t>& input, int64_t* const output);
 
-namespace helpers
-{
-    template <typename... Ts>
-    struct Visitor : Ts...
-    {
-        Visitor(const Ts&... args) : Ts(args)... { }
-        using Ts::operator()...;
-    };
+extern void vectorized_to_ns_from_1970(
+    const std::span<const cdf::epoch>& input, int64_t* const output);
 
-    template <typename... Ts>
-    auto make_visitor(Ts... lambdas)
-    {
-        return Visitor<Ts...>(lambdas...);
-    }
-
-    consteval bool is_in(const auto& value, const auto&... values)
-    {
-        return ((value == values) || ...);
-    }
-
-    template <typename ref_type, typename... types>
-    struct is_any_of : std::integral_constant<bool,(std::is_same_v<ref_type, types> || ...)>{};
-
-    template <typename ref_type, typename... types>
-    using is_any_of_t = typename is_any_of<ref_type,types...>::type;
-
-    template <typename ref_type, typename... types>
-    inline constexpr bool is_any_of_v = is_any_of<ref_type,types...>::value;
-}
-}
+extern void vectorized_to_ns_from_1970(
+    const std::span<const cdf::epoch16>& input, int64_t* const output);

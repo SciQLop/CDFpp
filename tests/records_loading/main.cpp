@@ -7,12 +7,8 @@
 #include <vector>
 
 
-#if __has_include(<catch2/catch_all.hpp>)
 #include <catch2/catch_all.hpp>
 #include <catch2/catch_test_macros.hpp>
-#else
-#include <catch.hpp>
-#endif
 
 
 #include "cdfpp/cdf-io/loading/records-loading.hpp"

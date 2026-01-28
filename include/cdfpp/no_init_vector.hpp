@@ -82,6 +82,8 @@ public:
 #ifdef MADV_HUGEPAGE
             ::madvise(mem, pCount * sizeof(T), MADV_HUGEPAGE);
 #endif
+            // tell the kernel to start populating the pages
+            ::madvise(mem, pCount * sizeof(T), MADV_WILLNEED);
         }
         else
         {
@@ -91,10 +93,18 @@ public:
         return reinterpret_cast<T*>(mem);
     }
 
+#if __cplusplus < 202002L
     template <bool U = is_trivial_and_nothrow_default_constructible>
     T* allocate(std::size_t pCount, const T* ptr = 0, typename std::enable_if<!U>::type* = 0)
     {
         return A::allocate(pCount, ptr);
+    }
+#endif
+
+    template <bool U = is_trivial_and_nothrow_default_constructible>
+    T* allocate(std::size_t pCount, typename std::enable_if<!U>::type* = 0)
+    {
+        return A::allocate(pCount);
     }
 
     template <bool U = is_trivial_and_nothrow_default_constructible>

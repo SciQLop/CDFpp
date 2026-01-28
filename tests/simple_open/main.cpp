@@ -7,12 +7,8 @@
 #include <vector>
 
 
-#if __has_include(<catch2/catch_all.hpp>)
 #include <catch2/catch_all.hpp>
 #include <catch2/catch_test_macros.hpp>
-#else
-#include <catch.hpp>
-#endif
 
 #include <chrono>
 
@@ -580,7 +576,7 @@ SCENARIO("Loading cdf files", "[CDF]")
                 REQUIRE(has_attribute(cd, "Rules_of_use"));
                 REQUIRE(compare_attribute_values(
                     cd.attributes["Rules_of_use"],
-                    u8"Access to the data is provided as-is, without any additional promises to respond quickly to outages, data quality, etc. We request that you acknowledge the Finnish Meteorological Institute, Tromsø Geophysical Observatory of the University of Tromsø, and Tartu Observatory for use of the FMI data."
+                        "Access to the data is provided as-is, without any additional promises to respond quickly to outages, data quality, etc. We request that you acknowledge the Finnish Meteorological Institute, Tromsø Geophysical Observatory of the University of Tromsø, and Tartu Observatory for use of the FMI data."
                     ));
             }
         }
