@@ -116,14 +116,14 @@ namespace saving
             {
                 vc.vdr.record.VDRnext = last_offset;
                 last_offset = vc.vdr.offset;
+                if (vc.cpr)
+                {
+                    vc.vdr.record.CPRorSPRoffset = vc.cpr.value().offset;
+                }
                 if (std::size(vc.vxrs) >= 1)
                 {
                     vc.vdr.record.VXRhead = vc.vxrs.front().offset;
                     vc.vdr.record.VXRtail = vc.vxrs.back().offset;
-                    if (vc.cpr)
-                    {
-                        vc.vdr.record.CPRorSPRoffset = vc.cpr.value().offset;
-                    }
                     link_vxrs(vc);
                 }
             });
