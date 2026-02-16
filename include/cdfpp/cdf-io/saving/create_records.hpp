@@ -213,10 +213,32 @@ namespace saving
         {
             int32_t index = std::size(svg_ctx.body.variables);
             auto& var_ctx = svg_ctx.body.variables.emplace_back(
-                variable_ctx { variable.compression_type(), index, &variable,
-                    cdf_zVDR_t<v3x_tag> { {}, 0, variable.type(), 0, 0, 0, !variable.is_nrv(), 0, 0,
-                        -1, -1, 0, index, 0, 0, { name }, 0, {}, {}, {} },
-                    {}, {} });
+                variable_ctx { .compression = variable.compression_type(),
+                    .number = index,
+                    .variable = &variable,
+                    .vdr = cdf_zVDR_t<v3x_tag> { .header = {},
+                        .VDRnext = 0,
+                        .DataType = variable.type(),
+                        .MaxRec = 0,
+                        .VXRhead = 0,
+                        .VXRtail = 0,
+                        .Flags = !variable.is_nrv(),
+                        .SRecords = 0,
+                        .rfuB = { 0 },
+                        .rfuC = { -1 },
+                        .rfuF = { -1 },
+                        .NumElems = 0,
+                        .Num = index,
+                        .CPRorSPRoffset = 0,
+                        .BlockingFactor = 0,
+                        .Name = { name },
+                        .zNumDims = 0,
+                        .zDimSizes = {},
+                        .DimVarys = {},
+                        .PadValues = {} },
+                    .vxrs = {},
+                    .values_records {},
+                    .cpr = std::nullopt });
 
             populate_variable_geometry(variable, var_ctx.vdr.record);
             if (variable.compression_type() != cdf_compression_type::no_compression)

@@ -203,6 +203,15 @@ class PycdfCreateCDFTest(unittest.TestCase):
             cdf.add_variable("test", data_type=pycdfpp.DataType.CDF_TIME_TT2000)
             self.assertTrue(pycdfpp.save(cdf, f.name))
 
+    def test_can_save_a_cdf_with_an_empty_compressed_var(self):
+        # https://github.com/SciQLop/CDFpp/issues/25
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("test", data_type=pycdfpp.DataType.CDF_TIME_TT2000, compression=pycdfpp.CompressionType.gzip_compression)
+        reloaded_cdf = pycdfpp.load(pycdfpp.save(cdf))
+        self.assertEqual(reloaded_cdf["test"].shape, (0,))
+        self.assertEqual(reloaded_cdf["test"].compression, pycdfpp.CompressionType.gzip_compression)
+
+
 
 if __name__ == '__main__':
     unittest.main()
