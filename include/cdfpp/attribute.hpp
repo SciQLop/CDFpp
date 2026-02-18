@@ -56,6 +56,10 @@ struct Attribute
     Attribute& operator=(const Attribute&) = default;
     Attribute(const std::string& name, attr_data_t&& data) : name { name }
     {
+        if (name.empty())
+        {
+            throw std::invalid_argument { "Attribute name cannot be empty" };
+        }
         this->data = std::move(data);
     }
 
@@ -177,6 +181,10 @@ struct VariableAttribute
     VariableAttribute& operator=(const VariableAttribute&) = default;
     VariableAttribute(const std::string& name, attr_data_t&& data) : name { name }
     {
+        if (name.empty())
+        {
+            throw std::invalid_argument { "Attribute name cannot be empty" };
+        }
         this->data = std::move(data);
     }
 

@@ -102,6 +102,10 @@ struct Variable
             , p_is_nrv { is_nrv }
             , p_compression { compression_type }
     {
+        if (name.empty())
+        {
+            throw std::invalid_argument { "Variable name cannot be empty" };
+        }
         if (this->majority() == cdf_majority::column)
         {
             majority::swap(_data(), p_shape);
@@ -120,6 +124,10 @@ struct Variable
             , p_is_nrv { is_nrv }
             , p_compression { compression_type }
     {
+        if (name.empty())
+        {
+            throw std::invalid_argument { "Variable name cannot be empty" };
+        }
     }
 
     inline bool operator==(const Variable& other) const
