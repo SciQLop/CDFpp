@@ -36,6 +36,8 @@
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const cdf_map<std::string, cdf::Variable>& variables)
 {
+    std::for_each(std::cbegin(variables), std::cend(variables),
+        [&os](const auto& item) { item.second.__repr__(os, indent_t {}, false); });
     return os;
 }
 

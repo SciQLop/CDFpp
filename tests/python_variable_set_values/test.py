@@ -263,6 +263,20 @@ class PycdfFilterCDF(unittest.TestCase):
         self.assertIn("global_attr2", self.cdf.attributes)
         self.assertIn("global_attr3", self.cdf.attributes)
 
+class PycdfEmptyNamesAreNotAllowed(unittest.TestCase):
+    def test_variable_name_cannot_be_empty(self):
+        cdf = pycdfpp.CDF()
+        with self.assertRaises(ValueError):
+            cdf.add_variable("", values=np.arange(10))
+
+    def test_attribute_name_cannot_be_empty(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("var1", values=np.arange(10))
+        with self.assertRaises(ValueError):
+            cdf["var1"].add_attribute("", "value")
+        with self.assertRaises(ValueError):
+            cdf.add_attribute("", ["value"])
+
 
 if __name__ == '__main__':
     unittest.main()
