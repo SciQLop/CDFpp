@@ -67,7 +67,7 @@ struct nomap_node : public std::pair<Key, details::base_type_t<T>>
 
     friend void swap(nomap_node& lhs, nomap_node& rhs)
     {
-        std::swap(lhs.first, rhs.second);
+        std::swap(lhs.first, rhs.first);
         std::swap(lhs.second, rhs.second);
         std::swap(lhs.p_empty, rhs.p_empty);
     }
@@ -116,6 +116,8 @@ struct nomap
 
     inline bool operator==(const nomap& other) const
     {
+        if (size() != other.size())
+            return false;
         for (const auto& node : p_nodes)
         {
             if (!other.count(node.key()))
@@ -229,7 +231,7 @@ struct nomap
         if (position != cend())
         {
             auto next_idx = (position - cbegin());
-            std::swap(*position, p_nodes.back());
+            std::swap(p_nodes[next_idx], p_nodes.back());
             p_nodes.pop_back();
             return cbegin() + next_idx;
         }
