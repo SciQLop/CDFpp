@@ -97,7 +97,7 @@ struct Variable
             : p_name { name }
             , p_number { number }
             , p_data { std::move(data) }
-            , p_shape { shape }
+            , p_shape { std::move(shape) }
             , p_majority { majority }
             , p_is_nrv { is_nrv }
             , p_compression { compression_type }
@@ -119,7 +119,7 @@ struct Variable
             : p_name { name }
             , p_number { number }
             , p_data { std::move(data) }
-            , p_shape { shape }
+            , p_shape { std::move(shape) }
             , p_majority { majority }
             , p_is_nrv { is_nrv }
             , p_compression { compression_type }
