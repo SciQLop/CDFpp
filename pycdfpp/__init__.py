@@ -336,8 +336,8 @@ def _patch_add_variable():
         elif data_type is not None:
             var.set_values([], data_type)
         if attributes is not None and var is not None:
-            for name, values in attributes.items():
-                var.add_attribute(name, values)
+            for attr_name, attr_values in attributes.items():
+                var.add_attribute(attr_name, attr_values)
         return var
 
     CDF.add_variable = _add_variable_wrapper
