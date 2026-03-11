@@ -58,8 +58,9 @@ namespace _internal
     template <typename T>
     CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(const T& input)
     {
-        no_init_vector<char> result(std::max(std::size(input), std::size_t { 16 * 1024UL }));
         auto compressor = libdeflate_alloc_compressor(6);
+        no_init_vector<char> result(
+            libdeflate_gzip_compress_bound(compressor, std::size(input)));
         auto compressed_size = libdeflate_gzip_compress(
             compressor, input.data(), std::size(input), result.data(), std::size(result));
         libdeflate_free_compressor(compressor);

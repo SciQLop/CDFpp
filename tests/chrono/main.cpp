@@ -17,6 +17,7 @@ TEST_CASE("Leap Seconds", "")
         for (const auto& item : leap_seconds_tt2000)
         {
             REQUIRE(cdf::_impl::leap_second(item.first + 1000000000) == item.second);
+            REQUIRE(cdf::_impl::leap_second(item.first) == item.second);
         }
     }
     SECTION("int64_t leap_second_branchless(int64_t ns_from_1970)")
