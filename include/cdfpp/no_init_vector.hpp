@@ -88,6 +88,8 @@ public:
         else
         {
             mem = ::malloc(bytes);
+            if (!mem)
+                throw std::bad_alloc();
         }
         //::memset(reinterpret_cast<char*>(mem),0x9e,bytes);
         return reinterpret_cast<T*>(mem);
