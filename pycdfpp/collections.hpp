@@ -72,6 +72,8 @@ namespace _details
 [[nodiscard]] std::size_t string_length(const PyObject* obj)
 {
     Py_ssize_t len = 0;
+    // Return value (UTF-8 pointer) intentionally ignored — only called on
+    // objects already known to be Python unicode strings (dict keys).
     PyUnicode_AsUTF8AndSize(const_cast<PyObject*>(obj), &len);
     return static_cast<std::size_t>(len);
 }
