@@ -624,9 +624,11 @@ def filter_cdf(cdf: CDF,
     cdf : CDF
         The CDF object to filter.
     variables : Union[List[str], str, re.Pattern, Callable[[Variable], bool]], optional
-        A list of variable names to keep or a regex pattern or a callable function that returns True for variables to keep.
+        A list of variable names to keep, a regex pattern, or a callable that returns True for variables to keep.
+        If None (default), no variables are kept.
     attributes : Union[List[str], str, re.Pattern, Callable[[Attribute], bool]], optional
-        A list of attribute names to keep or a regex pattern or a callable function that returns True for attributes to keep.
+        A list of attribute names to keep, a regex pattern, or a callable that returns True for attributes to keep.
+        If None (default), no attributes are kept.
     inplace : bool, optional
         If True, modifies the original CDF object. If False, returns a new filtered CDF object. (Default is False)
     Returns
