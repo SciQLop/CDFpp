@@ -87,15 +87,21 @@ inline no_init_vector<char> deflate(const T& input)
         {
             _deflate_copy(input.data() + (last_copy_cursor - std::cbegin(input)),
                 input_cursor - last_copy_cursor, result);
-            auto z_count = 0UL;
+            std::size_t z_count = 0;
             do
             {
                 input_cursor++;
                 z_count++;
             } while (input_cursor != std::cend(input) and *input_cursor == 0);
             last_copy_cursor = input_cursor;
+            while (z_count > 256)
+            {
+                result.push_back(0);
+                result.push_back(static_cast<char>(255));
+                z_count -= 256;
+            }
             result.push_back(0);
-            result.push_back(z_count - 1);
+            result.push_back(static_cast<char>(z_count - 1));
         }
         else
         {

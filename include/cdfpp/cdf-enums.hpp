@@ -352,7 +352,7 @@ constexpr auto from_cdf_type()
         case CDF_Types::CDF_UINT2:
             return "CDF_UINT2";
         case CDF_Types::CDF_INT4:
-            return "CDF_INT1";
+            return "CDF_INT4";
         case CDF_Types::CDF_UINT4:
             return "CDF_UINT4";
         case CDF_Types::CDF_FLOAT:
