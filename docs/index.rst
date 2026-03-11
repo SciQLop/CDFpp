@@ -87,6 +87,28 @@ Datetimes handling:
     # note that using datetime64 is ~100x faster than datetime (~2ns/element on an average laptop)
 
 
+Lazy loading
+------------
+
+By default, ``pycdfpp.load`` uses lazy loading: variable metadata (name, shape, type,
+attributes) is read immediately, but variable **values** are only loaded from disk when
+first accessed. This makes opening large CDF files very fast when you only need a
+subset of variables.
+
+.. code-block:: python
+
+    import pycdfpp
+
+    # Lazy loading (default) — fast open, values loaded on demand
+    cdf = pycdfpp.load("large_file.cdf")
+    cdf["Epoch"].values_loaded  # False — not yet read from disk
+    data = cdf["Epoch"].values  # triggers the actual read
+    cdf["Epoch"].values_loaded  # True
+
+    # Eager loading — all values read upfront
+    cdf = pycdfpp.load("large_file.cdf", lazy_load=False)
+
+
 Writing CDF files
 -----------------
 
@@ -100,9 +122,127 @@ Creating a basic CDF file:
 
     cdf = pycdfpp.CDF()
     cdf.add_attribute("some attribute", [[1,2,3], [datetime(2018,1,1), datetime(2018,1,2)], "hello\nworld"])
-    cdf.add_variable(f"some variable", values=np.ones((10),dtype=np.float64))
+    cdf.add_variable("some variable", values=np.ones((10),dtype=np.float64))
     pycdfpp.save(cdf, "some_cdf.cdf")
 
+
+Working with variable attributes
+---------------------------------
+
+Variables can have their own attributes (distinct from global CDF attributes).
+These are commonly used for ISTP metadata such as ``DEPEND_0``, ``FILLVAL``, ``UNITS``, etc.
+
+.. code-block:: python
+
+    import pycdfpp
+    import numpy as np
+
+    cdf = pycdfpp.CDF()
+    var = cdf.add_variable("Flux", values=np.ones((100, 3), dtype=np.float64))
+
+    # Add attributes to a variable
+    var.add_attribute("UNITS", "cm^-2 s^-1")
+    var.add_attribute("DEPEND_0", "Epoch")
+    var.add_attribute("FILLVAL", [-1e31])
+
+    # Read variable attributes
+    print(var.attributes["UNITS"].value)      # "cm^-2 s^-1"
+    print(list(var.attributes))               # ["UNITS", "DEPEND_0", "FILLVAL"]
+
+    # Modify an existing attribute value
+    var.attributes["UNITS"].set_value("m^-2 s^-1")
+
+
+Modifying variables
+-------------------
+
+You can update the values of an existing variable using ``set_values``:
+
+.. code-block:: python
+
+    import pycdfpp
+    import numpy as np
+
+    cdf = pycdfpp.CDF()
+    var = cdf.add_variable("data", values=np.zeros(10, dtype=np.float64))
+
+    # Replace values (must match shape and type, unless force=True)
+    var.set_values(np.ones(10, dtype=np.float64))
+
+    # Force replacement with different shape or type
+    var.set_values(np.arange(20, dtype=np.int32), force=True)
+
+
+Using compression
+-----------------
+
+Variables and entire CDF files can use GZip or RLE compression:
+
+.. code-block:: python
+
+    import pycdfpp
+    import numpy as np
+
+    cdf = pycdfpp.CDF()
+
+    # Per-variable compression
+    cdf.add_variable("compressed_var",
+                     values=np.arange(1000, dtype=np.float64),
+                     compression=pycdfpp.CompressionType.gzip_compression)
+
+    # Whole-file compression
+    cdf.compression = pycdfpp.CompressionType.gzip_compression
+
+    pycdfpp.save(cdf, "compressed.cdf")
+
+
+Filtering CDF files
+-------------------
+
+Use ``CDF.filter`` to create a copy containing only the variables and attributes
+you need:
+
+.. code-block:: python
+
+    import pycdfpp
+
+    cdf = pycdfpp.load("large_file.cdf")
+
+    # Keep only specific variables by name
+    filtered = cdf.filter(variables=["Epoch", "Flux"])
+
+    # Keep variables matching a regex pattern
+    filtered = cdf.filter(variables="tha_fg.*")
+
+    # Keep variables matching a callable
+    filtered = cdf.filter(variables=lambda v: v.type == pycdfpp.DataType.CDF_DOUBLE)
+
+    # Keep specific global attributes
+    filtered = cdf.filter(variables=["Epoch"], attributes=["Project", "Source_name"])
+
+    # Filter in-place (modifies the original)
+    cdf.filter(variables=["Epoch"], inplace=True)
+
+
+Exporting to dictionary
+------------------------
+
+Use ``pycdfpp.to_dict_skeleton`` to export the structure of a CDF, variable, or attribute
+as a plain dictionary (useful for JSON serialization or inspection):
+
+.. code-block:: python
+
+    import pycdfpp
+    import json
+
+    cdf = pycdfpp.load("some_cdf.cdf")
+
+    # Export full CDF structure (without variable data)
+    skeleton = pycdfpp.to_dict_skeleton(cdf)
+    print(json.dumps(skeleton, indent=2, default=str))
+
+    # Export a single variable's metadata
+    var_info = pycdfpp.to_dict_skeleton(cdf["some_var"])
 
 
 FAQ
@@ -127,7 +267,35 @@ Use numpy types to control the type of integer attributes:
     # or:
     cdf.add_attribute("int8 attribute2", [[np.int8(1)]])
 
-How to make special values (FILLVAL, Pad valuse, etc.)?
+Why do I get a segfault when accessing attributes after modifying a CDF?
+------------------------------------------------------------------------
+
+PyCDFpp returns lightweight references into the underlying C++ data structures.
+Adding or removing variables or attributes may reallocate internal storage, which
+invalidates any previously obtained reference. Always re-fetch references after
+mutating the CDF:
+
+.. code-block:: python
+
+    import pycdfpp
+    import numpy as np
+
+    cdf = pycdfpp.CDF()
+    cdf.add_variable("var1", values=np.ones(10))
+    var1 = cdf["var1"]
+
+    # UNSAFE — var1 may be invalidated by the next add_variable call
+    cdf.add_variable("var2", values=np.zeros(5))
+    # var1.values  # may segfault!
+
+    # SAFE — re-fetch after mutation
+    var1 = cdf["var1"]
+    var1.values  # ok
+
+The same applies to attribute references: do not hold onto a reference returned by
+``var.attributes["name"]`` while adding or removing attributes on the same variable.
+
+How to make special values (FILLVAL, Pad values, etc.)?
 -------------------------------------------------------
 
 Use the `pycdfpp.default_fill_value` and `pycdfpp.default_pad_value` functions to create Fill or Pad values depending on the CDF type:

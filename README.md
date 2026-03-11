@@ -1,6 +1,6 @@
 [![GitHub License](https://img.shields.io/github/license/SciQLop/CDFpp)](https://mit-license.org/)
 [![Documentation Status](https://readthedocs.org/projects/pycdfpp/badge/?version=latest)](https://pycdfpp.readthedocs.io/en/latest/?badge=latest)
-[![CPP17](https://img.shields.io/badge/Language-C++17-blue.svg)]()
+[![CPP20](https://img.shields.io/badge/Language-C++20-blue.svg)]()
 [![PyPi](https://img.shields.io/pypi/v/pycdfpp.svg)](https://pypi.python.org/pypi/pycdfpp)
 [![Coverage](https://codecov.io/gh/SciQLop/CDFpp/coverage.svg?branch=main)](https://codecov.io/gh/SciQLop/CDFpp/branch/main)
 [![Discover on MyBinder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SciQLop/CDFpp/main?labpath=examples/notebooks)
@@ -95,7 +95,7 @@ ninja
 sudo ninja install
 ```
 
-Or if youl want to build a Python wheel:
+Or if you want to build a Python wheel:
 
 ```bash
 python -m build . 
@@ -186,7 +186,7 @@ pycdfpp.save(cdf, "some_cdf.cdf")
 
 ## C++
 ```cpp
-#include "cdf-io/cdf-io.hpp"
+#include "cdfpp/cdf-io/cdf-io.hpp"
 #include <iostream>
 
 std::ostream& operator<<(std::ostream& os, const cdf::Variable::shape_t& shape)
@@ -222,5 +222,6 @@ int main(int argc, char** argv)
 }
 ```
 
-## caveats
-- NRV variables shape, in order to expose a consistent shape, PyCDFpp exposes the reccord count as first dimension and thus its value will be either 0 or 1 (0 mean empty variable).
+## Caveats
+- **NRV variables shape**: in order to expose a consistent shape, PyCDFpp exposes the record count as first dimension and thus its value will be either 0 or 1 (0 means empty variable).
+- **Reference invalidation**: PyCDFpp returns references into C++ data structures. Adding or removing variables/attributes may invalidate previously obtained references. Always re-fetch after mutation (see [documentation](https://pycdfpp.readthedocs.io/en/latest/) for details).
