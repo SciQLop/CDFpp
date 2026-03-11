@@ -104,7 +104,7 @@ struct Attribute
 
     inline Attribute& operator=(attr_data_t&& new_data)
     {
-        data = new_data;
+        data = std::move(new_data);
         return *this;
     }
 
@@ -231,7 +231,7 @@ struct VariableAttribute
 
     inline VariableAttribute& operator=(attr_data_t&& new_data)
     {
-        data = new_data;
+        data = std::move(new_data);
         return *this;
     }
 
