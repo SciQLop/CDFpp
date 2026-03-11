@@ -190,7 +190,7 @@ namespace
 
         if (vdr.VXRhead != 0 && load_record(vxr, stream, vdr.VXRhead))
         {
-            load_var_data(stream, data.bytes_ptr(), record_count * record_size, pos, vxr,
+            load_var_data(stream, data.bytes_ptr(), static_cast<std::size_t>(record_count) * record_size, pos, vxr,
                 record_size, compression_type);
             if (vxr.VXRnext)
             {
@@ -198,7 +198,7 @@ namespace
                 {
                     if (load_record(vxr, stream, vxr.VXRnext))
                     {
-                        load_var_data(stream, data.bytes_ptr(), record_count * record_size, pos,
+                        load_var_data(stream, data.bytes_ptr(), static_cast<std::size_t>(record_count) * record_size, pos,
                             vxr, record_size, compression_type);
                     }
                     else
