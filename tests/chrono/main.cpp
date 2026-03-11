@@ -143,6 +143,18 @@ TEST_CASE("timepoint to cdf epoch16", "")
     }
 }
 
+TEST_CASE("timepoint to cdf epoch16 sub-second precision", "")
+{
+    using namespace std::chrono;
+
+    auto tp = time_point<system_clock> {} + seconds(1'700'000'000) + nanoseconds(123'456'789);
+    auto ep16 = cdf::to_epoch16(tp);
+    double expected_seconds = 1'700'000'000.0 + cdf::chrono::constants::epoch_offset_seconds;
+    double expected_picoseconds = 123'456'789'000.0;
+    REQUIRE(ep16.seconds == expected_seconds);
+    REQUIRE(ep16.picoseconds == expected_picoseconds);
+}
+
 TEST_CASE("timepoint to cdf tt2000", "")
 {
     using namespace std::chrono;
