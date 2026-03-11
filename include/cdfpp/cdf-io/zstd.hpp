@@ -42,7 +42,7 @@ namespace _internal
     {
         const auto ret = ZSTD_decompress(output, output_size, input.data(), std::size(input));
 
-        if (ret != ZSTD_isError(ret))
+        if (!ZSTD_isError(ret))
             return ret;
         else
             return 0;
@@ -54,7 +54,7 @@ namespace _internal
         no_init_vector<char> result(ZSTD_compressBound(std::size(input)));
         const auto ret
             = ZSTD_compress(result.data(), result.size(), input.data(), std::size(input), 1);
-        if (ret != ZSTD_isError(ret))
+        if (!ZSTD_isError(ret))
         {
             result.resize(ret);
             result.shrink_to_fit();

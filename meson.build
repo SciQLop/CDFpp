@@ -124,8 +124,6 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-io/saving/link_records.hpp'
 )
 
-subdir('simd')
-
 if get_option('with_experimental_zstd')
     add_project_arguments('-DCDFPP_USE_ZSTD', language : ['cpp'])
     zstd_dep = dependency('libzstd')
@@ -135,6 +133,8 @@ if get_option('with_experimental_zstd')
 else
     zstd_dep = declare_dependency()
 endif
+
+subdir('simd')
 
 
 pycdfpp_headers = files(

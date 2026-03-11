@@ -25,6 +25,25 @@ TEST_CASE("IDEMPOTENCY check", "")
     cdf::io::zstd::inflate(w2, w.data(), std::size(ref));
     REQUIRE(ref == w);
 }
+
+TEST_CASE("inflate returns 0 on garbage input", "")
+{
+    no_init_vector<char> garbage { 'n', 'o', 't', ' ', 'z', 's', 't', 'd' };
+    char output[256] = {};
+    auto ret = cdf::io::zstd::inflate(garbage, output, sizeof(output));
+    REQUIRE(ret == 0);
+}
+
+TEST_CASE("deflate then inflate with truncated data returns 0", "")
+{
+    const no_init_vector<char> ref = build_ref();
+    auto compressed = cdf::io::zstd::deflate(ref);
+    REQUIRE(std::size(compressed) > 4);
+    compressed.resize(4);
+    char output[16000] = {};
+    auto ret = cdf::io::zstd::inflate(compressed, output, sizeof(output));
+    REQUIRE(ret == 0);
+}
 #else
 TEST_CASE("Skip check", "") { }
 #endif
