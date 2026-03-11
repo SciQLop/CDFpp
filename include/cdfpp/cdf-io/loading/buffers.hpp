@@ -263,7 +263,11 @@ struct mmap_adapter
                         mapped_file = static_cast<char*>(mmap(
                             nullptr, this->f_size, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0UL));
                         if (mapped_file == MAP_FAILED)
+                        {
                             mapped_file = nullptr;
+                            close(fd);
+                            fd = -1;
+                        }
                     }
                 }
 #endif

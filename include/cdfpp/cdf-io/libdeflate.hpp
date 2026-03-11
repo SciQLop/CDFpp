@@ -59,6 +59,8 @@ namespace _internal
     CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(const T& input)
     {
         auto compressor = libdeflate_alloc_compressor(6);
+        if (!compressor)
+            return {};
         no_init_vector<char> result(
             libdeflate_gzip_compress_bound(compressor, std::size(input)));
         auto compressed_size = libdeflate_gzip_compress(
