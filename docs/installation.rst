@@ -42,7 +42,7 @@ Or download the `tarball`_:
 
     $ curl  -OL https://github.com/SciQLop/cdfpp/tarball/main
 
-Once you have a copy of the source, you can install it with (a working C++17 compiler is needed):
+Once you have a copy of the source, you can install it with (a working C++20 compiler is needed):
 
 .. code-block:: console
 
