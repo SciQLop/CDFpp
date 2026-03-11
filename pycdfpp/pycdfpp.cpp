@@ -68,7 +68,14 @@ auto def_cdf_map(T3& mod, const char* name)
     return py::class_<cdf_map<T1, T2>>(mod, name)
         .def("__repr__", __repr__<cdf_map<T1, T2>>)
         .def(
-            "__getitem__", [](cdf_map<T1, T2>& m, const std::string& key) -> T2& { return m[key]; },
+            "__getitem__",
+            [](cdf_map<T1, T2>& m, const std::string& key) -> T2&
+            {
+                auto it = m.find(key);
+                if (it == m.end())
+                    throw py::key_error(key);
+                return it->second;
+            },
             py::return_value_policy::reference_internal)
         .def("__contains__",
             [](const cdf_map<T1, T2>& m, std::string& key) { return m.count(key) > 0; })
