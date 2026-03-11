@@ -70,7 +70,7 @@ class PycdfCreateCDFTest(unittest.TestCase):
         self.assertEqual(pycdfpp.CDF(), pycdfpp.CDF())
 
     def test_compare_differents_cdfs(self):
-        self.assertEqual(make_cdf(), pycdfpp.CDF())
+        self.assertNotEqual(make_cdf(), pycdfpp.CDF())
 
     def test_in_memory_save_load_empty_CDF_object(self):
         cdf = pycdfpp.CDF()
