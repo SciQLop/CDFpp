@@ -255,9 +255,9 @@ struct blk_iterator
         return *this;
     }
 
-    blk_iterator& operator++(int n)
+    blk_iterator& operator++(int)
     {
-        step_forward(n);
+        step_forward();
         return *this;
     }
 
