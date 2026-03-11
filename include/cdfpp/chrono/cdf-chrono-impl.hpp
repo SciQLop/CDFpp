@@ -49,7 +49,7 @@ inline int64_t leap_second_branchless(int64_t ns_from_1970)
 
 inline int64_t leap_second(int64_t ns_from_1970)
 {
-    if (ns_from_1970 > leap_seconds::leap_seconds_tt2000.front().first)
+    if (ns_from_1970 >= leap_seconds::leap_seconds_tt2000.front().first)
     {
         if (ns_from_1970 < leap_seconds::leap_seconds_tt2000.back().first)
         {

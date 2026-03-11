@@ -217,6 +217,9 @@ inline auto to_time_point(const epoch& ep)
 
 inline auto to_time_point(const epoch16& ep)
 {
+    // Unlike epoch (single double), epoch16 stores integer seconds separately from
+    // picoseconds, so this subtraction is between integer-valued doubles both well
+    // within 2^53 — no catastrophic cancellation.
     double s = ep.seconds - constants::epoch_offset_seconds, ns;
     ns = ep.picoseconds / 1000.;
     return std::chrono::time_point<std::chrono::system_clock> {} + seconds(static_cast<int64_t>(s))
