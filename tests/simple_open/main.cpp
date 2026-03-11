@@ -297,6 +297,20 @@ SCENARIO("Loading cdf files", "[CDF]")
                 REQUIRE(cdf::io::load("wrongfile.cdf") == std::nullopt);
             }
         }
+        WHEN("path is an empty string")
+        {
+            THEN("Loading file returns nullopt")
+            {
+                REQUIRE(cdf::io::load("") == std::nullopt);
+            }
+        }
+        WHEN("path is a directory, not a file")
+        {
+            THEN("Loading file throws or returns nullopt")
+            {
+                REQUIRE_THROWS(cdf::io::load(DATA_PATH));
+            }
+        }
         WHEN("file exists but isn't a cdf file")
         {
             THEN("Loading file returns nullopt")
