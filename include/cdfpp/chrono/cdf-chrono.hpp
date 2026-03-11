@@ -142,11 +142,10 @@ no_init_vector<epoch> to_epoch(const auto& tps)
 
 epoch16 to_epoch16(const time_point_t auto& tp)
 {
-    auto se = static_cast<double>(duration_cast<seconds>(tp.time_since_epoch()).count());
-    auto s = se + constants::epoch_offset_seconds;
-    auto ps = (static_cast<double>(duration_cast<nanoseconds>(tp.time_since_epoch()).count())
-                  - (se * 1e9))
-        * 1000.;
+    auto total_ns = duration_cast<nanoseconds>(tp.time_since_epoch()).count();
+    auto se = duration_cast<seconds>(tp.time_since_epoch()).count();
+    auto s = static_cast<double>(se) + constants::epoch_offset_seconds;
+    auto ps = static_cast<double>(total_ns - se * 1'000'000'000LL) * 1000.;
     return epoch16 { s, ps };
 }
 
