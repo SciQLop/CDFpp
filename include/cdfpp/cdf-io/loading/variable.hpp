@@ -111,7 +111,7 @@ namespace
     template <typename cdf_version_tag_t, typename buffer_t>
     inline void load_vvr_data(buffer_t& stream, std::size_t offset,
         const cdf_VVR_t<cdf_version_tag_t>& vvr, const std::size_t vvr_records_count,
-        const uint32_t record_size, std::size_t& pos, char* data, std::size_t data_len)
+        const std::size_t record_size, std::size_t& pos, char* data, std::size_t data_len)
     {
         std::size_t vvr_data_size
             = std::min(static_cast<std::size_t>(vvr_records_count * record_size),
@@ -131,7 +131,7 @@ namespace
 
     template <typename cdf_version_tag_t, typename stream_t>
     void load_var_data(stream_t& stream, char* data, std::size_t data_len, std::size_t& pos,
-        const cdf_VXR_t<cdf_version_tag_t>& vxr, uint32_t record_size,
+        const cdf_VXR_t<cdf_version_tag_t>& vxr, std::size_t record_size,
         const cdf_compression_type compression_type)
     {
         for (auto i = 0UL; i < vxr.NusedEntries; i++)
@@ -179,7 +179,7 @@ namespace
     }
 
     template <typename VDR_t, typename stream_t>
-    data_t load_var_data(stream_t& stream, const VDR_t& vdr, const uint32_t record_size,
+    data_t load_var_data(stream_t& stream, const VDR_t& vdr, const std::size_t record_size,
         const uint32_t record_count, const cdf_compression_type compression_type)
     {
         data_t data = new_data_container(
@@ -216,7 +216,7 @@ namespace
     struct defered_variable_loader
     {
         defered_variable_loader(stream_t stream, cdf_encoding encoding, VDR_t vdr,
-            uint32_t record_count, uint32_t record_size, cdf_compression_type compression)
+            uint32_t record_count, std::size_t record_size, cdf_compression_type compression)
                 : p_stream { stream }
                 , p_encoding { encoding }
                 , p_vdr { vdr }
@@ -239,7 +239,7 @@ namespace
         cdf_encoding p_encoding;
         VDR_t p_vdr;
         uint32_t p_record_count;
-        uint32_t p_record_size;
+        std::size_t p_record_size;
         cdf_compression_type p_compression;
     };
 
@@ -252,7 +252,7 @@ namespace
                 const auto& [offset, vdr] = blk;
                 {
                     auto shape = get_variable_dimensions<type>(vdr, context);
-                    const uint32_t record_size = var_record_size(shape, vdr.DataType);
+                    const std::size_t record_size = var_record_size(shape, vdr.DataType);
                     const auto is_nrv = common::is_nrv(vdr);
                     const auto compression_type = [&, &stream = context, &vdr = vdr]()
                     {
@@ -271,7 +271,7 @@ namespace
                             return 1;
                         else
                         {
-                            return MaxRec + 1;
+                            return static_cast<uint32_t>(MaxRec) + 1U;
                         }
                     }();
                     /*if ((vdr.DataType != CDF_Types::CDF_CHAR

@@ -190,6 +190,10 @@ struct analyze_context
 {
     // CDF format only supports up to signed 64 bits integers and unsigned 32 bits integers
     int64_t val = PyLong_AsLongLong(const_cast<PyObject*>(value));
+    if (val == -1 && PyErr_Occurred())
+    {
+        throw py::error_already_set();
+    }
     return { BestTypeId::Int64, val, val, 0 };
 }
 

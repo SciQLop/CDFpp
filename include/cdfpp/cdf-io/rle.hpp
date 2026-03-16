@@ -38,18 +38,23 @@ namespace _internal
 }
 
 template <typename T>
-inline std::size_t inflate(const T& input, char* output, const std::size_t)
+inline std::size_t inflate(const T& input, char* output, const std::size_t output_size)
 {
     auto output_cursor = output;
+    const auto output_end = output + output_size;
     auto input_cursor = std::cbegin(input);
-    while (input_cursor != std::cend(input))
+    while (input_cursor != std::cend(input) && output_cursor < output_end)
     {
         auto value = *input_cursor;
         if (value == 0)
         {
             input_cursor++;
-            std::size_t count = static_cast<unsigned char>(*input_cursor) + 1;
-            std::generate_n(output_cursor, count, []() constexpr { return 0; });
+            if (input_cursor == std::cend(input))
+                break;
+            std::size_t count
+                = std::min(static_cast<std::size_t>(static_cast<unsigned char>(*input_cursor) + 1),
+                    static_cast<std::size_t>(output_end - output_cursor));
+            std::fill_n(output_cursor, count, char { 0 });
             output_cursor += count;
         }
         else

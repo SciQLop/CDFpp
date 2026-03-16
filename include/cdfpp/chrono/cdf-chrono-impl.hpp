@@ -70,7 +70,7 @@ inline int64_t leap_second(int64_t ns_from_1970)
 
 inline int64_t leap_second(const tt2000_t& ep)
 {
-    if (ep.nseconds > leap_seconds::leap_seconds_tt2000_reverse.front().first)
+    if (ep.nseconds >= leap_seconds::leap_seconds_tt2000_reverse.front().first)
     {
         if (ep.nseconds < leap_seconds::leap_seconds_tt2000_reverse.back().first)
         {
@@ -108,6 +108,8 @@ inline auto _leap_second(const tt2000_t& ep, std::size_t leap_index_hint)
         {
             --leap_index_hint;
         }
+        if (ep.nseconds < leap_seconds::leap_seconds_tt2000_reverse[0].first)
+            return std::tuple { int64_t { 0 }, std::size_t { 0 } };
         return std::tuple { leap_seconds::leap_seconds_tt2000_reverse[leap_index_hint].second,
             leap_index_hint };
     }
