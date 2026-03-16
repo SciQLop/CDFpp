@@ -313,6 +313,8 @@ struct _to_ns_from_1970_tt2000_t
                            leap_seconds::leap_seconds_tt2000_reverse[leap_index].first));
                 leap_index--;
             }
+            // Values before all table entries still need one final correction
+            offset = xsimd::select(needs_correction, offset + one_sec, offset);
             store<Arch, output_align_mode>(tt2000_batch + offset, &output[i]);
         }
         // sfence<Arch>();

@@ -240,7 +240,7 @@ struct nomap
 
     inline iterator erase(const_iterator first, const_iterator last)
     {
-        if (first != cend() and last != cend() and first <= last)
+        if (first != cend() and first <= last)
         {
             auto next_idx = (first - cbegin());
             auto count = last - first;
@@ -249,7 +249,7 @@ struct nomap
                 std::swap(p_nodes[next_idx], p_nodes.back());
                 p_nodes.pop_back();
             }
-            return cbegin() + next_idx;
+            return begin() + next_idx;
         }
         return end();
     }

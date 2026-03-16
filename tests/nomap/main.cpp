@@ -89,6 +89,38 @@ SCENARIO("nomap operator== is symmetric", "[CDF][nomap]")
     }
 }
 
+SCENARIO("nomap erase(begin, end) clears the map", "[CDF][nomap]")
+{
+    GIVEN("a nomap with three entries")
+    {
+        nomap<std::string, int> map;
+        map["a"] = 1;
+        map["b"] = 2;
+        map["c"] = 3;
+
+        WHEN("erasing the full range erase(begin(), end())")
+        {
+            map.erase(map.cbegin(), map.cend());
+
+            THEN("the map is empty")
+            {
+                REQUIRE(map.size() == 0);
+                REQUIRE(map.empty());
+            }
+        }
+
+        WHEN("erasing a partial range ending at end()")
+        {
+            map.erase(map.cbegin() + 1, map.cend());
+
+            THEN("only the first element remains")
+            {
+                REQUIRE(map.size() == 1);
+            }
+        }
+    }
+}
+
 SCENARIO("nomap", "[CDF]")
 {
     GIVEN("a map")

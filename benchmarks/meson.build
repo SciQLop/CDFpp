@@ -1,5 +1,5 @@
 google_benchmarks_dep = dependency('benchmark', required : true)
-foreach bench:['file_reader', 'chrono']
+foreach bench:['file_reader', 'chrono', 'rle']
     exe = executable('benchmark-'+bench, bench+'/main.cpp',
                     dependencies:[google_benchmarks_dep, cdfpp_dep],
                     install: false

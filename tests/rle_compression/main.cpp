@@ -58,3 +58,29 @@ TEST_CASE("IDEMPOTENCY check", "")
     cdf::io::rle::inflate(w2, w.data(), 9);
     REQUIRE(ref == w);
 }
+
+TEST_CASE("inflate stops at output_size boundary", "")
+{
+    // Compressed data that decompresses to 10 bytes: {0,0,0,0,0, 1, 2, 3, 4, 5}
+    // RLE encoding: {0, 4, 1, 2, 3, 4, 5} (5 zeros encoded as 0x00 0x04, then 5 literals)
+    no_init_vector<char> input { 0, 4, 1, 2, 3, 4, 5 };
+    constexpr std::size_t output_size = 6;
+    no_init_vector<char> output(output_size, static_cast<char>(0xFF));
+    auto written = cdf::io::rle::inflate(input, output.data(), output_size);
+    // inflate must not write more than output_size bytes
+    REQUIRE(written <= output_size);
+}
+
+TEST_CASE("inflate handles truncated input (zero byte at end)", "")
+{
+    // Malformed: a zero byte with no following count byte
+    no_init_vector<char> input { 1, 2, 0 };
+    no_init_vector<char> output(16, static_cast<char>(0xFF));
+    // Must not read past end of input — should either stop or return an error,
+    // not dereference past std::cend(input)
+    auto written = cdf::io::rle::inflate(input, output.data(), 16);
+    // At minimum the two literal bytes should have been written
+    REQUIRE(written >= 2);
+    REQUIRE(output[0] == 1);
+    REQUIRE(output[1] == 2);
+}
