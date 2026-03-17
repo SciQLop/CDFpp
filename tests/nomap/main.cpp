@@ -121,6 +121,43 @@ SCENARIO("nomap erase(begin, end) clears the map", "[CDF][nomap]")
     }
 }
 
+SCENARIO("nomap erase middle range preserves correct elements", "[CDF][nomap]")
+{
+    GIVEN("a nomap with five entries")
+    {
+        nomap<std::string, int> map;
+        map["a"] = 1;
+        map["b"] = 2;
+        map["c"] = 3;
+        map["d"] = 4;
+        map["e"] = 5;
+
+        WHEN("erasing a middle range [begin+1, begin+3)")
+        {
+            auto key_at_0 = map.cbegin()->first;
+            auto key_at_1 = (map.cbegin() + 1)->first;
+            auto key_at_2 = (map.cbegin() + 2)->first;
+            auto key_at_3 = (map.cbegin() + 3)->first;
+            auto key_at_4 = (map.cbegin() + 4)->first;
+
+            map.erase(map.cbegin() + 1, map.cbegin() + 3);
+
+            THEN("size is reduced by 2")
+            {
+                REQUIRE(map.size() == 3);
+            }
+            THEN("erased keys are gone and kept keys remain")
+            {
+                REQUIRE(map.find(key_at_1) == map.end());
+                REQUIRE(map.find(key_at_2) == map.end());
+                REQUIRE(map.find(key_at_0) != map.end());
+                REQUIRE(map.find(key_at_3) != map.end());
+                REQUIRE(map.find(key_at_4) != map.end());
+            }
+        }
+    }
+}
+
 SCENARIO("nomap", "[CDF]")
 {
     GIVEN("a map")
