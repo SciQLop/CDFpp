@@ -40,6 +40,8 @@ namespace _internal
 template <typename T>
 inline std::size_t inflate(const T& input, char* output, const std::size_t output_size)
 {
+    if (output_size == 0 || output == nullptr)
+        return 0;
     auto output_cursor = output;
     const auto output_end = output + output_size;
     auto input_cursor = std::cbegin(input);

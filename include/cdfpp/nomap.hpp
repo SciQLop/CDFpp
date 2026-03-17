@@ -242,14 +242,15 @@ struct nomap
     {
         if (first != cend() and first <= last)
         {
-            auto next_idx = (first - cbegin());
-            auto count = last - first;
-            while (count--)
+            auto start_idx = static_cast<std::size_t>(first - cbegin());
+            auto count = static_cast<std::size_t>(last - first);
+            auto new_size = p_nodes.size() - count;
+            for (std::size_t i = 0; i < count && start_idx + i < new_size; ++i)
             {
-                std::swap(p_nodes[next_idx], p_nodes.back());
-                p_nodes.pop_back();
+                p_nodes[start_idx + i] = std::move(p_nodes[new_size + i]);
             }
-            return begin() + next_idx;
+            p_nodes.resize(new_size);
+            return begin() + start_idx;
         }
         return end();
     }
