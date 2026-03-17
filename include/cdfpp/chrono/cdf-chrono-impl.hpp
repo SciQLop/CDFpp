@@ -98,7 +98,8 @@ inline auto _leap_second(const tt2000_t& ep, std::size_t leap_index_hint)
         {
             ++leap_index_hint;
         }
-        return std::tuple { leap_seconds::leap_seconds_tt2000_reverse[leap_index_hint].second,
+        return std::tuple { static_cast<int64_t>(
+                                 leap_seconds::leap_seconds_tt2000_reverse[leap_index_hint].second),
             leap_index_hint };
     }
     else
@@ -110,7 +111,8 @@ inline auto _leap_second(const tt2000_t& ep, std::size_t leap_index_hint)
         }
         if (ep.nseconds < leap_seconds::leap_seconds_tt2000_reverse[0].first)
             return std::tuple { int64_t { 0 }, std::size_t { 0 } };
-        return std::tuple { leap_seconds::leap_seconds_tt2000_reverse[leap_index_hint].second,
+        return std::tuple { static_cast<int64_t>(
+                                leap_seconds::leap_seconds_tt2000_reverse[leap_index_hint].second),
             leap_index_hint };
     }
 }
