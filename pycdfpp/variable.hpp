@@ -49,6 +49,8 @@ using namespace cdf;
 #include <pybind11/stl_bind.h>
 #include <pybind11/warnings.h>
 
+#include <fmt/core.h>
+
 namespace docstrings
 {
 constexpr auto _Variable = R"(
@@ -477,15 +479,15 @@ inline void set_values(Variable& var, const py_list_or_py_tuple auto& values,
         {
             if (not are_compatible_types(*data_type, spec.inferred_cdf_type) and not spec.is_empty)
             {
-                throw std::invalid_argument {
-                    "Incompatible specified CDF data type and input values"
-                };
+                throw std::invalid_argument { fmt::format(
+                    "Incompatible CDF data type: expected {}, but input values have type {}",
+                    cdf_type_str(*data_type), cdf_type_str(spec.inferred_cdf_type)) };
             }
             if (not _details::are_compatible_shapes(var, spec.shape))
             {
-                throw std::invalid_argument {
-                    "Incompatible specified CDF variable shape and input values"
-                };
+                throw std::invalid_argument { fmt::format(
+                    "Incompatible variable shape: expected [{}], got [{}]",
+                    fmt::join(var.shape(), ", "), fmt::join(spec.shape, ", ")) };
             }
         }
     }
@@ -527,9 +529,9 @@ inline void set_values(
         data_type = spec.inferred_cdf_type;
         if (data_type == CDF_Types::CDF_NONE)
         {
-            throw std::invalid_argument {
-                "Could not infer a compatible CDF data type from input numpy array"
-            };
+            throw std::invalid_argument { fmt::format(
+                "Could not infer a compatible CDF data type from numpy array with dtype '{}' and kind '{}'",
+                std::string(py::str(values.dtype())), values.dtype().kind()) };
         }
     }
     else
@@ -538,15 +540,15 @@ inline void set_values(
         {
             if (not are_compatible_types(var.type(), *data_type))
             {
-                throw std::invalid_argument {
-                    "Incompatible specified CDF data type and input values"
-                };
+                throw std::invalid_argument { fmt::format(
+                    "Incompatible specified CDF data type and input values: expected {}, but input has type {}",
+                    cdf_type_str(var.type()), cdf_type_str(spec.inferred_cdf_type)) };
             }
             if (not _details::are_compatible_shapes(var, spec.shape))
             {
-                throw std::invalid_argument {
-                    "Incompatible specified CDF variable shape and input values"
-                };
+                throw std::invalid_argument { fmt::format(
+                    "Incompatible variable shape: expected [{}], got [{}]",
+                    fmt::join(var.shape(), ", "), fmt::join(spec.shape, ", ")) };
             }
         }
     }

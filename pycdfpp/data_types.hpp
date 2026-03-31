@@ -502,5 +502,11 @@ inline void _analyze_collection_impl(
     auto result = analyze_result {};
     result.shape = Variable::shape_t { input.shape(), input.shape() + input.ndim() };
     result.inferred_cdf_type = to_cdf_type(input);
+    
+    if (result.inferred_cdf_type == CDF_Types::CDF_UCHAR)
+    {
+        result.shape.push_back(input.dtype().itemsize());
+    }
+    
     return result;
 }

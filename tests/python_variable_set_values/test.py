@@ -57,6 +57,13 @@ class PycdfVariableSetValues(unittest.TestCase):
             shape=[0], dtype=np.float64), data_type=pycdfpp.DataType.CDF_REAL8)
         self.assertIn("variable", cdf)
         cdf["variable"].set_values(np.ones(100, dtype=np.float64))
+        
+    def test_setting_compatible_type_values_should_not_raise_strings(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("variable", values=np.empty(
+            shape=[0], dtype="S4"), data_type=pycdfpp.DataType.CDF_UCHAR)
+        self.assertIn("variable", cdf)
+        cdf["variable"].set_values(np.array(["1234", "4321"]))
 
     def test_setting_different_shape_values_should_raise_1D(self):
         cdf = pycdfpp.CDF()
