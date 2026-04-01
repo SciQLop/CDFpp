@@ -40,6 +40,9 @@ namespace helpers
     {
         using Ts::operator()...;
     };
+    // Apple Clang 15 lacks aggregate CTAD — explicit guide needed
+    template <typename... Ts>
+    Visitor(Ts...) -> Visitor<Ts...>;
 
     consteval bool is_in(const auto& value, const auto&... values)
     {
