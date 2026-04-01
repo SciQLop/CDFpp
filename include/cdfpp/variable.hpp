@@ -137,9 +137,6 @@ struct Variable
             && other.attributes == attributes && other._data() == _data();
     }
 
-    inline bool operator!=(const Variable& other) const { return !(*this == other); }
-
-
     template <CDF_Types type>
     [[nodiscard]] decltype(auto) get()
     {

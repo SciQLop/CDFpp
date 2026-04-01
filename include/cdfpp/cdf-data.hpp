@@ -86,15 +86,13 @@ struct data_t
         return other.p_type == p_type && other.p_values == p_values;
     }
 
-    inline bool operator!=(const data_t& other) const { return !(*this == other); }
-
     data_t() : p_values { cdf_none {} }, p_type { CDF_Types::CDF_NONE } { }
     data_t(const data_t& other) = default;
     data_t(data_t&& other) = default;
 
 
-    template <typename T, typename Dummy = void,
-        typename = std::enable_if_t<!std::is_same_v<std::remove_reference_t<T>, data_t>, Dummy>>
+    template <typename T>
+        requires(!std::is_same_v<std::remove_reference_t<T>, data_t>)
     explicit data_t(T&& values)
             : p_values { std::forward<T>(values) }
             , p_type { to_cdf_type<typename std::remove_reference_t<T>::value_type>() }
@@ -143,13 +141,13 @@ private:
 template <typename... Ts>
 auto visit(data_t& data, Ts... lambdas)
 {
-    return std::visit(helpers::make_visitor(lambdas...), data.p_values);
+    return std::visit(helpers::Visitor { lambdas... }, data.p_values);
 }
 
 template <typename... Ts>
 auto visit(const data_t& data, Ts... lambdas)
 {
-    return std::visit(helpers::make_visitor(lambdas...), data.p_values);
+    return std::visit(helpers::Visitor { lambdas... }, data.p_values);
 }
 
 template <CDF_Types type, typename endianness_t>

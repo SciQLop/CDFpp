@@ -128,8 +128,6 @@ struct nomap
         return true;
     }
 
-    inline bool operator!=(const nomap& other) const { return !(*this == other); }
-
     [[nodiscard]] inline bool empty() const noexcept { return p_nodes.empty(); }
     [[nodiscard]] inline size_type size() const noexcept { return std::size(p_nodes); }
 

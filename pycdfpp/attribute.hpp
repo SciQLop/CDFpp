@@ -119,87 +119,73 @@ using string_or_buffer_t = std::variant<std::string, std::vector<tt2000_t>, std:
 template <typename... Ts>
 auto visit(const py_cdf_attr_data_t& data, Ts... lambdas)
 {
-    return std::visit(helpers::make_visitor(lambdas...), data);
+    return std::visit(helpers::Visitor { lambdas... }, data);
 }
 
 template <typename... Ts>
 auto visit(py_cdf_attr_data_t& data, Ts... lambdas)
 {
-    return std::visit(helpers::make_visitor(lambdas...), data);
+    return std::visit(helpers::Visitor { lambdas... }, data);
 }
 
 template <typename... Ts>
 auto visit(const string_or_buffer_t& data, Ts... lambdas)
 {
-    return std::visit(helpers::make_visitor(lambdas...), data);
+    return std::visit(helpers::Visitor { lambdas... }, data);
 }
 
 template <typename... Ts>
 auto visit(string_or_buffer_t& data, Ts... lambdas)
 {
-    return std::visit(helpers::make_visitor(lambdas...), data);
+    return std::visit(helpers::Visitor { lambdas... }, data);
 }
 
 [[nodiscard]] inline py_cdf_attr_data_t to_py_cdf_data(const cdf::data_t& data)
 {
+    using enum cdf::CDF_Types;
     switch (data.type())
     {
-        case cdf::CDF_Types::CDF_BYTE:
-        case cdf::CDF_Types::CDF_INT1:
+        case CDF_BYTE:
+        case CDF_INT1:
             return data.get<int8_t>();
-            break;
-        case cdf::CDF_Types::CDF_UINT1:
+        case CDF_UINT1:
             return data.get<uint8_t>();
-            break;
-        case cdf::CDF_Types::CDF_INT2:
+        case CDF_INT2:
             return data.get<int16_t>();
-            break;
-        case cdf::CDF_Types::CDF_INT4:
+        case CDF_INT4:
             return data.get<int32_t>();
-            break;
-        case cdf::CDF_Types::CDF_INT8:
+        case CDF_INT8:
             return data.get<int64_t>();
-            break;
-        case cdf::CDF_Types::CDF_UINT2:
+        case CDF_UINT2:
             return data.get<uint16_t>();
-            break;
-        case cdf::CDF_Types::CDF_UINT4:
+        case CDF_UINT4:
             return data.get<uint32_t>();
-            break;
-        case cdf::CDF_Types::CDF_DOUBLE:
-        case cdf::CDF_Types::CDF_REAL8:
+        case CDF_DOUBLE:
+        case CDF_REAL8:
             return data.get<double>();
-            break;
-        case cdf::CDF_Types::CDF_FLOAT:
-        case cdf::CDF_Types::CDF_REAL4:
+        case CDF_FLOAT:
+        case CDF_REAL4:
             return data.get<float>();
-            break;
-        case cdf::CDF_Types::CDF_EPOCH:
+        case CDF_EPOCH:
             return data.get<epoch>();
-            break;
-        case cdf::CDF_Types::CDF_EPOCH16:
+        case CDF_EPOCH16:
             return data.get<epoch16>();
-            break;
-        case cdf::CDF_Types::CDF_TIME_TT2000:
+        case CDF_TIME_TT2000:
             return data.get<tt2000_t>();
-            break;
-        case cdf::CDF_Types::CDF_UCHAR:
+        case CDF_UCHAR:
         {
             auto v = data.get<cdf::CDF_Types::CDF_UCHAR>();
             return std::string(reinterpret_cast<const char*>(v.data()), std::size(v));
         }
-        break;
-        case cdf::CDF_Types::CDF_CHAR:
+        case CDF_CHAR:
         {
             auto v = data.get<char>();
             return std::string(v.data(), std::size(v));
         }
-        break;
         default:
             throw std::runtime_error { fmt::format(
                 "Unsupported CDF type {} ({})", cdf_type_str(data.type()),
                 static_cast<int>(data.type())) };
-            break;
     }
     return {};
 }
@@ -282,55 +268,41 @@ data_t to_attr_data_entry(const py::buffer& buffer)
 
 data_t to_attr_data_entry(const py::buffer& buffer, CDF_Types data_type)
 {
+    using enum CDF_Types;
     switch (data_type)
     {
-        case cdf::CDF_Types::CDF_INT1: // int8
-            return to_attr_data_entry<cdf::CDF_Types::CDF_INT1>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_INT2: // int16
-            return to_attr_data_entry<cdf::CDF_Types::CDF_INT2>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_INT4: // int32
-            return to_attr_data_entry<cdf::CDF_Types::CDF_INT4>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_INT8: // int64
-            return to_attr_data_entry<cdf::CDF_Types::CDF_INT8>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_UINT1: // uint8
-            return to_attr_data_entry<cdf::CDF_Types::CDF_UINT1>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_UINT2: // uint16
-            return to_attr_data_entry<cdf::CDF_Types::CDF_UINT2>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_UINT4: // uint32
-            return to_attr_data_entry<cdf::CDF_Types::CDF_UINT4>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_FLOAT: // float32
-            return to_attr_data_entry<cdf::CDF_Types::CDF_FLOAT>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_REAL4: // float32
-            return to_attr_data_entry<cdf::CDF_Types::CDF_REAL4>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_DOUBLE: // float64
-            return to_attr_data_entry<cdf::CDF_Types::CDF_DOUBLE>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_REAL8: // float64
-            return to_attr_data_entry<cdf::CDF_Types::CDF_REAL8>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_EPOCH: // epoch
-            return to_attr_data_entry<cdf::CDF_Types::CDF_EPOCH>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_EPOCH16: // epoch16
-            return to_attr_data_entry<cdf::CDF_Types::CDF_EPOCH16>(buffer);
-            break;
-        case cdf::CDF_Types::CDF_TIME_TT2000: // tt2000
-            return to_attr_data_entry<cdf::CDF_Types::CDF_TIME_TT2000>(buffer);
-            break;
+        case CDF_INT1:
+            return to_attr_data_entry<CDF_INT1>(buffer);
+        case CDF_INT2:
+            return to_attr_data_entry<CDF_INT2>(buffer);
+        case CDF_INT4:
+            return to_attr_data_entry<CDF_INT4>(buffer);
+        case CDF_INT8:
+            return to_attr_data_entry<CDF_INT8>(buffer);
+        case CDF_UINT1:
+            return to_attr_data_entry<CDF_UINT1>(buffer);
+        case CDF_UINT2:
+            return to_attr_data_entry<CDF_UINT2>(buffer);
+        case CDF_UINT4:
+            return to_attr_data_entry<CDF_UINT4>(buffer);
+        case CDF_FLOAT:
+            return to_attr_data_entry<CDF_FLOAT>(buffer);
+        case CDF_REAL4:
+            return to_attr_data_entry<CDF_REAL4>(buffer);
+        case CDF_DOUBLE:
+            return to_attr_data_entry<CDF_DOUBLE>(buffer);
+        case CDF_REAL8:
+            return to_attr_data_entry<CDF_REAL8>(buffer);
+        case CDF_EPOCH:
+            return to_attr_data_entry<CDF_EPOCH>(buffer);
+        case CDF_EPOCH16:
+            return to_attr_data_entry<CDF_EPOCH16>(buffer);
+        case CDF_TIME_TT2000:
+            return to_attr_data_entry<CDF_TIME_TT2000>(buffer);
         default:
             throw std::invalid_argument { fmt::format(
                 "Unsupported CDF type {} ({}) for buffer attribute",
                 cdf_type_str(data_type), static_cast<int>(data_type)) };
-            break;
     }
 }
 

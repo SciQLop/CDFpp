@@ -226,29 +226,30 @@ struct analyze_context
 
 [[nodiscard]] constexpr BestTypeId to_best_type_id(const CDF_Types& t)
 {
+    using enum CDF_Types;
     switch (t)
     {
-        case CDF_Types::CDF_UCHAR:
-        case CDF_Types::CDF_CHAR:
+        case CDF_UCHAR:
+        case CDF_CHAR:
             return BestTypeId::String;
-        case CDF_Types::CDF_TIME_TT2000:
+        case CDF_TIME_TT2000:
             return BestTypeId::DateTime;
-        case CDF_Types::CDF_DOUBLE:
-        case CDF_Types::CDF_FLOAT:
+        case CDF_DOUBLE:
+        case CDF_FLOAT:
             return BestTypeId::Float;
-        case CDF_Types::CDF_INT1:
+        case CDF_INT1:
             return BestTypeId::Int8;
-        case CDF_Types::CDF_INT2:
+        case CDF_INT2:
             return BestTypeId::Int16;
-        case CDF_Types::CDF_INT4:
+        case CDF_INT4:
             return BestTypeId::Int32;
-        case CDF_Types::CDF_INT8:
+        case CDF_INT8:
             return BestTypeId::Int64;
-        case CDF_Types::CDF_UINT1:
+        case CDF_UINT1:
             return BestTypeId::UInt8;
-        case CDF_Types::CDF_UINT2:
+        case CDF_UINT2:
             return BestTypeId::UInt16;
-        case CDF_Types::CDF_UINT4:
+        case CDF_UINT4:
             return BestTypeId::UInt32;
         default:
             return BestTypeId::None;
@@ -257,47 +258,42 @@ struct analyze_context
 
 [[nodiscard]] constexpr bool are_compatible_types(const CDF_Types& dest, const CDF_Types& source)
 {
+    using enum CDF_Types;
     switch (dest)
     {
-        case CDF_Types::CDF_UCHAR:
-        case CDF_Types::CDF_CHAR:
-            return (source == CDF_Types::CDF_UCHAR) || (source == CDF_Types::CDF_CHAR);
-        case CDF_Types::CDF_TIME_TT2000:
-        case CDF_Types::CDF_EPOCH:
-        case CDF_Types::CDF_EPOCH16:
-            return (source == CDF_Types::CDF_TIME_TT2000) || (source == CDF_Types::CDF_EPOCH)
-                || (source == CDF_Types::CDF_EPOCH16);
-        case CDF_Types::CDF_DOUBLE:
-        case CDF_Types::CDF_REAL8:
-            return helpers::rt_is_in(source, CDF_Types::CDF_DOUBLE, CDF_Types::CDF_REAL8,
-                CDF_Types::CDF_FLOAT, CDF_Types::CDF_INT1, CDF_Types::CDF_INT2, CDF_Types::CDF_INT4,
-                CDF_Types::CDF_UINT1, CDF_Types::CDF_UINT2, CDF_Types::CDF_UINT4);
-        case CDF_Types::CDF_FLOAT:
-        case CDF_Types::CDF_REAL4:
-            return helpers::rt_is_in(source, CDF_Types::CDF_FLOAT, CDF_Types::CDF_REAL4,
-                CDF_Types::CDF_INT1, CDF_Types::CDF_INT2, CDF_Types::CDF_UINT1,
-                CDF_Types::CDF_UINT2);
-        case CDF_Types::CDF_INT8:
-            return helpers::rt_is_in(source, CDF_Types::CDF_INT8, CDF_Types::CDF_INT4,
-                CDF_Types::CDF_INT2, CDF_Types::CDF_INT1, CDF_Types::CDF_UINT4,
-                CDF_Types::CDF_UINT2, CDF_Types::CDF_UINT1);
-        case CDF_Types::CDF_INT4:
-            return helpers::rt_is_in(source, CDF_Types::CDF_INT4, CDF_Types::CDF_INT2,
-                CDF_Types::CDF_INT1, CDF_Types::CDF_UINT2, CDF_Types::CDF_UINT1);
-        case CDF_Types::CDF_INT2:
+        case CDF_UCHAR:
+        case CDF_CHAR:
+            return (source == CDF_UCHAR) || (source == CDF_CHAR);
+        case CDF_TIME_TT2000:
+        case CDF_EPOCH:
+        case CDF_EPOCH16:
+            return (source == CDF_TIME_TT2000) || (source == CDF_EPOCH)
+                || (source == CDF_EPOCH16);
+        case CDF_DOUBLE:
+        case CDF_REAL8:
+            return helpers::rt_is_in(source, CDF_DOUBLE, CDF_REAL8, CDF_FLOAT, CDF_INT1, CDF_INT2,
+                CDF_INT4, CDF_UINT1, CDF_UINT2, CDF_UINT4);
+        case CDF_FLOAT:
+        case CDF_REAL4:
             return helpers::rt_is_in(
-                source, CDF_Types::CDF_INT2, CDF_Types::CDF_INT1, CDF_Types::CDF_UINT1);
-        case CDF_Types::CDF_INT1:
-        case CDF_Types::CDF_BYTE:
-            return source == CDF_Types::CDF_INT1;
-        case CDF_Types::CDF_UINT4:
+                source, CDF_FLOAT, CDF_REAL4, CDF_INT1, CDF_INT2, CDF_UINT1, CDF_UINT2);
+        case CDF_INT8:
             return helpers::rt_is_in(
-                source, CDF_Types::CDF_UINT4, CDF_Types::CDF_UINT2, CDF_Types::CDF_UINT1);
-        case CDF_Types::CDF_UINT2:
-            return helpers::rt_is_in(source, CDF_Types::CDF_UINT2, CDF_Types::CDF_UINT1);
-        case CDF_Types::CDF_UINT1:
-            return source == CDF_Types::CDF_UINT1;
-        case CDF_Types::CDF_NONE:
+                source, CDF_INT8, CDF_INT4, CDF_INT2, CDF_INT1, CDF_UINT4, CDF_UINT2, CDF_UINT1);
+        case CDF_INT4:
+            return helpers::rt_is_in(source, CDF_INT4, CDF_INT2, CDF_INT1, CDF_UINT2, CDF_UINT1);
+        case CDF_INT2:
+            return helpers::rt_is_in(source, CDF_INT2, CDF_INT1, CDF_UINT1);
+        case CDF_INT1:
+        case CDF_BYTE:
+            return source == CDF_INT1;
+        case CDF_UINT4:
+            return helpers::rt_is_in(source, CDF_UINT4, CDF_UINT2, CDF_UINT1);
+        case CDF_UINT2:
+            return helpers::rt_is_in(source, CDF_UINT2, CDF_UINT1);
+        case CDF_UINT1:
+            return source == CDF_UINT1;
+        case CDF_NONE:
             return true;
         default:
             break;

@@ -38,15 +38,8 @@ namespace helpers
     template <typename... Ts>
     struct Visitor : Ts...
     {
-        Visitor(const Ts&... args) : Ts(args)... { }
         using Ts::operator()...;
     };
-
-    template <typename... Ts>
-    auto make_visitor(Ts... lambdas)
-    {
-        return Visitor<Ts...>(lambdas...);
-    }
 
     consteval bool is_in(const auto& value, const auto&... values)
     {

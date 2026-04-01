@@ -74,8 +74,6 @@ struct CDF
             && (other.attributes == attributes) && (other.variables == variables);
     }
 
-    inline bool operator!=(const CDF& other) const { return !(*this == other); }
-
     [[nodiscard]] const Variable& operator[](const std::string& name) const
     {
         return variables.at(name);
