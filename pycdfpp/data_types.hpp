@@ -35,6 +35,9 @@
 #include <cdfpp/chrono/cdf-chrono.hpp>
 #include <cdfpp/no_init_vector.hpp>
 #include <cdfpp_config.h>
+
+#include <fmt/core.h>
+
 using namespace cdf;
 
 
@@ -142,7 +145,7 @@ enum class BestTypeId : uint16_t
     auto r = a | b;
     if (is_invalid_mix(r))
     {
-        throw std::out_of_range("Incompatible types in nested lists/tuples");
+        throw std::out_of_range("Incompatible types in nested lists/tuples: cannot mix strings, numbers, and datetimes");
     }
     return r;
 }
@@ -216,7 +219,8 @@ struct analyze_context
     {
         return { BestTypeId::DateTime, 0, 0, 0 };
     }
-    throw std::runtime_error(fmt::format("Unsupported data type encountered"));
+    throw std::runtime_error(fmt::format("Unsupported data type encountered: {}",
+        Py_TYPE(obj)->tp_name));
     return { BestTypeId::None, 0, 0, 0 };
 }
 
@@ -384,7 +388,9 @@ inline void _analyze_collection_impl(
                     = static_cast<std::size_t>(PyList_Size(const_cast<PyObject*>(obj)));
                 if (ctx.inner_collection_size && (curr_inner_size != *ctx.inner_collection_size))
                 {
-                    throw std::out_of_range("Inconsistent shapes in nested lists/tuples");
+                    throw std::out_of_range(fmt::format(
+                        "Inconsistent shapes in nested lists/tuples at depth {}: expected length {}, got {}",
+                        depth + 1, *ctx.inner_collection_size, curr_inner_size));
                 }
                 else
                 {
@@ -401,7 +407,9 @@ inline void _analyze_collection_impl(
                     = static_cast<std::size_t>(PyTuple_Size(const_cast<PyObject*>(obj)));
                 if (ctx.inner_collection_size && (curr_inner_size != *ctx.inner_collection_size))
                 {
-                    throw std::out_of_range("Inconsistent shapes in nested lists/tuples");
+                    throw std::out_of_range(fmt::format(
+                        "Inconsistent shapes in nested lists/tuples at depth {}: expected length {}, got {}",
+                        depth + 1, *ctx.inner_collection_size, curr_inner_size));
                 }
                 else
                 {

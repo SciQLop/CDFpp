@@ -44,6 +44,8 @@ using namespace cdf;
 
 #include <datetime.h>
 
+#include <fmt/core.h>
+
 namespace py = pybind11;
 
 namespace _details
@@ -247,8 +249,9 @@ template <typename time_t>
                 }
                 else
                 {
-                    throw std::invalid_argument(
-                        "Only supports datetime.datetime, tt2000_t, epoch and epoch16 types");
+                    throw std::invalid_argument(fmt::format(
+                        "to_datetime64 only supports datetime.datetime, tt2000_t, epoch and epoch16 types, got {}",
+                        Py_TYPE(const_cast<PyObject*>(obj))->tp_name));
                 }
             }
         })
@@ -308,7 +311,9 @@ template <typename time_t>
 {
     if (!is_dt64ns(input))
     {
-        throw std::invalid_argument("Only supports datetime64[ns] arrays");
+        throw std::invalid_argument(fmt::format(
+            "to_datetime requires a datetime64[ns] array, got dtype '{}'",
+            std::string(input.dtype().attr("str").cast<std::string>())));
     }
     return _details::ranges::transform<py::list, int64_t>(
         input, static_cast<PyObject* (*)(int64_t)>(_details::to_datetime));
@@ -340,7 +345,9 @@ template <typename time_t>
         }
         break;
         default:
-            throw std::invalid_argument("Only supports cdf time types");
+            throw std::invalid_argument(fmt::format(
+                "to_datetime64 requires a CDF time variable (CDF_EPOCH, CDF_EPOCH16, or CDF_TIME_TT2000), got {}",
+                cdf_type_str(input.type())));
             break;
     }
     return result.attr("view")("datetime64[ns]");
@@ -370,7 +377,9 @@ template <typename time_t>
         }
         break;
         default:
-            throw std::out_of_range("Only supports cdf time types");
+            throw std::invalid_argument(fmt::format(
+                "to_datetime requires a CDF time variable (CDF_EPOCH, CDF_EPOCH16, or CDF_TIME_TT2000), got {}",
+                cdf_type_str(input.type())));
             break;
     }
     return py::list {};
@@ -499,7 +508,9 @@ inline py::object to_cdf_time_t(const py::array& input)
     {
         return res;
     }
-    return py::none();
+    throw std::invalid_argument(fmt::format(
+        "Cannot convert array with dtype '{}' to CDF time type",
+        std::string(input.dtype().attr("str").cast<std::string>())));
 }
 
 
