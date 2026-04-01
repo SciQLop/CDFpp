@@ -27,9 +27,7 @@
 #include <type_traits>
 #include <utility>
 
-/*
- * see https://stackoverflow.com/questions/39768517/structured-bindings-width/39779537#39779537
- */
+// https://stackoverflow.com/questions/39768517/structured-bindings-width/39779537#39779537
 
 namespace details
 {
@@ -39,20 +37,18 @@ struct anything
     operator T() const;
 };
 
-
-template <class T, class Is, class = void>
-struct _can_construct_with_N : std::false_type
+template <class T, std::size_t N>
+consteval bool can_construct_with_n()
 {
-};
-
-template <class T, std::size_t... Is>
-struct _can_construct_with_N<T, std::index_sequence<Is...>,
-    std::void_t<decltype(T { (void(Is), anything {})... })>> : std::true_type
-{
-};
+    return []<std::size_t... Is>(std::index_sequence<Is...>) {
+        return requires { T { (void(Is), anything {})... }; };
+    }(std::make_index_sequence<N> {});
+}
 
 template <class T, std::size_t N>
-using can_construct_with_N = _can_construct_with_N<T, std::make_index_sequence<N>>;
+struct can_construct_with_N : std::bool_constant<can_construct_with_n<T, N>()>
+{
+};
 
 
 template <std::size_t Min, std::size_t Range, template <std::size_t N> class target>

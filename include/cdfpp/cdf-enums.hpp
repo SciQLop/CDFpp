@@ -28,6 +28,7 @@
 #include <stdexcept>
 #include <stdint.h>
 #include <string>
+#include <string_view>
 #include <type_traits>
 
 #include "cdf-helpers.hpp"
@@ -280,80 +281,52 @@ constexpr auto from_cdf_type()
         return epoch16 {};
 }
 
-[[nodiscard]] inline std::size_t cdf_type_size(CDF_Types type)
+struct cdf_type_info
 {
-    using enum CDF_Types;
-    switch (type)
+    CDF_Types type;
+    std::size_t size;
+    std::string_view name;
+};
+
+// clang-format off
+inline constexpr cdf_type_info cdf_type_table[] = {
+    {CDF_Types::CDF_NONE,        0,  "CDF_NONE"},
+    {CDF_Types::CDF_INT1,        1,  "CDF_INT1"},
+    {CDF_Types::CDF_INT2,        2,  "CDF_INT2"},
+    {CDF_Types::CDF_INT4,        4,  "CDF_INT4"},
+    {CDF_Types::CDF_INT8,        8,  "CDF_INT8"},
+    {CDF_Types::CDF_UINT1,       1,  "CDF_UINT1"},
+    {CDF_Types::CDF_UINT2,       2,  "CDF_UINT2"},
+    {CDF_Types::CDF_UINT4,       4,  "CDF_UINT4"},
+    {CDF_Types::CDF_BYTE,        1,  "CDF_BYTE"},
+    {CDF_Types::CDF_REAL4,       4,  "CDF_REAL4"},
+    {CDF_Types::CDF_REAL8,       8,  "CDF_REAL8"},
+    {CDF_Types::CDF_FLOAT,       4,  "CDF_FLOAT"},
+    {CDF_Types::CDF_DOUBLE,      8,  "CDF_DOUBLE"},
+    {CDF_Types::CDF_EPOCH,       8,  "CDF_EPOCH"},
+    {CDF_Types::CDF_EPOCH16,     16, "CDF_EPOCH16"},
+    {CDF_Types::CDF_TIME_TT2000, 8,  "CDF_TIME_TT2000"},
+    {CDF_Types::CDF_CHAR,        1,  "CDF_CHAR"},
+    {CDF_Types::CDF_UCHAR,       1,  "CDF_UCHAR"},
+};
+// clang-format on
+
+[[nodiscard]] constexpr std::size_t cdf_type_size(CDF_Types type) noexcept
+{
+    for (const auto& info : cdf_type_table)
     {
-        case CDF_NONE:
-            return 0;
-        case CDF_INT1:
-        case CDF_UINT1:
-        case CDF_BYTE:
-        case CDF_CHAR:
-        case CDF_UCHAR:
-            return 1;
-        case CDF_INT2:
-        case CDF_UINT2:
-            return 2;
-        case CDF_INT4:
-        case CDF_UINT4:
-        case CDF_FLOAT:
-        case CDF_REAL4:
-            return 4;
-        case CDF_INT8:
-        case CDF_REAL8:
-        case CDF_DOUBLE:
-        case CDF_EPOCH:
-        case CDF_TIME_TT2000:
-            return 8;
-        case CDF_EPOCH16:
-            return 16;
+        if (info.type == type)
+            return info.size;
     }
     return 0;
 }
 
-[[nodiscard]] inline std::string cdf_type_str(CDF_Types type) noexcept
+[[nodiscard]] constexpr std::string_view cdf_type_str(CDF_Types type) noexcept
 {
-    using enum CDF_Types;
-    switch (type)
+    for (const auto& info : cdf_type_table)
     {
-        case CDF_NONE:
-            return "CDF_NONE";
-        case CDF_INT1:
-            return "CDF_INT1";
-        case CDF_UINT1:
-            return "CDF_UINT1";
-        case CDF_BYTE:
-            return "CDF_BYTE";
-        case CDF_CHAR:
-            return "CDF_CHAR";
-        case CDF_UCHAR:
-            return "CDF_UCHAR";
-        case CDF_INT2:
-            return "CDF_INT2";
-        case CDF_UINT2:
-            return "CDF_UINT2";
-        case CDF_INT4:
-            return "CDF_INT4";
-        case CDF_UINT4:
-            return "CDF_UINT4";
-        case CDF_FLOAT:
-            return "CDF_FLOAT";
-        case CDF_REAL4:
-            return "CDF_REAL4";
-        case CDF_INT8:
-            return "CDF_INT8";
-        case CDF_REAL8:
-            return "CDF_REAL8";
-        case CDF_DOUBLE:
-            return "CDF_DOUBLE";
-        case CDF_TIME_TT2000:
-            return "CDF_TIME_TT2000";
-        case CDF_EPOCH:
-            return "CDF_EPOCH";
-        case CDF_EPOCH16:
-            return "CDF_EPOCH16";
+        if (info.type == type)
+            return info.name;
     }
     return "unknown type";
 }
