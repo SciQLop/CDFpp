@@ -24,18 +24,11 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #pragma once
-#include "cdfpp_config.h"
-#ifdef CDFpp_BIG_ENDIAN
-inline const bool host_is_big_endian = true;
-inline const bool host_is_little_endian = false;
-#else
-#ifdef CDFpp_LITTLE_ENDIAN
-inline const bool host_is_big_endian = false;
-inline const bool host_is_little_endian = true;
-#else
-#error "Can't find if platform is either big or little endian"
-#endif
-#endif
+#include <bit>
+
+inline constexpr bool host_is_big_endian = (std::endian::native == std::endian::big);
+inline constexpr bool host_is_little_endian = (std::endian::native == std::endian::little);
+static_assert(host_is_big_endian || host_is_little_endian, "Mixed-endian platforms are not supported");
 
 #ifdef __GNUC__
 #define bswap16 __builtin_bswap16
@@ -52,12 +45,9 @@ inline const bool host_is_little_endian = true;
 
 #include "../cdf-debug.hpp"
 #include "../cdf-enums.hpp"
-#include <algorithm>
 #include <cstring>
 #include <stdint.h>
 #include <type_traits>
-
-#include <iostream>
 
 namespace cdf::endianness
 {
@@ -119,20 +109,6 @@ namespace
     template <std::size_t s>
     using uint_t = typename uint<s>::type;
 
-    template <typename T>
-    union swapable_t
-    {
-        static inline constexpr bool is_int = std::is_same_v<T, uint_t<sizeof(T)>>;
-        uint_t<sizeof(T)> int_view;
-        T value;
-        template <bool disable = is_int>
-        swapable_t(T v, typename std::enable_if<!disable>::type* = 0) : value { v }
-        {
-        }
-        swapable_t(uint_t<sizeof(T)> v) : int_view { v } { }
-    };
-
-
     [[nodiscard]] inline uint8_t bswap(uint8_t v) noexcept
     {
         return v;
@@ -150,10 +126,10 @@ namespace
         return bswap64(v);
     }
 
-    template <typename T, std::size_t s = sizeof(T)>
+    template <typename T>
     [[nodiscard]] inline T byte_swap(T value) noexcept
     {
-        return swapable_t<T> { bswap(swapable_t<T> { value }.int_view) }.value;
+        return std::bit_cast<T>(bswap(std::bit_cast<uint_t<sizeof(T)>>(value)));
     }
 }
 

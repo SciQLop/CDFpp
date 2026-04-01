@@ -394,226 +394,54 @@ template <CDF_Types _type>
 
 inline const char* data_t::bytes_ptr() const
 {
-    switch (this->type())
-    {
-        case cdf::CDF_Types::CDF_BYTE:
-        case cdf::CDF_Types::CDF_INT1:
-            return reinterpret_cast<const char*>(this->get<int8_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_UINT1:
-            return reinterpret_cast<const char*>(this->get<uint8_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_INT2:
-            return reinterpret_cast<const char*>(this->get<int16_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_INT4:
-            return reinterpret_cast<const char*>(this->get<int32_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_INT8:
-            return reinterpret_cast<const char*>(this->get<int64_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_UINT2:
-            return reinterpret_cast<const char*>(this->get<uint16_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_UINT4:
-            return reinterpret_cast<const char*>(this->get<uint32_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_DOUBLE:
-        case cdf::CDF_Types::CDF_REAL8:
-            return reinterpret_cast<const char*>(this->get<double>().data());
-            break;
-        case cdf::CDF_Types::CDF_FLOAT:
-        case cdf::CDF_Types::CDF_REAL4:
-            return reinterpret_cast<const char*>(this->get<float>().data());
-            break;
-        case cdf::CDF_Types::CDF_EPOCH:
-            return reinterpret_cast<const char*>(this->get<epoch>().data());
-            break;
-        case cdf::CDF_Types::CDF_EPOCH16:
-            return reinterpret_cast<const char*>(this->get<epoch16>().data());
-            break;
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-            return reinterpret_cast<const char*>(this->get<tt2000_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_UCHAR:
-            return reinterpret_cast<const char*>(this->get<cdf::CDF_Types::CDF_UCHAR>().data());
-            break;
-        case cdf::CDF_Types::CDF_CHAR:
-            return reinterpret_cast<const char*>(this->get<cdf::CDF_Types::CDF_CHAR>().data());
-            break;
-        default:
-            return nullptr;
-            break;
-    }
-    return nullptr;
+    return std::visit(
+        [](const auto& v) -> const char*
+        {
+            if constexpr (std::is_same_v<std::decay_t<decltype(v)>, cdf_none>)
+                return nullptr;
+            else
+                return reinterpret_cast<const char*>(v.data());
+        },
+        p_values);
 }
 
 inline char* data_t::bytes_ptr()
 {
-    switch (this->type())
-    {
-        case cdf::CDF_Types::CDF_BYTE:
-        case cdf::CDF_Types::CDF_INT1:
-            return reinterpret_cast<char*>(this->get<int8_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_UINT1:
-            return reinterpret_cast<char*>(this->get<uint8_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_INT2:
-            return reinterpret_cast<char*>(this->get<int16_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_INT4:
-            return reinterpret_cast<char*>(this->get<int32_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_INT8:
-            return reinterpret_cast<char*>(this->get<int64_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_UINT2:
-            return reinterpret_cast<char*>(this->get<uint16_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_UINT4:
-            return reinterpret_cast<char*>(this->get<uint32_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_DOUBLE:
-        case cdf::CDF_Types::CDF_REAL8:
-            return reinterpret_cast<char*>(this->get<double>().data());
-            break;
-        case cdf::CDF_Types::CDF_FLOAT:
-        case cdf::CDF_Types::CDF_REAL4:
-            return reinterpret_cast<char*>(this->get<float>().data());
-            break;
-        case cdf::CDF_Types::CDF_EPOCH:
-            return reinterpret_cast<char*>(this->get<epoch>().data());
-            break;
-        case cdf::CDF_Types::CDF_EPOCH16:
-            return reinterpret_cast<char*>(this->get<epoch16>().data());
-            break;
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-            return reinterpret_cast<char*>(this->get<tt2000_t>().data());
-            break;
-        case cdf::CDF_Types::CDF_UCHAR:
-            return reinterpret_cast<char*>(this->get<cdf::CDF_Types::CDF_UCHAR>().data());
-            break;
-        case cdf::CDF_Types::CDF_CHAR:
-            return reinterpret_cast<char*>(this->get<cdf::CDF_Types::CDF_CHAR>().data());
-            break;
-        default:
-            return nullptr;
-            break;
-    }
-    return nullptr;
+    return std::visit(
+        [](auto& v) -> char*
+        {
+            if constexpr (std::is_same_v<std::decay_t<decltype(v)>, cdf_none>)
+                return nullptr;
+            else
+                return reinterpret_cast<char*>(v.data());
+        },
+        p_values);
 }
 
 inline std::size_t data_t::size() const noexcept
 {
-    switch (this->type())
-    {
-        case cdf::CDF_Types::CDF_BYTE:
-        case cdf::CDF_Types::CDF_INT1:
-            return std::size(this->get<int8_t>());
-            break;
-        case cdf::CDF_Types::CDF_UINT1:
-            return std::size(this->get<uint8_t>());
-            break;
-        case cdf::CDF_Types::CDF_INT2:
-            return std::size(this->get<int16_t>());
-            break;
-        case cdf::CDF_Types::CDF_INT4:
-            return std::size(this->get<int32_t>());
-            break;
-        case cdf::CDF_Types::CDF_INT8:
-            return std::size(this->get<int64_t>());
-            break;
-        case cdf::CDF_Types::CDF_UINT2:
-            return std::size(this->get<uint16_t>());
-            break;
-        case cdf::CDF_Types::CDF_UINT4:
-            return std::size(this->get<uint32_t>());
-            break;
-        case cdf::CDF_Types::CDF_DOUBLE:
-        case cdf::CDF_Types::CDF_REAL8:
-            return std::size(this->get<double>());
-            break;
-        case cdf::CDF_Types::CDF_FLOAT:
-        case cdf::CDF_Types::CDF_REAL4:
-            return std::size(this->get<float>());
-            break;
-        case cdf::CDF_Types::CDF_EPOCH:
-            return std::size(this->get<epoch>());
-            break;
-        case cdf::CDF_Types::CDF_EPOCH16:
-            return std::size(this->get<epoch16>());
-            break;
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-            return std::size(this->get<tt2000_t>());
-            break;
-        case cdf::CDF_Types::CDF_UCHAR:
-            return std::size(this->get<cdf::CDF_Types::CDF_UCHAR>());
-            break;
-        case cdf::CDF_Types::CDF_CHAR:
-            return std::size(this->get<cdf::CDF_Types::CDF_CHAR>());
-            break;
-        default:
-            return 0;
-            break;
-    }
-    return 0;
+    return std::visit(
+        [](const auto& v) -> std::size_t
+        {
+            if constexpr (std::is_same_v<std::decay_t<decltype(v)>, cdf_none>)
+                return 0;
+            else
+                return std::size(v);
+        },
+        p_values);
 }
 
 inline std::size_t data_t::bytes() const noexcept
 {
-    switch (this->type())
-    {
-        case cdf::CDF_Types::CDF_BYTE:
-        case cdf::CDF_Types::CDF_INT1:
-            return std::size(this->get<int8_t>());
-            break;
-        case cdf::CDF_Types::CDF_UINT1:
-            return std::size(this->get<uint8_t>());
-            break;
-        case cdf::CDF_Types::CDF_INT2:
-            return std::size(this->get<int16_t>()) * 2;
-            break;
-        case cdf::CDF_Types::CDF_INT4:
-            return std::size(this->get<int32_t>()) * 4;
-            break;
-        case cdf::CDF_Types::CDF_INT8:
-            return std::size(this->get<int64_t>()) * 8;
-            break;
-        case cdf::CDF_Types::CDF_UINT2:
-            return std::size(this->get<uint16_t>()) * 2;
-            break;
-        case cdf::CDF_Types::CDF_UINT4:
-            return std::size(this->get<uint32_t>()) * 4;
-            break;
-        case cdf::CDF_Types::CDF_DOUBLE:
-        case cdf::CDF_Types::CDF_REAL8:
-            return std::size(this->get<double>()) * 8;
-            break;
-        case cdf::CDF_Types::CDF_FLOAT:
-        case cdf::CDF_Types::CDF_REAL4:
-            return std::size(this->get<float>()) * 4;
-            break;
-        case cdf::CDF_Types::CDF_EPOCH:
-            return std::size(this->get<epoch>()) * sizeof(epoch);
-            break;
-        case cdf::CDF_Types::CDF_EPOCH16:
-            return std::size(this->get<epoch16>()) * sizeof(epoch16);
-            break;
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-            return std::size(this->get<tt2000_t>()) * sizeof(tt2000_t);
-            break;
-        case cdf::CDF_Types::CDF_UCHAR:
-            return std::size(this->get<cdf::CDF_Types::CDF_UCHAR>());
-            break;
-        case cdf::CDF_Types::CDF_CHAR:
-            return std::size(this->get<cdf::CDF_Types::CDF_CHAR>());
-            break;
-        default:
-            return 0;
-            break;
-    }
-    return 0;
+    return std::visit(
+        [](const auto& v) -> std::size_t
+        {
+            if constexpr (std::is_same_v<std::decay_t<decltype(v)>, cdf_none>)
+                return 0;
+            else
+                return std::size(v) * sizeof(typename std::decay_t<decltype(v)>::value_type);
+        },
+        p_values);
 }
 
 [[nodiscard]] constexpr bool is_string(const CDF_Types type)

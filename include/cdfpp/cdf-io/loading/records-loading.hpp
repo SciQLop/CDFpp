@@ -239,9 +239,9 @@ struct blk_iterator
             wrapper_load(offset, std::make_index_sequence<sizeof...(Args)> {});
     }
 
-    auto operator==(const blk_iterator& other) { return other.offset == offset; }
+    bool operator==(const blk_iterator& other) const { return other.offset == offset; }
 
-    bool operator!=(const blk_iterator& other) { return not(*this == other); }
+    bool operator!=(const blk_iterator& other) const { return not(*this == other); }
 
     blk_iterator& operator+(int n)
     {
