@@ -321,34 +321,28 @@ template <typename time_t>
 
 [[nodiscard]] inline py::object to_datetime64(const Variable& input)
 {
+    using enum cdf::CDF_Types;
     auto result = _details::fast_allocate_array<uint64_t>(input.shape());
     auto out_ptr = static_cast<int64_t*>(result.request(true).ptr);
     const auto size = static_cast<std::size_t>(result.size());
     switch (input.type())
     {
-        case cdf::CDF_Types::CDF_EPOCH:
-        {
+        case CDF_EPOCH:
             to_datetime64(
                 std::span { input.get<cdf::CDF_Types::CDF_EPOCH>().data(), size }, out_ptr);
-        }
-        break;
-        case cdf::CDF_Types::CDF_EPOCH16:
-        {
+            break;
+        case CDF_EPOCH16:
             to_datetime64(
                 std::span { input.get<cdf::CDF_Types::CDF_EPOCH16>().data(), size }, out_ptr);
-        }
-        break;
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-        {
+            break;
+        case CDF_TIME_TT2000:
             to_datetime64(
                 std::span { input.get<cdf::CDF_Types::CDF_TIME_TT2000>().data(), size }, out_ptr);
-        }
-        break;
+            break;
         default:
             throw std::invalid_argument(fmt::format(
                 "to_datetime64 requires a CDF time variable (CDF_EPOCH, CDF_EPOCH16, or CDF_TIME_TT2000), got {}",
                 cdf_type_str(input.type())));
-            break;
     }
     return result.attr("view")("datetime64[ns]");
 }
@@ -356,31 +350,22 @@ template <typename time_t>
 
 [[nodiscard]] py::list to_datetime(const Variable& input)
 {
+    using enum cdf::CDF_Types;
     switch (input.type())
     {
-        case cdf::CDF_Types::CDF_EPOCH:
-        {
+        case CDF_EPOCH:
             return _details::ranges::transform<py::list, epoch>(
                 input, static_cast<PyObject* (*)(const epoch)>(_details::to_datetime<epoch>));
-        }
-        break;
-        case cdf::CDF_Types::CDF_EPOCH16:
-        {
+        case CDF_EPOCH16:
             return _details::ranges::transform<py::list, epoch16>(
                 input, static_cast<PyObject* (*)(const epoch16)>(_details::to_datetime<epoch16>));
-        }
-        break;
-        case cdf::CDF_Types::CDF_TIME_TT2000:
-        {
+        case CDF_TIME_TT2000:
             return _details::ranges::transform<py::list, tt2000_t>(
                 input, static_cast<PyObject* (*)(const tt2000_t)>(_details::to_datetime<tt2000_t>));
-        }
-        break;
         default:
             throw std::invalid_argument(fmt::format(
                 "to_datetime requires a CDF time variable (CDF_EPOCH, CDF_EPOCH16, or CDF_TIME_TT2000), got {}",
                 cdf_type_str(input.type())));
-            break;
     }
     return py::list {};
 }

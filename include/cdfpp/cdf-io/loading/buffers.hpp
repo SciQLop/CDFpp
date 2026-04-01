@@ -57,8 +57,8 @@ constexpr auto get_data_ptr(buffer_t& buffer) -> decltype(buffer.data())
 }
 
 template <typename buffer_t>
-constexpr auto get_data_ptr(
-    buffer_t& buffer, typename std::enable_if<std::is_pointer_v<buffer_t>>::type* = 0)
+    requires std::is_pointer_v<buffer_t>
+constexpr auto get_data_ptr(buffer_t& buffer)
 {
     return buffer;
 }
@@ -168,20 +168,19 @@ struct array_adapter
     const std::size_t size;
     using implements_view = std::true_type;
 
-    template <bool owns = takes_ownership>
-    array_adapter(const array_t& array, typename std::enable_if<!owns>::type* = 0)
+    array_adapter(const array_t& array)
+        requires(!takes_ownership)
             : without_ownership<array_t> { array }, size { std::size(array) }
     {
     }
-    template <bool owns = takes_ownership>
-    array_adapter(const array_t& array, std::size_t size, typename std::enable_if<!owns>::type* = 0)
+    array_adapter(const array_t& array, std::size_t size)
+        requires(!takes_ownership)
             : without_ownership<array_t> { array }, size { size }
     {
     }
 
-    template <bool owns = takes_ownership>
-    array_adapter(array_t&& array,
-        typename std::enable_if<owns or std::is_rvalue_reference_v<array_t>>::type* = 0)
+    array_adapter(array_t&& array)
+        requires(takes_ownership || std::is_rvalue_reference_v<array_t>)
             : with_ownership<array_t> { std::move(array) }, size { std::size(this->array) }
     {
     }
@@ -215,16 +214,12 @@ struct array_adapter
         impl_read(dest, offset, size);
     }
 
-    template <bool is_ptr = std::is_pointer_v<array_t>>
-    const char* data(typename std::enable_if<is_ptr>::type* = 0) const
+    const char* data() const
     {
-        return this->array;
-    }
-
-    template <bool is_ptr = std::is_pointer_v<array_t>>
-    const char* data(typename std::enable_if<!is_ptr>::type* = 0) const
-    {
-        return this->array.data();
+        if constexpr (std::is_pointer_v<array_t>)
+            return this->array;
+        else
+            return this->array.data();
     }
 
     bool is_valid() const { return size != 0; }

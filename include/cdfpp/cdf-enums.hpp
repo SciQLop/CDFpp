@@ -49,16 +49,13 @@ enum class cdf_majority
 
 [[nodiscard]] inline std::string cdf_majority_str(cdf_majority type) noexcept
 {
+    using enum cdf_majority;
     switch (type)
     {
-        case cdf_majority::row:
+        case row:
             return "row";
-            break;
-        case cdf_majority::column:
+        case column:
             return "column";
-            break;
-        default:
-            break;
     }
     return "Unknown";
 }
@@ -105,25 +102,19 @@ enum class cdf_compression_type : int32_t
 
 [[nodiscard]] inline std::string cdf_compression_type_str(cdf_compression_type type) noexcept
 {
+    using enum cdf_compression_type;
     switch (type)
     {
-        case cdf_compression_type::no_compression:
+        case no_compression:
             return "None";
-            break;
-        case cdf_compression_type::ahuff_compression:
+        case ahuff_compression:
             return "Adaptative Huffman";
-            break;
-        case cdf_compression_type::huff_compression:
+        case huff_compression:
             return "Huffman";
-            break;
-        case cdf_compression_type::rle_compression:
+        case rle_compression:
             return "Run-Length Encoding";
-            break;
-        case cdf_compression_type::gzip_compression:
+        case gzip_compression:
             return "GNU GZIP";
-            break;
-        default:
-            break;
     }
     return "Unknown";
 }
@@ -201,6 +192,7 @@ consteval bool is_cdf_floating_point_type(CDF_Types type)
 struct tt2000_t
 {
     int64_t nseconds;
+    bool operator==(const tt2000_t&) const = default;
 };
 
 static inline tt2000_t operator""_tt2k(unsigned long long __val)
@@ -208,31 +200,20 @@ static inline tt2000_t operator""_tt2k(unsigned long long __val)
     return tt2000_t { static_cast<int64_t>(__val) };
 }
 
-inline bool operator==(const tt2000_t& lhs, const tt2000_t& rhs)
-{
-    return lhs.nseconds == rhs.nseconds;
-}
-
 // number of milliseconds since 01-Jan-0000 00:00:00.000
 struct epoch
 {
     double mseconds;
+    bool operator==(const epoch&) const = default;
 };
-inline bool operator==(const epoch& lhs, const epoch& rhs)
-{
-    return lhs.mseconds == rhs.mseconds;
-}
 
 // number of picoseconds since 01-Jan-0000 00:00:00.000.000.000.000
 struct epoch16
 {
     double seconds;
     double picoseconds;
+    bool operator==(const epoch16&) const = default;
 };
-inline bool operator==(const epoch16& lhs, const epoch16& rhs)
-{
-    return lhs.seconds == rhs.seconds && lhs.picoseconds == rhs.picoseconds;
-}
 
 template <typename T>
 concept cdf_time_t = std::is_same_v<T, cdf::tt2000_t> || std::is_same_v<T, cdf::epoch>
@@ -301,31 +282,32 @@ constexpr auto from_cdf_type()
 
 [[nodiscard]] inline std::size_t cdf_type_size(CDF_Types type)
 {
+    using enum CDF_Types;
     switch (type)
     {
-        case CDF_Types::CDF_NONE:
+        case CDF_NONE:
             return 0;
-        case CDF_Types::CDF_INT1:
-        case CDF_Types::CDF_UINT1:
-        case CDF_Types::CDF_BYTE:
-        case CDF_Types::CDF_CHAR:
-        case CDF_Types::CDF_UCHAR:
+        case CDF_INT1:
+        case CDF_UINT1:
+        case CDF_BYTE:
+        case CDF_CHAR:
+        case CDF_UCHAR:
             return 1;
-        case CDF_Types::CDF_INT2:
-        case CDF_Types::CDF_UINT2:
+        case CDF_INT2:
+        case CDF_UINT2:
             return 2;
-        case CDF_Types::CDF_INT4:
-        case CDF_Types::CDF_UINT4:
-        case CDF_Types::CDF_FLOAT:
-        case CDF_Types::CDF_REAL4:
+        case CDF_INT4:
+        case CDF_UINT4:
+        case CDF_FLOAT:
+        case CDF_REAL4:
             return 4;
-        case CDF_Types::CDF_INT8:
-        case CDF_Types::CDF_REAL8:
-        case CDF_Types::CDF_DOUBLE:
-        case CDF_Types::CDF_EPOCH:
-        case CDF_Types::CDF_TIME_TT2000:
+        case CDF_INT8:
+        case CDF_REAL8:
+        case CDF_DOUBLE:
+        case CDF_EPOCH:
+        case CDF_TIME_TT2000:
             return 8;
-        case CDF_Types::CDF_EPOCH16:
+        case CDF_EPOCH16:
             return 16;
     }
     return 0;
@@ -333,43 +315,44 @@ constexpr auto from_cdf_type()
 
 [[nodiscard]] inline std::string cdf_type_str(CDF_Types type) noexcept
 {
+    using enum CDF_Types;
     switch (type)
     {
-        case CDF_Types::CDF_NONE:
+        case CDF_NONE:
             return "CDF_NONE";
-        case CDF_Types::CDF_INT1:
+        case CDF_INT1:
             return "CDF_INT1";
-        case CDF_Types::CDF_UINT1:
+        case CDF_UINT1:
             return "CDF_UINT1";
-        case CDF_Types::CDF_BYTE:
+        case CDF_BYTE:
             return "CDF_BYTE";
-        case CDF_Types::CDF_CHAR:
+        case CDF_CHAR:
             return "CDF_CHAR";
-        case CDF_Types::CDF_UCHAR:
+        case CDF_UCHAR:
             return "CDF_UCHAR";
-        case CDF_Types::CDF_INT2:
+        case CDF_INT2:
             return "CDF_INT2";
-        case CDF_Types::CDF_UINT2:
+        case CDF_UINT2:
             return "CDF_UINT2";
-        case CDF_Types::CDF_INT4:
+        case CDF_INT4:
             return "CDF_INT4";
-        case CDF_Types::CDF_UINT4:
+        case CDF_UINT4:
             return "CDF_UINT4";
-        case CDF_Types::CDF_FLOAT:
+        case CDF_FLOAT:
             return "CDF_FLOAT";
-        case CDF_Types::CDF_REAL4:
+        case CDF_REAL4:
             return "CDF_REAL4";
-        case CDF_Types::CDF_INT8:
+        case CDF_INT8:
             return "CDF_INT8";
-        case CDF_Types::CDF_REAL8:
+        case CDF_REAL8:
             return "CDF_REAL8";
-        case CDF_Types::CDF_DOUBLE:
+        case CDF_DOUBLE:
             return "CDF_DOUBLE";
-        case CDF_Types::CDF_TIME_TT2000:
+        case CDF_TIME_TT2000:
             return "CDF_TIME_TT2000";
-        case CDF_Types::CDF_EPOCH:
+        case CDF_EPOCH:
             return "CDF_EPOCH";
-        case CDF_Types::CDF_EPOCH16:
+        case CDF_EPOCH16:
             return "CDF_EPOCH16";
     }
     return "unknown type";
@@ -414,63 +397,63 @@ using from_cdf_type_t = decltype(from_cdf_type<type>());
 
 [[nodiscard]] inline auto cdf_type_dispatch(CDF_Types cdf_type, auto&& f, auto&&... args)
 {
+    using enum CDF_Types;
     switch (cdf_type)
     {
-        case CDF_Types::CDF_UCHAR:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_UCHAR>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_CHAR:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_CHAR>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_BYTE:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_BYTE>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_INT1:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_INT1>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_UINT1:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_UINT1>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_INT2:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_INT2>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_UINT2:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_UINT2>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_INT4:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_INT4>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_UINT4:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_UINT4>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_INT8:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_INT8>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_FLOAT:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_FLOAT>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_REAL4:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_REAL4>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_DOUBLE:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_DOUBLE>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_REAL8:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_REAL8>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_EPOCH:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_EPOCH>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_EPOCH16:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_EPOCH16>(
-            std::forward<decltype(args)>(args)...);
-        case CDF_Types::CDF_TIME_TT2000:
-            return  std::forward<decltype(f)>(f).template operator()<CDF_Types::CDF_TIME_TT2000>(
-            std::forward<decltype(args)>(args)...);
+        case CDF_UCHAR:
+            return std::forward<decltype(f)>(f).template operator()<CDF_UCHAR>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_CHAR:
+            return std::forward<decltype(f)>(f).template operator()<CDF_CHAR>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_BYTE:
+            return std::forward<decltype(f)>(f).template operator()<CDF_BYTE>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_INT1:
+            return std::forward<decltype(f)>(f).template operator()<CDF_INT1>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_UINT1:
+            return std::forward<decltype(f)>(f).template operator()<CDF_UINT1>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_INT2:
+            return std::forward<decltype(f)>(f).template operator()<CDF_INT2>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_UINT2:
+            return std::forward<decltype(f)>(f).template operator()<CDF_UINT2>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_INT4:
+            return std::forward<decltype(f)>(f).template operator()<CDF_INT4>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_UINT4:
+            return std::forward<decltype(f)>(f).template operator()<CDF_UINT4>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_INT8:
+            return std::forward<decltype(f)>(f).template operator()<CDF_INT8>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_FLOAT:
+            return std::forward<decltype(f)>(f).template operator()<CDF_FLOAT>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_REAL4:
+            return std::forward<decltype(f)>(f).template operator()<CDF_REAL4>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_DOUBLE:
+            return std::forward<decltype(f)>(f).template operator()<CDF_DOUBLE>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_REAL8:
+            return std::forward<decltype(f)>(f).template operator()<CDF_REAL8>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_EPOCH:
+            return std::forward<decltype(f)>(f).template operator()<CDF_EPOCH>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_EPOCH16:
+            return std::forward<decltype(f)>(f).template operator()<CDF_EPOCH16>(
+                std::forward<decltype(args)>(args)...);
+        case CDF_TIME_TT2000:
+            return std::forward<decltype(f)>(f).template operator()<CDF_TIME_TT2000>(
+                std::forward<decltype(args)>(args)...);
         default:
             throw std::runtime_error { std::string { "Unsupported CDF type " }
                 + std::to_string(static_cast<int>(cdf_type)) };
-            break;
     }
 }
 }

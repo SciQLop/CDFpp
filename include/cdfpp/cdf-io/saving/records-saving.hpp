@@ -112,13 +112,13 @@ struct variable_ctx
 template <typename... Ts>
 auto visit(const variable_ctx::values_records_t& values_records, Ts... lambdas)
 {
-    return std::visit(helpers::make_visitor(lambdas...), values_records);
+    return std::visit(helpers::Visitor { lambdas... }, values_records);
 }
 
 template <typename... Ts>
 auto visit(variable_ctx::values_records_t& values_records, Ts... lambdas)
 {
-    return std::visit(helpers::make_visitor(lambdas...), values_records);
+    return std::visit(helpers::Visitor { lambdas... }, values_records);
 }
 
 struct cdf_body

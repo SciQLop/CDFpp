@@ -179,7 +179,7 @@ struct cdf_mutable_variable_record_t
     template <typename... Ts>
     auto visit(Ts... lambdas) const
     {
-        return std::visit(helpers::make_visitor(lambdas...), actual_record);
+        return std::visit(helpers::Visitor { lambdas... }, actual_record);
     }
 };
 
@@ -188,27 +188,24 @@ std::size_t load_mut_record(
     cdf_mutable_variable_record_t<T>& s, const U& parsing_context, std::size_t offset)
 {
     using mutable_record = cdf_mutable_variable_record_t<T>;
+    using enum cdf_record_type;
     load_record(s.header, parsing_context, offset);
     switch (s.header.record_type)
     {
-        case cdf_record_type::CVVR:
+        case CVVR:
             s.actual_record.template emplace<typename mutable_record::cvvr_t>();
             return load_record(std::get<typename mutable_record::cvvr_t>(s.actual_record),
                 parsing_context, offset);
-            break;
-        case cdf_record_type::VVR:
+        case VVR:
             s.actual_record.template emplace<typename mutable_record::vvr_t>();
             return load_record(
                 std::get<typename mutable_record::vvr_t>(s.actual_record), parsing_context, offset);
-            break;
-        case cdf_record_type::VXR:
+        case VXR:
             s.actual_record.template emplace<typename mutable_record::vxr_t>();
             return load_record(
                 std::get<typename mutable_record::vxr_t>(s.actual_record), parsing_context, offset);
-            break;
         default:
             return 0;
-            break;
     }
 }
 
@@ -240,8 +237,6 @@ struct blk_iterator
     }
 
     bool operator==(const blk_iterator& other) const { return other.offset == offset; }
-
-    bool operator!=(const blk_iterator& other) const { return not(*this == other); }
 
     blk_iterator& operator+(int n)
     {

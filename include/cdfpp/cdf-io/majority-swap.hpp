@@ -174,51 +174,52 @@ void swap(data_t& data, const shape_t& shape)
 
 void swap(data_t& data, const no_init_vector<uint32_t>& shape)
 {
+    using enum CDF_Types;
     switch (data.type())
     {
-        case CDF_Types::CDF_BYTE:
-        case CDF_Types::CDF_INT1:
+        case CDF_BYTE:
+        case CDF_INT1:
             swap<false>(data.get<int8_t>(), shape);
             break;
-        case CDF_Types::CDF_CHAR:
+        case CDF_CHAR:
             swap<true>(data.get<CDF_Types::CDF_CHAR>(), shape);
             break;
-        case CDF_Types::CDF_UCHAR:
+        case CDF_UCHAR:
             swap<true>(data.get<CDF_Types::CDF_UCHAR>(), shape);
             break;
-        case CDF_Types::CDF_UINT1:
+        case CDF_UINT1:
             swap<false>(data.get<unsigned char>(), shape);
             break;
-        case CDF_Types::CDF_UINT2:
+        case CDF_UINT2:
             swap<false>(data.get<uint16_t>(), shape);
             break;
-        case CDF_Types::CDF_UINT4:
+        case CDF_UINT4:
             swap<false>(data.get<uint32_t>(), shape);
             break;
-        case CDF_Types::CDF_INT2:
+        case CDF_INT2:
             swap<false>(data.get<int16_t>(), shape);
             break;
-        case CDF_Types::CDF_INT4:
+        case CDF_INT4:
             swap<false>(data.get<int32_t>(), shape);
             break;
-        case CDF_Types::CDF_INT8:
+        case CDF_INT8:
             swap<false>(data.get<int64_t>(), shape);
             break;
-        case CDF_Types::CDF_FLOAT:
-        case CDF_Types::CDF_REAL4:
+        case CDF_FLOAT:
+        case CDF_REAL4:
             swap<false>(data.get<float>(), shape);
             break;
-        case CDF_Types::CDF_DOUBLE:
-        case CDF_Types::CDF_REAL8:
+        case CDF_DOUBLE:
+        case CDF_REAL8:
             swap<false>(data.get<double>(), shape);
             break;
-        case CDF_Types::CDF_EPOCH:
+        case CDF_EPOCH:
             swap<false>(data.get<epoch>(), shape);
             break;
-        case CDF_Types::CDF_EPOCH16:
+        case CDF_EPOCH16:
             swap<false>(data.get<epoch16>(), shape);
             break;
-        case CDF_Types::CDF_TIME_TT2000:
+        case CDF_TIME_TT2000:
             swap<false>(data.get<tt2000_t>(), shape);
             break;
         default:

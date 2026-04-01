@@ -68,8 +68,6 @@ struct Attribute
         return other.name == name && other.data == data;
     }
 
-    inline bool operator!=(const Attribute& other) const { return !(*this == other); }
-
     template <CDF_Types type>
     [[nodiscard]] inline decltype(auto) get(std::size_t index)
     {
@@ -192,8 +190,6 @@ struct VariableAttribute
     {
         return other.name == name && other.data == data;
     }
-
-    inline bool operator!=(const VariableAttribute& other) const { return !(*this == other); }
 
     inline CDF_Types type() const noexcept { return data.type(); }
 
