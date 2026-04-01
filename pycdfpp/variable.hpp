@@ -50,6 +50,7 @@ using namespace cdf;
 #include <pybind11/warnings.h>
 
 #include <fmt/core.h>
+#include <fmt/ranges.h>
 
 namespace docstrings
 {
@@ -107,7 +108,8 @@ auto to_numerical(const PyObject* o)
         }
         else
         {
-            throw std::invalid_argument { "Incompatible python and cdf types" };
+            throw std::invalid_argument { fmt::format(
+                "Expected numeric value, got {}", Py_TYPE(const_cast<PyObject*>(o))->tp_name) };
         }
     }
     if constexpr (helpers::is_any_of_v<T, uint8_t, uint16_t, uint32_t, uint64_t>)
@@ -122,7 +124,8 @@ auto to_numerical(const PyObject* o)
         }
         else
         {
-            throw std::invalid_argument { "Incompatible python and cdf types" };
+            throw std::invalid_argument { fmt::format(
+                "Expected numeric value, got {}", Py_TYPE(const_cast<PyObject*>(o))->tp_name) };
         }
     }
     else if constexpr (helpers::is_any_of_v<T, int8_t, int16_t, int32_t, int64_t>)
@@ -137,7 +140,8 @@ auto to_numerical(const PyObject* o)
         }
         else
         {
-            throw std::invalid_argument { "Incompatible python and cdf types" };
+            throw std::invalid_argument { fmt::format(
+                "Expected numeric value, got {}", Py_TYPE(const_cast<PyObject*>(o))->tp_name) };
         }
     }
     else if constexpr (std::is_same_v<float, T>)
@@ -152,7 +156,8 @@ auto to_numerical(const PyObject* o)
         }
         else
         {
-            throw std::invalid_argument { "Incompatible python and cdf types" };
+            throw std::invalid_argument { fmt::format(
+                "Expected numeric value, got {}", Py_TYPE(const_cast<PyObject*>(o))->tp_name) };
         }
     }
 }
@@ -163,7 +168,9 @@ std::pair<data_t, typename Variable::shape_t> _numeric_to_nd_data_t(const py::bu
     py::buffer_info info = buffer.request();
     using T = from_cdf_type_t<data_type>;
     if (info.itemsize != static_cast<ssize_t>(sizeof(T)))
-        throw std::invalid_argument { "Incompatible python and cdf types" };
+        throw std::invalid_argument { fmt::format(
+            "Buffer itemsize mismatch for {}: expected {} bytes, got {}",
+            cdf_type_str(data_type), sizeof(T), info.itemsize) };
     typename Variable::shape_t shape(info.ndim);
     std::copy(std::cbegin(info.shape), std::cend(info.shape), std::begin(shape));
     if (info.size != 0)
@@ -227,7 +234,9 @@ void to_cdf_string_t(PyObject* o, const std::span<T>& out)
     }
     else
     {
-        throw std::invalid_argument { "Incompatible python and cdf string types" };
+        throw std::invalid_argument { fmt::format(
+            "Expected str for CDF string variable, got {}",
+            Py_TYPE(o)->tp_name) };
     }
 }
 
@@ -252,7 +261,9 @@ std::pair<data_t, typename Variable::shape_t> _time_to_nd_data_t(const py::array
     no_init_vector<T> values(arr.size());
     if (!to_cdf_time_t(arr, values.data()))
     {
-        throw std::invalid_argument { "Incompatible python and cdf time types" };
+        throw std::invalid_argument { fmt::format(
+            "Cannot convert numpy array with dtype '{}' to CDF time type {}",
+            std::string(py::str(arr.dtype())), cdf_type_str(data_type)) };
     }
     return { data_t { std::move(values), data_type }, std::move(shape) };
 }
@@ -459,7 +470,9 @@ struct _min_storage_result
         }
         else
         {
-            throw std::invalid_argument { "Unsupported data type in input values" };
+            throw std::invalid_argument { fmt::format(
+                "Unsupported data type in input values: {}",
+                Py_TYPE(const_cast<PyObject*>(obj))->tp_name) };
         }
     }
     return CDF_Types::CDF_NONE;
@@ -642,11 +655,17 @@ void def_variable_wrapper(T& mod)
                 if (var.type() != CDF_Types::CDF_NONE and not force)
                 {
                     if (var.type() != source.type())
-                        throw std::invalid_argument { "Incompatible variable types" };
+                        throw std::invalid_argument { fmt::format(
+                            "Incompatible variable types: destination is {}, source is {}",
+                            cdf_type_str(var.type()), cdf_type_str(source.type())) };
                     if (var.is_nrv() != source.is_nrv())
-                        throw std::invalid_argument { "Incompatible variable record vary" };
+                        throw std::invalid_argument { fmt::format(
+                            "Incompatible record variance: destination is_nrv={}, source is_nrv={}",
+                            var.is_nrv(), source.is_nrv()) };
                     if (var.shape() != source.shape())
-                        throw std::invalid_argument { "Incompatible variable shapes" };
+                        throw std::invalid_argument { fmt::format(
+                            "Incompatible variable shapes: destination [{}], source [{}]",
+                            fmt::join(var.shape(), ", "), fmt::join(source.shape(), ", ")) };
                 }
                 var.set_data(source);
             },
@@ -667,7 +686,8 @@ void def_variable_wrapper(T& mod)
                 }
                 else
                 {
-                    throw std::invalid_argument { "Attribute already exists" };
+                    throw std::invalid_argument { fmt::format(
+                        "Variable attribute '{}' already exists", attr.name) };
                 }
             },
             py::arg("attribute"), py::return_value_policy::reference_internal);

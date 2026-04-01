@@ -35,6 +35,8 @@
 #include "repr.hpp"
 #include "variable.hpp"
 
+#include <fmt/core.h>
+
 
 using namespace cdf;
 
@@ -97,7 +99,14 @@ void def_cdf_wrapper(T& mod)
             [](CDF& cdf, cdf_compression_type ct) { cdf.compression = ct; })
         .def("__repr__", __repr__<CDF>)
         .def(
-            "__getitem__", [](CDF& cd, const std::string& key) -> Variable& { return cd[key]; },
+            "__getitem__",
+            [](CDF& cd, const std::string& key) -> Variable&
+            {
+                auto it = cd.variables.find(key);
+                if (it == cd.variables.end())
+                    throw py::key_error(key);
+                return it->second;
+            },
             py::return_value_policy::reference_internal)
         .def("__contains__",
             [](const CDF& cd, std::string& key) { return cd.variables.count(key) > 0; })
@@ -132,7 +141,8 @@ void def_cdf_wrapper(T& mod)
                 }
                 else
                 {
-                    throw std::invalid_argument { "Variable already exists" };
+                    throw std::invalid_argument { fmt::format(
+                        "Variable '{}' already exists", name) };
                 }
             },
             py::arg("name"), py::arg("is_nrv") = false,
@@ -153,7 +163,8 @@ void def_cdf_wrapper(T& mod)
                 }
                 else
                 {
-                    throw std::invalid_argument { "Variable already exists" };
+                    throw std::invalid_argument { fmt::format(
+                        "Variable '{}' already exists", name) };
                 }
             },
             py::arg("name"), py::arg("values").noconvert(), py::arg("data_type"),
@@ -171,7 +182,8 @@ void def_cdf_wrapper(T& mod)
                 }
                 else
                 {
-                    throw std::invalid_argument { "Variable already exists" };
+                    throw std::invalid_argument { fmt::format(
+                        "Variable '{}' already exists", var.name()) };
                 }
             },
             py::arg("variable"), py::return_value_policy::reference_internal)
@@ -186,7 +198,8 @@ void def_cdf_wrapper(T& mod)
                 }
                 else
                 {
-                    throw std::invalid_argument { "Variable does not exist" };
+                    throw std::invalid_argument { fmt::format(
+                        "Variable '{}' does not exist", name) };
                 }
             },
             py::arg("name"))
@@ -207,7 +220,8 @@ void def_cdf_wrapper(T& mod)
                 }
                 else
                 {
-                    throw std::invalid_argument { "Attribute already exists" };
+                    throw std::invalid_argument { fmt::format(
+                        "Global attribute '{}' already exists", attr.name) };
                 }
             },
             py::arg("attribute"), py::return_value_policy::reference_internal)
@@ -222,7 +236,8 @@ void def_cdf_wrapper(T& mod)
                 }
                 else
                 {
-                    throw std::invalid_argument { "Attribute does not exist" };
+                    throw std::invalid_argument { fmt::format(
+                        "Global attribute '{}' does not exist", name) };
                 }
             },
             py::arg("name"));
@@ -248,7 +263,8 @@ void def_cdf_loading_functions(T& mod)
         {
             py::buffer_info info(buffer.request());
             if (info.ndim != 1)
-                throw std::runtime_error("Incompatible buffer dimension!");
+                throw std::runtime_error(fmt::format(
+                    "lazy_load requires a 1-D buffer, got ndim={}", info.ndim));
             py::gil_scoped_release release;
             return io::load(static_cast<char*>(info.ptr), info.shape[0], iso_8859_1_to_utf8, true);
         },

@@ -39,6 +39,8 @@ typedef SSIZE_T ssize_t;
 #include <cdfpp/no_init_vector.hpp>
 using namespace cdf;
 
+#include <fmt/core.h>
+
 #include <pybind11/chrono.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -538,7 +540,9 @@ namespace ranges
     {
         if (py::len(input) != shape_span[0])
         {
-            throw std::out_of_range("Inconsistent shapes in nested lists/tuples");
+            throw std::out_of_range(fmt::format(
+                "Inconsistent shapes in nested lists/tuples: expected length {}, got {}",
+                shape_span[0], py::len(input)));
         }
         auto view = py_list_or_tuple_view { input };
         for (const PyObject* obj : view)
@@ -547,7 +551,7 @@ namespace ranges
             {
                 if (shape_span.size() < 2)
                 {
-                    throw std::out_of_range("Inconsistent shapes in nested lists/tuples");
+                    throw std::out_of_range("Inconsistent shapes in nested lists/tuples: unexpected nested collection at leaf level");
                 }
                 res_ptr = _transform_inner<T>(
                     py::reinterpret_borrow<py::list>(const_cast<PyObject*>(obj)), f, res_ptr,
@@ -588,7 +592,9 @@ namespace ranges
     {
         if (py::len(input) != shape_span[0])
         {
-            throw std::out_of_range("Inconsistent shapes in nested lists/tuples");
+            throw std::out_of_range(fmt::format(
+                "Inconsistent shapes in nested string lists/tuples: expected length {}, got {}",
+                shape_span[0], py::len(input)));
         }
         auto view = py_list_or_tuple_view { input };
         for (const PyObject* obj : view)
@@ -597,7 +603,7 @@ namespace ranges
             {
                 if (shape_span.size() < 2)
                 {
-                    throw std::out_of_range("Inconsistent shapes in nested lists/tuples");
+                    throw std::out_of_range("Inconsistent shapes in nested string lists/tuples: unexpected nested collection at leaf level");
                 }
                 res_ptr = _string_transform_inner<T>(
                     py::reinterpret_borrow<py::list>(const_cast<PyObject*>(obj)), f, res_ptr,
@@ -675,7 +681,7 @@ namespace ranges
                 }
                 else
                 {
-                    throw std::out_of_range("Conversion failed");
+                    throw std::out_of_range("Time conversion failed for element");
                 }
             }
         }
@@ -733,8 +739,9 @@ namespace ranges
             }
             else
             {
-                throw std::out_of_range(
-                    "Only supports datetime.datetime, tt2000_t, epoch and epoch16 types");
+                throw std::out_of_range(fmt::format(
+                    "Only supports datetime.datetime, tt2000_t, epoch and epoch16 types, got {}",
+                    Py_TYPE(const_cast<PyObject*>(obj))->tp_name));
             }
         }
         return result;
