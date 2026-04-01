@@ -17,7 +17,7 @@ from typing import Mapping, List, Any, Union, overload, Callable
 import sys
 import os
 import copy
-from functools import singledispatch
+from functools import singledispatch, wraps
 from datetime import datetime
 import re
 
@@ -194,6 +194,31 @@ def _values_view_and_type(values: np.ndarray or list, data_type: DataType or Non
                 values.dtype.num])
 
 
+def _strict_kwargs(arg_names):
+    """Decorator that maps positional args to named kwargs and rejects unknown kwargs.
+
+    Parameters
+    ----------
+    arg_names : list of str
+        Allowed keyword argument names, in positional order (excluding 'self').
+    """
+    allowed = set(arg_names)
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(self, *args, **kwargs):
+            for i, arg in enumerate(args):
+                if i < len(arg_names):
+                    kwargs[arg_names[i]] = arg
+                else:
+                    raise TypeError(f"{fn.__name__}() takes at most {len(arg_names)} positional arguments ({i + 1} given)")
+            unknown = set(kwargs.keys()) - allowed
+            if unknown:
+                raise TypeError(f"{fn.__name__}() got unexpected keyword argument(s): {', '.join(sorted(unknown))}")
+            return fn(self, **kwargs)
+        return wrapper
+    return decorator
+
+
 def _patch_set_values():
     def _set_values_wrapper(self, values, data_type=None, force=False):
         """Sets or resets the values of the variable.
@@ -256,7 +281,10 @@ def _patch_add_variable():
     def _add_variable_wrapper(self: CDF, variable: Variable) -> Variable:
         ...
 
-    def _add_variable_wrapper(self, *args, **kwargs) -> Variable:
+    @_strict_kwargs(['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes'])
+    def _add_variable_wrapper(self, name=None, values=None, data_type=None,
+                              is_nrv=False, compression=CompressionType.no_compression,
+                              attributes=None) -> Variable:
         """Adds a new variable to the CDF.
 
         This method can be called in two ways:
@@ -314,22 +342,8 @@ def _patch_add_variable():
           compression: GNU GZIP
           ...
         """
-        if len(args) == 1 and isinstance(args[0], Variable):
-            # If the first argument is a Variable, we assume it's an existing variable to add
-            return self._add_variable(variable=args[0])
-        arg_names = ['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes']
-        for i, arg in enumerate(args):
-            if i < len(arg_names):
-                kwargs[arg_names[i]] = arg
-            else:
-                raise TypeError(f"Unexpected argument {arg} at position {i+1}. Expected one of {arg_names}.")
-        name = kwargs.get('name')
-        values = kwargs.get('values')
-        data_type = kwargs.get('data_type')
-        is_nrv = kwargs.get('is_nrv', False)
-        compression = kwargs.get('compression', CompressionType.no_compression)
-        attributes = kwargs.get('attributes', None)
-
+        if isinstance(name, Variable):
+            return self._add_variable(variable=name)
         var = self._add_variable(name, is_nrv=is_nrv, compression=compression)
         if values is not None:
             var.set_values(values, data_type)
@@ -364,7 +378,8 @@ def _patch_add_variable_attribute():
     def _add_attribute(self: Variable, attribute: VariableAttribute) -> VariableAttribute:
         ...
 
-    def _add_attribute_wrapper(self, *args, **kwargs)-> VariableAttribute:
+    @_strict_kwargs(['name', 'values', 'data_type'])
+    def _add_attribute_wrapper(self, name=None, values=None, data_type=None) -> VariableAttribute:
         """Adds a new attribute to the variable.
 
         This method can be called in two ways:
@@ -413,19 +428,10 @@ def _patch_add_variable_attribute():
         >>> var2.add_attribute(cdf["var1"].attributes["attr1"])
         attr1: [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ]
         """
-        if len(args) == 1 and isinstance(args[0], VariableAttribute):
-            # If the first argument is a VariableAttribute, we assume it's an existing attribute to add
-            return self._add_attribute(attribute=args[0])
-
-        arg_names = ['name','values', 'data_type']
-        for i, arg in enumerate(args):
-            if i < len(arg_names):
-                kwargs[arg_names[i]] = arg
-            else:
-                raise TypeError(f"Unexpected argument {arg} at position {i+1}. Expected one of {arg_names}.")
-
-        v, t = _attribute_values_view_and_type(kwargs['values'], kwargs.get('data_type'))
-        return self._add_attribute(name=kwargs['name'], values=v, data_type=t)
+        if isinstance(name, VariableAttribute):
+            return self._add_attribute(attribute=name)
+        v, t = _attribute_values_view_and_type(values, data_type)
+        return self._add_attribute(name=name, values=v, data_type=t)
 
     Variable.add_attribute = _add_attribute_wrapper
 
@@ -439,7 +445,8 @@ def _patch_add_cdf_attribute():
     @overload
     def _add_attribute(self: CDF, attribute: Attribute) -> Attribute:
         ...
-    def _add_attribute_wrapper(self, *args, **kwargs) -> Attribute:
+    @_strict_kwargs(['name', 'entries_values', 'entries_types'])
+    def _add_attribute_wrapper(self, name=None, entries_values=None, entries_types=None) -> Attribute:
         """Adds a new attribute to the CDF.
 
         This method can be called in two ways:
@@ -485,20 +492,9 @@ def _patch_add_cdf_attribute():
         >>> cdf.add_attribute("multi", [np.arange(2, dtype=np.int32), [1.,2.,3.], "hello", [datetime(2010,1,1), datetime(2020,1,1)]])
         multi: [ [ [ 0, 1 ], [ 1, 2, 3 ], "hello", [ 2010-01-01T00:00:00.000000000, 2020-01-01T00:00:00.000000000 ] ] ]
         """
-
-        if len(args) == 1 and isinstance(args[0], Attribute):
-            # If the first argument is an Attribute, we assume it's an existing attribute to add
-            return self._add_attribute(attribute=args[0])
-        arg_names = ['name', 'entries_values', 'entries_types']
-        for i, arg in enumerate(args):
-            if i < len(arg_names):
-                kwargs[arg_names[i]] = arg
-            else:
-                raise TypeError(f"Unexpected argument {arg} at position {i+1}. Expected one of {arg_names}.")
-
-        name = kwargs.get('name')
-        entries_values = kwargs.get('entries_values')
-        entries_types = kwargs.get('entries_types') or [None] * len(entries_values)
+        if isinstance(name, Attribute):
+            return self._add_attribute(attribute=name)
+        entries_types = entries_types or [None] * len(entries_values)
         v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
                                        for values, data_type in zip(entries_values, entries_types)])]
         return self._add_attribute(name=name, entries_values=v, entries_types=t)
@@ -514,35 +510,29 @@ def _patch_attribute_set_values():
     @overload
     def _attribute_set_values(self: Attribute, attribute: Attribute):
         ...
-    def _attribute_set_values(self, *args, **kwargs):
+    @_strict_kwargs(['entries_values', 'entries_types'])
+    def _attribute_set_values(self, entries_values=None, entries_types=None):
         """Sets the values of the attribute.
-        
+
         This method can be called in two ways:
         1. With values and optional types: set_values(entries_values, entries_types=None)
         2. With another Attribute object: set_values(attribute)
-        
+
         Parameters
         ----------
         entries_values : List[np.ndarray or List[float or int or datetime] or str]
             The values entries to set for the attribute.
-            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type, 
+            When a list is passed, the values are converted to a numpy.ndarray with the appropriate data type,
             with integers, it will choose the smallest data type that can hold all the values.
         entries_types : List[DataType] or None, optional
             The data type for each entry of the attribute. If None, the data type is inferred from the values. (Default is None)
         attribute : Attribute
             An existing Attribute object to set the values from (for the second calling method).
         """
-        if len(args) == 1 and isinstance(args[0], Attribute):
-            self._set_values(args[0])
+        if isinstance(entries_values, Attribute):
+            self._set_values(entries_values)
         else:
-            arg_names = ['entries_values', 'entries_types']
-            for i, arg in enumerate(args):
-                if i < len(arg_names):
-                    kwargs[arg_names[i]] = arg
-                else:
-                    raise TypeError(f"Unexpected argument {arg} at position {i+1}. Expected one of {arg_names}.")
-            entries_values = kwargs.get('entries_values')
-            entries_types = kwargs.get('entries_types') or [None] * len(entries_values)
+            entries_types = entries_types or [None] * len(entries_values)
             v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
                                            for values, data_type in zip(entries_values, entries_types)])]
             self._set_values(v, t)
@@ -557,13 +547,14 @@ def _patch_var_attribute_set_value():
     @overload
     def _attribute_set_value(self: VariableAttribute, value: VariableAttribute):
         ...
-    def _attribute_set_value(self, *args, **kwargs):
+    @_strict_kwargs(['value', 'data_type'])
+    def _attribute_set_value(self, value=None, data_type=None):
         """Sets the value of the variable attribute.
-        
+
         This method can be called in two ways:
         1. With value and optional data type: set_value(value, data_type=None)
         2. With another VariableAttribute object: set_value(attribute)
-        
+
         Parameters
         ----------
         value : np.ndarray or List[float or int or datetime] or str
@@ -574,7 +565,7 @@ def _patch_var_attribute_set_value():
             The data type of the attribute. If None, the data type is inferred from the values. (Default is None)
         attribute : VariableAttribute
             An existing VariableAttribute object to set the value from (for the second calling method).
-            
+
         Examples
         --------
         >>> from pycdfpp import CDF, DataType
@@ -589,17 +580,9 @@ def _patch_var_attribute_set_value():
         >>> var.attributes["attr2"]
         [ 1, 2, 3 ]
         """
-        if len(args) == 1 and isinstance(args[0], VariableAttribute):
-            self._set_value(args[0])
+        if isinstance(value, VariableAttribute):
+            self._set_value(value)
         else:
-            arg_names = ['value', 'data_type']
-            for i, arg in enumerate(args):
-                if i < len(arg_names):
-                    kwargs[arg_names[i]] = arg
-                else:
-                    raise TypeError(f"Unexpected argument {arg} at position {i+1}. Expected one of {arg_names}.")
-            value = kwargs.get('value')
-            data_type = kwargs.get('data_type', None)
             v, t = _attribute_values_view_and_type(value, data_type)
             self._set_value(v, t)
 

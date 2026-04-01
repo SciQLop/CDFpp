@@ -145,6 +145,22 @@ class PycdfCreateCDFTest(unittest.TestCase):
         self.assertListEqual(cdf["test_variable"].attributes["attr2"][0],
                              [pycdfpp.to_tt2000(datetime(2018, 1, 1)), pycdfpp.to_tt2000(datetime(2018, 1, 2))])
 
+    def test_add_variable_rejects_unexpected_kwargs(self):
+        cdf = pycdfpp.CDF()
+        with self.assertRaises(TypeError):
+            cdf.add_variable("var", values=[1, 2, 3], ttributes={"FIELDNAM": "test"})
+
+    def test_add_cdf_attribute_rejects_unexpected_kwargs(self):
+        cdf = pycdfpp.CDF()
+        with self.assertRaises(TypeError):
+            cdf.add_attribute("attr", entries_values=[[1, 2]], entry_types=[None])
+
+    def test_add_variable_attribute_rejects_unexpected_kwargs(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("var", values=[1, 2, 3])
+        with self.assertRaises(TypeError):
+            cdf["var"].add_attribute("attr", values=[1, 2], dtype=pycdfpp.DataType.CDF_INT4)
+
     def test_can_create_an_empty_variable(self):
         cdf = pycdfpp.CDF()
         cdf.add_variable("test_variable", values=np.ones((0, 100, 10), dtype=np.float32))
