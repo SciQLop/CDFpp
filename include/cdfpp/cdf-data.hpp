@@ -315,38 +315,17 @@ template <CDF_Types _type, typename endianness_t, bool latin1_to_utf8_conv>
 template <bool iso_8859_1_to_utf8>
 [[nodiscard]] inline data_t load_values(data_t&& data, cdf_encoding encoding) noexcept
 {
-#define DATA_FROM_T(_type)                                                                         \
-    case CDF_Types::_type:                                                                         \
-        if (endianness::is_big_endian_encoding(encoding))                                          \
-            return load_values<CDF_Types::_type, endianness::big_endian_t, iso_8859_1_to_utf8>(    \
-                std::move(data));                                                                  \
-        return load_values<CDF_Types::_type, endianness::little_endian_t, iso_8859_1_to_utf8>(     \
-            std::move(data));
-
-
-    switch (data.type())
-    {
-        DATA_FROM_T(CDF_FLOAT)
-        DATA_FROM_T(CDF_DOUBLE)
-        DATA_FROM_T(CDF_REAL4)
-        DATA_FROM_T(CDF_REAL8)
-        DATA_FROM_T(CDF_EPOCH)
-        DATA_FROM_T(CDF_EPOCH16)
-        DATA_FROM_T(CDF_TIME_TT2000)
-        DATA_FROM_T(CDF_CHAR)
-        DATA_FROM_T(CDF_UCHAR)
-        DATA_FROM_T(CDF_INT1)
-        DATA_FROM_T(CDF_INT2)
-        DATA_FROM_T(CDF_INT4)
-        DATA_FROM_T(CDF_INT8)
-        DATA_FROM_T(CDF_UINT1)
-        DATA_FROM_T(CDF_UINT2)
-        DATA_FROM_T(CDF_UINT4)
-        DATA_FROM_T(CDF_BYTE)
-        case CDF_Types::CDF_NONE:
-            return {};
-    }
-    return {};
+    if (data.type() == CDF_Types::CDF_NONE)
+        return {};
+    return cdf_type_dispatch(data.type(),
+        [&]<CDF_Types t>()
+        {
+            if (endianness::is_big_endian_encoding(encoding))
+                return load_values<t, endianness::big_endian_t, iso_8859_1_to_utf8>(
+                    std::move(data));
+            return load_values<t, endianness::little_endian_t, iso_8859_1_to_utf8>(
+                std::move(data));
+        });
 }
 
 template <CDF_Types _type>
@@ -360,33 +339,11 @@ template <CDF_Types _type>
 
 [[nodiscard]] inline data_t new_data_container(std::size_t bytes_len, CDF_Types _type)
 {
-#define DC_FROM_T(_type)                                                                           \
-    case CDF_Types::_type:                                                                         \
-        return data_t { new_cdf_values_container<CDF_Types::_type>(bytes_len), CDF_Types::_type };
-
-    switch (_type)
-    {
-        DC_FROM_T(CDF_FLOAT)
-        DC_FROM_T(CDF_DOUBLE)
-        DC_FROM_T(CDF_REAL4)
-        DC_FROM_T(CDF_REAL8)
-        DC_FROM_T(CDF_EPOCH)
-        DC_FROM_T(CDF_EPOCH16)
-        DC_FROM_T(CDF_TIME_TT2000)
-        DC_FROM_T(CDF_CHAR)
-        DC_FROM_T(CDF_UCHAR)
-        DC_FROM_T(CDF_INT1)
-        DC_FROM_T(CDF_INT2)
-        DC_FROM_T(CDF_INT4)
-        DC_FROM_T(CDF_INT8)
-        DC_FROM_T(CDF_UINT1)
-        DC_FROM_T(CDF_UINT2)
-        DC_FROM_T(CDF_UINT4)
-        DC_FROM_T(CDF_BYTE)
-        case CDF_Types::CDF_NONE:
-            return {};
-    }
-    return {};
+    if (_type == CDF_Types::CDF_NONE)
+        return {};
+    return cdf_type_dispatch(_type,
+        [&]<CDF_Types t>()
+        { return data_t { new_cdf_values_container<t>(bytes_len), t }; });
 }
 
 

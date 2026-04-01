@@ -25,6 +25,7 @@
 ----------------------------------------------------------------------------*/
 #pragma once
 #include "../no_init_vector.hpp"
+#include <concepts>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -36,20 +37,15 @@ struct string_field
     std::string value;
 };
 
-template <typename T, typename = void>
-struct is_string_field : std::false_type
-{
-};
-
 template <typename T>
-struct is_string_field<T, decltype(std::is_same_v<string_field<T::max_len>, T>, void())>
-        : std::is_same<string_field<T::max_len>, T>
-{
+concept string_field_c = requires {
+    { T::max_len } -> std::convertible_to<std::size_t>;
+    requires std::same_as<T, string_field<T::max_len>>;
 };
 
 template <typename T>
 static inline constexpr bool is_string_field_v
-    = is_string_field<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+    = string_field_c<std::remove_cv_t<std::remove_reference_t<T>>>;
 
 
 template <typename T, std::size_t _index = 0>
@@ -66,19 +62,13 @@ struct unused_field
     T value;
 };
 
-
-template <typename T, typename = void>
-struct is_table_field : std::false_type
-{
-};
-
 template <typename T>
-struct is_table_field<T,
-    decltype(std::is_same_v<table_field<typename T::value_type, T::index>, T>, void())>
-        : std::is_same<table_field<typename T::value_type, T::index>, T>
-{
+concept table_field_c = requires {
+    typename T::value_type;
+    { T::index } -> std::convertible_to<std::size_t>;
+    requires std::same_as<T, table_field<typename T::value_type, T::index>>;
 };
 
 template <typename T>
 static inline constexpr bool is_table_field_v
-    = is_table_field<std::remove_cv_t<std::remove_reference_t<T>>>::value;
+    = table_field_c<std::remove_cv_t<std::remove_reference_t<T>>>;
