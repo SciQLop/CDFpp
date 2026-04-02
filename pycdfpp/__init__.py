@@ -37,7 +37,7 @@ if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] 
     os.add_dll_directory(__here__)
 
 __all__ = ['tt2000_t', 'epoch', 'epoch16', 'load', 'save', 'CDF', 'Variable',
-           'Attribute', 'to_datetime64', 'to_datetime', 'DataType', 'CompressionType', 'Majority']
+           'Attribute', 'to_datetime64', 'to_datetime', 'to_time_string', 'DataType', 'CompressionType', 'Majority']
 
 _NUMPY_TO_CDF_TYPE_ = (
     DataType.CDF_NONE,
@@ -728,6 +728,26 @@ to convert to CDF epoch
     epoch or List[epoch]
     """
     return _pycdfpp.to_epoch(values)
+
+
+def to_time_string(values, format: str):
+    """Format CDF time values as an array of fixed-width ASCII strings.
+
+    Parameters
+    ----------
+    values : Variable or numpy.ndarray[tt2000_t] or numpy.ndarray[epoch] or numpy.ndarray[epoch16]
+        CDF time values to format.
+    format : str
+        strftime-compatible format string (e.g. ``'%Y-%m-%dT%H:%M:%SZ'``).
+        ``%S`` automatically includes sub-second digits matching the input
+        precision (3 for epoch, 9 for tt2000, 12 for epoch16).
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of byte strings (dtype ``S{N}``) with the same shape as input.
+    """
+    return _pycdfpp.to_time_string(values, format)
 
 
 def to_epoch16(values):

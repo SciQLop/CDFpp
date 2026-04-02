@@ -95,6 +95,84 @@ class PycdfChrono(unittest.TestCase):
             self.assertEqual(pycdfpp.to_datetime64(pycdfpp.to_tt2000([])),
                 np.array([], dtype="datetime64[ns]"))
 
+class PycdfToTimeString(unittest.TestCase):
+    def test_tt2000_iso_format(self):
+        times = np.array(['2020-01-01T00:00:00', '2020-06-15T12:30:45'], dtype='datetime64[ns]')
+        tt = pycdfpp.to_tt2000(times)
+        result = pycdfpp.to_time_string(tt, '%Y-%m-%dT%H:%M:%SZ')
+        self.assertEqual(result[0], b'2020-01-01T00:00:00.000000000Z')
+        self.assertEqual(result[1], b'2020-06-15T12:30:45.000000000Z')
+        self.assertEqual(result.dtype, np.dtype('S30'))
+
+    def test_epoch_iso_format(self):
+        times = np.array(['2020-01-01T00:00:00', '2020-06-15T12:30:45'], dtype='datetime64[ns]')
+        ep = pycdfpp.to_epoch(times)
+        result = pycdfpp.to_time_string(ep, '%Y-%m-%dT%H:%M:%SZ')
+        self.assertTrue(result[0].startswith(b'2020-01-01T00:00:00'))
+        self.assertTrue(result[1].startswith(b'2020-06-15T12:30:45'))
+
+    def test_epoch16_iso_format(self):
+        times = np.array(['2020-01-01T00:00:00', '2020-06-15T12:30:45'], dtype='datetime64[ns]')
+        ep16 = pycdfpp.to_epoch16(times)
+        result = pycdfpp.to_time_string(ep16, '%Y-%m-%dT%H:%M:%SZ')
+        self.assertTrue(result[0].startswith(b'2020-01-01T00:00:00'))
+        self.assertTrue(result[1].startswith(b'2020-06-15T12:30:45'))
+
+    def test_custom_format(self):
+        times = np.array(['2020-03-15T08:30:00'], dtype='datetime64[ns]')
+        tt = pycdfpp.to_tt2000(times)
+        result = pycdfpp.to_time_string(tt, '%Y-%jT%H:%M:%SZ')
+        self.assertTrue(result[0].startswith(b'2020-075T08:30:00'))
+
+    def test_date_only_format(self):
+        times = np.array(['2020-03-15T00:00:00'], dtype='datetime64[ns]')
+        tt = pycdfpp.to_tt2000(times)
+        result = pycdfpp.to_time_string(tt, '%Y-%m-%d')
+        self.assertEqual(result[0], b'2020-03-15')
+
+    def test_variable_tt2000(self):
+        times = np.array(['2020-01-01T00:00:00', '2020-01-01T01:00:00'], dtype='datetime64[ns]')
+        cdf = pycdfpp.CDF()
+        cdf.add_variable('Epoch', values=pycdfpp.to_tt2000(times),
+                         data_type=pycdfpp.DataType.CDF_TIME_TT2000)
+        result = pycdfpp.to_time_string(cdf['Epoch'], '%Y-%m-%dT%H:%M:%SZ')
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0], b'2020-01-01T00:00:00.000000000Z')
+
+    def test_variable_epoch(self):
+        times = np.array(['2020-01-01T00:00:00', '2020-01-01T01:00:00'], dtype='datetime64[ns]')
+        cdf = pycdfpp.CDF()
+        cdf.add_variable('Epoch', values=pycdfpp.to_epoch(times),
+                         data_type=pycdfpp.DataType.CDF_EPOCH)
+        result = pycdfpp.to_time_string(cdf['Epoch'], '%Y-%m-%dT%H:%M:%SZ')
+        self.assertEqual(len(result), 2)
+        self.assertTrue(result[0].startswith(b'2020-01-01T00:00:00'))
+
+    def test_empty_array(self):
+        tt = pycdfpp.to_tt2000(np.array([], dtype='datetime64[ns]'))
+        result = pycdfpp.to_time_string(tt, '%Y-%m-%dT%H:%M:%SZ')
+        self.assertEqual(len(result), 0)
+
+    def test_invalid_variable_type(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable('data', values=np.array([1.0, 2.0]),
+                         data_type=pycdfpp.DataType.CDF_DOUBLE)
+        with self.assertRaises(Exception):
+            pycdfpp.to_time_string(cdf['data'], '%Y-%m-%dT%H:%M:%SZ')
+
+    def test_preserves_shape(self):
+        times = np.arange('2020-01-01', '2020-01-02', dtype='datetime64[h]').astype('datetime64[ns]')
+        tt = pycdfpp.to_tt2000(times)
+        result = pycdfpp.to_time_string(tt, '%Y-%m-%dT%H:%M:%SZ')
+        self.assertEqual(result.shape, tt.shape)
+
+    def test_subsecond_precision_tt2000(self):
+        times = np.array(['2020-01-01T00:00:00.123456789'], dtype='datetime64[ns]')
+        tt = pycdfpp.to_tt2000(times)
+        result = pycdfpp.to_time_string(tt, '%Y-%m-%dT%H:%M:%S')
+        self.assertIn(b'123456789', result[0])
+
+
 class PycdfChronoErrors(unittest.TestCase):
     def test_invalid_input(self):
         with self.assertRaises(ValueError):
