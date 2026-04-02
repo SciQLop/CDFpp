@@ -165,6 +165,10 @@ epoch_dt64 = pycdfpp.to_datetime64(mms2_fgm_srvy["Epoch"])
 
 # note that using datetime64 is ~100x faster than datetime (~2ns/element on an average laptop)
 
+# to convert CDF time variables to formatted strings (e.g. for PDS4 compliance):
+epoch_str = pycdfpp.to_time_string(mms2_fgm_srvy["Epoch"], "%Y-%m-%dT%H:%M:%SZ")
+# returns numpy array of byte strings: [b'2020-02-01T00:00:00.000000000Z', ...]
+
 ```
 
 ### Writing CDF files
