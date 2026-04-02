@@ -499,6 +499,286 @@ inline py::object to_cdf_time_t(const py::array& input)
 }
 
 
+namespace time_fmt
+{
+    // clang-format off
+    alignas(64) constexpr char DIGIT_PAIRS[] =
+        "00010203040506070809"
+        "10111213141516171819"
+        "20212223242526272829"
+        "30313233343536373839"
+        "40414243444546474849"
+        "50515253545556575859"
+        "60616263646566676869"
+        "70717273747576777879"
+        "80818283848586878889"
+        "90919293949596979899";
+    // clang-format on
+
+    inline void write_2d(char* p, unsigned v) { std::memcpy(p, DIGIT_PAIRS + v * 2, 2); }
+
+    inline void write_3d(char* p, unsigned v)
+    {
+        p[0] = '0' + static_cast<char>(v / 100);
+        write_2d(p + 1, v % 100);
+    }
+
+    inline void write_4d(char* p, unsigned v)
+    {
+        write_2d(p, v / 100);
+        write_2d(p + 2, v % 100);
+    }
+
+    inline void write_nd(char* p, uint64_t v, int n)
+    {
+        for (int i = n - 1; i >= 0; --i)
+        {
+            p[i] = '0' + static_cast<char>(v % 10);
+            v /= 10;
+        }
+    }
+
+    enum class field_kind : uint8_t { YEAR, MONTH, DAY, DOY, HOUR, MINUTE, SECOND };
+
+    struct field
+    {
+        uint16_t offset;
+        field_kind kind;
+    };
+
+    struct plan
+    {
+        std::string tmpl;
+        std::vector<field> fields;
+        uint16_t subsec_offset = 0;
+        uint8_t subsec_digits = 0;
+        bool needs_doy = false;
+    };
+
+    template <typename time_t>
+    constexpr int default_subsec_digits()
+    {
+        using tp_t = decltype(cdf::to_time_point(std::declval<time_t>()));
+        using period = typename tp_t::duration::period;
+        if constexpr (std::is_same_v<period, std::pico>)
+            return 12;
+        else if constexpr (std::is_same_v<period, std::nano>)
+            return 9;
+        else if constexpr (std::is_same_v<period, std::micro>)
+            return 6;
+        else if constexpr (std::is_same_v<period, std::milli>)
+            return 3;
+        else
+            return 0;
+    }
+
+    template <typename time_t>
+    plan compile(const std::string& fmt)
+    {
+        plan p;
+        const int subsec_n = default_subsec_digits<time_t>();
+        for (std::size_t i = 0; i < fmt.size(); ++i)
+        {
+            if (fmt[i] == '%' && i + 1 < fmt.size())
+            {
+                ++i;
+                switch (fmt[i])
+                {
+                    case 'Y':
+                        p.fields.push_back(
+                            { static_cast<uint16_t>(p.tmpl.size()), field_kind::YEAR });
+                        p.tmpl.append("0000");
+                        break;
+                    case 'm':
+                        p.fields.push_back(
+                            { static_cast<uint16_t>(p.tmpl.size()), field_kind::MONTH });
+                        p.tmpl.append("00");
+                        break;
+                    case 'd':
+                        p.fields.push_back(
+                            { static_cast<uint16_t>(p.tmpl.size()), field_kind::DAY });
+                        p.tmpl.append("00");
+                        break;
+                    case 'j':
+                        p.fields.push_back(
+                            { static_cast<uint16_t>(p.tmpl.size()), field_kind::DOY });
+                        p.needs_doy = true;
+                        p.tmpl.append("000");
+                        break;
+                    case 'H':
+                        p.fields.push_back(
+                            { static_cast<uint16_t>(p.tmpl.size()), field_kind::HOUR });
+                        p.tmpl.append("00");
+                        break;
+                    case 'M':
+                        p.fields.push_back(
+                            { static_cast<uint16_t>(p.tmpl.size()), field_kind::MINUTE });
+                        p.tmpl.append("00");
+                        break;
+                    case 'S':
+                        p.fields.push_back(
+                            { static_cast<uint16_t>(p.tmpl.size()), field_kind::SECOND });
+                        p.tmpl.append("00");
+                        if (subsec_n > 0)
+                        {
+                            p.tmpl += '.';
+                            p.subsec_offset = static_cast<uint16_t>(p.tmpl.size());
+                            p.subsec_digits = static_cast<uint8_t>(subsec_n);
+                            p.tmpl.append(static_cast<std::size_t>(subsec_n), '0');
+                        }
+                        break;
+                    case '%':
+                        p.tmpl += '%';
+                        break;
+                    default:
+                        throw std::invalid_argument(fmt::format(
+                            "to_time_string: unsupported format specifier '%{}'", fmt[i]));
+                }
+            }
+            else
+            {
+                p.tmpl += fmt[i];
+            }
+        }
+        return p;
+    }
+
+    template <typename time_t>
+    void format_chunk(const time_t* input, std::size_t count, char* output, const plan& p)
+    {
+        using namespace std::chrono;
+        const auto str_len = p.tmpl.size();
+        const auto* tmpl_data = p.tmpl.data();
+        const auto* fields_data = p.fields.data();
+        const auto nfields = p.fields.size();
+
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            auto* out = output + i * str_len;
+            std::memcpy(out, tmpl_data, str_len);
+
+            auto tp = cdf::to_time_point(input[i]);
+            auto dp = floor<days>(tp);
+            year_month_day ymd { dp };
+            hh_mm_ss time { tp - dp };
+
+            const auto y = static_cast<unsigned>(static_cast<int>(ymd.year()));
+            const auto mo = static_cast<unsigned>(ymd.month());
+            const auto d = static_cast<unsigned>(ymd.day());
+            const auto h = static_cast<unsigned>(time.hours().count());
+            const auto mi = static_cast<unsigned>(time.minutes().count());
+            const auto s = static_cast<unsigned>(time.seconds().count());
+
+            for (std::size_t f = 0; f < nfields; ++f)
+            {
+                auto* dest = out + fields_data[f].offset;
+                switch (fields_data[f].kind)
+                {
+                    case field_kind::YEAR: write_4d(dest, y); break;
+                    case field_kind::MONTH: write_2d(dest, mo); break;
+                    case field_kind::DAY: write_2d(dest, d); break;
+                    case field_kind::HOUR: write_2d(dest, h); break;
+                    case field_kind::MINUTE: write_2d(dest, mi); break;
+                    case field_kind::SECOND: write_2d(dest, s); break;
+                    case field_kind::DOY:
+                        write_3d(dest, static_cast<unsigned>(
+                            (dp - sys_days { ymd.year() / January / day { 1 } }).count() + 1));
+                        break;
+                }
+            }
+            if (p.subsec_digits > 0)
+            {
+                write_nd(out + p.subsec_offset,
+                    static_cast<uint64_t>(time.subseconds().count()), p.subsec_digits);
+            }
+        }
+    }
+} // namespace time_fmt
+
+template <typename time_t>
+void format_time_to_bytes(
+    const time_t* input, std::size_t count, char* output, const time_fmt::plan& plan)
+{
+    static constexpr std::size_t min_chunk = 1024;
+    static const auto threads_count
+        = static_cast<std::size_t>(std::max(1U, std::thread::hardware_concurrency()));
+    if (count >= min_chunk * threads_count)
+    {
+        const auto chunk_size = (count + threads_count - 1) / threads_count;
+        std::vector<std::thread> threads;
+        threads.reserve(threads_count);
+        std::size_t start = 0;
+        for (std::size_t i = 0; i < threads_count && start < count; ++i)
+        {
+            const auto sz = std::min(chunk_size, count - start);
+            threads.emplace_back(time_fmt::format_chunk<time_t>, input + start, sz,
+                output + start * plan.tmpl.size(), std::cref(plan));
+            start += sz;
+        }
+        for (auto& t : threads)
+        {
+            t.join();
+        }
+    }
+    else
+    {
+        time_fmt::format_chunk(input, count, output, plan);
+    }
+}
+
+template <typename time_t>
+[[nodiscard]] py::array to_time_string_span(const std::span<const time_t> input,
+    const std::vector<ssize_t>& shape, const std::string& format)
+{
+    if (input.empty())
+    {
+        return py::array(py::dtype("S1"), std::vector<ssize_t> { 0 });
+    }
+    auto plan = time_fmt::compile<time_t>(format);
+    auto result = py::array(py::dtype(fmt::format("S{}", plan.tmpl.size())), shape);
+    auto* buf = static_cast<char*>(result.mutable_data());
+    {
+        py::gil_scoped_release release;
+        format_time_to_bytes(input.data(), input.size(), buf, plan);
+    }
+    return result;
+}
+
+template <typename time_t>
+[[nodiscard]] py::array to_time_string(const py::array_t<time_t>& input, const std::string& format)
+{
+    auto info = input.request();
+    std::vector<ssize_t> shape(input.shape(), input.shape() + input.ndim());
+    return to_time_string_span(
+        std::span { static_cast<const time_t*>(info.ptr), static_cast<std::size_t>(info.size) },
+        shape, format);
+}
+
+[[nodiscard]] py::array to_time_string(const Variable& input, const std::string& format)
+{
+    using enum cdf::CDF_Types;
+    auto shape = _details::shape_ssize_t(input);
+    const auto size = static_cast<std::size_t>(
+        std::accumulate(shape.begin(), shape.end(), ssize_t { 1 }, std::multiplies<>()));
+    switch (input.type())
+    {
+        case CDF_EPOCH:
+            return to_time_string_span(
+                std::span { input.get<CDF_EPOCH>().data(), size }, shape, format);
+        case CDF_EPOCH16:
+            return to_time_string_span(
+                std::span { input.get<CDF_EPOCH16>().data(), size }, shape, format);
+        case CDF_TIME_TT2000:
+            return to_time_string_span(
+                std::span { input.get<CDF_TIME_TT2000>().data(), size }, shape, format);
+        default:
+            throw std::invalid_argument(fmt::format(
+                "to_time_string requires a CDF time variable (CDF_EPOCH, CDF_EPOCH16, or "
+                "CDF_TIME_TT2000), got {}",
+                cdf_type_str(input.type())));
+    }
+}
+
 void def_time_types_wrapper(auto& mod)
 {
     py::class_<tt2000_t>(mod, "tt2000_t")
@@ -581,6 +861,25 @@ auto def_to_datetime_conversion_functions(auto& mod)
     mod.def("to_datetime", static_cast<py::list (*)(const Variable&)>(to_datetime));
 }
 
+auto def_to_time_string_functions(auto& mod)
+{
+    mod.def("to_time_string",
+        static_cast<py::array (*)(const py::array_t<epoch>&, const std::string&)>(
+            to_time_string<epoch>),
+        py::arg { "values" }.noconvert(), py::arg { "format" });
+    mod.def("to_time_string",
+        static_cast<py::array (*)(const py::array_t<epoch16>&, const std::string&)>(
+            to_time_string<epoch16>),
+        py::arg { "values" }.noconvert(), py::arg { "format" });
+    mod.def("to_time_string",
+        static_cast<py::array (*)(const py::array_t<tt2000_t>&, const std::string&)>(
+            to_time_string<tt2000_t>),
+        py::arg { "values" }.noconvert(), py::arg { "format" });
+    mod.def("to_time_string",
+        static_cast<py::array (*)(const Variable&, const std::string&)>(to_time_string),
+        py::arg { "variable" }, py::arg { "format" });
+}
+
 auto def_time_conversion_functions(auto& mod)
 {
     PyDateTime_IMPORT;
@@ -588,6 +887,7 @@ auto def_time_conversion_functions(auto& mod)
     {
         def_to_dt64_conversion_functions(mod);
         def_to_datetime_conversion_functions(mod);
+        def_to_time_string_functions(mod);
     }
 
     // backward
