@@ -6,6 +6,7 @@ History
 ------------------
 
 * Add ``to_time_string()`` for vectorized CDF time to string conversion with user-defined format (closes #70)
+* Fix PyCapsule_New null pointer crash on empty variables (Windows)
 
 0.9.0 (2026-04-01)
 ------------------
