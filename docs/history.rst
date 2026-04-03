@@ -2,7 +2,7 @@
 History
 =======
 
-0.9.1 (unreleased)
+0.9.1 (2026-04-03)
 ------------------
 
 * Add ``to_time_string()`` for vectorized CDF time to string conversion with user-defined format (closes #70)
