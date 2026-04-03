@@ -364,5 +364,54 @@ class PycdfNonRegression(unittest.TestCase):
         str(cdf)
 
 
+class PycdfEmptyVariables(unittest.TestCase):
+    def test_empty_double_values(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("v").set_values(np.array([], dtype=np.float64))
+        self.assertEqual(len(cdf["v"].values), 0)
+        self.assertEqual(cdf["v"].shape, (0,))
+
+    def test_empty_2d_double_values(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("v").set_values(np.zeros((0, 3), dtype=np.float64))
+        self.assertEqual(cdf["v"].shape, (0, 3))
+        self.assertEqual(len(cdf["v"].values), 0)
+
+    def test_empty_int_values(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("v").set_values(np.array([], dtype=np.int32))
+        self.assertEqual(len(cdf["v"].values), 0)
+
+    def test_empty_double_buffer(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("v").set_values(np.array([], dtype=np.float64))
+        self.assertIsNotNone(memoryview(cdf["v"]))
+
+    def test_empty_epoch_values(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("t").set_values(
+            np.array([], dtype="datetime64[ns]"), pycdfpp.DataType.CDF_EPOCH)
+        self.assertEqual(len(cdf["t"].values), 0)
+
+    def test_empty_tt2000_values(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("t").set_values(
+            np.array([], dtype="datetime64[ns]"), pycdfpp.DataType.CDF_TIME_TT2000)
+        self.assertEqual(len(cdf["t"].values), 0)
+
+    def test_empty_epoch16_values(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("t").set_values(
+            np.array([], dtype="datetime64[ns]"), pycdfpp.DataType.CDF_EPOCH16)
+        self.assertEqual(len(cdf["t"].values), 0)
+
+    def test_ace_h0_mfi_bgsm_values(self):
+        cdf = pycdfpp.load(
+            f'{os.path.dirname(os.path.abspath(__file__))}/../resources/ac_h0_mfi_00000000_v01.cdf')
+        self.assertEqual(cdf['BGSM'].shape, (0, 3))
+        self.assertEqual(len(cdf['BGSM'].values), 0)
+        self.assertIsNotNone(memoryview(cdf['BGSM']))
+
+
 if __name__ == '__main__':
     unittest.main()
