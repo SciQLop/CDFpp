@@ -91,9 +91,66 @@ class PycdfChrono(unittest.TestCase):
             np.random.shuffle(ref)
             self.assertTrue(np.all(ref == pycdfpp.to_datetime64(pycdfpp.to_tt2000(ref))))
 
-        def test_todt64_empty(self):
-            self.assertEqual(pycdfpp.to_datetime64(pycdfpp.to_tt2000([])),
-                np.array([], dtype="datetime64[ns]"))
+    def test_todt64_empty_list(self):
+        result = pycdfpp.to_datetime64([])
+        self.assertEqual(len(result), 0)
+
+    def test_todt64_empty_tt2000_array(self):
+        empty = pycdfpp.to_tt2000(np.array([], dtype="datetime64[ns]"))
+        result = pycdfpp.to_datetime64(empty)
+        self.assertEqual(len(result), 0)
+
+    def test_todt64_empty_epoch_array(self):
+        empty = pycdfpp.to_epoch(np.array([], dtype="datetime64[ns]"))
+        result = pycdfpp.to_datetime64(empty)
+        self.assertEqual(len(result), 0)
+
+    def test_todt64_empty_epoch16_array(self):
+        empty = pycdfpp.to_epoch16(np.array([], dtype="datetime64[ns]"))
+        result = pycdfpp.to_datetime64(empty)
+        self.assertEqual(len(result), 0)
+
+    def test_todt64_empty_tt2000_variable(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("time").set_values(
+            np.array([], dtype="datetime64[ns]"), pycdfpp.DataType.CDF_TIME_TT2000)
+        result = pycdfpp.to_datetime64(cdf["time"])
+        self.assertEqual(len(result), 0)
+
+    def test_todt64_empty_epoch_variable(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("time").set_values(
+            np.array([], dtype="datetime64[ns]"), pycdfpp.DataType.CDF_EPOCH)
+        result = pycdfpp.to_datetime64(cdf["time"])
+        self.assertEqual(len(result), 0)
+
+    def test_todt64_empty_epoch16_variable(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("time").set_values(
+            np.array([], dtype="datetime64[ns]"), pycdfpp.DataType.CDF_EPOCH16)
+        result = pycdfpp.to_datetime64(cdf["time"])
+        self.assertEqual(len(result), 0)
+
+    def test_todatetime_empty_tt2000_variable(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("time").set_values(
+            np.array([], dtype="datetime64[ns]"), pycdfpp.DataType.CDF_TIME_TT2000)
+        result = pycdfpp.to_datetime(cdf["time"])
+        self.assertEqual(len(result), 0)
+
+    def test_todatetime_empty_epoch_variable(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("time").set_values(
+            np.array([], dtype="datetime64[ns]"), pycdfpp.DataType.CDF_EPOCH)
+        result = pycdfpp.to_datetime(cdf["time"])
+        self.assertEqual(len(result), 0)
+
+    def test_todatetime_empty_epoch16_variable(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("time").set_values(
+            np.array([], dtype="datetime64[ns]"), pycdfpp.DataType.CDF_EPOCH16)
+        result = pycdfpp.to_datetime(cdf["time"])
+        self.assertEqual(len(result), 0)
 
 class PycdfToTimeString(unittest.TestCase):
     def test_tt2000_iso_format(self):

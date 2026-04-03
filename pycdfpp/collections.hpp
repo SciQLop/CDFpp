@@ -111,6 +111,11 @@ template <typename T, typename Shape, typename Owner = std::nullptr_t>
     using value_t = std::remove_const_t<T>;
     using alloc_t = default_init_allocator<value_t>;
 
+    if (flat_size(shape) == 0)
+    {
+        return py::array_t<value_t>(shape);
+    }
+
     auto ptr = alloc_t().allocate(flat_size(shape));
 
     if constexpr (std::is_same_v<std::nullptr_t, std::remove_cvref_t<Owner>>)
