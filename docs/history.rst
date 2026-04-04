@@ -2,6 +2,11 @@
 History
 =======
 
+0.9.2 (2026-04-04)
+------------------
+
+* Fix Windows heap corruption, mmap locking, and add Windows CI
+
 0.9.1 (2026-04-03)
 ------------------
 
