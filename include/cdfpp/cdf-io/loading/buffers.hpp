@@ -247,6 +247,8 @@ struct mmap_adapter
 
         if (std::filesystem::exists(path))
         {
+            if (std::filesystem::is_directory(path))
+                throw std::runtime_error("Cannot load a directory as a CDF file");
             this->f_size = std::filesystem::file_size(path);
             if (this->f_size)
             {
@@ -267,7 +269,8 @@ struct mmap_adapter
                 }
 #endif
 #ifdef USE_MapViewOfFile
-                hFile = ::CreateFile(path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, 0);
+                hFile = ::CreateFile(
+                    path.c_str(), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
                 if (hFile != INVALID_HANDLE_VALUE)
                 {
                     hMapFile = ::CreateFileMappingA(hFile, NULL, PAGE_READONLY, 0, 0, NULL);

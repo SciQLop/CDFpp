@@ -1,0 +1,32 @@
+name: Tests Windows
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: Windows tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install Python dependencies
+        run: python -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt
+      - name: Configure with meson
+        run: >
+          meson setup
+          -Dwith_tests=true
+          -Db_vscrt=md
+          build
+      - name: Build
+        run: ninja -C build
+      - name: Run tests
+        run: meson test -C build --no-rebuild -v --print-errorlogs

@@ -8,7 +8,10 @@ import unittest
 import ddt
 from glob import glob
 import pycdfpp
-import requests
+try:
+    import requests
+except ImportError:
+    requests = None
 import threading
 
 os.environ['TZ'] = 'UTC'
@@ -51,6 +54,7 @@ files = (
 )
 
 @ddt.ddt
+@unittest.skipIf(requests is None, "requests not installed")
 class PycdfCorpus(unittest.TestCase):
     def setUp(self):
         pass
