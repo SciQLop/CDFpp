@@ -68,6 +68,25 @@ class PycdfChrono(unittest.TestCase):
         ref = make_datetime64_values()
         self.assertTrue(np.all(ref == pycdfpp.to_datetime64(pycdfpp.to_tt2000(ref))))
 
+    def test_scalar_to_datetime64_tt2000(self):
+        ref = np.datetime64('2000-01-01T00:00:00', 'ns')
+        tt = pycdfpp.tt2000_t(pycdfpp.to_tt2000(np.array([ref]))[0]['nseconds'])
+        result = pycdfpp.to_datetime64(tt)
+        self.assertEqual(result, ref)
+
+    def test_scalar_to_datetime64_epoch(self):
+        ref = np.datetime64('2000-01-01T00:00:00', 'us')
+        ep = pycdfpp.epoch(pycdfpp.to_epoch(np.array([ref.astype('datetime64[ns]')]))[0]['mseconds'])
+        result = pycdfpp.to_datetime64(ep)
+        self.assertEqual(result, ref)
+
+    def test_scalar_to_datetime64_epoch16(self):
+        ref_ns = np.datetime64('2000-01-01T00:00:00', 'ns')
+        ep16_raw = pycdfpp.to_epoch16(np.array([ref_ns]))[0]
+        ep16 = pycdfpp.epoch16(ep16_raw['seconds'], ep16_raw['picoseconds'])
+        result = pycdfpp.to_datetime64(ep16)
+        self.assertEqual(result.astype('datetime64[ns]'), ref_ns)
+
     def test_simple_dt64_epoch(self):
         ref = make_datetime64_values()
         self.assertTrue(np.all(ref == pycdfpp.to_datetime64(pycdfpp.to_epoch(ref))))

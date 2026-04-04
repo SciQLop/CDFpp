@@ -178,8 +178,9 @@ template <typename time_t>
 {
     using time_t = std::decay_t<decltype(input)>;
     constexpr auto dtype = time_t_to_dtype<time_t>();
-    int64_t v = cdf::to_time_point(input).time_since_epoch().count();
-    return py::array(py::dtype(dtype), {}, {}, &v);
+    auto result = _details::fast_allocate_array<int64_t>(std::vector<ssize_t> {});
+    *result.mutable_data() = cdf::to_time_point(input).time_since_epoch().count();
+    return result.attr("view")(dtype);
 }
 
 [[nodiscard]] inline int64_t to_datetime64(const PyDateTime_DateTime* dt)
