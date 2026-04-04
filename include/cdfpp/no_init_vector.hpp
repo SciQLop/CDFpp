@@ -24,11 +24,11 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #pragma once
+#include <cstdlib>
 #include <memory>
 #include <string.h>
 #include <vector>
 #if __has_include(<sys/mman.h>)
-#include <stdlib.h>
 #include <sys/mman.h>
 #endif
 
@@ -67,13 +67,13 @@ public:
         a_t::construct(static_cast<A&>(*this), ptr, std::forward<Args>(args)...);
     }
 
-#if __has_include(<sys/mman.h>)
     T* allocate(std::size_t pCount)
     {
         if constexpr (is_trivial_and_nothrow_default_constructible)
         {
             void* mem = 0;
             auto bytes = sizeof(T) * pCount;
+#if __has_include(<sys/mman.h>)
             if (bytes >= 2 * page_size)
             {
                 if (::posix_memalign(&mem, page_size, sizeof(T) * pCount) != 0)
@@ -86,6 +86,7 @@ public:
                 ::madvise(mem, pCount * sizeof(T), MADV_WILLNEED);
             }
             else
+#endif
             {
                 mem = ::malloc(bytes);
                 if (!mem)
@@ -106,7 +107,6 @@ public:
         else
             A::deallocate(ptr, sz);
     }
-#endif
 };
 
 template <typename T>

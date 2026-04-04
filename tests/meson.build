@@ -17,7 +17,8 @@ foreach test_name:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'r
 endforeach
 
 foreach py_test:['python_loading', 'python_saving', 'python_skeletons',
-            'python_variable_set_values', 'full_corpus', 'python_chrono']
+            'python_variable_set_values', 'full_corpus', 'python_chrono',
+            'python_windows_crash']
     test(py_test, python3,
         args:[files(py_test+'/test.py')],
         env:['PYTHONPATH='+meson.project_build_root()],

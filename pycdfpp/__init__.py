@@ -39,30 +39,21 @@ if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] 
 __all__ = ['tt2000_t', 'epoch', 'epoch16', 'load', 'save', 'CDF', 'Variable',
            'Attribute', 'to_datetime64', 'to_datetime', 'to_time_string', 'DataType', 'CompressionType', 'Majority']
 
-_NUMPY_TO_CDF_TYPE_ = (
-    DataType.CDF_NONE,
-    DataType.CDF_INT1,
-    DataType.CDF_UINT1,
-    DataType.CDF_INT2,
-    DataType.CDF_UINT2,
-    DataType.CDF_INT4,
-    DataType.CDF_UINT4,
-    DataType.CDF_INT8,
-    DataType.CDF_NONE,
-    DataType.CDF_NONE,
-    DataType.CDF_NONE,
-    DataType.CDF_FLOAT,
-    DataType.CDF_DOUBLE,
-    DataType.CDF_NONE,
-    DataType.CDF_NONE,
-    DataType.CDF_NONE,
-    DataType.CDF_NONE,
-    DataType.CDF_NONE,
-    DataType.CDF_CHAR,
-    DataType.CDF_NONE,
-    DataType.CDF_NONE,
-    DataType.CDF_TIME_TT2000
-)
+# Build dtype.num → CDF type mapping dynamically to handle platform differences.
+# On Windows, np.int64 is NPY_LONGLONG (num=9) while on Linux it's NPY_LONG (num=7).
+_NUMPY_TO_CDF_TYPE_ = [DataType.CDF_NONE] * 23
+_NUMPY_TO_CDF_TYPE_[np.dtype(np.int8).num] = DataType.CDF_INT1
+_NUMPY_TO_CDF_TYPE_[np.dtype(np.uint8).num] = DataType.CDF_UINT1
+_NUMPY_TO_CDF_TYPE_[np.dtype(np.int16).num] = DataType.CDF_INT2
+_NUMPY_TO_CDF_TYPE_[np.dtype(np.uint16).num] = DataType.CDF_UINT2
+_NUMPY_TO_CDF_TYPE_[np.dtype(np.int32).num] = DataType.CDF_INT4
+_NUMPY_TO_CDF_TYPE_[np.dtype(np.uint32).num] = DataType.CDF_UINT4
+_NUMPY_TO_CDF_TYPE_[np.dtype(np.int64).num] = DataType.CDF_INT8
+_NUMPY_TO_CDF_TYPE_[np.dtype(np.float32).num] = DataType.CDF_FLOAT
+_NUMPY_TO_CDF_TYPE_[np.dtype(np.float64).num] = DataType.CDF_DOUBLE
+_NUMPY_TO_CDF_TYPE_[18] = DataType.CDF_CHAR
+_NUMPY_TO_CDF_TYPE_[21] = DataType.CDF_TIME_TT2000
+_NUMPY_TO_CDF_TYPE_ = tuple(_NUMPY_TO_CDF_TYPE_)
 
 _CDF_TYPES_COMPATIBILITY_TABLE_ = {
     DataType.CDF_NONE: (DataType.CDF_CHAR, DataType.CDF_UCHAR, DataType.CDF_INT1, DataType.CDF_BYTE, DataType.CDF_UINT1,
