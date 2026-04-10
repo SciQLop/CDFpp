@@ -208,6 +208,69 @@ class PycdfVariableSetValues(unittest.TestCase):
         cdf2["var2"].set_values(cdf1["var1"])
         self.assertTrue(np.array_equal(pycdfpp.to_datetime64(cdf2["var2"]), values))
 
+class PycdfVariableSetValuesForce(unittest.TestCase):
+    """Reproducer for https://github.com/SciQLop/CDFpp/issues/76"""
+
+    def test_force_different_shape(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("data", values=np.zeros((1, 64), dtype=np.float64))
+        cdf["data"].set_values(np.ones((1, 51), dtype=np.float64), force=True)
+        self.assertEqual(cdf["data"].shape, (1, 51))
+        self.assertTrue(np.all(cdf["data"].values == 1.0))
+
+    def test_force_different_type_numpy(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("data", values=np.zeros(10, dtype=np.float64))
+        cdf["data"].set_values(np.arange(20, dtype=np.int32), force=True)
+        self.assertEqual(cdf["data"].shape, (20,))
+        self.assertEqual(cdf["data"].type, pycdfpp.DataType.CDF_INT4)
+        self.assertTrue(np.array_equal(cdf["data"].values, np.arange(20, dtype=np.int32)))
+
+    def test_force_different_type_and_shape_numpy(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("data", values=np.zeros((3, 4), dtype=np.float64))
+        cdf["data"].set_values(np.ones((2, 5), dtype=np.int16), force=True)
+        self.assertEqual(cdf["data"].shape, (2, 5))
+        self.assertEqual(cdf["data"].type, pycdfpp.DataType.CDF_INT2)
+
+    def test_force_different_type_list(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("data", values=np.zeros(5, dtype=np.float64))
+        cdf["data"].set_values([1, 2, 3], force=True)
+        self.assertEqual(cdf["data"].shape, (3,))
+
+    def test_force_different_shape_list(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("data", values=np.zeros((2, 3), dtype=np.float64))
+        cdf["data"].set_values([[1.0, 2.0]], force=True)
+        self.assertEqual(cdf["data"].shape, (1, 2))
+
+    def test_force_with_explicit_data_type(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("data", values=np.zeros(10, dtype=np.float64))
+        cdf["data"].set_values(
+            np.arange(5, dtype=np.float32),
+            data_type=pycdfpp.DataType.CDF_FLOAT, force=True)
+        self.assertEqual(cdf["data"].type, pycdfpp.DataType.CDF_FLOAT)
+        self.assertEqual(cdf["data"].shape, (5,))
+
+    def test_force_from_variable_different_type(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("src", values=np.arange(5, dtype=np.int32))
+        cdf.add_variable("dst", values=np.zeros(10, dtype=np.float64))
+        cdf["dst"].set_values(cdf["src"], force=True)
+        self.assertEqual(cdf["dst"].type, pycdfpp.DataType.CDF_INT4)
+        self.assertTrue(np.array_equal(cdf["dst"].values, np.arange(5, dtype=np.int32)))
+
+    def test_without_force_still_rejects_incompatible(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("data", values=np.zeros(10, dtype=np.float64))
+        with self.assertRaises(ValueError):
+            cdf["data"].set_values(np.arange(20, dtype=np.int32))
+        with self.assertRaises(ValueError):
+            cdf["data"].set_values(np.ones((2, 5), dtype=np.float64))
+
+
 class PycdfFilterCDF(unittest.TestCase):
 
     def setUp(self):

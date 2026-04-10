@@ -612,7 +612,9 @@ void def_variable_wrapper(T& mod)
                         "will raise an exception in future versions.",
                         PyExc_DeprecationWarning, 3);
                 }
-                set_values(var, ensure_utf8(values), data_type ? data_type : var.type());
+                auto effective_type = data_type ? data_type
+                    : (force ? std::nullopt : std::optional { var.type() });
+                set_values(var, ensure_utf8(values), effective_type, force);
             },
             py::arg("values").noconvert(), py::arg("data_type") = std::nullopt,
             py::arg("force") = false)
@@ -628,7 +630,9 @@ void def_variable_wrapper(T& mod)
                         "will raise an exception in future versions.",
                         PyExc_DeprecationWarning, 3);
                 }
-                set_values(var, values, data_type ? data_type : var.type());
+                auto effective_type = data_type ? data_type
+                    : (force ? std::nullopt : std::optional { var.type() });
+                set_values(var, values, effective_type, force);
             },
             py::arg("values").noconvert(), py::arg("data_type") = std::nullopt,
             py::arg("force") = false)
@@ -644,7 +648,9 @@ void def_variable_wrapper(T& mod)
                         "will raise an exception in future versions.",
                         PyExc_DeprecationWarning, 3);
                 }
-                set_values(var, values, data_type ? data_type : var.type());
+                auto effective_type = data_type ? data_type
+                    : (force ? std::nullopt : std::optional { var.type() });
+                set_values(var, values, effective_type, force);
             },
             py::arg("values").noconvert(), py::arg("data_type") = std::nullopt,
             py::arg("force") = false)
