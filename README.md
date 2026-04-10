@@ -19,28 +19,20 @@ A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nas
 - **SIMD-accelerated time conversions** — AVX512/AVX2/SSE2 runtime dispatch for TT2000, EPOCH, EPOCH16
 - **Lazy loading** — variable data is read on first access, not at file open
 - **Fast** — up to ~4 GB/s read throughput; SIMD time conversions at up to 14 billion epochs/s
+- **Runs everywhere** — Linux, Windows, macOS (x86_64 + ARM64), and WebAssembly (Pyodide / emscripten-forge)
 
 ## Packages & CI
 
-| | Linux x86_64 | Windows x86_64  | macOS x86_64  | macOS ARM64  |
-| --- | --- | --- | --- | --- |
-| **Wheels** | [![linux_x86_64][1]][2] | [![windows_x86_64][3]][4] | [![macos_x86_64][5]][6] | [![macos_arm64][7]][8] |
-| **Tests** | [![linux_x86_64][9]][10] | [![windows_x86_64][11]][12] | [![macos_x86_64][13]][14] | |
+| | Linux x86_64 | Linux aarch64 | Windows x86_64 | macOS x86_64 | macOS ARM64 | WASM (Pyodide) |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Wheels** | [![][1]][2] | [![][1]][2] | [![][1]][2] | [![][1]][2] | [![][1]][2] | [![][1]][2] |
+| **Tests**  | [![][3]][2] | [![][3]][2] | [![][3]][2] | [![][3]][2] | [![][3]][2] | |
 
 [1]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=release
 [2]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
-[3]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=release
-[4]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
-[5]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=release
-[6]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
-[7]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=release
-[8]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
-[9]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=push
-[10]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
-[11]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=push
-[12]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
-[13]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=push
-[14]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
+[3]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=push
+
+Also available on [emscripten-forge](https://github.com/emscripten-forge/recipes/tree/main/recipes/recipes_emscripten/pycdfpp) for use in JupyterLite and other Emscripten-based environments.
 
 ---
 
