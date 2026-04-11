@@ -5,9 +5,9 @@ ar = 'emar'
 exe_wrapper = 'node'
 
 [built-in options]
-c_args = []
-c_link_args = ['-sEXPORT_ALL=1', '-sWASM=2', '-sMODULARIZE', '-sEXPORTED_RUNTIME_METHODS=ccall']
-cpp_args = []
+c_args = ['-fwasm-exceptions']
+c_link_args = []
+cpp_args = ['-fwasm-exceptions']
 cpp_link_args = []
 
 

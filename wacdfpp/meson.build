@@ -1,23 +1,27 @@
 fs = import('fs')
 
-
-flags = ['-sWASM=2', '-sALLOW_MEMORY_GROWTH', '-sFETCH=1', '-sASYNCIFY']+['-sWASM=2', '-sEXPORT_ALL=1', '-sMODULARIZE', '-sEXPORTED_RUNTIME_METHODS=ccall', '-lembind', '-sFETCH=1', '--bind', '-sALLOW_MEMORY_GROWTH']
-
-lib_wacdfpp = library('wacdfpp', 'wacdfpp.cpp',
-                    dependencies:[cdfpp_dep],
-                    cpp_args : flags,
-                    install: false,
-                    link_args : flags,
-                    build_by_default: meson.get_compiler('cpp').get_id() == 'emscripten',
-                    extra_files : ['wasm.txt', 'wacdfpp.html']
-)
+flags = [
+    '-lembind',
+    '--bind',
+    '-sWASM=1',
+    '-sMODULARIZE=1',
+    '-sEXPORT_NAME=createCdfModule',
+    '-sALLOW_MEMORY_GROWTH=1',
+    '-sEXPORT_ES6=1',
+    '-sENVIRONMENT=web,worker,node',
+    '-sMAXIMUM_MEMORY=4GB',
+    '-fwasm-exceptions',
+]
 
 if meson.get_compiler('cpp').get_id() == 'emscripten'
-    js_wrapper = custom_target('js_wrapper',
-        input : lib_wacdfpp,
-        output : 'wacdfpp.js',
-        command : [ 'emcc', '-lembind', '-sFETCH=1', '-sWASM=2',  '--bind', '-sALLOW_MEMORY_GROWTH',  '-sASYNCIFY', '-o', '@OUTPUT@', '-Wl,--whole-archive','@INPUT@', '-Wl,--no-whole-archive'],
-        build_by_default: true
+    wasm_exe = executable('cdfpp',
+        'wacdfpp.cpp',
+        dependencies: [cdfpp_dep],
+        cpp_args: ['-fwasm-exceptions'],
+        link_args: flags + ['-O2'],
+        install: false,
+        build_by_default: true,
+        extra_files: ['wasm.txt', 'wacdfpp.html']
     )
 
     fs.copyfile('wacdfpp.html', 'wacdfpp.html')
