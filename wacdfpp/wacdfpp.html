@@ -1,48 +1,138 @@
 <!doctype html>
 <html>
+<head>
+    <meta charset="utf-8">
+    <title>CDFpp WASM Demo</title>
+    <style>
+        body { font-family: monospace; max-width: 900px; margin: 2em auto; }
+        #output { white-space: pre-wrap; background: #f4f4f4; padding: 1em; margin-top: 1em; max-height: 600px; overflow-y: auto; }
+        input[type="file"] { margin: 0.5em 0; }
+        button { margin-left: 0.5em; }
+    </style>
+</head>
 <body>
-<canvas id="canvas" width="400" height="400"></canvas>
-<div id="container">
-  <p>
-    <input type="text" id="URL" name="URL" />
-    <input id="myButton" type=button value="Read CDF">
-    <output name="result" id="count"/>
-  </p>
+<h2>CDFpp WASM Demo</h2>
+
+<div>
+    <label>Load a CDF file:</label><br>
+    <input type="file" id="fileInput" accept=".cdf">
+    <button id="loadBtn" disabled>Inspect</button>
 </div>
-<script>
 
-  console.log("loading wasm");
+<div>
+    <label>Or fetch from URL:</label><br>
+    <input type="text" id="urlInput" size="60" placeholder="https://example.com/data.cdf">
+    <button id="fetchBtn" disabled>Fetch &amp; Inspect</button>
+</div>
 
-  var Module = {
-    canvas: (function() {
-      var canvas = document.getElementById('canvas');
-      return canvas;
-    })(),
+<div id="output">Initializing WASM module...</div>
 
-    onRuntimeInitialized: function() {
-      console.log("wasm loaded");
-      console.log("wasm initialized");
+<script type="module">
+    import createCdfModule from './cdfpp.js';
+
+    const output = document.getElementById('output');
+    const fileInput = document.getElementById('fileInput');
+    const loadBtn = document.getElementById('loadBtn');
+    const fetchBtn = document.getElementById('fetchBtn');
+    const urlInput = document.getElementById('urlInput');
+
+    let Module;
+
+    function log(text) { output.textContent += text + '\n'; }
+    function clear() { output.textContent = ''; }
+
+    function inspectCdf(cdf) {
+        if (!cdf.is_valid()) {
+            log('ERROR: Failed to parse CDF file');
+            cdf.delete();
+            return;
+        }
+
+        log(`Majority: ${cdf.majority()}`);
+        log(`Compression: ${cdf.compression()}`);
+
+        const attrNames = cdf.attribute_names();
+        log(`\nGlobal Attributes (${attrNames.length}):`);
+        for (const name of attrNames) {
+            const attr = cdf.get_attribute(name);
+            const entries = attr.entries.map(v =>
+                typeof v === 'string' ? `"${v.trim()}"` : v);
+            log(`  ${name}: ${entries.join(', ')}`);
+        }
+
+        const varNames = cdf.variable_names();
+        log(`\nVariables (${varNames.length}):`);
+        for (const name of varNames) {
+            const v = cdf.get_variable(name);
+            log(`  ${name}: shape=[${v.shape}] type=${v.type_name} nrv=${v.is_nrv}`);
+
+            for (const an of v.attribute_names) {
+                const av = v.attributes[an];
+                const display = typeof av === 'string' ? `"${av.trim()}"` : av;
+                log(`    ${an}: ${display}`);
+            }
+
+            const values = v.values;
+            if (values !== undefined && values.length > 0) {
+                const preview = Array.from(values.slice(0, Math.min(5, values.length)));
+                const suffix = values.length > 5 ? ` ... (${values.length} total)` : '';
+                log(`    values: [${preview}${suffix}]`);
+            }
+        }
+
+        const savedBytes = cdf.save();
+        if (savedBytes !== undefined) {
+            log(`\nRound-trip save: ${savedBytes.length} bytes`);
+        }
+
+        cdf.delete();
     }
-  };
-</script>
-<script src="wacdfpp.js"></script>
 
-<script>
-  function callback() {
-    const URL = document.getElementById("URL").value;
+    async function init() {
+        Module = await createCdfModule();
+        output.textContent = 'Ready. Load a CDF file or fetch from URL.\n';
+        loadBtn.disabled = false;
+        fetchBtn.disabled = false;
+    }
 
-    // Disable the button while the operation is in progress
-    document.getElementById("myButton").disabled = true;
-
-    // Fetch the data and process it asynchronously
-    Module.count_variables(URL).then(function(count) {
-      // Update the count and enable the button when processing is done
-      document.getElementById("count").innerHTML = count;
-      document.getElementById("myButton").disabled = false;
+    loadBtn.addEventListener('click', () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        clear();
+        log(`Loading: ${file.name} (${file.size} bytes)\n`);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = new Uint8Array(e.target.result);
+            const t0 = performance.now();
+            const cdf = Module.load(data);
+            const dt = (performance.now() - t0).toFixed(1);
+            log(`Parsed in ${dt} ms\n`);
+            inspectCdf(cdf);
+        };
+        reader.readAsArrayBuffer(file);
     });
-  }
 
-  myButton.addEventListener('click', callback);
+    fetchBtn.addEventListener('click', async () => {
+        const url = urlInput.value.trim();
+        if (!url) return;
+        clear();
+        log(`Fetching: ${url}\n`);
+        try {
+            const resp = await fetch(url);
+            const buf = await resp.arrayBuffer();
+            const data = new Uint8Array(buf);
+            log(`Downloaded ${data.length} bytes\n`);
+            const t0 = performance.now();
+            const cdf = Module.load(data);
+            const dt = (performance.now() - t0).toFixed(1);
+            log(`Parsed in ${dt} ms\n`);
+            inspectCdf(cdf);
+        } catch (err) {
+            log(`Fetch error: ${err.message}`);
+        }
+    });
+
+    init();
 </script>
 </body>
 </html>
