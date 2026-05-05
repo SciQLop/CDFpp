@@ -46,6 +46,9 @@ enable="cpython-freethreading"
 before-build = "python -m pip install delvewheel"
 repair-wheel-command = "python -m delvewheel repair -v --add-path C:/Windows/System32 -w {dest_dir} {wheel}"
 
+[tool.cibuildwheel.pyodide]
+before-build = "pip install cmake"
+
 
 [tool.bumpversion]
 current_version = "0.9.3"
