@@ -1,6 +1,6 @@
 [build-system]
 build-backend = 'mesonpy'
-requires = ['meson-python>=0.14.0', 'numpy']
+requires = ['meson-python>=0.14.0', 'numpy', 'cmake']
 
 [project]
 name = "pycdfpp"
@@ -45,9 +45,6 @@ enable="cpython-freethreading"
 [tool.cibuildwheel.windows]
 before-build = "python -m pip install delvewheel"
 repair-wheel-command = "python -m delvewheel repair -v --add-path C:/Windows/System32 -w {dest_dir} {wheel}"
-
-[tool.cibuildwheel.pyodide]
-before-build = "pip install cmake"
 
 
 [tool.bumpversion]
