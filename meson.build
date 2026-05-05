@@ -52,7 +52,11 @@ endif
 pybind11_dep = dependency('pybind11')
 hedley_dep = dependency('hedley')
 fmt_dep = dependency('fmt')
-xsimd_dep = dependency('xsimd')
+if target_machine.cpu_family() == 'x86_64'
+    xsimd_dep = dependency('xsimd')
+else
+    xsimd_dep = dependency('', required: false)
+endif
 
 if build_machine.system() == 'windows'
     link_args = ['-static-libstdc++','-static-libgcc','-static']
@@ -272,11 +276,14 @@ summary({
     'Architecture': target_machine.cpu_family(),
         }, section: 'Compilers')
 
-summary({
+deps_summary = {
     'Hedley': hedley_dep.version(),
     'fmt': fmt_dep.version(),
-    'xsimd': xsimd_dep.version()
-        }, section: 'Dependencies')
+}
+if xsimd_dep.found()
+    deps_summary += {'xsimd': xsimd_dep.version()}
+endif
+summary(deps_summary, section: 'Dependencies')
 
 summary({
     'CDFpp version': meson.project_version(),
