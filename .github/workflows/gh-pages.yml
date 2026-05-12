@@ -50,7 +50,7 @@ jobs:
           cp build_wasm/wacdfpp/cdfpp.wasm _site/
           cp build_wasm/wacdfpp/wacdfpp.html _site/index.html
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
 
   deploy:
     needs: build
