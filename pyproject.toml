@@ -40,7 +40,6 @@ setup = ['-Doptimization=3', '-Dcpp_std=c++20', '--force-fallback-for=libdeflate
 [tool.cibuildwheel]
 archs = ["auto"]
 build-frontend = "default"
-enable="cpython-freethreading"
 
 [tool.cibuildwheel.windows]
 before-build = "python -m pip install delvewheel"

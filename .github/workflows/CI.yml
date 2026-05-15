@@ -72,7 +72,7 @@ jobs:
           key: ${{ github.job }}-${{ matrix.os }}-${{ matrix.CIBW_ARCHS }}  # Make cache specific to OS/ARCH
           max-size: "5G"
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.4.1
+        uses: pypa/cibuildwheel@v4.0.0rc1
       - uses: actions/upload-artifact@v7
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ matrix.CIBW_ARCHS }}
@@ -163,8 +163,6 @@ jobs:
           pattern: cibw-*
           path: dist
           merge-multiple: true
-      - name: Remove wasm32 wheels (until PyPI PEP 783 is implemented)
-        run: find dist -name "*wasm32.whl" -delete
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -186,8 +184,6 @@ jobs:
           pattern: cibw-*
           path: dist
           merge-multiple: true
-      - name: Remove wasm32 wheels (until PyPI PEP 783 is implemented)
-        run: find dist -name "*wasm32.whl" -delete
       - name: Publish to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
