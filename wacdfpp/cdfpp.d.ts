@@ -55,6 +55,14 @@ export interface CdfFile {
     variable_names(): string[];
     attribute_names(): string[];
     get_variable(name: string): Variable;
+
+    /**
+     * UTC nanoseconds since 1970 (leap-second corrected) for a time variable
+     * (CDF_TIME_TT2000 / CDF_EPOCH / CDF_EPOCH16). The JS analog of
+     * datetime64[ns]. Returns undefined for non-time variables.
+     */
+    time_values_as_ns_since_1970(name: string): BigInt64Array | undefined;
+
     get_attribute(name: string): Attribute;
     majority(): string;
     compression(): string;
