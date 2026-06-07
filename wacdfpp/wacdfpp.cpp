@@ -25,6 +25,7 @@
 ----------------------------------------------------------------------------*/
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/cdf-io/saving/saving.hpp>
+#include <cdfpp/chrono/cdf-chrono.hpp>
 
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
@@ -178,6 +179,60 @@ struct CdfFile
         return obj;
     }
 
+    // UTC nanoseconds since 1970 for a time variable (CDF_TIME_TT2000 / CDF_EPOCH /
+    // CDF_EPOCH16), leap-second corrected. Returns undefined for non-time variables.
+    // This is the JS analog of pycdfpp's datetime64[ns].
+    em::val time_values_as_ns_since_1970(const std::string& name)
+    {
+        using enum cdf::CDF_Types;
+        if (!cdf)
+            return em::val::undefined();
+        auto it = cdf->variables.find(name);
+        if (it == cdf->variables.end())
+            return em::val::undefined();
+
+        auto& var = it->second;
+        const auto type = var.type();
+        if (type != CDF_TIME_TT2000 && type != CDF_EPOCH && type != CDF_EPOCH16)
+            return em::val::undefined();
+
+        var.load_values();
+        const auto* ptr = var.bytes_ptr();
+        if (ptr == nullptr)
+            return em::val::undefined();
+
+        const std::size_t n = var.bytes() / cdf::cdf_type_size(type);
+        if (n == 0)
+            return em::val::undefined();
+
+        std::vector<int64_t> out(n);
+        switch (type)
+        {
+            case CDF_TIME_TT2000:
+                cdf::to_ns_from_1970(
+                    std::span<const cdf::tt2000_t>(
+                        reinterpret_cast<const cdf::tt2000_t*>(ptr), n),
+                    out.data());
+                break;
+            case CDF_EPOCH:
+                cdf::to_ns_from_1970(
+                    std::span<const cdf::epoch>(reinterpret_cast<const cdf::epoch*>(ptr), n),
+                    out.data());
+                break;
+            case CDF_EPOCH16:
+                cdf::to_ns_from_1970(
+                    std::span<const cdf::epoch16>(
+                        reinterpret_cast<const cdf::epoch16*>(ptr), n),
+                    out.data());
+                break;
+            default:
+                return em::val::undefined();
+        }
+
+        // owned BigInt64Array copy (out dies after return)
+        return em::val(em::typed_memory_view(n, out.data())).call<em::val>("slice");
+    }
+
     em::val get_attribute(const std::string& name) const
     {
         if (!cdf)
@@ -287,6 +342,7 @@ EMSCRIPTEN_BINDINGS(cdfpp)
         .function("variable_names", &CdfFile::variable_names)
         .function("attribute_names", &CdfFile::attribute_names)
         .function("get_variable", &CdfFile::get_variable)
+        .function("time_values_as_ns_since_1970", &CdfFile::time_values_as_ns_since_1970)
         .function("get_attribute", &CdfFile::get_attribute)
         .function("majority", &CdfFile::majority)
         .function("compression", &CdfFile::compression)
