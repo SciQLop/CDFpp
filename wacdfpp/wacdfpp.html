@@ -311,19 +311,29 @@
         return d.toISOString().replace('Z', '') + rem.toString().padStart(6, '0') + 'Z';
     }
 
+    // Drop trailing null padding then trailing whitespace, without regex
+    // (Sonar flags `+$` patterns as potential ReDoS).
+    function stripPadding(s) {
+        let end = s.length;
+        while (end > 0 && s.charCodeAt(end - 1) === 0) end--;
+        return s.slice(0, end).trimEnd();
+    }
+
     // Decode a CDF_CHAR/UCHAR byte buffer into one string per record
-    // (last shape dimension is the fixed string length).
-    function decodeChars(bytes, shape) {
+    // (last shape dimension is the fixed string length). Only the first
+    // `max` records are decoded; `total` reports the full record count.
+    function decodeChars(bytes, shape, max) {
         const dec = new TextDecoder('utf-8', { fatal: false });
-        const strip = (s) => s.replace(/\0+$/, '').replace(/\s+$/, '');
         const strLen = shape.length ? shape[shape.length - 1] : 0;
         if (strLen > 0 && bytes.length > strLen && bytes.length % strLen === 0) {
-            const out = [];
-            for (let i = 0; i < bytes.length; i += strLen)
-                out.push(strip(dec.decode(bytes.subarray(i, i + strLen))));
-            return out;
+            const total = bytes.length / strLen;
+            const n = Math.min(max ?? total, total);
+            const strings = [];
+            for (let i = 0; i < n; i++)
+                strings.push(stripPadding(dec.decode(bytes.subarray(i * strLen, (i + 1) * strLen))));
+            return { strings, total };
         }
-        return [strip(dec.decode(bytes))];
+        return { strings: [stripPadding(dec.decode(bytes))], total: 1 };
     }
 
     function logValuePreview(cdf, v) {
@@ -338,9 +348,9 @@
         }
 
         if (isCharType(v.type) && v.values !== undefined) {
-            const strings = decodeChars(v.values, v.shape);
-            const preview = strings.slice(0, Math.min(5, strings.length)).map(s => `"${esc(s)}"`);
-            const suffix = strings.length > 5 ? span('log-dim', ` ... (${strings.length} total)`) : '';
+            const { strings, total } = decodeChars(v.values, v.shape, 5);
+            const preview = strings.map(s => `"${esc(s)}"`);
+            const suffix = total > strings.length ? span('log-dim', ` ... (${total} total)`) : '';
             log(`    ${span('log-dim', 'values:')} [${preview.join(', ')}${suffix}]`);
             return;
         }
@@ -433,6 +443,10 @@
 
     async function fetchUrl(url) {
         if (!url) return;
+        if (!Module) {
+            setStatus('error', 'WASM module not ready yet');
+            return;
+        }
         clear();
         setStatus('loading', 'Fetching...');
         try {
@@ -440,7 +454,7 @@
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const buf = await resp.arrayBuffer();
             const data = new Uint8Array(buf);
-            const name = url.split('/').pop().split('?')[0] || 'remote.cdf';
+            const name = url.split('/').pop().split('?')[0].split('#')[0] || 'remote.cdf';
             const t0 = performance.now();
             const cdf = Module.load(data);
             const dt = (performance.now() - t0).toFixed(1);
