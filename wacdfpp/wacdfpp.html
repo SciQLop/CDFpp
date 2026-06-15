@@ -294,6 +294,65 @@
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    const CDF_EPOCH = 31, CDF_EPOCH16 = 32, CDF_TIME_TT2000 = 33;
+    const CDF_CHAR = 51, CDF_UCHAR = 52;
+
+    const isTimeType = (t) => t === CDF_EPOCH || t === CDF_EPOCH16 || t === CDF_TIME_TT2000;
+    const isCharType = (t) => t === CDF_CHAR || t === CDF_UCHAR;
+
+    // ns-since-1970 (BigInt, leap-second corrected) -> ISO 8601 with ns precision
+    function nsToISO(ns) {
+        const NS_PER_MS = 1000000n;
+        let ms = ns / NS_PER_MS;
+        let rem = ns - ms * NS_PER_MS;
+        if (rem < 0n) { rem += NS_PER_MS; ms -= 1n; }
+        const d = new Date(Number(ms));
+        if (isNaN(d.getTime())) return ns.toString();
+        return d.toISOString().replace('Z', '') + rem.toString().padStart(6, '0') + 'Z';
+    }
+
+    // Decode a CDF_CHAR/UCHAR byte buffer into one string per record
+    // (last shape dimension is the fixed string length).
+    function decodeChars(bytes, shape) {
+        const dec = new TextDecoder('utf-8', { fatal: false });
+        const strip = (s) => s.replace(/\0+$/, '').replace(/\s+$/, '');
+        const strLen = shape.length ? shape[shape.length - 1] : 0;
+        if (strLen > 0 && bytes.length > strLen && bytes.length % strLen === 0) {
+            const out = [];
+            for (let i = 0; i < bytes.length; i += strLen)
+                out.push(strip(dec.decode(bytes.subarray(i, i + strLen))));
+            return out;
+        }
+        return [strip(dec.decode(bytes))];
+    }
+
+    function logValuePreview(cdf, v) {
+        if (isTimeType(v.type)) {
+            const ns = cdf.time_values_as_ns_since_1970(v.name);
+            if (ns !== undefined && ns.length > 0) {
+                const preview = Array.from(ns.slice(0, Math.min(5, ns.length)), nsToISO);
+                const suffix = ns.length > 5 ? span('log-dim', ` ... (${ns.length} total)`) : '';
+                log(`    ${span('log-dim', 'values:')} [${preview.map(esc).join(', ')}${suffix}]`);
+                return;
+            }
+        }
+
+        if (isCharType(v.type) && v.values !== undefined) {
+            const strings = decodeChars(v.values, v.shape);
+            const preview = strings.slice(0, Math.min(5, strings.length)).map(s => `"${esc(s)}"`);
+            const suffix = strings.length > 5 ? span('log-dim', ` ... (${strings.length} total)`) : '';
+            log(`    ${span('log-dim', 'values:')} [${preview.join(', ')}${suffix}]`);
+            return;
+        }
+
+        const values = v.values;
+        if (values !== undefined && values.length > 0) {
+            const preview = Array.from(values.slice(0, Math.min(5, values.length)));
+            const suffix = values.length > 5 ? span('log-dim', ` ... (${values.length} total)`) : '';
+            log(`    ${span('log-dim', 'values:')} [${preview}${suffix}]`);
+        }
+    }
+
     function inspectCdf(cdf, name, dt) {
         if (!cdf.is_valid()) {
             log(span('log-err', 'ERROR: Failed to parse CDF file'));
@@ -331,12 +390,7 @@
                 log(`    ${span('log-dim', esc(an) + ':')} ${display}`);
             }
 
-            const values = v.values;
-            if (values !== undefined && values.length > 0) {
-                const preview = Array.from(values.slice(0, Math.min(5, values.length)));
-                const suffix = values.length > 5 ? span('log-dim', ` ... (${values.length} total)`) : '';
-                log(`    ${span('log-dim', 'values:')} [${preview}${suffix}]`);
-            }
+            logValuePreview(cdf, v);
         }
 
         const savedBytes = cdf.save();
@@ -377,8 +431,7 @@
         reader.readAsArrayBuffer(file);
     });
 
-    fetchBtn.addEventListener('click', async () => {
-        const url = urlInput.value.trim();
+    async function fetchUrl(url) {
         if (!url) return;
         clear();
         setStatus('loading', 'Fetching...');
@@ -387,7 +440,7 @@
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const buf = await resp.arrayBuffer();
             const data = new Uint8Array(buf);
-            const name = url.split('/').pop() || 'remote.cdf';
+            const name = url.split('/').pop().split('?')[0] || 'remote.cdf';
             const t0 = performance.now();
             const cdf = Module.load(data);
             const dt = (performance.now() - t0).toFixed(1);
@@ -397,9 +450,24 @@
             setStatus('error', `Fetch error: ${err.message}`);
             log(span('log-err', `Error: ${esc(err.message)}`));
         }
+    }
+
+    fetchBtn.addEventListener('click', () => fetchUrl(urlInput.value.trim()));
+    urlInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') fetchUrl(urlInput.value.trim());
     });
 
-    init();
+    // Share a CDF directly via ?url=<cdf-url> in the page URL.
+    function autoLoadFromQuery() {
+        const params = new URLSearchParams(window.location.search);
+        const url = params.get('url') || params.get('cdf');
+        if (url) {
+            urlInput.value = url;
+            fetchUrl(url);
+        }
+    }
+
+    init().then(autoLoadFromQuery);
 </script>
 </body>
 </html>
