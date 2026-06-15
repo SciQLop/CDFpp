@@ -307,7 +307,7 @@
         let rem = ns - ms * NS_PER_MS;
         if (rem < 0n) { rem += NS_PER_MS; ms -= 1n; }
         const d = new Date(Number(ms));
-        if (isNaN(d.getTime())) return ns.toString();
+        if (Number.isNaN(d.getTime())) return ns.toString();
         return d.toISOString().replace('Z', '') + rem.toString().padStart(6, '0') + 'Z';
     }
 
@@ -315,7 +315,7 @@
     // (Sonar flags `+$` patterns as potential ReDoS).
     function stripPadding(s) {
         let end = s.length;
-        while (end > 0 && s.charCodeAt(end - 1) === 0) end--;
+        while (end > 0 && s.codePointAt(end - 1) === 0) end--;
         return s.slice(0, end).trimEnd();
     }
 
@@ -473,7 +473,7 @@
 
     // Share a CDF directly via ?url=<cdf-url> in the page URL.
     function autoLoadFromQuery() {
-        const params = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(globalThis.location.search);
         const url = params.get('url') || params.get('cdf');
         if (url) {
             urlInput.value = url;
@@ -481,7 +481,8 @@
         }
     }
 
-    init().then(autoLoadFromQuery);
+    await init();
+    autoLoadFromQuery();
 </script>
 </body>
 </html>
