@@ -37,5 +37,14 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
             depends: wasm_exe,
             timeout: 120,
         )
+        test('wasm_attr_detach', node,
+            args: [
+                files('../tests/wasm_attr_detach/test.mjs'),
+                meson.current_build_dir() / 'cdfpp.js',
+                meson.project_source_root() / 'tests' / 'resources',
+            ],
+            depends: wasm_exe,
+            timeout: 120,
+        )
     endif
 endif

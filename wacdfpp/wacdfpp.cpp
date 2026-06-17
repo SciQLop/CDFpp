@@ -87,14 +87,18 @@ em::val typed_array_view(const char* ptr, std::size_t byte_count, cdf::CDF_Types
     }
 }
 
-em::val data_to_string_or_view(const cdf::data_t& data)
+// Attribute values are returned as owned copies, not zero-copy views: attribute
+// metadata is small, and a later variable load_values() (or any allocation) grows
+// the WASM heap and detaches outstanding views, which would otherwise throw
+// "detached ArrayBuffer" when the value is read back in JS.
+em::val data_to_string_or_copy(const cdf::data_t& data)
 {
     auto ptr = data.bytes_ptr();
     if (ptr == nullptr)
         return em::val::undefined();
     if (cdf::is_string(data.type()))
         return em::val(std::string(ptr, data.bytes()));
-    return typed_array_view(ptr, data.bytes(), data.type());
+    return typed_array_view(ptr, data.bytes(), data.type()).call<em::val>("slice");
 }
 
 em::val to_js_string_array(const auto& map)
@@ -156,7 +160,7 @@ struct CdfFile
         // Lazily provide attribute getter as a plain object
         auto attrs = em::val::object();
         for (const auto& [aname, attr] : var.attributes)
-            attrs.set(aname, data_to_string_or_view(attr.value()));
+            attrs.set(aname, data_to_string_or_copy(attr.value()));
         obj.set("attributes", attrs);
 
         // values: zero-copy typed array view into WASM memory
@@ -246,7 +250,7 @@ struct CdfFile
         obj.set("name", attr.name);
         auto entries = em::val::array();
         for (std::size_t i = 0; i < attr.size(); ++i)
-            entries.call<void>("push", data_to_string_or_view(attr[i]));
+            entries.call<void>("push", data_to_string_or_copy(attr[i]));
         obj.set("entries", entries);
         return obj;
     }
