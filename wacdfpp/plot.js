@@ -4,7 +4,7 @@
 // Reuses nsToISO from render.js for faithful time export (render.js has no import
 // side effects, so this stays one-directional: render.js never imports plot.js).
 import uPlot from "./uPlot.esm.js";
-import { plotSpec, applyMask, decimateMinMax, toCSV, toJSON, TIME_TYPES } from "./plot-model.js";
+import { plotSpec, applyMask, decimateMinMax, toCSV, toJSON } from "./plot-model.js";
 import { drawSpectrogram } from "./spectrogram.js";
 import { nsToISO } from "./render.js";
 
@@ -21,17 +21,17 @@ function deinterleave(values, comps, recCount, c) {
     return col;
 }
 
-function strideSample(x, y, target) {
-    const n = y.length;
-    if (n <= target) return { x: Array.from(x), y: Array.from(y) };
-    const step = Math.ceil(n / target);
-    const rx = [], ry = [];
-    for (let i = 0; i < n; i += step) { rx.push(x[i]); ry.push(y[i]); }
-    return { x: rx, y: ry };
+// Keep every step-th element. step <= 1 returns a plain copy.
+function sampleByStep(arr, step) {
+    if (step <= 1) return Array.from(arr);
+    const out = [];
+    for (let i = 0; i < arr.length; i += step) out.push(arr[i]);
+    return out;
 }
 
-// Resolve the x-axis: DEPEND_0 time -> ms (uPlot time axis); else DEPEND_0 numeric
-// values; else record index. Returns { values: number[], isTime, nsValues|null }.
+// Resolve the x-axis: DEPEND_0 time -> seconds (uPlot's time axis works in Unix
+// seconds by default); else DEPEND_0 numeric values; else record index.
+// Returns { values: number[], isTime, nsValues|null }.
 function resolveXAxis(cdf, meta) {
     const dep0 = meta.attributes?.DEPEND_0;
     const nRec = meta.shape[0] ?? 0;
@@ -39,9 +39,9 @@ function resolveXAxis(cdf, meta) {
         try {
             const ns = cdf.time_values_as_ns_since_1970(dep0);
             if (ns && ns.length) {
-                const ms = new Array(ns.length);
-                for (let i = 0; i < ns.length; i++) ms[i] = Number(ns[i]) / 1e6;
-                return { values: ms, isTime: true, nsValues: ns };
+                const secs = new Array(ns.length);
+                for (let i = 0; i < ns.length; i++) secs[i] = Number(ns[i]) / 1e9;
+                return { values: secs, isTime: true, nsValues: ns };
             }
             const dv = cdf.get_variable(dep0);
             if (dv && dv.copy_values && dv.copy_values.length)
@@ -115,15 +115,22 @@ function drawLines(target, cdf, meta, spec, x, values) {
     const xs = x.values;
 
     const series = [{ label: x.isTime ? "time" : "record" }];
-    const data = [xs];
-    for (let c = 0; c < comps; c++) {
-        const masked = applyMask(deinterleave(values, comps, recCount, c), spec);
-        const reduced = comps === 1
-            ? decimateMinMax(xs, masked, MAX_POINTS / 2)
-            : strideSample(xs, masked, MAX_POINTS);
-        if (c === 0) data[0] = reduced.x;          // shared x from the first series
-        data.push(reduced.y);
-        series.push({ label: labels[c], stroke: LINE_COLORS[c % LINE_COLORS.length], width: 1, spanGaps: false });
+    const data = [];
+    if (comps === 1) {
+        // Single series: min/max decimation preserves spikes against a shared x.
+        const masked = applyMask(deinterleave(values, comps, recCount, 0), spec);
+        const reduced = decimateMinMax(xs, masked, MAX_POINTS / 2);
+        data.push(reduced.x, reduced.y);
+        series.push({ label: labels[0], stroke: LINE_COLORS[0], width: 1, spanGaps: false });
+    } else {
+        // Multi series: one uniform stride shared by x and every component.
+        const step = recCount > MAX_POINTS ? Math.ceil(recCount / MAX_POINTS) : 1;
+        data.push(sampleByStep(xs, step));
+        for (let c = 0; c < comps; c++) {
+            const masked = applyMask(deinterleave(values, comps, recCount, c), spec);
+            data.push(sampleByStep(masked, step));
+            series.push({ label: labels[c], stroke: LINE_COLORS[c % LINE_COLORS.length], width: 1, spanGaps: false });
+        }
     }
 
     const opts = {
@@ -137,14 +144,36 @@ function drawLines(target, cdf, meta, spec, x, values) {
     new uPlot(opts, data, target);
 }
 
+// Block-max decimate a column-major grid (grid[col*rows+row]) down to `outCols`
+// columns, taking the per-bin max over each block so bright features survive.
+function decimateGridCols(grid, fullCols, rows, step, outCols) {
+    const out = new Float64Array(outCols * rows).fill(NaN);
+    for (let oc = 0; oc < outCols; oc++) {
+        for (let sc = oc * step; sc < Math.min(fullCols, (oc + 1) * step); sc++) {
+            for (let r = 0; r < rows; r++) {
+                const v = grid[sc * rows + r];
+                if (Number.isNaN(v)) continue;
+                const cur = out[oc * rows + r];
+                if (Number.isNaN(cur) || v > cur) out[oc * rows + r] = v;
+            }
+        }
+    }
+    return out;
+}
+
 function drawSpectro(target, cdf, meta, spec, x, values, scale) {
-    const cols = x.values.length;
+    const fullCols = x.values.length;
     const rows = Math.max(1, spec.components);
     const masked = applyMask(values, spec);
 
+    // Cap the column count so the offscreen ImageData stays bounded on huge files.
+    const step = fullCols > MAX_COLS ? Math.ceil(fullCols / MAX_COLS) : 1;
+    const cols = step === 1 ? fullCols : Math.ceil(fullCols / step);
+    const grid = step === 1 ? masked : decimateGridCols(masked, fullCols, rows, step, cols);
+
     let min = Infinity, max = -Infinity;
-    for (let i = 0; i < masked.length; i++) {
-        const v = masked[i];
+    for (let i = 0; i < grid.length; i++) {
+        const v = grid[i];
         if (!Number.isFinite(v)) continue;
         if (scale === "log" && v <= 0) continue;
         if (v < min) min = v;
@@ -157,10 +186,10 @@ function drawSpectro(target, cdf, meta, spec, x, values, scale) {
 
     const canvas = document.createElement("canvas");
     canvas.className = "spectro";
-    canvas.width = Math.min(cols, MAX_COLS) * 2;
+    canvas.width = cols * 2;
     canvas.height = PLOT_HEIGHT;
     target.appendChild(canvas);
-    drawSpectrogram(canvas, { grid: masked, cols, rows, min, max, scale });
+    drawSpectrogram(canvas, { grid, cols, rows, min, max, scale });
 }
 
 // --- export ------------------------------------------------------------------
