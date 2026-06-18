@@ -45,9 +45,14 @@ function inspect(data, name) {
     const cdf = Module.load(data);
     const dt = (performance.now() - t0).toFixed(1);
     if (!cdf.is_valid()) {
-        setStatus("error", `Failed to parse ${name}`);
-        els.detail.innerHTML = `<div class="log-err">ERROR: failed to parse CDF</div>`;
         cdf.delete();
+        currentModel = buildModel([], []);
+        selectedName = null;
+        searchQuery = "";
+        els.search.value = "";
+        refreshList();
+        els.detail.innerHTML = `<div class="log-err">ERROR: failed to parse CDF</div>`;
+        setStatus("error", `Failed to parse ${name}`);
         return;
     }
     currentCdf = cdf;
@@ -139,4 +144,3 @@ globalThis.addEventListener("drop", (e) => {
 
 await init();
 
-export { loadFile };

@@ -13,6 +13,8 @@ check("nsToISO whole second",
     nsToISO(1700000000000000000n) === "2023-11-14T22:13:20.000000000Z");
 check("nsToISO sub-ms precision",
     nsToISO(1700000000123456789n) === "2023-11-14T22:13:20.123456789Z");
+check("nsToISO pre-1970 negative",
+    nsToISO(-1000000000n) === "1969-12-31T23:59:59.000000000Z");
 
 check("stripPadding trims nulls then space",
     stripPadding("hello    ") === "hello");

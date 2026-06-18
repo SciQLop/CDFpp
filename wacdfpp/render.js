@@ -189,6 +189,7 @@ function sectionLabel(text) {
 // values are read immediately (avoids holding stale views across heap growth).
 export function renderDetail(container, cdf, name) {
     container.innerHTML = "";
+    if (!cdf) return;
     const v = cdf.get_variable(name);
     if (v === undefined) {
         container.innerHTML = `<div class="log-err">Variable not found: ${esc(name)}</div>`;
