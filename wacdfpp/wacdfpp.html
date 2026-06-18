@@ -244,10 +244,15 @@
         .group-title { color: var(--text); }
         .group-body { font-family: var(--mono); font-size: 0.78rem; }
 
-        .var-row, .attr-row { padding: 0.2rem 0.4rem; border-radius: 3px; cursor: pointer;
+        .var-row { padding: 0.2rem 0.4rem; border-radius: 3px; cursor: pointer;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .var-row:hover, .attr-row:hover { background: var(--surface2); }
+        .var-row:hover { background: var(--surface2); }
         .var-row.sel { background: var(--accent-dim); border-left: 2px solid var(--accent); }
+
+        /* Global-attr rows are content, not nav targets: wrap so the full value shows. */
+        .attr-row { padding: 0.2rem 0.4rem; border-radius: 3px;
+            white-space: normal; overflow-wrap: anywhere; }
+        .attr-row:hover { background: var(--surface2); }
 
         .detail-title { font-family: var(--mono); font-size: 0.9rem; margin-bottom: 0.4rem; }
         .section-label { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;
