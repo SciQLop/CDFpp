@@ -82,7 +82,7 @@ export function decimateMinMax(x, y, targetCols) {
 // columns: [{ name, values: any[] }, ...] with equal-length value arrays.
 function csvCell(v) {
     const s = v == null ? "" : String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 export function toCSV(columns) {
