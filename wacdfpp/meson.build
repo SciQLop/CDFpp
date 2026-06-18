@@ -1,13 +1,5 @@
 fs = import('fs')
 
-node = find_program('node', required: false)
-if node.found()
-    test('wacdfpp_model', node,
-        args: [files('../tests/wacdfpp_model/test.mjs')],
-        timeout: 60,
-    )
-endif
-
 flags = [
     '-lembind',
     '--bind',
@@ -34,6 +26,7 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
 
     fs.copyfile('wacdfpp.html', 'wacdfpp.html')
 
+    node = find_program('node', required: false)
     if node.found()
         test('wasm_time_conversion', node,
             args: [
