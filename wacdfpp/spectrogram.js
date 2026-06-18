@@ -53,3 +53,38 @@ export function drawSpectrogram(canvas, { grid, cols, rows, min, max, scale }) {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(off, 0, 0, cols, rows, 0, 0, canvas.width, canvas.height);
 }
+
+// True if arr is strictly increasing or strictly decreasing.
+export function isMonotonic(arr) {
+    if (arr.length < 2) return true;
+    let inc = true, dec = true;
+    for (let i = 1; i < arr.length; i++) {
+        if (!(arr[i] > arr[i - 1])) inc = false;
+        if (!(arr[i] < arr[i - 1])) dec = false;
+    }
+    return inc || dec;
+}
+
+// ISTP SCALETYP attr -> "log" | "linear"; unknown/missing -> fallback.
+export function scaleTypeOf(attrs, fallback) {
+    const s = String(attrs?.SCALETYP ?? "").trim().toLowerCase();
+    return s === "log" || s === "linear" ? s : fallback;
+}
+
+// N bin centers -> N+1 cell edges (midpoints; ends extrapolated by half a step).
+// log=true computes midpoints/extension geometrically (in log space).
+export function cellEdges(centers, log) {
+    const n = centers.length;
+    if (n === 0) return [];
+    const mid = log ? (a, b) => Math.sqrt(a * b) : (a, b) => (a + b) / 2;
+    const edges = new Array(n + 1);
+    for (let i = 1; i < n; i++) edges[i] = mid(centers[i - 1], centers[i]);
+    if (n === 1) {
+        if (log) { edges[0] = centers[0] / Math.SQRT2; edges[1] = centers[0] * Math.SQRT2; }
+        else { edges[0] = centers[0] - 0.5; edges[1] = centers[0] + 0.5; }
+        return edges;
+    }
+    edges[0] = log ? centers[0] ** 2 / edges[1] : 2 * centers[0] - edges[1];
+    edges[n] = log ? centers[n - 1] ** 2 / edges[n - 1] : 2 * centers[n - 1] - edges[n - 1];
+    return edges;
+}

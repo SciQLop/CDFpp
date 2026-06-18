@@ -3,7 +3,7 @@
 import {
     MAX_LINES, recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON,
 } from "../../wacdfpp/plot-model.js";
-import { viridis, normalizeLevel } from "../../wacdfpp/spectrogram.js";
+import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "../../wacdfpp/spectrogram.js";
 
 let failures = 0;
 function check(name, ok) {
@@ -111,5 +111,24 @@ check("normalizeLevel linear midpoint", normalizeLevel(50, 0, 100, "linear") ===
 check("normalizeLevel log decade", Math.abs(normalizeLevel(10, 1, 100, "log") - 0.5) < 1e-9);
 check("normalizeLevel NaN passthrough", Number.isNaN(normalizeLevel(NaN, 0, 100, "linear")));
 check("normalizeLevel log rejects non-positive", Number.isNaN(normalizeLevel(0, 1, 100, "log")));
+
+check("isMonotonic asc", isMonotonic([1, 2, 3]) === true);
+check("isMonotonic desc", isMonotonic([3, 2, 1]) === true);
+check("isMonotonic flat-step not strict", isMonotonic([1, 1, 2]) === false);
+check("isMonotonic unsorted", isMonotonic([1, 3, 2]) === false);
+
+check("scaleTypeOf log", scaleTypeOf({ SCALETYP: "log" }, "linear") === "log");
+check("scaleTypeOf LINEAR ci", scaleTypeOf({ SCALETYP: "LINEAR" }, "log") === "linear");
+check("scaleTypeOf missing -> fallback", scaleTypeOf({}, "log") === "log");
+check("scaleTypeOf junk -> fallback", scaleTypeOf({ SCALETYP: "weird" }, "linear") === "linear");
+
+const le = cellEdges([1, 2, 3], false);
+check("cellEdges linear length n+1", le.length === 4);
+check("cellEdges linear interior midpoints", le[1] === 1.5 && le[2] === 2.5);
+check("cellEdges linear extrapolated ends", le[0] === 0.5 && le[3] === 3.5);
+const lg = cellEdges([1, 10, 100], true);
+check("cellEdges log interior is geometric mean",
+    Math.abs(lg[1] - Math.sqrt(10)) < 1e-9 && Math.abs(lg[2] - Math.sqrt(1000)) < 1e-9);
+check("cellEdges single center linear", JSON.stringify(cellEdges([5], false)) === JSON.stringify([4.5, 5.5]));
 
 process.exit(failures ? 1 : 0);
