@@ -16,6 +16,12 @@ import threading
 
 os.environ['TZ'] = 'UTC'
 
+# LPP CDF test-files mirror (self-signed cert -> verify=False below).
+CORPUS_BASE_URL = "https://129.104.27.7/data/mirrors/CDF/test_files"
+
+def fetch_cdf(fname):
+    return pycdfpp.load(requests.get(f"{CORPUS_BASE_URL}/{fname}", verify=False).content)
+
 files = (
     ( "a1_k0_mpa_20050804_v02.cdf", 39, 18 ),
     ( "ac_h2_sis_20101105_v06.cdf", 61, 26 ),
@@ -68,7 +74,7 @@ class PycdfCorpus(unittest.TestCase):
     @ddt.unpack
     def test_opens_in_memory_remote_files(self, fname, variables, attrs):
         print(fname)
-        cdf = pycdfpp.load(requests.get(f"https://129.104.27.7/data/mirrors/CDF/test_files/{fname}", verify=False).content)
+        cdf = fetch_cdf(fname)
         self.assertIsNotNone(cdf)
         self.assertEqual(len(cdf), variables)
         self.assertEqual(len(cdf.attributes), attrs)
@@ -79,7 +85,7 @@ class PycdfCorpus(unittest.TestCase):
     @ddt.unpack
     def test_save_roundtrip_remote_files(self, fname, variables, attrs):
         print(fname)
-        original = pycdfpp.load(requests.get(f"https://129.104.27.7/data/mirrors/CDF/test_files/{fname}", verify=False).content)
+        original = fetch_cdf(fname)
         self.assertIsNotNone(original)
         restored = pycdfpp.load(bytes(pycdfpp.save(original)))
         self.assertIsNotNone(restored)
@@ -96,7 +102,7 @@ class PycdfCorpus(unittest.TestCase):
 
     def test_multithreaded_load(self):
         def load_file(fname, variables, attrs):
-            cdf = pycdfpp.load(requests.get(f"https://129.104.27.7/data/mirrors/CDF/test_files/{fname}", verify=False).content)
+            cdf = fetch_cdf(fname)
             self.assertIsNotNone(cdf)
             self.assertEqual(len(cdf), variables)
             self.assertEqual(len(cdf.attributes), attrs)

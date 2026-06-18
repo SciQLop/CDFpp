@@ -74,7 +74,8 @@ function sameValues(a, b)
         const x = a[n], y = b[n];
         if (x === null || y === null)
             return x === y;
-        return x.length === y.length && x.every((v, i) => v === y[i]);
+        // Object.is so NaN fill values compare equal (NaN !== NaN with ===).
+        return x.length === y.length && x.every((v, i) => Object.is(v, y[i]));
     });
 }
 
