@@ -9,30 +9,23 @@
 // asserts the growth actually happened (so it can't silently false-pass), and
 // checks a captured numeric attribute is still readable.
 //
-//   node test.mjs <path-to-cdfpp.js> <path-to-tests/resources>
+//   node test.mjs <path-to-cdfpp.js>
 
 import { readFileSync } from "node:fs";
-import { basename, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import process from "node:process";
 
-const [, , modulePath, resourcesDir] = process.argv;
-if (!modulePath || !resourcesDir)
+const [, , modulePath] = process.argv;
+if (!modulePath)
 {
-    console.error("usage: node test.mjs <cdfpp.js> <resources_dir>");
+    console.error("usage: node test.mjs <cdfpp.js>");
     process.exit(2);
 }
 
-// Resolve resource files inside the given directory only, ignoring any path
-// components in the requested name, so the (CLI-provided) base dir can't be
-// used to read outside the resources tree.
-const baseDir = resolve(resourcesDir);
-function resourcePath(file)
-{
-    const path = resolve(baseDir, basename(file));
-    if (path !== baseDir && !path.startsWith(baseDir + sep))
-        throw new Error(`refusing to read outside resources dir: ${file}`);
-    return path;
-}
+// Resources live alongside this test in the source tree; resolve them relative
+// to the test file rather than from a caller-supplied path.
+const resourcesDir = join(dirname(fileURLToPath(import.meta.url)), "..", "resources");
 
 const { default: createCdfModule } = await import(modulePath);
 const Module = await createCdfModule();
@@ -51,7 +44,7 @@ function check(name, ok)
 
 function load(file)
 {
-    const bytes = new Uint8Array(readFileSync(resourcePath(file)));
+    const bytes = new Uint8Array(readFileSync(join(resourcesDir, file)));
     const cdf = Module.load(bytes);
     if (!cdf.is_valid())
         throw new Error(`failed to load ${file}`);
