@@ -1,5 +1,7 @@
-// Canvas heatmap for spectrogram-type variables. viridis + normalizeLevel are pure
-// (unit-tested); drawSpectrogram touches the DOM and is verified in the browser.
+// Pure helpers for the spectrogram (no DOM, Node unit-tested): viridis colormap,
+// normalizeLevel (log/linear), cellEdges (bin/time cell boundaries), scaleTypeOf
+// (ISTP SCALETYP), isMonotonic. The heatmap itself is painted in plot.js via a
+// uPlot draw hook using these helpers.
 
 const VIRIDIS_ANCHORS = [
     [68, 1, 84], [72, 40, 120], [62, 74, 137], [49, 104, 142], [38, 130, 142],
@@ -28,30 +30,6 @@ export function normalizeLevel(v, min, max, scale) {
         return (Math.log10(v) - Math.log10(min)) / (Math.log10(max) - Math.log10(min));
     }
     return (v - min) / (max - min);
-}
-
-// Draw a heatmap. grid is column-major: grid[col*rows + row], col = record (x),
-// row = bin (y, row 0 drawn at the bottom). NaN cells are transparent.
-export function drawSpectrogram(canvas, { grid, cols, rows, min, max, scale }) {
-    const ctx = canvas.getContext("2d");
-    const off = document.createElement("canvas");
-    off.width = cols;
-    off.height = rows;
-    const octx = off.getContext("2d");
-    const img = octx.createImageData(cols, rows);
-    for (let c = 0; c < cols; c++) {
-        for (let r = 0; r < rows; r++) {
-            const t = normalizeLevel(grid[c * rows + r], min, max, scale);
-            const px = ((rows - 1 - r) * cols + c) * 4; // flip y: bin 0 at bottom
-            if (Number.isNaN(t)) { img.data[px + 3] = 0; continue; }
-            const [R, G, B] = viridis(t);
-            img.data[px] = R; img.data[px + 1] = G; img.data[px + 2] = B; img.data[px + 3] = 255;
-        }
-    }
-    octx.putImageData(img, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(off, 0, 0, cols, rows, 0, 0, canvas.width, canvas.height);
 }
 
 // True if arr is strictly increasing or strictly decreasing.
