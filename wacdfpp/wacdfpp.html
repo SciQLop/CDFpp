@@ -225,6 +225,68 @@
         .log-dim { color: var(--text-dim); }
         .log-val { color: var(--yellow); }
         .log-err { color: var(--red); }
+
+        .app {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        @media (max-width: 720px) { .app { grid-template-columns: 1fr; } }
+
+        .sidebar, .detail {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 0.75rem;
+            max-height: 70vh;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+
+        #search {
+            width: 100%;
+            margin-bottom: 0.75rem;
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            padding: 0.45em 0.7em;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            outline: none;
+        }
+        #search:focus { border-color: var(--accent); }
+
+        .group { margin-bottom: 0.5rem; }
+        .group-head { cursor: pointer; font-size: 0.75rem; color: var(--text-dim);
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.25rem 0; user-select: none; }
+        .group-title { color: var(--text); }
+        .group-body { font-family: var(--mono); font-size: 0.78rem; }
+
+        .var-row, .attr-row { padding: 0.2rem 0.4rem; border-radius: 3px; cursor: pointer;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .var-row:hover, .attr-row:hover { background: var(--surface2); }
+        .var-row.sel { background: var(--accent-dim); border-left: 2px solid var(--accent); }
+
+        .detail-title { font-family: var(--mono); font-size: 0.9rem; margin-bottom: 0.4rem; }
+        .section-label { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase;
+            letter-spacing: 0.05em; margin: 0.9rem 0 0.4rem; }
+        .detail-attrs { font-family: var(--mono); font-size: 0.78rem; line-height: 1.6; }
+
+        table.preview { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.78rem; }
+        table.preview td { padding: 0.15rem 0.5rem; border-bottom: 1px solid var(--border);
+            vertical-align: top; word-break: break-all; }
+        table.preview td:first-child { color: var(--text-dim); width: 3rem; text-align: right; }
+
+        .plot-placeholder { margin-top: 1rem; padding: 1.5rem; text-align: center;
+            color: var(--text-dim); border: 1px dashed var(--border); border-radius: var(--radius); }
+
+        .dropzone { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+            background: rgba(15,17,23,0.85); color: var(--accent); font-size: 1.2rem; z-index: 10;
+            border: 3px dashed var(--accent); }
+        .dropzone.active { display: flex; }
     </style>
 </head>
 <body>
@@ -256,234 +318,22 @@
         <span id="statusText">Initializing WASM module...</span>
     </div>
 
-    <div id="output-container">
-        <div id="output-header">
-            <span id="fileName">No file loaded</span>
-            <span id="parseTime"></span>
-        </div>
-        <div id="output"></div>
+    <div id="output-header">
+        <span id="fileName">No file loaded</span>
+        <span id="parseTime"></span>
+    </div>
+
+    <div class="app">
+        <aside class="sidebar">
+            <input type="text" id="search" placeholder="Search variables & attributes…">
+            <div id="varlist"></div>
+        </aside>
+        <section class="detail">
+            <div id="detail-body"><div class="log-dim">Load a CDF to begin.</div></div>
+        </section>
     </div>
 </div>
-
-<script type="module">
-    import createCdfModule from './cdfpp.js';
-
-    const output = document.getElementById('output');
-    const fileInput = document.getElementById('fileInput');
-    const loadBtn = document.getElementById('loadBtn');
-    const fetchBtn = document.getElementById('fetchBtn');
-    const urlInput = document.getElementById('urlInput');
-    const statusEl = document.getElementById('status');
-    const statusText = document.getElementById('statusText');
-    const fileName = document.getElementById('fileName');
-    const parseTime = document.getElementById('parseTime');
-
-    let Module;
-
-    function setStatus(cls, text) {
-        statusEl.className = cls;
-        statusText.textContent = text;
-    }
-
-    function span(cls, text) { return `<span class="${cls}">${text}</span>`; }
-
-    function log(html) { output.innerHTML += html + '\n'; }
-    function clear() { output.innerHTML = ''; }
-
-    function esc(s) {
-        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    const CDF_EPOCH = 31, CDF_EPOCH16 = 32, CDF_TIME_TT2000 = 33;
-    const CDF_CHAR = 51, CDF_UCHAR = 52;
-
-    const isTimeType = (t) => t === CDF_EPOCH || t === CDF_EPOCH16 || t === CDF_TIME_TT2000;
-    const isCharType = (t) => t === CDF_CHAR || t === CDF_UCHAR;
-
-    // ns-since-1970 (BigInt, leap-second corrected) -> ISO 8601 with ns precision
-    function nsToISO(ns) {
-        const NS_PER_MS = 1000000n;
-        let ms = ns / NS_PER_MS;
-        let rem = ns - ms * NS_PER_MS;
-        if (rem < 0n) { rem += NS_PER_MS; ms -= 1n; }
-        const d = new Date(Number(ms));
-        if (Number.isNaN(d.getTime())) return ns.toString();
-        return d.toISOString().replace('Z', '') + rem.toString().padStart(6, '0') + 'Z';
-    }
-
-    // Render one attribute value. Time-typed values (VALIDMIN/VALIDMAX/FILLVAL on
-    // epoch variables, etc.) arrive already decoded as an array of ISO date
-    // strings; a plain string is a text attribute; anything else is a numeric
-    // typed array.
-    function formatAttrValue(value) {
-        if (typeof value === 'string') return `"${esc(value.trim())}"`;
-        if (Array.isArray(value)) return value.map(esc).join(', ');
-        return value;
-    }
-
-    // Drop trailing null padding then trailing whitespace, without regex
-    // (Sonar flags `+$` patterns as potential ReDoS).
-    function stripPadding(s) {
-        let end = s.length;
-        while (end > 0 && s.codePointAt(end - 1) === 0) end--;
-        return s.slice(0, end).trimEnd();
-    }
-
-    // Decode a CDF_CHAR/UCHAR byte buffer into one string per record
-    // (last shape dimension is the fixed string length). Only the first
-    // `max` records are decoded; `total` reports the full record count.
-    function decodeChars(bytes, shape, max) {
-        const dec = new TextDecoder('utf-8', { fatal: false });
-        const strLen = shape.length ? shape[shape.length - 1] : 0;
-        if (strLen > 0 && bytes.length > strLen && bytes.length % strLen === 0) {
-            const total = bytes.length / strLen;
-            const n = Math.min(max ?? total, total);
-            const strings = [];
-            for (let i = 0; i < n; i++)
-                strings.push(stripPadding(dec.decode(bytes.subarray(i * strLen, (i + 1) * strLen))));
-            return { strings, total };
-        }
-        return { strings: [stripPadding(dec.decode(bytes))], total: 1 };
-    }
-
-    function logValuePreview(cdf, v) {
-        if (isTimeType(v.type)) {
-            const ns = cdf.time_values_as_ns_since_1970(v.name);
-            if (ns !== undefined && ns.length > 0) {
-                const preview = Array.from(ns.slice(0, Math.min(5, ns.length)), nsToISO);
-                const suffix = ns.length > 5 ? span('log-dim', ` ... (${ns.length} total)`) : '';
-                log(`    ${span('log-dim', 'values:')} [${preview.map(esc).join(', ')}${suffix}]`);
-                return;
-            }
-        }
-
-        if (isCharType(v.type) && v.values !== undefined) {
-            const { strings, total } = decodeChars(v.values, v.shape, 5);
-            const preview = strings.map(s => `"${esc(s)}"`);
-            const suffix = total > strings.length ? span('log-dim', ` ... (${total} total)`) : '';
-            log(`    ${span('log-dim', 'values:')} [${preview.join(', ')}${suffix}]`);
-            return;
-        }
-
-        const values = v.values;
-        if (values !== undefined && values.length > 0) {
-            const preview = Array.from(values.slice(0, Math.min(5, values.length)));
-            const suffix = values.length > 5 ? span('log-dim', ` ... (${values.length} total)`) : '';
-            log(`    ${span('log-dim', 'values:')} [${preview}${suffix}]`);
-        }
-    }
-
-    function inspectCdf(cdf, name, dt) {
-        if (!cdf.is_valid()) {
-            log(span('log-err', 'ERROR: Failed to parse CDF file'));
-            cdf.delete();
-            return;
-        }
-
-        fileName.textContent = name;
-        parseTime.textContent = `parsed in ${dt} ms`;
-
-        log(span('log-section', '[ File Info ]'));
-        log(`  Majority     ${span('log-val', cdf.majority())}`);
-        log(`  Compression  ${span('log-val', cdf.compression())}`);
-
-        const attrNames = cdf.attribute_names();
-        log('');
-        log(span('log-section', `[ Global Attributes ] `) + span('log-dim', `(${attrNames.length})`));
-        for (const name of attrNames) {
-            const attr = cdf.get_attribute(name);
-            const entries = attr.entries.map(formatAttrValue);
-            log(`  ${span('log-key', esc(name))}  ${span('log-dim', entries.join(', '))}`);
-        }
-
-        const varNames = cdf.variable_names();
-        log('');
-        log(span('log-section', `[ Variables ] `) + span('log-dim', `(${varNames.length})`));
-        for (const name of varNames) {
-            const v = cdf.get_variable(name);
-            log(`  ${span('log-key', esc(name))}  ${span('log-dim', `[${v.shape}]`)} ${span('log-val', v.type_name)}${v.is_nrv ? span('log-dim', ' nrv') : ''}`);
-
-            for (const an of v.attribute_names) {
-                const display = formatAttrValue(v.attributes[an]);
-                log(`    ${span('log-dim', esc(an) + ':')} ${display}`);
-            }
-
-            logValuePreview(cdf, v);
-        }
-
-        cdf.delete();
-    }
-
-    async function init() {
-        try {
-            Module = await createCdfModule();
-            setStatus('ready', 'Ready');
-            loadBtn.disabled = false;
-            fetchBtn.disabled = false;
-        } catch (err) {
-            setStatus('error', `Init failed: ${err.message}`);
-        }
-    }
-
-    loadBtn.addEventListener('click', () => {
-        const file = fileInput.files[0];
-        if (!file) return;
-        clear();
-        setStatus('loading', `Loading ${file.name}...`);
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const data = new Uint8Array(e.target.result);
-            const t0 = performance.now();
-            const cdf = Module.load(data);
-            const dt = (performance.now() - t0).toFixed(1);
-            setStatus('ready', `Loaded ${file.name} (${data.length.toLocaleString()} bytes)`);
-            inspectCdf(cdf, file.name, dt);
-        };
-        reader.readAsArrayBuffer(file);
-    });
-
-    async function fetchUrl(url) {
-        if (!url) return;
-        if (!Module) {
-            setStatus('error', 'WASM module not ready yet');
-            return;
-        }
-        clear();
-        setStatus('loading', 'Fetching...');
-        try {
-            const resp = await fetch(url);
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const buf = await resp.arrayBuffer();
-            const data = new Uint8Array(buf);
-            const name = url.split('/').pop().split('?')[0].split('#')[0] || 'remote.cdf';
-            const t0 = performance.now();
-            const cdf = Module.load(data);
-            const dt = (performance.now() - t0).toFixed(1);
-            setStatus('ready', `Fetched ${name} (${data.length.toLocaleString()} bytes)`);
-            inspectCdf(cdf, name, dt);
-        } catch (err) {
-            setStatus('error', `Fetch error: ${err.message}`);
-            log(span('log-err', `Error: ${esc(err.message)}`));
-        }
-    }
-
-    fetchBtn.addEventListener('click', () => fetchUrl(urlInput.value.trim()));
-    urlInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') fetchUrl(urlInput.value.trim());
-    });
-
-    // Share a CDF directly via ?url=<cdf-url> in the page URL.
-    function autoLoadFromQuery() {
-        const params = new URLSearchParams(globalThis.location.search);
-        const url = params.get('url') || params.get('cdf');
-        if (url) {
-            urlInput.value = url;
-            fetchUrl(url);
-        }
-    }
-
-    await init();
-    autoLoadFromQuery();
-</script>
+<div id="dropzone" class="dropzone"><span>Drop a .cdf file</span></div>
+<script type="module" src="./app.js"></script>
 </body>
 </html>
