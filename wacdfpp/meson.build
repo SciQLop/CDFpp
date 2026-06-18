@@ -21,10 +21,13 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
         link_args: flags + ['-O2'],
         install: false,
         build_by_default: true,
-        extra_files: ['wasm.txt', 'wacdfpp.html']
+        extra_files: ['wasm.txt', 'wacdfpp.html', 'app.js', 'cdf-model.js', 'render.js']
     )
 
     fs.copyfile('wacdfpp.html', 'wacdfpp.html')
+    fs.copyfile('app.js', 'app.js')
+    fs.copyfile('cdf-model.js', 'cdf-model.js')
+    fs.copyfile('render.js', 'render.js')
 
     node = find_program('node', required: false)
     if node.found()
