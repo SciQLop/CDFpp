@@ -11,8 +11,9 @@ export function normalizeVarType(varType) {
     return VAR_GROUPS.includes(v) ? v : "data";
 }
 
+// Variables are shared by reference into the groups; callers must not mutate them.
 export function buildModel(rawVars, rawGlobals) {
-    const groups = { data: [], support_data: [], metadata: [] };
+    const groups = Object.fromEntries(VAR_GROUPS.map(g => [g, []]));
     for (const v of rawVars) groups[normalizeVarType(v.varType)].push(v);
     return { globalAttributes: rawGlobals, groups };
 }
@@ -31,7 +32,7 @@ function variableHaystack(v) {
 export function filterModel(model, query) {
     const q = query.trim().toLowerCase();
     if (!q) return model;
-    const groups = { data: [], support_data: [], metadata: [] };
+    const groups = Object.fromEntries(VAR_GROUPS.map(g => [g, []]));
     for (const g of VAR_GROUPS)
         groups[g] = model.groups[g].filter(v => variableHaystack(v).includes(q));
     const globalAttributes = model.globalAttributes.filter(

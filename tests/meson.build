@@ -60,6 +60,6 @@ node = find_program('node', required: false)
 if node.found()
     test('wacdfpp_model', node,
         args: [files('wacdfpp_model/test.mjs')],
-        timeout: 60,
+        timeout: 10,
     )
 endif

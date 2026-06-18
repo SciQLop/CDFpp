@@ -49,6 +49,8 @@ check("filter by var name empties others",
 
 const byAttrValue = filterModel(model, "nT");
 check("filter by attr value matches B_gse", eq(byAttrValue.groups.data.map(v => v.name), ["B_gse"]));
+check("filter by attr value case-insensitive",
+    filterModel(model, "NT").groups.data.map(v => v.name).join() === "B_gse");
 
 const byAttrName = filterModel(model, "depend_0");
 check("filter by attr name matches B_gse", eq(byAttrName.groups.data.map(v => v.name), ["B_gse"]));
