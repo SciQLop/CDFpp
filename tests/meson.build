@@ -66,4 +66,8 @@ if node.found()
         args: [files('wacdfpp_format/test.mjs')],
         timeout: 10,
     )
+    test('wacdfpp_plot', node,
+        args: [files('wacdfpp_plot/test.mjs')],
+        timeout: 10,
+    )
 endif
