@@ -68,3 +68,161 @@ export function formatAttrValue(value) {
         return Array.from(value).map(String).join(", ");
     return value;
 }
+
+// --- DOM rendering ------------------------------------------------------------
+
+const GROUP_LABELS = { data: "Data", support_data: "Support", metadata: "Metadata" };
+
+function varRow(v, selected, onSelect) {
+    const row = document.createElement("div");
+    row.className = "var-row" + (v.name === selected ? " sel" : "");
+    row.innerHTML =
+        `<span class="log-key">${esc(v.name)}</span> ` +
+        `<span class="log-dim">[${esc(v.shape.join(", "))}]</span> ` +
+        `<span class="log-val">${esc(v.typeName)}</span>` +
+        (v.isNrv ? `<span class="log-dim"> nrv</span>` : "");
+    row.addEventListener("click", () => onSelect(v.name));
+    return row;
+}
+
+function group(title, count, children, startOpen) {
+    const wrap = document.createElement("div");
+    wrap.className = "group";
+    const head = document.createElement("div");
+    head.className = "group-head";
+    head.innerHTML = `<span class="caret">${startOpen ? "▾" : "▸"}</span> ` +
+        `<span class="group-title">${esc(title)}</span> <span class="log-dim">(${count})</span>`;
+    const body = document.createElement("div");
+    body.className = "group-body";
+    body.style.display = startOpen ? "block" : "none";
+    for (const c of children) body.appendChild(c);
+    head.addEventListener("click", () => {
+        const open = body.style.display === "none";
+        body.style.display = open ? "block" : "none";
+        head.querySelector(".caret").textContent = open ? "▾" : "▸";
+    });
+    wrap.append(head, body);
+    return wrap;
+}
+
+// Render the left list. container is cleared and repopulated.
+export function renderList(container, model, { selected, onSelect }) {
+    container.innerHTML = "";
+
+    const gAttrRows = model.globalAttributes.map(a => {
+        const row = document.createElement("div");
+        row.className = "attr-row";
+        row.innerHTML = `<span class="log-key">${esc(a.name)}</span> ` +
+            `<span class="log-dim">${esc(a.value)}</span>`;
+        return row;
+    });
+    if (gAttrRows.length)
+        container.appendChild(group("Global Attributes", gAttrRows.length, gAttrRows, false));
+
+    for (const g of ["data", "support_data", "metadata"]) {
+        const vars = model.groups[g];
+        if (!vars.length) continue;
+        const rows = vars.map(v => varRow(v, selected, onSelect));
+        container.appendChild(group(GROUP_LABELS[g], vars.length, rows, g === "data"));
+    }
+
+    if (!container.children.length)
+        container.innerHTML = `<div class="log-dim" style="padding:0.5rem">No matches</div>`;
+}
+
+// Record length = product of non-record dims (shape[1:]); 1 for 0/1-D vars.
+function recordLength(shape) {
+    if (shape.length <= 1) return 1;
+    return shape.slice(1).reduce((a, b) => a * b, 1);
+}
+
+const PREVIEW_RECORDS = 20;
+
+function previewTable(cdf, v) {
+    const table = document.createElement("table");
+    table.className = "preview";
+
+    if (isTimeType(v.type)) {
+        const ns = cdf.time_values_as_ns_since_1970(v.name);
+        const total = ns ? ns.length : 0;
+        const n = Math.min(PREVIEW_RECORDS, total);
+        for (let i = 0; i < n; i++) {
+            const tr = table.insertRow();
+            tr.insertCell().textContent = i;
+            tr.insertCell().textContent = nsToISO(ns[i]);
+        }
+        return { table, total, shown: n };
+    }
+
+    if (isCharType(v.type) && v.values !== undefined) {
+        const { strings, total } = decodeChars(v.values, v.shape, PREVIEW_RECORDS);
+        strings.forEach((s, i) => {
+            const tr = table.insertRow();
+            tr.insertCell().textContent = i;
+            tr.insertCell().textContent = s;
+        });
+        return { table, total, shown: strings.length };
+    }
+
+    const values = v.copy_values;
+    if (values === undefined || values.length === 0) return { table, total: 0, shown: 0 };
+    const recLen = recordLength(v.shape);
+    const records = chunkRecords(values, recLen);
+    const total = records.length;
+    const n = Math.min(PREVIEW_RECORDS, total);
+    for (let i = 0; i < n; i++) {
+        const tr = table.insertRow();
+        tr.insertCell().textContent = i;
+        tr.insertCell().textContent = records[i].join(", ");
+    }
+    return { table, total, shown: n };
+}
+
+function sectionLabel(text) {
+    const el = document.createElement("div");
+    el.className = "section-label";
+    el.textContent = text;
+    return el;
+}
+
+// Render the right detail panel for variable `name`. Re-fetches the variable so
+// values are read immediately (avoids holding stale views across heap growth).
+export function renderDetail(container, cdf, name) {
+    container.innerHTML = "";
+    const v = cdf.get_variable(name);
+    if (v === undefined) {
+        container.innerHTML = `<div class="log-err">Variable not found: ${esc(name)}</div>`;
+        return;
+    }
+
+    const head = document.createElement("div");
+    head.className = "detail-title";
+    head.innerHTML = `<span class="log-key">${esc(name)}</span> ` +
+        `<span class="log-dim">[${esc(Array.from(v.shape).join(", "))}]</span> ` +
+        `<span class="log-val">${esc(v.type_name)}</span>` +
+        (v.is_nrv ? `<span class="log-dim"> nrv</span>` : "");
+    container.appendChild(head);
+
+    const meta = document.createElement("div");
+    meta.className = "log-dim";
+    meta.textContent = `compression: ${v.compression}`;
+    container.appendChild(meta);
+
+    const attrs = document.createElement("div");
+    attrs.className = "detail-attrs";
+    for (const an of v.attribute_names) {
+        const row = document.createElement("div");
+        row.innerHTML = `<span class="log-dim">${esc(an)}:</span> ${esc(formatAttrValue(v.attributes[an]))}`;
+        attrs.appendChild(row);
+    }
+    container.append(sectionLabel("Attributes"), attrs);
+
+    const { table, total, shown } = previewTable(cdf, v);
+    container.appendChild(sectionLabel(`Values (showing ${shown} of ${total})`));
+    container.appendChild(table);
+
+    const ph = document.createElement("div");
+    ph.className = "plot-placeholder";
+    ph.textContent = "📈 Plot — coming in Phase 2";
+    container.appendChild(ph);
+}
