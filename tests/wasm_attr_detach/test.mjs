@@ -5,13 +5,14 @@
 // data (decompression) — or any later allocation — grows the heap and detaches
 // every outstanding view, so reading such an attribute later threw
 // "Cannot perform %TypedArray%.prototype.join on a detached ArrayBuffer".
-// The fix makes attribute values owned copies. This test forces heap growth and
+// The fix makes attribute values owned copies. This test forces heap growth,
+// asserts the growth actually happened (so it can't silently false-pass), and
 // checks a captured numeric attribute is still readable.
 //
 //   node test.mjs <path-to-cdfpp.js> <path-to-tests/resources>
 
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, resolve, sep } from "node:path";
 import process from "node:process";
 
 const [, , modulePath, resourcesDir] = process.argv;
@@ -19,6 +20,18 @@ if (!modulePath || !resourcesDir)
 {
     console.error("usage: node test.mjs <cdfpp.js> <resources_dir>");
     process.exit(2);
+}
+
+// Resolve resource files inside the given directory only, ignoring any path
+// components in the requested name, so the (CLI-provided) base dir can't be
+// used to read outside the resources tree.
+const baseDir = resolve(resourcesDir);
+function resourcePath(file)
+{
+    const path = resolve(baseDir, basename(file));
+    if (path !== baseDir && !path.startsWith(baseDir + sep))
+        throw new Error(`refusing to read outside resources dir: ${file}`);
+    return path;
 }
 
 const { default: createCdfModule } = await import(modulePath);
@@ -38,28 +51,35 @@ function check(name, ok)
 
 function load(file)
 {
-    const bytes = new Uint8Array(readFileSync(join(resourcesDir, file)));
+    const bytes = new Uint8Array(readFileSync(resourcePath(file)));
     const cdf = Module.load(bytes);
     if (!cdf.is_valid())
         throw new Error(`failed to load ${file}`);
     return cdf;
 }
 
-// Grow the WASM heap by allocating a large buffer inside the module. Module.load
-// copies its input into a WASM-side std::vector, so a big (invalid) input forces
-// the heap to grow well past the initial size, detaching any stale views.
-function forceHeapGrowth()
+// Grow the WASM heap past its current size. Module.load copies its input into a
+// WASM-side std::vector, so an allocation larger than the whole current heap
+// forces it to grow, detaching `witness` (a live zero-copy view over the heap).
+// Returns true only if the heap actually grew, so the caller can fail loudly
+// instead of false-passing when no detachment occurred.
+function forceHeapGrowth(witness)
 {
-    const big = Module.load(new Uint8Array(96 * 1024 * 1024));
+    const heapBytes = witness.buffer.byteLength;
+    const big = Module.load(new Uint8Array(heapBytes + 64 * 1024 * 1024));
     big.delete();
+    return witness.buffer.byteLength === 0; // detached buffers report length 0
 }
 
-// Find the first variable carrying a numeric (TypedArray) attribute.
-function findNumericAttr(cdf)
+// Find the first variable that carries a numeric (TypedArray) attribute AND has
+// a loadable values view (used as the heap-growth witness).
+function findTarget(cdf)
 {
     for (const vname of cdf.variable_names())
     {
         const v = cdf.get_variable(vname);
+        if (v.values === undefined)
+            continue;
         for (const an of v.attribute_names)
         {
             const av = v.attributes[an];
@@ -72,18 +92,24 @@ function findNumericAttr(cdf)
 
 {
     const cdf = load("a_cdf.cdf");
-    const target = findNumericAttr(cdf);
-    check("a_cdf.cdf has a numeric variable attribute", target !== undefined);
+    const target = findTarget(cdf);
+    check("a_cdf.cdf has a numeric attribute on a variable with values", target !== undefined);
 
     if (target)
     {
         const { vname, an, snapshot } = target;
-        // Re-fetch the attribute, capture the live view, then grow the heap.
-        const captured = cdf.get_variable(vname).attributes[an];
-        forceHeapGrowth();
+        // Re-fetch: capture the attribute (owned copy, under test) and a live
+        // values view (the heap-growth witness), then grow the heap.
+        const v = cdf.get_variable(vname);
+        const captured = v.attributes[an];
+        const grew = forceHeapGrowth(v.values);
 
-        // With the bug, `captured`'s buffer is now detached: length reads 0 and
-        // join() throws. With the fix it is an owned copy and still matches.
+        // Guard against a vacuous pass: if the heap didn't actually grow, the
+        // test proves nothing about detachment, so fail.
+        check(`${vname} values view detached (heap actually grew)`, grew);
+
+        // With the bug, `captured` would be detached too (join throws). With the
+        // fix it is an owned copy and still matches the snapshot.
         let readable = false;
         let joined = "<threw>";
         try
