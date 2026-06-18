@@ -121,6 +121,21 @@ async function init() {
     }
 }
 
+function setDrop(active) { els.dropzone.classList.toggle("active", active); }
+
+["dragenter", "dragover"].forEach(ev =>
+    globalThis.addEventListener(ev, (e) => { e.preventDefault(); setDrop(true); }));
+["dragleave", "drop"].forEach(ev =>
+    globalThis.addEventListener(ev, (e) => {
+        e.preventDefault();
+        if (ev === "dragleave" && e.relatedTarget) return; // ignore inner element leaves
+        setDrop(false);
+    }));
+globalThis.addEventListener("drop", (e) => {
+    const file = e.dataTransfer?.files?.[0];
+    if (file) loadFile(file);
+});
+
 await init();
 
-export { loadFile };   // used by drag-drop wiring (next task)
+export { loadFile };
