@@ -1,7 +1,7 @@
 // Pure Node test for wacdfpp/plot-model.js and the pure helpers of spectrogram.js.
 //   node test.mjs
 import {
-    MAX_LINES, recordLength, plotSpec,
+    MAX_LINES, recordLength, plotSpec, applyMask,
 } from "../../wacdfpp/plot-model.js";
 
 let failures = 0;
@@ -60,5 +60,16 @@ check("spec.labelPtr1", spec.labelPtr1 === "labels");
 check("spec.components", spec.components === 3);
 check("spec.fill from typed array", spec.fill === -1e31);
 check("spec.validMin/Max", spec.validMin === -100 && spec.validMax === 100);
+
+const masked = applyMask([1, -1e31, 5, 200, -200, NaN], { fill: -1e31, validMin: -100, validMax: 100 });
+check("applyMask keeps in-range", masked[0] === 1 && masked[2] === 5);
+check("applyMask drops fill", Number.isNaN(masked[1]));
+check("applyMask drops above validMax", Number.isNaN(masked[3]));
+check("applyMask drops below validMin", Number.isNaN(masked[4]));
+check("applyMask drops non-finite", Number.isNaN(masked[5]));
+check("applyMask returns Float64Array", masked instanceof Float64Array);
+
+const noBounds = applyMask([1, 999], {});
+check("applyMask no bounds keeps all", noBounds[0] === 1 && noBounds[1] === 999);
 
 process.exit(failures ? 1 : 0);

@@ -52,3 +52,21 @@ export function plotSpec(variable, override) {
     }
     return { ...base, kind };
 }
+
+// Mask values to NaN: non-finite, == fill, or outside [validMin, validMax].
+// Returns a fresh Float64Array (display use; never mutate the source view).
+export function applyMask(values, { fill, validMin, validMax } = {}) {
+    const out = new Float64Array(values.length);
+    for (let i = 0; i < values.length; i++) {
+        const x = Number(values[i]);
+        if (!Number.isFinite(x)
+            || (fill !== undefined && x === fill)
+            || (validMin !== undefined && x < validMin)
+            || (validMax !== undefined && x > validMax)) {
+            out[i] = NaN;
+        } else {
+            out[i] = x;
+        }
+    }
+    return out;
+}
