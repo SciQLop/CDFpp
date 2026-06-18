@@ -38,7 +38,17 @@ export interface Variable {
     readonly compression: string;
     readonly values_loaded: boolean;
     readonly attribute_names: string[];
-    readonly attributes: Record<string, string | TypedArray>;
+    /**
+     * Attribute values keyed by name. Time-typed values (CDF_EPOCH / CDF_EPOCH16 /
+     * CDF_TIME_TT2000 — e.g. VALIDMIN/VALIDMAX/FILLVAL on epoch variables) are
+     * decoded to an array of ISO-8601 UTC date strings (leap-second corrected, full
+     * range — sentinels such as 9999-12-31 render correctly); a plain string is a
+     * text attribute; anything else is a numeric typed array. See `attribute_types`
+     * for the exact CDF type code.
+     */
+    readonly attributes: Record<string, string | TypedArray | string[]>;
+    /** CDF type code (see DataType) for each attribute in `attributes`. */
+    readonly attribute_types: Record<string, number>;
     readonly values: TypedArray | undefined;
     readonly copy_values: TypedArray | undefined;
 }
@@ -46,7 +56,13 @@ export interface Variable {
 /** A CDF global attribute with one or more entries */
 export interface Attribute {
     readonly name: string;
-    readonly entries: Array<string | TypedArray>;
+    /**
+     * Entry values. Time-typed entries are decoded to an array of ISO-8601 UTC
+     * date strings; see `types` for the CDF type code of each entry.
+     */
+    readonly entries: Array<string | TypedArray | string[]>;
+    /** CDF type code (see DataType) for each entry in `entries`. */
+    readonly types: number[];
 }
 
 /** A loaded CDF file (C++ backed — call delete() when done) */

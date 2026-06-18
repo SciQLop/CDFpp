@@ -266,7 +266,8 @@ template <typename U>
 [[nodiscard]] std::size_t save_record(
     const cdf_VVR_t<v3x_tag>& s, const char* data, std::size_t len, U& writer)
 {
-    save_field(writer, record_size(s.header) + len);
+    save_field(
+        writer, static_cast<decltype(s.header.record_size)>(record_size(s.header) + len));
     save_field(writer, cdf_record_type::VVR);
     return writer.write(data, len);
 }

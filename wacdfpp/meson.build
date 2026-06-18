@@ -45,5 +45,21 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
             depends: wasm_exe,
             timeout: 120,
         )
+        test('wasm_save_roundtrip', node,
+            args: [
+                files('../tests/wasm_save_roundtrip/test.mjs'),
+                meson.current_build_dir() / 'cdfpp.js',
+            ],
+            depends: wasm_exe,
+            timeout: 120,
+        )
+        test('wasm_time_attrs', node,
+            args: [
+                files('../tests/wasm_time_attrs/test.mjs'),
+                meson.current_build_dir() / 'cdfpp.js',
+            ],
+            depends: wasm_exe,
+            timeout: 120,
+        )
     endif
 endif

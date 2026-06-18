@@ -311,6 +311,16 @@
         return d.toISOString().replace('Z', '') + rem.toString().padStart(6, '0') + 'Z';
     }
 
+    // Render one attribute value. Time-typed values (VALIDMIN/VALIDMAX/FILLVAL on
+    // epoch variables, etc.) arrive already decoded as an array of ISO date
+    // strings; a plain string is a text attribute; anything else is a numeric
+    // typed array.
+    function formatAttrValue(value) {
+        if (typeof value === 'string') return `"${esc(value.trim())}"`;
+        if (Array.isArray(value)) return value.map(esc).join(', ');
+        return value;
+    }
+
     // Drop trailing null padding then trailing whitespace, without regex
     // (Sonar flags `+$` patterns as potential ReDoS).
     function stripPadding(s) {
@@ -382,8 +392,7 @@
         log(span('log-section', `[ Global Attributes ] `) + span('log-dim', `(${attrNames.length})`));
         for (const name of attrNames) {
             const attr = cdf.get_attribute(name);
-            const entries = attr.entries.map(v =>
-                typeof v === 'string' ? `"${esc(v.trim())}"` : v);
+            const entries = attr.entries.map(formatAttrValue);
             log(`  ${span('log-key', esc(name))}  ${span('log-dim', entries.join(', '))}`);
         }
 
@@ -395,19 +404,11 @@
             log(`  ${span('log-key', esc(name))}  ${span('log-dim', `[${v.shape}]`)} ${span('log-val', v.type_name)}${v.is_nrv ? span('log-dim', ' nrv') : ''}`);
 
             for (const an of v.attribute_names) {
-                const av = v.attributes[an];
-                const display = typeof av === 'string' ? `"${esc(av.trim())}"` : av;
+                const display = formatAttrValue(v.attributes[an]);
                 log(`    ${span('log-dim', esc(an) + ':')} ${display}`);
             }
 
             logValuePreview(cdf, v);
-        }
-
-        const savedBytes = cdf.save();
-        if (savedBytes !== undefined) {
-            log('');
-            log(span('log-section', '[ Round-trip ]'));
-            log(`  Save size  ${span('log-val', savedBytes.length.toLocaleString() + ' bytes')}`);
         }
 
         cdf.delete();

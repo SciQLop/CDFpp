@@ -72,7 +72,28 @@ class PycdfCorpus(unittest.TestCase):
         self.assertIsNotNone(cdf)
         self.assertEqual(len(cdf), variables)
         self.assertEqual(len(cdf.attributes), attrs)
-        
+
+    @ddt.data(
+        *files
+    )
+    @ddt.unpack
+    def test_save_roundtrip_remote_files(self, fname, variables, attrs):
+        print(fname)
+        original = pycdfpp.load(requests.get(f"https://129.104.27.7/data/mirrors/CDF/test_files/{fname}", verify=False).content)
+        self.assertIsNotNone(original)
+        restored = pycdfpp.load(bytes(pycdfpp.save(original)))
+        self.assertIsNotNone(restored)
+        self.assertEqual(len(original), len(restored))
+        self.assertEqual(len(original.attributes), len(restored.attributes))
+        for name in original:
+            a, b = original[name], restored[name]
+            self.assertEqual(a.type, b.type, f"{name}: type changed")
+            va, vb = np.asarray(a.values), np.asarray(b.values)
+            self.assertEqual(va.shape, vb.shape, f"{name}: shape changed")
+            equal = np.array_equal(va, vb, equal_nan=True) if va.dtype.kind == 'f' \
+                else np.array_equal(va, vb)
+            self.assertTrue(equal, f"{name}: values changed after save round-trip")
+
     def test_multithreaded_load(self):
         def load_file(fname, variables, attrs):
             cdf = pycdfpp.load(requests.get(f"https://129.104.27.7/data/mirrors/CDF/test_files/{fname}", verify=False).content)
