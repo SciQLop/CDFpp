@@ -3,6 +3,7 @@
 import {
     MAX_LINES, recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON,
 } from "../../wacdfpp/plot-model.js";
+import { viridis, normalizeLevel } from "../../wacdfpp/spectrogram.js";
 
 let failures = 0;
 function check(name, ok) {
@@ -98,5 +99,17 @@ check("applyMask returns Float64Array", masked instanceof Float64Array);
 
 const noBounds = applyMask([1, 999], {});
 check("applyMask no bounds keeps all", noBounds[0] === 1 && noBounds[1] === 999);
+
+check("viridis low end is dark purple", eq(viridis(0), [68, 1, 84]));
+check("viridis high end is yellow", eq(viridis(1), [253, 231, 37]));
+const mid = viridis(0.5);
+check("viridis mid is in range", mid.every(c => c >= 0 && c <= 255));
+check("viridis clamps below 0", eq(viridis(-1), viridis(0)));
+check("viridis clamps above 1", eq(viridis(2), viridis(1)));
+
+check("normalizeLevel linear midpoint", normalizeLevel(50, 0, 100, "linear") === 0.5);
+check("normalizeLevel log decade", Math.abs(normalizeLevel(10, 1, 100, "log") - 0.5) < 1e-9);
+check("normalizeLevel NaN passthrough", Number.isNaN(normalizeLevel(NaN, 0, 100, "linear")));
+check("normalizeLevel log rejects non-positive", Number.isNaN(normalizeLevel(0, 1, 100, "log")));
 
 process.exit(failures ? 1 : 0);
