@@ -4,6 +4,7 @@ import createCdfModule from "./cdfpp.js";
 import { rawFromCdfFile, buildModel, filterModel } from "./cdf-model.js";
 import { renderList, renderDetail } from "./render.js";
 import { renderPlot } from "./plot.js";
+import { openValidation } from "./astralint.js";
 
 const els = {
     fileInput: document.getElementById("fileInput"),
@@ -20,14 +21,23 @@ const els = {
     dropzone: document.getElementById("dropzone"),
     app: document.querySelector(".app"),
     resizer: document.getElementById("resizer"),
+    validateBtn: document.getElementById("validateBtn"),
 };
 
 let Module;
 let currentCdf;          // live CdfFile — delete before replacing
 let currentModel;        // built once per file
+let currentUrl = null;   // source URL of the loaded file (null for local/drag-drop)
 let selectedName = null;
 let searchQuery = "";
 let busy = false;
+
+function updateValidate() {
+    els.validateBtn.disabled = !currentUrl;
+    els.validateBtn.title = currentUrl
+        ? "Validate this CDF against ISTP in AstraLint"
+        : "Load from a URL to validate — local-file validation coming soon";
+}
 
 function setStatus(cls, text) { els.status.className = cls; els.statusText.textContent = text; }
 
@@ -44,7 +54,7 @@ function selectVariable(name) {
     refreshList();   // update selection highlight
 }
 
-function inspect(data, name) {
+function inspect(data, name, sourceUrl) {
     if (currentCdf) { currentCdf.delete(); currentCdf = undefined; }
     const t0 = performance.now();
     const cdf = Module.load(data);
@@ -55,6 +65,8 @@ function inspect(data, name) {
         selectedName = null;
         searchQuery = "";
         els.search.value = "";
+        currentUrl = null;
+        updateValidate();
         refreshList();
         els.detail.innerHTML = `<div class="log-err">ERROR: failed to parse CDF</div>`;
         setStatus("error", `Failed to parse ${name}`);
@@ -66,6 +78,8 @@ function inspect(data, name) {
     selectedName = null;
     searchQuery = "";
     els.search.value = "";
+    currentUrl = sourceUrl ?? null;
+    updateValidate();
     els.fileName.textContent = name;
     els.parseTime.textContent = `parsed in ${dt} ms`;
     els.detail.innerHTML = `<div class="log-dim">Select a variable to inspect.</div>`;
@@ -79,7 +93,7 @@ function loadFile(file) {
     setStatus("loading", `Loading ${file.name}...`);
     const reader = new FileReader();
     reader.onload = (e) => {
-        try { inspect(new Uint8Array(e.target.result), file.name); }
+        try { inspect(new Uint8Array(e.target.result), file.name, null); }
         finally { busy = false; }
     };
     reader.onerror = () => { setStatus("error", `Failed to read ${file.name}`); busy = false; };
@@ -95,7 +109,7 @@ async function fetchUrl(url) {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = new Uint8Array(await resp.arrayBuffer());
         const name = url.split("/").pop().split("?")[0].split("#")[0] || "remote.cdf";
-        inspect(data, name);
+        inspect(data, name, url);
     } catch (err) {
         setStatus("error", `Fetch error: ${err.message}`);
     } finally {
@@ -116,6 +130,7 @@ els.search.addEventListener("input", () => {
     searchQuery = els.search.value;
     refreshList();
 });
+els.validateBtn.addEventListener("click", () => openValidation(currentUrl));
 
 async function init() {
     try {
@@ -123,6 +138,7 @@ async function init() {
         setStatus("ready", "Ready");
         els.loadBtn.disabled = false;
         els.fetchBtn.disabled = false;
+        updateValidate();
         const params = new URLSearchParams(globalThis.location.search);
         const url = params.get("url") || params.get("cdf");
         if (url) { els.urlInput.value = url; fetchUrl(url); }

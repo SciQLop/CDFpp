@@ -192,12 +192,28 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 0.75rem;
             padding: 0.6rem 1rem;
             background: var(--surface2);
             border-bottom: 1px solid var(--border);
             font-size: 0.75rem;
             color: var(--text-dim);
         }
+
+        .header-btn {
+            font-family: var(--sans);
+            font-size: 0.72rem;
+            font-weight: 500;
+            padding: 0.3em 0.8em;
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .header-btn:hover:not(:disabled) { background: var(--border); }
+        .header-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
         #output-header span { font-family: var(--mono); }
 
@@ -334,6 +350,7 @@
     <div id="output-header">
         <span id="fileName">No file loaded</span>
         <span id="parseTime"></span>
+        <button id="validateBtn" class="header-btn" disabled>Validate (ISTP)</button>
     </div>
 
     <div class="app">

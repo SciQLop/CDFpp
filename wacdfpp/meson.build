@@ -22,7 +22,8 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
         install: false,
         build_by_default: true,
         extra_files: ['wasm.txt', 'wacdfpp.html', 'app.js', 'cdf-model.js', 'render.js',
-                      'plot-model.js', 'spectrogram.js', 'plot.js', 'uPlot.esm.js', 'uPlot.min.css']
+                      'plot-model.js', 'spectrogram.js', 'plot.js', 'astralint.js',
+                      'uPlot.esm.js', 'uPlot.min.css']
     )
 
     fs.copyfile('wacdfpp.html', 'wacdfpp.html')
@@ -32,6 +33,7 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
     fs.copyfile('plot-model.js', 'plot-model.js')
     fs.copyfile('spectrogram.js', 'spectrogram.js')
     fs.copyfile('plot.js', 'plot.js')
+    fs.copyfile('astralint.js', 'astralint.js')
     fs.copyfile('uPlot.esm.js', 'uPlot.esm.js')
     fs.copyfile('uPlot.min.css', 'uPlot.min.css')
 
