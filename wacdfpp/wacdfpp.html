@@ -207,11 +207,17 @@
 
         .app {
             display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 1rem;
+            grid-template-columns: var(--sidebar-w, 320px) 6px 1fr;
+            gap: 0.75rem;
             margin-top: 1rem;
         }
-        @media (max-width: 720px) { .app { grid-template-columns: 1fr; } }
+        .resizer { cursor: col-resize; background: var(--border); border-radius: 3px;
+            transition: background 0.15s; touch-action: none; }
+        .resizer:hover, .resizer.dragging { background: var(--accent); }
+        @media (max-width: 720px) {
+            .app { grid-template-columns: 1fr; }
+            .resizer { display: none; }
+        }
 
         .sidebar, .detail {
             background: var(--surface);
@@ -312,6 +318,7 @@
             <input type="text" id="search" placeholder="Search variables & attributes…">
             <div id="varlist"></div>
         </aside>
+        <div class="resizer" id="resizer" title="Drag to resize"></div>
         <section class="detail">
             <div id="detail-body"><div class="log-dim">Load a CDF to begin.</div></div>
         </section>

@@ -17,6 +17,8 @@ const els = {
     varlist: document.getElementById("varlist"),
     detail: document.getElementById("detail-body"),
     dropzone: document.getElementById("dropzone"),
+    app: document.querySelector(".app"),
+    resizer: document.getElementById("resizer"),
 };
 
 let Module;
@@ -141,6 +143,30 @@ globalThis.addEventListener("drop", (e) => {
     const file = e.dataTransfer?.files?.[0];
     if (file) loadFile(file);
 });
+
+// Draggable splitter: pointer drag sets the sidebar column width (clamped).
+function setupResizer() {
+    const { app, resizer } = els;
+    if (!app || !resizer) return;
+    const onMove = (e) => {
+        const w = Math.min(Math.max(e.clientX - app.getBoundingClientRect().left, 180), 900);
+        app.style.setProperty("--sidebar-w", `${w}px`);
+    };
+    resizer.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        resizer.setPointerCapture(e.pointerId);
+        resizer.classList.add("dragging");
+        resizer.addEventListener("pointermove", onMove);
+    });
+    const stop = (e) => {
+        resizer.releasePointerCapture(e.pointerId);
+        resizer.classList.remove("dragging");
+        resizer.removeEventListener("pointermove", onMove);
+    };
+    resizer.addEventListener("pointerup", stop);
+    resizer.addEventListener("pointercancel", stop);
+}
+setupResizer();
 
 await init();
 
