@@ -13,6 +13,21 @@ const MAX_POINTS = 8000;   // line decimation cap
 const MAX_COLS = 4000;     // spectrogram column cap
 const PLOT_HEIGHT = 320;
 
+// uPlot draws axis text/ticks/grid on the canvas (not via CSS), defaulting to
+// black — invisible on the app's dark theme. Theme them to match.
+const AXIS_STROKE = "#8b8fa3";                 // tick labels / axis label (var --text-dim)
+const GRID_STROKE = "rgba(255, 255, 255, 0.08)";
+const TICK_STROKE = "rgba(255, 255, 255, 0.18)";
+
+function themeAxis(extra) {
+    return {
+        stroke: AXIS_STROKE,
+        grid: { stroke: GRID_STROKE, width: 1 },
+        ticks: { stroke: TICK_STROKE, width: 1 },
+        ...extra,
+    };
+}
+
 // --- value helpers -----------------------------------------------------------
 
 function deinterleave(values, comps, recCount, c) {
@@ -137,6 +152,7 @@ function drawLines(target, cdf, meta, spec, x, values) {
         width: target.clientWidth || 800,
         height: PLOT_HEIGHT,
         scales: { x: { time: x.isTime } },
+        axes: [themeAxis(), themeAxis()],
         series,
         legend: { show: comps > 1 },
         cursor: { drag: { x: true, y: false } },
@@ -285,7 +301,7 @@ function drawSpectro(target, cdf, meta, spec, x, values, scale) {
             x: { time: x.isTime, range: [xEdges[0], xEdges[cols]] },
             y: { distr: bins.log ? 3 : 1, range: [yLo, yHi] },
         },
-        axes: [{}, bins.units ? { label: bins.units } : {}],
+        axes: [themeAxis(), themeAxis(bins.units ? { label: bins.units } : undefined)],
         series: [{}, { paths: () => null, points: { show: false } }],
         legend: { show: false },
         cursor: { drag: { x: true, y: false } },
