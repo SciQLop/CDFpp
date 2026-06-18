@@ -53,6 +53,32 @@ export function plotSpec(variable, override) {
     return { ...base, kind };
 }
 
+// Min/max decimation for line plots: bucket into ~targetCols columns, emitting the
+// per-bucket min and max (in index order) so spikes survive. NaN-only buckets emit
+// a single NaN gap. Returns parallel { x, y } arrays. Pass-through when already small.
+export function decimateMinMax(x, y, targetCols) {
+    const n = y.length;
+    if (targetCols <= 0 || n <= targetCols * 2) return { x: Array.from(x), y: Array.from(y) };
+    const bucket = n / targetCols;
+    const rx = [], ry = [];
+    for (let c = 0; c < targetCols; c++) {
+        const start = Math.floor(c * bucket);
+        const end = Math.min(n, Math.floor((c + 1) * bucket));
+        let minI = -1, maxI = -1, min = Infinity, max = -Infinity;
+        for (let i = start; i < end; i++) {
+            const v = y[i];
+            if (Number.isNaN(v)) continue;
+            if (v < min) { min = v; minI = i; }
+            if (v > max) { max = v; maxI = i; }
+        }
+        if (minI === -1) { rx.push(x[start]); ry.push(NaN); continue; }
+        const a = Math.min(minI, maxI), b = Math.max(minI, maxI);
+        rx.push(x[a]); ry.push(y[a]);
+        if (b !== a) { rx.push(x[b]); ry.push(y[b]); }
+    }
+    return { x: rx, y: ry };
+}
+
 // Mask values to NaN: non-finite, == fill, or outside [validMin, validMax].
 // Returns a fresh Float64Array (display use; never mutate the source view).
 export function applyMask(values, { fill, validMin, validMax } = {}) {

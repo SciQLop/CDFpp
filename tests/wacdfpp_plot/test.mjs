@@ -1,7 +1,7 @@
 // Pure Node test for wacdfpp/plot-model.js and the pure helpers of spectrogram.js.
 //   node test.mjs
 import {
-    MAX_LINES, recordLength, plotSpec, applyMask,
+    MAX_LINES, recordLength, plotSpec, applyMask, decimateMinMax,
 } from "../../wacdfpp/plot-model.js";
 
 let failures = 0;
@@ -60,6 +60,19 @@ check("spec.labelPtr1", spec.labelPtr1 === "labels");
 check("spec.components", spec.components === 3);
 check("spec.fill from typed array", spec.fill === -1e31);
 check("spec.validMin/Max", spec.validMin === -100 && spec.validMax === 100);
+
+// 1000-point sawtooth; decimation must shrink it yet keep the global extremes.
+const N = 1000;
+const bigX = Array.from({ length: N }, (_, i) => i);
+const bigY = Array.from({ length: N }, (_, i) => (i % 10) - 5); // min -5, max 4
+const dec = decimateMinMax(bigX, bigY, 50);
+check("decimate shrinks", dec.y.length <= 50 * 2 && dec.y.length < N);
+check("decimate keeps global min", Math.min(...dec.y.filter(Number.isFinite)) === -5);
+check("decimate keeps global max", Math.max(...dec.y.filter(Number.isFinite)) === 4);
+check("decimate x aligned to y", dec.x.length === dec.y.length);
+
+const small = decimateMinMax([0, 1, 2], [10, 20, 30], 50);
+check("decimate passthrough when small", eq(small.y, [10, 20, 30]));
 
 const masked = applyMask([1, -1e31, 5, 200, -200, NaN], { fill: -1e31, validMin: -100, validMax: 100 });
 check("applyMask keeps in-range", masked[0] === 1 && masked[2] === 5);
