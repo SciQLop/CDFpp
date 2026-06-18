@@ -154,8 +154,8 @@ function previewTable(cdf, v) {
         return { table, total, shown: n };
     }
 
-    if (isCharType(v.type) && v.values !== undefined) {
-        const { strings, total } = decodeChars(v.values, v.shape, PREVIEW_RECORDS);
+    if (isCharType(v.type) && v.copy_values !== undefined) {
+        const { strings, total } = decodeChars(v.copy_values, v.shape, PREVIEW_RECORDS);
         strings.forEach((s, i) => {
             const tr = table.insertRow();
             tr.insertCell().textContent = i;
