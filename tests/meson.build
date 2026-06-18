@@ -62,4 +62,8 @@ if node.found()
         args: [files('wacdfpp_model/test.mjs')],
         timeout: 10,
     )
+    test('wacdfpp_format', node,
+        args: [files('wacdfpp_format/test.mjs')],
+        timeout: 10,
+    )
 endif
