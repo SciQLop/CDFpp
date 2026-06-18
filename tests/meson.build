@@ -70,4 +70,8 @@ if node.found()
         args: [files('wacdfpp_plot/test.mjs')],
         timeout: 10,
     )
+    test('wacdfpp_astralint', node,
+        args: [files('wacdfpp_astralint/test.mjs')],
+        timeout: 10,
+    )
 endif
