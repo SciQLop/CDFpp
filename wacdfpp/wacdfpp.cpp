@@ -246,7 +246,7 @@ struct CdfFile
 
         // Lazily provide attribute getter as a plain object, plus a parallel map
         // of CDF type codes so callers can tell e.g. a time-typed VALIDMIN
-        // (returned as ns-since-1970) from a plain numeric attribute.
+        // (returned as ISO date strings) from a plain numeric attribute.
         auto attrs = em::val::object();
         auto attr_types = em::val::object();
         for (const auto& [aname, attr] : var.attributes)
