@@ -8,6 +8,10 @@ export const CDF_CHAR = 51, CDF_UCHAR = 52;
 export const isTimeType = (t) => t === CDF_EPOCH || t === CDF_EPOCH16 || t === CDF_TIME_TT2000;
 export const isCharType = (t) => t === CDF_CHAR || t === CDF_UCHAR;
 
+// NOTE: does not remap CDF fill sentinels — TT2000 INT64_MIN renders as a 1677
+// date and EPOCH -1e31 as a large number / NaN fallback. This mirrors the demo's
+// existing value-preview behavior; canonical sentinel display (9999-12-31) lives
+// in the C++ repr/ISO path, not here.
 // ns-since-1970 (BigInt, leap-second corrected) -> ISO 8601 with ns precision.
 export function nsToISO(ns) {
     const NS_PER_MS = 1000000n;
@@ -41,7 +45,7 @@ export function chunkRecords(arr, recLen) {
 export function decodeChars(bytes, shape, max) {
     const dec = new TextDecoder("utf-8", { fatal: false });
     const strLen = shape.length ? shape[shape.length - 1] : 0;
-    if (strLen > 0 && bytes.length > strLen && bytes.length % strLen === 0) {
+    if (strLen > 0 && bytes.length >= strLen && bytes.length % strLen === 0) {
         const total = bytes.length / strLen;
         const n = Math.min(max ?? total, total);
         const strings = [];
@@ -56,10 +60,11 @@ export function esc(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// Render one attribute value: string -> quoted/trimmed, array -> comma list,
-// anything else (numeric typed array / scalar) -> as-is.
+// Render one attribute value: string -> quoted/trimmed, array/typed-array ->
+// comma list, anything else (scalar) -> as-is.
 export function formatAttrValue(value) {
     if (typeof value === "string") return `"${value.trim()}"`;
-    if (Array.isArray(value)) return value.map(String).join(", ");
+    if (Array.isArray(value) || ArrayBuffer.isView(value))
+        return Array.from(value).map(String).join(", ");
     return value;
 }
