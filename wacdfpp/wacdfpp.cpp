@@ -25,12 +25,14 @@
 ----------------------------------------------------------------------------*/
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/cdf-io/saving/saving.hpp>
+#include <cdfpp/cdf-repr.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
 
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
 #include <cstdint>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -87,10 +89,93 @@ em::val typed_array_view(const char* ptr, std::size_t byte_count, cdf::CDF_Types
     }
 }
 
+constexpr bool is_time_type(cdf::CDF_Types type)
+{
+    using enum cdf::CDF_Types;
+    return type == CDF_EPOCH || type == CDF_EPOCH16 || type == CDF_TIME_TT2000;
+}
+
+// Decode a contiguous buffer of CDF time values (CDF_TIME_TT2000 / CDF_EPOCH /
+// CDF_EPOCH16) to leap-second-corrected UTC nanoseconds since 1970, returned as
+// an owned BigInt64Array (the JS analog of datetime64[ns]). Returns undefined
+// for non-time types or an empty buffer.
+em::val time_buffer_to_ns(const char* ptr, std::size_t byte_count, cdf::CDF_Types type)
+{
+    using enum cdf::CDF_Types;
+    if (ptr == nullptr || !is_time_type(type))
+        return em::val::undefined();
+    const std::size_t n = byte_count / cdf::cdf_type_size(type);
+    if (n == 0)
+        return em::val::undefined();
+
+    std::vector<int64_t> out(n);
+    switch (type)
+    {
+        case CDF_TIME_TT2000:
+            cdf::to_ns_from_1970(
+                std::span<const cdf::tt2000_t>(reinterpret_cast<const cdf::tt2000_t*>(ptr), n),
+                out.data());
+            break;
+        case CDF_EPOCH:
+            cdf::to_ns_from_1970(
+                std::span<const cdf::epoch>(reinterpret_cast<const cdf::epoch*>(ptr), n),
+                out.data());
+            break;
+        case CDF_EPOCH16:
+            cdf::to_ns_from_1970(
+                std::span<const cdf::epoch16>(reinterpret_cast<const cdf::epoch16*>(ptr), n),
+                out.data());
+            break;
+        default:
+            return em::val::undefined();
+    }
+    // owned BigInt64Array copy (out dies after return)
+    return em::val(em::typed_memory_view(n, out.data())).call<em::val>("slice");
+}
+
+// Decode a buffer of CDF time values to an array of ISO-8601 date strings, reusing
+// cdfpp's repr formatters (cdf-repr.hpp). Those special-case the standard CDF fill
+// sentinels (e.g. EPOCH -1e31 / TT2000 INT64_MIN -> "9999-12-31...") and handle the
+// full date range, so a VALIDMIN/VALIDMAX/FILLVAL renders exactly as in pycdfpp
+// instead of as a raw number or an int64-ns overflow.
+em::val time_buffer_to_iso(const char* ptr, std::size_t byte_count, cdf::CDF_Types type)
+{
+    using enum cdf::CDF_Types;
+    if (ptr == nullptr || !is_time_type(type))
+        return em::val::undefined();
+    const std::size_t n = byte_count / cdf::cdf_type_size(type);
+    if (n == 0)
+        return em::val::undefined();
+
+    auto arr = em::val::array();
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        std::ostringstream ss;
+        switch (type)
+        {
+            case CDF_EPOCH:
+                ss << reinterpret_cast<const cdf::epoch*>(ptr)[i];
+                break;
+            case CDF_EPOCH16:
+                ss << reinterpret_cast<const cdf::epoch16*>(ptr)[i];
+                break;
+            case CDF_TIME_TT2000:
+                ss << reinterpret_cast<const cdf::tt2000_t*>(ptr)[i];
+                break;
+            default:
+                return em::val::undefined();
+        }
+        arr.call<void>("push", ss.str());
+    }
+    return arr;
+}
+
 // Attribute values are returned as owned copies, not zero-copy views: attribute
 // metadata is small, and a later variable load_values() (or any allocation) grows
 // the WASM heap and detaches outstanding views, which would otherwise throw
-// "detached ArrayBuffer" when the value is read back in JS.
+// "detached ArrayBuffer" when the value is read back in JS. Time-typed values are
+// decoded to ISO-8601 date strings so callers get a meaningful date (full range,
+// leap-second corrected) instead of a raw EPOCH double / TT2000 count.
 em::val data_to_string_or_copy(const cdf::data_t& data)
 {
     auto ptr = data.bytes_ptr();
@@ -98,6 +183,8 @@ em::val data_to_string_or_copy(const cdf::data_t& data)
         return em::val::undefined();
     if (cdf::is_string(data.type()))
         return em::val(std::string(ptr, data.bytes()));
+    if (is_time_type(data.type()))
+        return time_buffer_to_iso(ptr, data.bytes(), data.type());
     return typed_array_view(ptr, data.bytes(), data.type()).call<em::val>("slice");
 }
 
@@ -157,11 +244,18 @@ struct CdfFile
 
         obj.set("attribute_names", to_js_string_array(var.attributes));
 
-        // Lazily provide attribute getter as a plain object
+        // Lazily provide attribute getter as a plain object, plus a parallel map
+        // of CDF type codes so callers can tell e.g. a time-typed VALIDMIN
+        // (returned as ns-since-1970) from a plain numeric attribute.
         auto attrs = em::val::object();
+        auto attr_types = em::val::object();
         for (const auto& [aname, attr] : var.attributes)
+        {
             attrs.set(aname, data_to_string_or_copy(attr.value()));
+            attr_types.set(aname, static_cast<int>(attr.value().type()));
+        }
         obj.set("attributes", attrs);
+        obj.set("attribute_types", attr_types);
 
         // values: zero-copy typed array view into WASM memory
         var.load_values();
@@ -188,7 +282,6 @@ struct CdfFile
     // This is the JS analog of pycdfpp's datetime64[ns].
     em::val time_values_as_ns_since_1970(const std::string& name)
     {
-        using enum cdf::CDF_Types;
         if (!cdf)
             return em::val::undefined();
         auto it = cdf->variables.find(name);
@@ -196,45 +289,11 @@ struct CdfFile
             return em::val::undefined();
 
         auto& var = it->second;
-        const auto type = var.type();
-        if (type != CDF_TIME_TT2000 && type != CDF_EPOCH && type != CDF_EPOCH16)
+        if (!is_time_type(var.type()))
             return em::val::undefined();
 
         var.load_values();
-        const auto* ptr = var.bytes_ptr();
-        if (ptr == nullptr)
-            return em::val::undefined();
-
-        const std::size_t n = var.bytes() / cdf::cdf_type_size(type);
-        if (n == 0)
-            return em::val::undefined();
-
-        std::vector<int64_t> out(n);
-        switch (type)
-        {
-            case CDF_TIME_TT2000:
-                cdf::to_ns_from_1970(
-                    std::span<const cdf::tt2000_t>(
-                        reinterpret_cast<const cdf::tt2000_t*>(ptr), n),
-                    out.data());
-                break;
-            case CDF_EPOCH:
-                cdf::to_ns_from_1970(
-                    std::span<const cdf::epoch>(reinterpret_cast<const cdf::epoch*>(ptr), n),
-                    out.data());
-                break;
-            case CDF_EPOCH16:
-                cdf::to_ns_from_1970(
-                    std::span<const cdf::epoch16>(
-                        reinterpret_cast<const cdf::epoch16*>(ptr), n),
-                    out.data());
-                break;
-            default:
-                return em::val::undefined();
-        }
-
-        // owned BigInt64Array copy (out dies after return)
-        return em::val(em::typed_memory_view(n, out.data())).call<em::val>("slice");
+        return time_buffer_to_ns(var.bytes_ptr(), var.bytes(), var.type());
     }
 
     em::val get_attribute(const std::string& name) const
@@ -249,9 +308,14 @@ struct CdfFile
         auto obj = em::val::object();
         obj.set("name", attr.name);
         auto entries = em::val::array();
+        auto types = em::val::array();
         for (std::size_t i = 0; i < attr.size(); ++i)
+        {
             entries.call<void>("push", data_to_string_or_copy(attr[i]));
+            types.call<void>("push", static_cast<int>(attr[i].type()));
+        }
         obj.set("entries", entries);
+        obj.set("types", types);
         return obj;
     }
 
