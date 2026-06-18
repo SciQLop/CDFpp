@@ -79,6 +79,24 @@ export function decimateMinMax(x, y, targetCols) {
     return { x: rx, y: ry };
 }
 
+// columns: [{ name, values: any[] }, ...] with equal-length value arrays.
+function csvCell(v) {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+export function toCSV(columns) {
+    const n = columns.length ? columns[0].values.length : 0;
+    const lines = [columns.map(c => csvCell(c.name)).join(",")];
+    for (let i = 0; i < n; i++)
+        lines.push(columns.map(c => csvCell(c.values[i])).join(","));
+    return lines.join("\n") + "\n";
+}
+
+export function toJSON(columns) {
+    return JSON.stringify(Object.fromEntries(columns.map(c => [c.name, Array.from(c.values)])));
+}
+
 // Mask values to NaN: non-finite, == fill, or outside [validMin, validMax].
 // Returns a fresh Float64Array (display use; never mutate the source view).
 export function applyMask(values, { fill, validMin, validMax } = {}) {

@@ -1,7 +1,7 @@
 // Pure Node test for wacdfpp/plot-model.js and the pure helpers of spectrogram.js.
 //   node test.mjs
 import {
-    MAX_LINES, recordLength, plotSpec, applyMask, decimateMinMax,
+    MAX_LINES, recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON,
 } from "../../wacdfpp/plot-model.js";
 
 let failures = 0;
@@ -73,6 +73,20 @@ check("decimate x aligned to y", dec.x.length === dec.y.length);
 
 const small = decimateMinMax([0, 1, 2], [10, 20, 30], 50);
 check("decimate passthrough when small", eq(small.y, [10, 20, 30]));
+
+const cols = [
+    { name: "time", values: ["2020-01-01T00:00:00Z", "2020-01-01T00:00:01Z"] },
+    { name: "Bx", values: [1.5, 2.5] },
+    { name: "lab,el", values: [10, 20] },
+];
+const csv = toCSV(cols);
+check("toCSV header", csv.split("\n")[0] === 'time,Bx,"lab,el"');
+check("toCSV first row", csv.split("\n")[1] === "2020-01-01T00:00:00Z,1.5,10");
+check("toCSV trailing newline", csv.endsWith("\n"));
+
+const json = JSON.parse(toJSON(cols));
+check("toJSON keys", eq(Object.keys(json), ["time", "Bx", "lab,el"]));
+check("toJSON values", eq(json.Bx, [1.5, 2.5]));
 
 const masked = applyMask([1, -1e31, 5, 200, -200, NaN], { fill: -1e31, validMin: -100, validMax: 100 });
 check("applyMask keeps in-range", masked[0] === 1 && masked[2] === 5);
