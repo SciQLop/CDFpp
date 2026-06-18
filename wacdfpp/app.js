@@ -3,6 +3,7 @@
 import createCdfModule from "./cdfpp.js";
 import { rawFromCdfFile, buildModel, filterModel } from "./cdf-model.js";
 import { renderList, renderDetail } from "./render.js";
+import { renderPlot } from "./plot.js";
 
 const els = {
     fileInput: document.getElementById("fileInput"),
@@ -38,6 +39,8 @@ function refreshList() {
 function selectVariable(name) {
     selectedName = name;
     renderDetail(els.detail, currentCdf, name);
+    const mount = els.detail.querySelector(".plot-panel");
+    if (mount && currentCdf) renderPlot(mount, currentCdf, name);
     refreshList();   // update selection highlight
 }
 

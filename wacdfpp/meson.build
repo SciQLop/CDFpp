@@ -21,13 +21,19 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
         link_args: flags + ['-O2'],
         install: false,
         build_by_default: true,
-        extra_files: ['wasm.txt', 'wacdfpp.html', 'app.js', 'cdf-model.js', 'render.js']
+        extra_files: ['wasm.txt', 'wacdfpp.html', 'app.js', 'cdf-model.js', 'render.js',
+                      'plot-model.js', 'spectrogram.js', 'plot.js', 'uPlot.esm.js', 'uPlot.min.css']
     )
 
     fs.copyfile('wacdfpp.html', 'wacdfpp.html')
     fs.copyfile('app.js', 'app.js')
     fs.copyfile('cdf-model.js', 'cdf-model.js')
     fs.copyfile('render.js', 'render.js')
+    fs.copyfile('plot-model.js', 'plot-model.js')
+    fs.copyfile('spectrogram.js', 'spectrogram.js')
+    fs.copyfile('plot.js', 'plot.js')
+    fs.copyfile('uPlot.esm.js', 'uPlot.esm.js')
+    fs.copyfile('uPlot.min.css', 'uPlot.min.css')
 
     node = find_program('node', required: false)
     if node.found()

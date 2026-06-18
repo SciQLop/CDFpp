@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CDFpp WASM Demo</title>
+    <link rel="stylesheet" href="./uPlot.min.css">
     <style>
         :root {
             --bg: #0f1117;
@@ -270,8 +271,19 @@
             vertical-align: top; word-break: break-all; }
         table.preview td:first-child { color: var(--text-dim); width: 3rem; text-align: right; }
 
-        .plot-placeholder { margin-top: 1rem; padding: 1.5rem; text-align: center;
-            color: var(--text-dim); border: 1px dashed var(--border); border-radius: var(--radius); }
+        .plot-panel { margin: 0.4rem 0 0.6rem; }
+        .plot-controls { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
+        .plot-btn { font-family: var(--mono); font-size: 0.72rem; padding: 0.25em 0.7em;
+            background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+            border-radius: 4px; cursor: pointer; }
+        .plot-btn:hover:not(:disabled) { opacity: 1; background: var(--border); }
+        .plot-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+        .plot-body { min-height: 60px; }
+        canvas.spectro { width: 100%; height: 320px; image-rendering: pixelated;
+            border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+        .plot-note { padding: 1.25rem; text-align: center; color: var(--text-dim);
+            border: 1px dashed var(--border); border-radius: var(--radius); }
+        .uplot, .u-wrap { width: 100% !important; }
 
         .dropzone { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
             background: rgba(15,17,23,0.85); color: var(--accent); font-size: 1.2rem; z-index: 10;

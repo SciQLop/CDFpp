@@ -204,6 +204,13 @@ export function renderDetail(container, cdf, name) {
         (v.is_nrv ? `<span class="log-dim"> nrv</span>` : "");
     container.appendChild(head);
 
+    // Plot-first: an empty mount right under the title. app.js fills it via plot.js
+    // (kept out of render.js so render.js stays free of the uPlot import and its
+    // pure Node test is unaffected).
+    const plotPanel = document.createElement("div");
+    plotPanel.className = "plot-panel";
+    container.appendChild(plotPanel);
+
     const meta = document.createElement("div");
     meta.className = "log-dim";
     meta.textContent = `compression: ${v.compression}`;
@@ -221,9 +228,4 @@ export function renderDetail(container, cdf, name) {
     const { table, total, shown } = previewTable(cdf, v);
     container.appendChild(sectionLabel(`Values (showing ${shown} of ${total})`));
     container.appendChild(table);
-
-    const ph = document.createElement("div");
-    ph.className = "plot-placeholder";
-    ph.textContent = "📈 Plot — coming in Phase 2";
-    container.appendChild(ph);
 }
