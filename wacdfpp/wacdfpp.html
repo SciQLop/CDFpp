@@ -187,13 +187,6 @@
             50% { opacity: 0.3; }
         }
 
-        #output-container {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            overflow: hidden;
-        }
-
         #output-header {
             display: flex;
             justify-content: space-between;
@@ -207,20 +200,6 @@
 
         #output-header span { font-family: var(--mono); }
 
-        #output {
-            font-family: var(--mono);
-            font-size: 0.8rem;
-            line-height: 1.7;
-            padding: 1rem 1.25rem;
-            max-height: 65vh;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-            scrollbar-width: thin;
-            scrollbar-color: var(--border) transparent;
-        }
-
-        .log-section { color: var(--accent); font-weight: 600; }
         .log-key { color: var(--green); }
         .log-dim { color: var(--text-dim); }
         .log-val { color: var(--yellow); }

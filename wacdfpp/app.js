@@ -24,6 +24,7 @@ let currentCdf;          // live CdfFile — delete before replacing
 let currentModel;        // built once per file
 let selectedName = null;
 let searchQuery = "";
+let busy = false;
 
 function setStatus(cls, text) { els.status.className = cls; els.statusText.textContent = text; }
 
@@ -38,9 +39,11 @@ function selectVariable(name) {
     refreshList();   // update selection highlight
 }
 
-function inspect(data, name, dt) {
+function inspect(data, name) {
     if (currentCdf) { currentCdf.delete(); currentCdf = undefined; }
+    const t0 = performance.now();
     const cdf = Module.load(data);
+    const dt = (performance.now() - t0).toFixed(1);
     if (!cdf.is_valid()) {
         setStatus("error", `Failed to parse ${name}`);
         els.detail.innerHTML = `<div class="log-err">ERROR: failed to parse CDF</div>`;
@@ -61,28 +64,32 @@ function inspect(data, name, dt) {
 }
 
 function loadFile(file) {
+    if (!Module || busy) return;
+    busy = true;
     setStatus("loading", `Loading ${file.name}...`);
     const reader = new FileReader();
     reader.onload = (e) => {
-        const data = new Uint8Array(e.target.result);
-        const t0 = performance.now();
-        inspect(data, file.name, (performance.now() - t0).toFixed(1));
+        try { inspect(new Uint8Array(e.target.result), file.name); }
+        finally { busy = false; }
     };
+    reader.onerror = () => { setStatus("error", `Failed to read ${file.name}`); busy = false; };
     reader.readAsArrayBuffer(file);
 }
 
 async function fetchUrl(url) {
-    if (!url || !Module) return;
+    if (!url || !Module || busy) return;
+    busy = true;
     setStatus("loading", "Fetching...");
     try {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = new Uint8Array(await resp.arrayBuffer());
         const name = url.split("/").pop().split("?")[0].split("#")[0] || "remote.cdf";
-        const t0 = performance.now();
-        inspect(data, name, (performance.now() - t0).toFixed(1));
+        inspect(data, name);
     } catch (err) {
         setStatus("error", `Fetch error: ${err.message}`);
+    } finally {
+        busy = false;
     }
 }
 
