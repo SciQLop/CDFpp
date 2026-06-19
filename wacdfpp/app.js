@@ -1,6 +1,6 @@
 // Orchestration: load (file/URL/?url=/drag-drop), hold current CdfFile + model +
 // selection, wire search and list selection to re-render.
-import createCdfModule from "./cdfpp.js";
+import { loadModule } from "./wasm.js";
 import { rawFromCdfFile, buildModel, filterModel } from "./cdf-model.js";
 import { renderList, renderDetail, setSelected } from "./render.js";
 import { renderPlot } from "./plot.js";
@@ -160,7 +160,7 @@ globalThis.addEventListener("message", (e) => {
 
 async function init() {
     try {
-        Module = await createCdfModule();
+        Module = await loadModule();
         setStatus("ready", "Ready");
         els.loadBtn.disabled = false;
         els.fetchBtn.disabled = false;
