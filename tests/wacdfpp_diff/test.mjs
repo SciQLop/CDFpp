@@ -1,7 +1,7 @@
 // Pure Node test for wacdfpp/cdf-diff.js — no WASM required.
 //   node test.mjs
 import { buildModel } from "../../wacdfpp/cdf-model.js";
-import { diffModels } from "../../wacdfpp/cdf-diff.js";
+import { diffModels, diffSummary } from "../../wacdfpp/cdf-diff.js";
 
 let failures = 0;
 function check(name, ok) {
@@ -66,6 +66,40 @@ const V = (name, over = {}) => ({
     const b = buildModel([V("E", { varType: "support_data", attributes: { VAR_TYPE: "support_data" } })], []);
     const d = diffModels(a, b);
     check("grouped under support_data", d.groups.support_data.some(v => v.name === "E"));
+}
+
+// Global attributes: added / removed / per-entry changed, index-aligned.
+{
+    const ga = [
+        { name: "Project", entries: ["THEMIS"], types: [51] },
+        { name: "TimeRes", entries: ["1s", "3s"], types: [51, 51] },
+        { name: "OnlyA", entries: ["x"], types: [51] },
+    ];
+    const gb = [
+        { name: "Project", entries: ["THEMIS"], types: [51] },           // same
+        { name: "TimeRes", entries: ["1s", "5s", "10s"], types: [51, 51, 51] }, // entry 1 changed, entry 2 added
+        { name: "OnlyB", entries: ["y"], types: [51] },                  // added
+    ];
+    const d = diffModels(buildModel([], ga), buildModel([], gb));
+    const by = Object.fromEntries(d.globalAttributes.map(a => [a.name, a]));
+    check("global same attr", by.Project.status === "same" && by.Project.entries.length === 0);
+    check("global removed attr", by.OnlyA.status === "removed");
+    check("global added attr", by.OnlyB.status === "added");
+    check("global changed attr", by.TimeRes.status === "changed");
+    const e = Object.fromEntries(by.TimeRes.entries.map(x => [x.index, x]));
+    check("entry 1 changed 3s->5s", e[1].status === "changed" && e[1].a === "3s" && e[1].b === "5s");
+    check("entry 2 added", e[2].status === "added" && e[2].a === null && e[2].b === "10s");
+    check("entry 0 unchanged not listed", e[0] === undefined);
+}
+
+// Summary counts across globals + variables.
+{
+    const a = buildModel([V("keep"), V("gone")], [{ name: "A", entries: ["1"], types: [51] }]);
+    const b = buildModel([V("keep", { shape: [9] }), V("new")], [{ name: "B", entries: ["2"], types: [51] }]);
+    const s = diffSummary(diffModels(a, b));
+    check("summary added (new var + B attr)", s.added === 2);
+    check("summary removed (gone var + A attr)", s.removed === 2);
+    check("summary changed (keep var shape)", s.changed === 1);
 }
 
 process.exit(failures ? 1 : 0);

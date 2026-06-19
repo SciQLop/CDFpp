@@ -55,6 +55,34 @@ function sortDiffs(list) {
     return list.sort((x, y) => RANK[x.status] - RANK[y.status] || x.name.localeCompare(y.name));
 }
 
+function diffGlobalAttr(name, ea, eb) {
+    if (ea && !eb)
+        return { name, status: STATUS.REMOVED,
+            entries: ea.map((e, i) => ({ index: i, status: STATUS.REMOVED, a: entryText(e), b: null })) };
+    if (!ea && eb)
+        return { name, status: STATUS.ADDED,
+            entries: eb.map((e, i) => ({ index: i, status: STATUS.ADDED, a: null, b: entryText(e) })) };
+    const n = Math.max(ea.length, eb.length);
+    const entries = [];
+    for (let i = 0; i < n; i++) {
+        const hasA = i < ea.length, hasB = i < eb.length;
+        if (hasA && !hasB) entries.push({ index: i, status: STATUS.REMOVED, a: entryText(ea[i]), b: null });
+        else if (!hasA && hasB) entries.push({ index: i, status: STATUS.ADDED, a: null, b: entryText(eb[i]) });
+        else {
+            const av = entryText(ea[i]), bv = entryText(eb[i]);
+            if (av !== bv) entries.push({ index: i, status: STATUS.CHANGED, a: av, b: bv });
+        }
+    }
+    return { name, status: entries.length ? STATUS.CHANGED : STATUS.SAME, entries };
+}
+
+function diffGlobals(modelA, modelB) {
+    const ma = new Map(modelA.globalAttributes.map(a => [a.name, a.entries]));
+    const mb = new Map(modelB.globalAttributes.map(a => [a.name, a.entries]));
+    const names = [...new Set([...ma.keys(), ...mb.keys()])].sort();
+    return names.map(name => diffGlobalAttr(name, ma.get(name), mb.get(name)));
+}
+
 export function diffModels(modelA, modelB) {
     const fa = flattenVars(modelA), fb = flattenVars(modelB);
     const names = new Set([...fa.keys(), ...fb.keys()]);
@@ -65,5 +93,14 @@ export function diffModels(modelA, modelB) {
         groups[group].push(diffVariable(name, group, ea?.v, eb?.v));
     }
     for (const g of VAR_GROUPS) sortDiffs(groups[g]);
-    return { globalAttributes: [], groups };   // global diff added in Task 3
+    return { globalAttributes: diffGlobals(modelA, modelB), groups };
+}
+
+// Count added/removed/changed across global attributes and variables.
+export function diffSummary(diff) {
+    const c = { added: 0, removed: 0, changed: 0 };
+    const bump = (s) => { if (s in c) c[s] += 1; };
+    for (const a of diff.globalAttributes) bump(a.status);
+    for (const g of VAR_GROUPS) for (const v of diff.groups[g]) bump(v.status);
+    return c;
 }
