@@ -4,6 +4,7 @@
 [![PyPi](https://img.shields.io/pypi/v/pycdfpp.svg)](https://pypi.python.org/pypi/pycdfpp)
 [![Coverage](https://codecov.io/gh/SciQLop/CDFpp/coverage.svg?branch=main)](https://codecov.io/gh/SciQLop/CDFpp/branch/main)
 [![Discover on MyBinder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/SciQLop/CDFpp/main?labpath=examples/notebooks)
+[![Try CDFpp Explorer](https://img.shields.io/badge/Try_it-CDFpp_Explorer-6c8aff?logo=webassembly&logoColor=white)](https://sciqlop.github.io/CDFpp/)
 
 # CDFpp (CDF++)
 
@@ -20,6 +21,7 @@ A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nas
 - **Lazy loading** — variable data is read on first access, not at file open
 - **Fast** — up to ~4 GB/s read throughput; SIMD time conversions at up to 14 billion epochs/s
 - **Runs everywhere** — Linux, Windows, macOS (x86_64 + ARM64), and WebAssembly (Pyodide / emscripten-forge)
+- **In-browser app** — [**CDFpp Explorer**](https://sciqlop.github.io/CDFpp/) inspects, plots, and ISTP-validates CDF files entirely client-side, no install
 
 ## Packages & CI
 
@@ -33,6 +35,20 @@ A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nas
 [3]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=push
 
 Also available on [emscripten-forge](https://github.com/emscripten-forge/recipes/tree/main/recipes/recipes_emscripten/pycdfpp) for use in JupyterLite and other Emscripten-based environments.
+
+---
+
+## CDFpp Explorer — CDF files in your browser
+
+CDFpp compiles to **WebAssembly**, so the whole library runs client-side — no install, no server, and your files never leave your machine. [**CDFpp Explorer**](https://sciqlop.github.io/CDFpp/) is a small web app built on it:
+
+- **Inspect** — browse variables and attributes grouped by ISTP `VAR_TYPE`, with live search and a value preview
+- **Plot** — line plots and spectrograms, ISTP-aware (`DEPEND_0` time axis, `DISPLAY_TYPE`, `SCALETYP`, fill/valid masking), with CSV / JSON export
+- **Validate** — hand the file to [AstraLint](https://sciqlop.github.io/AstraLint/) for ISTP conformance checking
+
+👉 **[Open CDFpp Explorer](https://sciqlop.github.io/CDFpp/)**
+
+The WebAssembly wrapper lives in [`wacdfpp/`](wacdfpp/) and ships TypeScript declarations (`wacdfpp/cdfpp.d.ts`) for embedding CDF read/write — with zero-copy typed arrays — in your own JavaScript app.
 
 ---
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>CDFpp WASM Demo</title>
+    <title>CDFpp Explorer</title>
     <link rel="stylesheet" href="./uPlot.min.css">
     <style>
         :root {
@@ -60,6 +60,15 @@
             color: var(--accent);
             border-radius: 4px;
             font-weight: 500;
+        }
+
+        header .tagline {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 640px) {
+            header .tagline { display: none; }
         }
 
         .input-section {
@@ -201,6 +210,9 @@
         }
 
         .header-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4em;
             font-family: var(--sans);
             font-size: 0.72rem;
             font-weight: 500;
@@ -214,6 +226,7 @@
         }
         .header-btn:hover:not(:disabled) { background: var(--border); }
         .header-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .astralint-icon { height: 1.1em; width: auto; display: block; }
 
         #output-header span { font-family: var(--mono); }
 
@@ -321,8 +334,9 @@
 <body>
 <div class="container">
     <header>
-        <h1>CDFpp WASM Demo</h1>
+        <h1>CDFpp Explorer</h1>
         <span class="badge">WebAssembly</span>
+        <span class="tagline">inspect · plot · validate CDF files in your browser</span>
     </header>
 
     <div class="input-section">
@@ -350,7 +364,10 @@
     <div id="output-header">
         <span id="fileName">No file loaded</span>
         <span id="parseTime"></span>
-        <button id="validateBtn" class="header-btn" disabled>Validate (ISTP)</button>
+        <button id="validateBtn" class="header-btn" disabled>
+            <img src="https://raw.githubusercontent.com/SciQLop/AstraLint/main/logo.png" alt="" class="astralint-icon">
+            Validate (ISTP)
+        </button>
     </div>
 
     <div class="app">

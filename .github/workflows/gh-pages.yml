@@ -46,8 +46,9 @@ jobs:
       - name: Prepare pages
         run: |
           mkdir -p _site
-          cp build_wasm/wacdfpp/cdfpp.js _site/
-          cp build_wasm/wacdfpp/cdfpp.wasm _site/
+          # cdfpp.js/.wasm + the ES modules (app/cdf-model/render/plot-model/spectrogram/
+          # plot/astralint) + vendored uPlot (.js/.css)
+          cp build_wasm/wacdfpp/*.js build_wasm/wacdfpp/*.wasm build_wasm/wacdfpp/*.css _site/
           cp build_wasm/wacdfpp/wacdfpp.html _site/index.html
 
       - uses: actions/upload-pages-artifact@v5
