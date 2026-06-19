@@ -125,7 +125,7 @@ export function renderDiff(container, diff) {
 export function applyFilter(container, mode) {
     container.dataset.filter = mode;
     for (const block of container.querySelectorAll(".diff-block"))
-        block.style.display = (mode === "all" || block.dataset.status !== "same") ? "" : "none";
+        block.style.display = (mode === "all" || block.dataset.status !== STATUS.SAME) ? "" : "none";
 }
 
 // Build a model from a source: { file } or { url }. Returns { model, name }.
