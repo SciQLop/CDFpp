@@ -76,6 +76,7 @@ const GROUP_LABELS = { data: "Data", support_data: "Support", metadata: "Metadat
 function varRow(v, selected, onSelect) {
     const row = document.createElement("div");
     row.className = "var-row" + (v.name === selected ? " sel" : "");
+    row.dataset.name = v.name;
     row.innerHTML =
         `<span class="log-key">${esc(v.name)}</span> ` +
         `<span class="log-dim">[${esc(v.shape.join(", "))}]</span> ` +
@@ -128,6 +129,13 @@ export function renderList(container, model, { selected, onSelect }) {
 
     if (!container.children.length)
         container.innerHTML = `<div class="log-dim" style="padding:0.5rem">No matches</div>`;
+}
+
+// Move the selection highlight without rebuilding the list, so manually-expanded
+// groups keep their open/closed state when a variable is selected.
+export function setSelected(container, name) {
+    for (const row of container.querySelectorAll(".var-row"))
+        row.classList.toggle("sel", row.dataset.name === name);
 }
 
 // Record length = product of non-record dims (shape[1:]); 1 for 0/1-D vars.

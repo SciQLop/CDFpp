@@ -2,7 +2,7 @@
 // selection, wire search and list selection to re-render.
 import createCdfModule from "./cdfpp.js";
 import { rawFromCdfFile, buildModel, filterModel } from "./cdf-model.js";
-import { renderList, renderDetail } from "./render.js";
+import { renderList, renderDetail, setSelected } from "./render.js";
 import { renderPlot } from "./plot.js";
 import { openValidation, openValidationBytes } from "./astralint.js";
 
@@ -54,7 +54,7 @@ function selectVariable(name) {
     renderDetail(els.detail, currentCdf, name);
     const mount = els.detail.querySelector(".plot-panel");
     if (mount && currentCdf) renderPlot(mount, currentCdf, name);
-    refreshList();   // update selection highlight
+    setSelected(els.varlist, name);   // highlight in place; don't rebuild (keeps groups' open state)
 }
 
 function inspect(data, name, sourceUrl) {
