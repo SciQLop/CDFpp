@@ -142,6 +142,22 @@ els.validateBtn.addEventListener("click", () => {
     else if (currentBytes) openValidationBytes(currentBytes, currentName ?? "file.cdf");
 });
 
+// Reverse handoff: load a CDF handed to us by an opener (e.g. AstraLint's
+// "Open in CDFpp Explorer"). We post 'cdfpp-ready' after init (see init()).
+function openerOrigin() {
+    try { return document.referrer ? new URL(document.referrer).origin : "*"; }
+    catch { return "*"; }
+}
+globalThis.addEventListener("message", (e) => {
+    if (e.source !== globalThis.opener) return;
+    const d = e.data;
+    if (!d || d.type !== "cdfpp-file" || !d.bytes || !Module || busy) return;
+    const bytes = d.bytes instanceof Uint8Array ? d.bytes : new Uint8Array(d.bytes);
+    busy = true;
+    try { inspect(bytes, d.name || "file.cdf", null); }
+    finally { busy = false; }
+});
+
 async function init() {
     try {
         Module = await createCdfModule();
@@ -149,6 +165,8 @@ async function init() {
         els.loadBtn.disabled = false;
         els.fetchBtn.disabled = false;
         updateValidate();
+        // Tell an opener (e.g. AstraLint) we can receive a CDF via postMessage.
+        if (globalThis.opener) globalThis.opener.postMessage({ type: "cdfpp-ready" }, openerOrigin());
         const params = new URLSearchParams(globalThis.location.search);
         const url = params.get("url") || params.get("cdf");
         if (url) { els.urlInput.value = url; fetchUrl(url); }
