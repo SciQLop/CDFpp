@@ -329,6 +329,18 @@
             background: rgba(15,17,23,0.85); color: var(--accent); font-size: 1.2rem; z-index: 10;
             border: 3px dashed var(--accent); }
         .dropzone.active { display: flex; }
+        .diff-summary { font-family: var(--mono); font-size: 0.8rem; margin-bottom: 0.75rem; }
+        .diff-section { margin-bottom: 0.75rem; }
+        .diff-block { font-family: var(--mono); font-size: 0.78rem; padding: 0.1rem 0; }
+        .diff-row { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .diff-badge { display: inline-block; width: 1.1em; text-align: center; font-weight: 700; }
+        .diff-name { color: var(--text); }
+        .diff-details { padding: 0.1rem 0 0.3rem 1.6rem; }
+        .diff-detail { white-space: normal; overflow-wrap: anywhere; color: var(--text-dim); }
+        .st-added .diff-badge, .st-added { color: var(--green); }
+        .st-removed .diff-badge, .st-removed { color: var(--red); }
+        .st-changed .diff-badge, .st-changed { color: var(--yellow); }
+        .st-same .diff-badge { color: var(--text-dim); }
     </style>
 </head>
 <body>
@@ -336,7 +348,8 @@
     <header>
         <h1>CDFpp Explorer</h1>
         <span class="badge">WebAssembly</span>
-        <span class="tagline">inspect · plot · validate CDF files in your browser</span>
+        <span class="tagline">inspect · plot · validate · compare CDF files in your browser</span>
+        <button id="modeToggle" class="header-btn" style="margin-left:auto">Compare ↔</button>
     </header>
 
     <div class="input-section">
@@ -355,6 +368,28 @@
             </div>
         </div>
     </div>
+
+    <div class="input-section" id="compareInputs" style="display:none">
+        <div class="card">
+            <label>File A</label>
+            <div class="row">
+                <input type="file" id="fileA" accept=".cdf">
+                <input type="text" id="urlA" placeholder="…or https URL">
+            </div>
+        </div>
+        <div class="card">
+            <label>File B</label>
+            <div class="row">
+                <input type="file" id="fileB" accept=".cdf">
+                <input type="text" id="urlB" placeholder="…or https URL">
+            </div>
+        </div>
+    </div>
+    <div id="compareBar" style="display:none; margin-bottom:1rem; gap:0.5rem;">
+        <button id="compareBtn">Compare</button>
+        <button id="filterToggle" class="header-btn">Show all</button>
+    </div>
+    <div id="compareResult" class="detail" style="display:none; max-height:75vh;"></div>
 
     <div id="status" class="loading">
         <span class="dot"></span>
