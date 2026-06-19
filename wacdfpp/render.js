@@ -1,3 +1,5 @@
+import { entryText } from "./cdf-model.js";
+
 // Rendering for the wacdfpp master/detail UI. The formatters at the top are pure
 // (no DOM) and are unit-tested in Node; the renderList/renderDetail functions
 // (added in a later task) build DOM and are verified manually via the dev loop.
@@ -114,7 +116,7 @@ export function renderList(container, model, { selected, onSelect }) {
         const row = document.createElement("div");
         row.className = "attr-row";
         row.innerHTML = `<span class="log-key">${esc(a.name)}</span> ` +
-            `<span class="log-dim">${esc(a.value)}</span>`;
+            `<span class="log-dim">${esc(a.entries.map(entryText).join(", "))}</span>`;
         return row;
     });
     if (gAttrRows.length)
