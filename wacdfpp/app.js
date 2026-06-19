@@ -5,6 +5,7 @@ import { rawFromCdfFile, buildModel, filterModel } from "./cdf-model.js";
 import { renderList, renderDetail, setSelected } from "./render.js";
 import { renderPlot } from "./plot.js";
 import { openValidation, openValidationBytes } from "./astralint.js";
+import { runCompare, applyFilter } from "./compare.js";
 
 const els = {
     fileInput: document.getElementById("fileInput"),
@@ -22,6 +23,16 @@ const els = {
     app: document.querySelector(".app"),
     resizer: document.getElementById("resizer"),
     validateBtn: document.getElementById("validateBtn"),
+    modeToggle: document.getElementById("modeToggle"),
+    compareInputs: document.getElementById("compareInputs"),
+    compareBar: document.getElementById("compareBar"),
+    compareResult: document.getElementById("compareResult"),
+    fileA: document.getElementById("fileA"),
+    urlA: document.getElementById("urlA"),
+    fileB: document.getElementById("fileB"),
+    urlB: document.getElementById("urlB"),
+    compareBtn: document.getElementById("compareBtn"),
+    filterToggle: document.getElementById("filterToggle"),
 };
 
 let Module;
@@ -158,6 +169,37 @@ globalThis.addEventListener("message", (e) => {
     finally { busy = false; }
 });
 
+let compareMode = false;
+
+function setCompareMode(on) {
+    compareMode = on;
+    els.modeToggle.textContent = on ? "Inspect ↩" : "Compare ↔";
+    els.compareInputs.style.display = on ? "grid" : "none";
+    els.compareBar.style.display = on ? "flex" : "none";
+    els.compareResult.style.display = on ? "block" : "none";
+    // single-file controls
+    document.querySelector(".input-section").style.display = on ? "none" : "grid";
+    els.app.style.display = on ? "none" : "grid";
+    document.getElementById("output-header").style.display = on ? "none" : "flex";
+}
+
+function runCompareFromInputs() {
+    runCompare(
+        els.compareResult,
+        { file: els.fileA.files[0], url: els.urlA.value.trim() || null },
+        { file: els.fileB.files[0], url: els.urlB.value.trim() || null },
+        setStatus,
+    );
+}
+
+els.modeToggle.addEventListener("click", () => setCompareMode(!compareMode));
+els.compareBtn.addEventListener("click", runCompareFromInputs);
+els.filterToggle.addEventListener("click", () => {
+    const all = els.compareResult.dataset.filter !== "all";
+    applyFilter(els.compareResult, all ? "all" : "changes");
+    els.filterToggle.textContent = all ? "Show changes" : "Show all";
+});
+
 async function init() {
     try {
         Module = await loadModule();
@@ -168,8 +210,16 @@ async function init() {
         // Tell an opener (e.g. AstraLint) we can receive a CDF via postMessage.
         if (globalThis.opener) globalThis.opener.postMessage({ type: "cdfpp-ready" }, openerOrigin());
         const params = new URLSearchParams(globalThis.location.search);
-        const url = params.get("url") || params.get("cdf");
-        if (url) { els.urlInput.value = url; fetchUrl(url); }
+        const a = params.get("a"), b = params.get("b");
+        if (params.has("compare") || a || b) {
+            setCompareMode(true);
+            if (a) els.urlA.value = a;
+            if (b) els.urlB.value = b;
+            if (a && b) runCompareFromInputs();
+        } else {
+            const url = params.get("url") || params.get("cdf");
+            if (url) { els.urlInput.value = url; fetchUrl(url); }
+        }
     } catch (err) {
         setStatus("error", `Init failed: ${err.message}`);
     }
