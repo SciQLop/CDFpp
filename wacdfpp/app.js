@@ -106,13 +106,20 @@ function inspect(data, name, sourceUrl) {
     setStatus("ready", `Loaded ${name} (${data.length.toLocaleString()} bytes)`);
 }
 
+// Reflect the current source into the address bar so it is shareable/bookmarkable
+// and survives reload. Local files have no URL, so they clear the query.
+function syncUrl(params) {
+    const qs = params.toString();
+    globalThis.history.replaceState(null, "", globalThis.location.pathname + (qs ? `?${qs}` : ""));
+}
+
 function loadFile(file) {
     if (!Module || busy) return;
     busy = true;
     setStatus("loading", `Loading ${file.name}...`);
     const reader = new FileReader();
     reader.onload = (e) => {
-        try { inspect(new Uint8Array(e.target.result), file.name, null); }
+        try { inspect(new Uint8Array(e.target.result), file.name, null); syncUrl(new URLSearchParams()); }
         finally { busy = false; }
     };
     reader.onerror = () => { setStatus("error", `Failed to read ${file.name}`); busy = false; };
@@ -129,6 +136,7 @@ async function fetchUrl(url) {
         const data = new Uint8Array(await resp.arrayBuffer());
         const name = url.split("/").pop().split("?")[0].split("#")[0] || "remote.cdf";
         inspect(data, name, url);
+        syncUrl(new URLSearchParams({ url }));
     } catch (err) {
         setStatus("error", `Fetch error: ${err.message}`);
     } finally {
@@ -185,12 +193,20 @@ function setCompareMode(on) {
 }
 
 function runCompareFromInputs() {
+    const urlA = els.urlA.value.trim(), urlB = els.urlB.value.trim();
     runCompare(
         els.compareResult,
-        { file: els.fileA.files[0], url: els.urlA.value.trim() || null },
-        { file: els.fileB.files[0], url: els.urlB.value.trim() || null },
+        { file: els.fileA.files[0], url: urlA || null },
+        { file: els.fileB.files[0], url: urlB || null },
         setStatus,
     );
+    // Share the remote sides; keep ?compare so a reload reopens compare mode even
+    // when a side is a local file (which cannot be encoded in the URL).
+    const params = new URLSearchParams();
+    if (urlA) params.set("a", urlA);
+    if (urlB) params.set("b", urlB);
+    if (!(urlA && urlB)) params.set("compare", "1");
+    syncUrl(params);
 }
 
 let cmpView = "inline", cmpFilter = "changes";
