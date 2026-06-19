@@ -3,11 +3,13 @@
 // so we never hold two live CdfFiles and sidestep nomap reference invalidation.
 import { loadModule } from "./wasm.js";
 import { rawFromCdfFile, buildModel } from "./cdf-model.js";
-import { diffModels, diffSummary, STATUS } from "./cdf-diff.js";
+import { diffModels, diffSummary, buildLines, STATUS } from "./cdf-diff.js";
 import { esc } from "./render.js";
 
-const GROUP_LABELS = { data: "Data", support_data: "Support", metadata: "Metadata" };
-const BADGE = { added: "+", removed: "−", changed: "~", same: "·" };
+const SECTION_LABELS = {
+    global: "Global Attributes", data: "Data", support_data: "Support", metadata: "Metadata",
+};
+const SIGN = { added: "+", removed: "−", changed: "~", same: " " };
 
 async function bytesToModel(bytes) {
     const Module = await loadModule();
@@ -34,109 +36,114 @@ async function fetchBytes(url) {
     return new Uint8Array(await resp.arrayBuffer());
 }
 
-function diffRow(label, status, detail) {
-    const row = document.createElement("div");
-    row.className = `diff-row st-${status}`;
-    row.dataset.status = status;
-    row.innerHTML = `<span class="diff-badge">${BADGE[status]}</span> ` +
-        `<span class="diff-name">${esc(label)}</span>` + (detail ? ` ${detail}` : "");
-    return row;
-}
+// --- rendering ----------------------------------------------------------------
+// A detail value is null when absent on that side; otherwise show "label: value".
+const cellText = (label, value) => (value === null ? "" : `${label}: ${value}`);
 
-function changePair(a, b) {
-    if (a === null) return `<span class="log-key">${esc(b)}</span>`;
-    if (b === null) return `<span class="log-err">${esc(a)}</span>`;
-    return `<span class="log-err">${esc(a)}</span> → <span class="log-key">${esc(b)}</span>`;
-}
+const statusClass = (status) =>
+    status === STATUS.ADDED ? "add"
+        : status === STATUS.REMOVED ? "del"
+            : status === STATUS.CHANGED ? "chg" : "ctx";
 
-function variableBlock(v) {
-    const block = document.createElement("div");
-    block.className = "diff-block";
-    block.dataset.status = v.status;
-    const shapeNote = v.fields.find(f => f.field === "shape");
-    block.appendChild(diffRow(v.name, v.status,
-        shapeNote ? `<span class="log-dim">[${esc(shapeNote.a)} → ${esc(shapeNote.b)}]</span>` : ""));
-    const details = document.createElement("div");
-    details.className = "diff-details";
-    for (const f of v.fields)
-        details.appendChild(detailLine(f.field, changePair(f.a, f.b)));
-    for (const a of v.attributes)
-        details.appendChild(detailLine(a.name, changePair(a.a, a.b)));
-    if (details.children.length) block.appendChild(details);
-    return block;
-}
-
-function globalBlock(a) {
-    const block = document.createElement("div");
-    block.className = "diff-block";
-    block.dataset.status = a.status;
-    block.appendChild(diffRow(a.name, a.status, ""));
-    const details = document.createElement("div");
-    details.className = "diff-details";
-    for (const e of a.entries)
-        details.appendChild(detailLine(`[${e.index}]`, changePair(e.a, e.b)));
-    if (details.children.length) block.appendChild(details);
-    return block;
-}
-
-function detailLine(label, html) {
+function hunk(label, span) {
     const el = document.createElement("div");
-    el.className = "diff-detail";
-    el.innerHTML = `<span class="log-dim">${esc(label)}:</span> ${html}`;
+    el.className = "diff-hunk" + (span ? " span" : "");
+    el.textContent = label;
     return el;
 }
 
-function section(title, blocks) {
-    const wrap = document.createElement("div");
-    wrap.className = "diff-section";
-    const head = document.createElement("div");
-    head.className = "section-label";
-    head.textContent = title;
-    wrap.appendChild(head);
-    for (const b of blocks) wrap.appendChild(b);
-    return wrap;
+// Unified view: a removed (red) line above an added (green) line for a change.
+function renderInline(lines) {
+    const root = document.createElement("div");
+    root.className = "diff-view diff-inline";
+    const row = (sign, cls, text) => {
+        const el = document.createElement("div");
+        el.className = `dl ${cls}`;
+        el.innerHTML = `<span class="dsign">${sign}</span><span class="dtext">${esc(text)}</span>`;
+        root.appendChild(el);
+    };
+    for (const ln of lines) {
+        if (ln.type === "section") { root.appendChild(hunk(SECTION_LABELS[ln.section])); }
+        else if (ln.type === "item") { row(SIGN[ln.status], `dl-item ${statusClass(ln.status)}`, ln.label); }
+        else if (ln.status === STATUS.CHANGED) {
+            row("−", "del", cellText(ln.label, ln.a));
+            row("+", "add", cellText(ln.label, ln.b));
+        } else if (ln.status === STATUS.ADDED) { row("+", "add", cellText(ln.label, ln.b)); }
+        else if (ln.status === STATUS.REMOVED) { row("−", "del", cellText(ln.label, ln.a)); }
+        else { row(" ", "ctx", cellText(ln.label, ln.a)); }
+    }
+    return root;
 }
 
-export function renderDiff(container, diff) {
-    container.innerHTML = "";
+// Side-by-side view: a 2-column grid; section/item headers span both columns,
+// detail lines fill left (old) and right (new).
+function renderSplit(lines) {
+    const root = document.createElement("div");
+    root.className = "diff-view diff-split";
+    const cell = (cls, text) => {
+        const el = document.createElement("div");
+        el.className = `dcell ${cls}`;
+        el.textContent = text;
+        root.appendChild(el);
+    };
+    const itemRow = (status, label) => {
+        const el = document.createElement("div");
+        el.className = `dl span dl-item ${statusClass(status)}`;
+        el.innerHTML = `<span class="dsign">${SIGN[status]}</span><span class="dtext">${esc(label)}</span>`;
+        root.appendChild(el);
+    };
+    for (const ln of lines) {
+        if (ln.type === "section") { const h = hunk(SECTION_LABELS[ln.section], true); root.appendChild(h); }
+        else if (ln.type === "item") { itemRow(ln.status, ln.label); }
+        else if (ln.status === STATUS.CHANGED) {
+            cell("del", cellText(ln.label, ln.a));
+            cell("add right", cellText(ln.label, ln.b));
+        } else if (ln.status === STATUS.ADDED) {
+            cell("empty", "");
+            cell("add right", cellText(ln.label, ln.b));
+        } else if (ln.status === STATUS.REMOVED) {
+            cell("del", cellText(ln.label, ln.a));
+            cell("empty right", "");
+        } else {
+            cell("ctx", cellText(ln.label, ln.a));
+            cell("ctx right", cellText(ln.label, ln.b));
+        }
+    }
+    return root;
+}
+
+function summaryEl(diff) {
     const s = diffSummary(diff);
-    const summary = document.createElement("div");
-    summary.className = "diff-summary";
-    summary.innerHTML =
+    const el = document.createElement("div");
+    el.className = "diff-summary";
+    el.innerHTML =
         `<span class="st-added">${s.added} added</span> · ` +
         `<span class="st-removed">${s.removed} removed</span> · ` +
         `<span class="st-changed">${s.changed} changed</span>`;
-    container.appendChild(summary);
-
-    // Render every block (including unchanged) so the "Show all" filter can reveal
-    // them; applyFilter hides same-status blocks by default ("changes" mode).
-    if (diff.globalAttributes.length)
-        container.appendChild(section("Global Attributes", diff.globalAttributes.map(globalBlock)));
-
-    for (const g of ["data", "support_data", "metadata"]) {
-        const rows = diff.groups[g];
-        if (rows.length) container.appendChild(section(GROUP_LABELS[g], rows.map(variableBlock)));
-    }
-
-    if (s.added + s.removed + s.changed === 0) {
-        const note = diffRow("No structural differences", "same", "");
-        note.classList.add("diff-note");   // not a .diff-block -> always visible
-        container.appendChild(note);
-    }
-    applyFilter(container, container.dataset.filter || "changes");
+    return el;
 }
 
-// Filter: "all" shows every block; "changes" (default) hides same-status blocks
-// and collapses sections left with nothing visible.
-export function applyFilter(container, mode) {
-    container.dataset.filter = mode;
-    for (const block of container.querySelectorAll(".diff-block"))
-        block.style.display = (mode === "all" || block.dataset.status !== STATUS.SAME) ? "" : "none";
-    for (const sec of container.querySelectorAll(".diff-section")) {
-        const anyVisible = [...sec.querySelectorAll(".diff-block")].some(b => b.style.display !== "none");
-        sec.style.display = anyVisible ? "" : "none";
+// --- state + public API -------------------------------------------------------
+// view: "inline" | "split"; filter: "changes" | "all". Re-rendered on toggle from
+// the cached diff (no reload needed).
+let currentDiff = null, mountEl = null, view = "inline", filter = "changes";
+
+function render() {
+    if (!mountEl || !currentDiff) return;
+    mountEl.innerHTML = "";
+    mountEl.appendChild(summaryEl(currentDiff));
+    const lines = buildLines(currentDiff, filter === "all");
+    mountEl.appendChild(view === "split" ? renderSplit(lines) : renderInline(lines));
+    if (!lines.length) {
+        const note = document.createElement("div");
+        note.className = "diff-note";
+        note.textContent = "No structural differences";
+        mountEl.appendChild(note);
     }
 }
+
+export function setView(mode) { view = mode; render(); }
+export function setFilter(mode) { filter = mode; render(); }
 
 // Build a model from a source: { file } or { url }. Returns { model, name }.
 async function loadSource(src) {
@@ -154,7 +161,9 @@ export async function runCompare(container, srcA, srcB, setStatus) {
     try {
         const [a, b] = await Promise.all([loadSource(srcA), loadSource(srcB)]);
         if (!a.model || !b.model) { setStatus("error", "Failed to parse one of the files"); return; }
-        renderDiff(container, diffModels(a.model, b.model));
+        currentDiff = diffModels(a.model, b.model);
+        mountEl = container;
+        render();
         setStatus("ready", `Compared ${a.name} ↔ ${b.name}`);
     } catch (err) {
         setStatus("error", `Compare error: ${err.message}`);

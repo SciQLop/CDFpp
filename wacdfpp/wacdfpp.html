@@ -330,17 +330,35 @@
             border: 3px dashed var(--accent); }
         .dropzone.active { display: flex; }
         .diff-summary { font-family: var(--mono); font-size: 0.8rem; margin-bottom: 0.75rem; }
-        .diff-section { margin-bottom: 0.75rem; }
-        .diff-block { font-family: var(--mono); font-size: 0.78rem; padding: 0.1rem 0; }
-        .diff-row { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .diff-badge { display: inline-block; width: 1.1em; text-align: center; font-weight: 700; }
-        .diff-name { color: var(--text); }
-        .diff-details { padding: 0.1rem 0 0.3rem 1.6rem; }
-        .diff-detail { white-space: normal; overflow-wrap: anywhere; color: var(--text-dim); }
-        .st-added .diff-badge, .st-added { color: var(--green); }
-        .st-removed .diff-badge, .st-removed { color: var(--red); }
-        .st-changed .diff-badge, .st-changed { color: var(--yellow); }
-        .st-same .diff-badge { color: var(--text-dim); }
+        .st-added { color: var(--green); }
+        .st-removed { color: var(--red); }
+        .st-changed { color: var(--yellow); }
+
+        .diff-view { font-family: var(--mono); font-size: 0.78rem; line-height: 1.5;
+            border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+        .diff-hunk { background: var(--surface2); color: var(--text-dim); padding: 0.25rem 0.6rem;
+            text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem;
+            border-top: 1px solid var(--border); }
+        .diff-view > .diff-hunk:first-child { border-top: none; }
+        .dl { display: flex; gap: 0.5rem; padding: 0.05rem 0.6rem;
+            white-space: pre-wrap; overflow-wrap: anywhere; }
+        .dsign { flex: 0 0 1ch; text-align: center; color: var(--text-dim); user-select: none; }
+        .dtext { flex: 1; }
+        .dl-item { font-weight: 600; }
+        .add { background: rgba(74, 222, 128, 0.13); }
+        .del { background: rgba(248, 113, 113, 0.13); }
+        .chg { background: rgba(251, 191, 36, 0.10); }
+        .add .dsign { color: var(--green); }
+        .del .dsign { color: var(--red); }
+        .chg .dsign { color: var(--yellow); }
+        .diff-split { display: grid; grid-template-columns: 1fr 1fr; }
+        .diff-split .span { grid-column: 1 / -1; }
+        .dcell { padding: 0.05rem 0.6rem; white-space: pre-wrap; overflow-wrap: anywhere;
+            border-top: 1px solid var(--border); }
+        .dcell.right { border-left: 1px solid var(--border); }
+        .dcell.empty { background: rgba(255, 255, 255, 0.02); }
+        .diff-note { padding: 0.75rem; color: var(--text-dim); font-family: var(--mono);
+            font-size: 0.8rem; }
     </style>
 </head>
 <body>
@@ -387,6 +405,7 @@
     </div>
     <div id="compareBar" style="display:none; margin-bottom:1rem; gap:0.5rem;">
         <button id="compareBtn">Compare</button>
+        <button id="viewToggle" class="header-btn">Side-by-side ⇄</button>
         <button id="filterToggle" class="header-btn">Show all</button>
     </div>
     <div id="compareResult" class="detail" style="display:none; max-height:75vh;"></div>

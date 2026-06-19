@@ -1,7 +1,7 @@
 // Pure Node test for wacdfpp/cdf-diff.js — no WASM required.
 //   node test.mjs
 import { buildModel } from "../../wacdfpp/cdf-model.js";
-import { diffModels, diffSummary } from "../../wacdfpp/cdf-diff.js";
+import { diffModels, diffSummary, buildLines } from "../../wacdfpp/cdf-diff.js";
 
 let failures = 0;
 function check(name, ok) {
@@ -100,6 +100,38 @@ const V = (name, over = {}) => ({
     check("summary added (new var + B attr)", s.added === 2);
     check("summary removed (gone var + A attr)", s.removed === 2);
     check("summary changed (keep var shape)", s.changed === 1);
+}
+
+// buildLines: flatten a diff into ordered render lines.
+{
+    const a = buildModel(
+        [V("B", { attributes: { VAR_TYPE: "data", UNITS: "nT" } }), V("same_var")],
+        [{ name: "G", entries: ["x"], types: [51] }, { name: "H", entries: ["k"], types: [51] }]);
+    const b = buildModel(
+        [V("B", { shape: [4], attributes: { VAR_TYPE: "data", UNITS: "T" } }), V("same_var")],
+        [{ name: "G", entries: ["y"], types: [51] }, { name: "H", entries: ["k"], types: [51] }]);
+    const diff = diffModels(a, b);
+
+    const changes = buildLines(diff, false);
+    const types = changes.map(l => l.type);
+    check("buildLines starts with global section",
+        changes[0].type === "section" && changes[0].section === "global");
+    check("buildLines has a data section",
+        changes.some(l => l.type === "section" && l.section === "data"));
+    check("buildLines emits changed var item B",
+        changes.some(l => l.type === "item" && l.label === "B" && l.status === "changed"));
+    check("buildLines emits shape detail old->new",
+        changes.some(l => l.type === "detail" && l.label === "shape" && l.a === "3" && l.b === "4"));
+    check("buildLines emits UNITS detail",
+        changes.some(l => l.type === "detail" && l.label === "UNITS" && l.a === "nT" && l.b === "T"));
+    check("buildLines (changes) omits same_var",
+        !changes.some(l => l.type === "item" && l.label === "same_var"));
+    check("buildLines (changes) omits unchanged global H",
+        !changes.some(l => l.type === "item" && l.label === "H"));
+
+    const all = buildLines(diff, true);
+    check("buildLines (all) includes same_var", all.some(l => l.type === "item" && l.label === "same_var"));
+    check("buildLines (all) includes unchanged global H", all.some(l => l.type === "item" && l.label === "H"));
 }
 
 process.exit(failures ? 1 : 0);

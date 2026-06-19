@@ -104,3 +104,39 @@ export function diffSummary(diff) {
     for (const g of VAR_GROUPS) for (const v of diff.groups[g]) bump(v.status);
     return c;
 }
+
+// Flatten a diff into an ordered list of render-agnostic lines. The inline and
+// side-by-side renderers both consume this. `includeSame` keeps unchanged items
+// (the "Show all" view); section lines are emitted only when the section has at
+// least one kept item.
+//   { type: "section", section }                 // section: global|data|support_data|metadata
+//   { type: "item",    status, label }            // a variable or global-attribute header
+//   { type: "detail",  status, label, a, b }      // a field / attribute / entry change (a=old, b=new)
+export function buildLines(diff, includeSame) {
+    const lines = [];
+    const keep = (s) => includeSame || s !== STATUS.SAME;
+
+    const gItems = diff.globalAttributes.filter(a => keep(a.status));
+    if (gItems.length) {
+        lines.push({ type: "section", section: "global" });
+        for (const a of gItems) {
+            lines.push({ type: "item", status: a.status, label: a.name });
+            for (const e of a.entries)
+                lines.push({ type: "detail", status: e.status, label: `[${e.index}]`, a: e.a, b: e.b });
+        }
+    }
+
+    for (const g of VAR_GROUPS) {
+        const items = diff.groups[g].filter(v => keep(v.status));
+        if (!items.length) continue;
+        lines.push({ type: "section", section: g });
+        for (const v of items) {
+            lines.push({ type: "item", status: v.status, label: v.name });
+            for (const f of v.fields)
+                lines.push({ type: "detail", status: f.status, label: f.field, a: f.a, b: f.b });
+            for (const at of v.attributes)
+                lines.push({ type: "detail", status: at.status, label: at.name, a: at.a, b: at.b });
+        }
+    }
+    return lines;
+}

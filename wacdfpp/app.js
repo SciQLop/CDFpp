@@ -5,7 +5,7 @@ import { rawFromCdfFile, buildModel, filterModel } from "./cdf-model.js";
 import { renderList, renderDetail, setSelected } from "./render.js";
 import { renderPlot } from "./plot.js";
 import { openValidation, openValidationBytes } from "./astralint.js";
-import { runCompare, applyFilter } from "./compare.js";
+import { runCompare, setView, setFilter } from "./compare.js";
 
 const els = {
     fileInput: document.getElementById("fileInput"),
@@ -32,6 +32,7 @@ const els = {
     fileB: document.getElementById("fileB"),
     urlB: document.getElementById("urlB"),
     compareBtn: document.getElementById("compareBtn"),
+    viewToggle: document.getElementById("viewToggle"),
     filterToggle: document.getElementById("filterToggle"),
 };
 
@@ -192,12 +193,19 @@ function runCompareFromInputs() {
     );
 }
 
+let cmpView = "inline", cmpFilter = "changes";
+
 els.modeToggle.addEventListener("click", () => setCompareMode(!compareMode));
 els.compareBtn.addEventListener("click", runCompareFromInputs);
+els.viewToggle.addEventListener("click", () => {
+    cmpView = cmpView === "split" ? "inline" : "split";
+    setView(cmpView);
+    els.viewToggle.textContent = cmpView === "split" ? "Inline ⇄" : "Side-by-side ⇄";
+});
 els.filterToggle.addEventListener("click", () => {
-    const all = els.compareResult.dataset.filter !== "all";
-    applyFilter(els.compareResult, all ? "all" : "changes");
-    els.filterToggle.textContent = all ? "Show changes" : "Show all";
+    cmpFilter = cmpFilter === "all" ? "changes" : "all";
+    setFilter(cmpFilter);
+    els.filterToggle.textContent = cmpFilter === "all" ? "Show changes" : "Show all";
 });
 
 async function init() {
