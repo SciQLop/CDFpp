@@ -44,12 +44,18 @@ function sampleByStep(arr, step) {
     return out;
 }
 
-// Resolve the x-axis: DEPEND_0 time -> seconds (uPlot's time axis works in Unix
-// seconds by default); else DEPEND_0 numeric values; else record index.
+// Resolve the x-axis (uPlot's time axis works in Unix seconds). Priority:
+//   1. DEPEND_0 epoch (CDF_EPOCH/EPOCH16/TT2000) -> ns since 1970.
+//   2. THEMIS DEPEND_TIME -> a CDF_DOUBLE of Unix SECONDS since 1970. THEMIS files
+//      keep an empty DEPEND_0 epoch placeholder and put the real times here.
+//   3. DEPEND_0 as plain numeric values.
+//   4. record index.
 // Returns { values: number[], isTime, nsValues|null }.
 function resolveXAxis(cdf, meta) {
-    const dep0 = meta.attributes?.DEPEND_0;
+    const attrs = meta.attributes ?? {};
     const nRec = meta.shape[0] ?? 0;
+    const dep0 = attrs.DEPEND_0;
+
     if (dep0) {
         try {
             const ns = cdf.time_values_as_ns_since_1970(dep0);
@@ -58,11 +64,30 @@ function resolveXAxis(cdf, meta) {
                 for (let i = 0; i < ns.length; i++) secs[i] = Number(ns[i]) / 1e9;
                 return { values: secs, isTime: true, nsValues: ns };
             }
+        } catch { /* try DEPEND_TIME / index */ }
+    }
+
+    const depTime = attrs.DEPEND_TIME;
+    if (depTime) {
+        try {
+            const tv = cdf.get_variable(depTime);
+            if (tv && tv.copy_values && tv.copy_values.length) {
+                const secs = Array.from(tv.copy_values, Number);   // Unix seconds
+                const ns = new BigInt64Array(secs.length);          // ms precision for export
+                for (let i = 0; i < secs.length; i++) ns[i] = BigInt(Math.round(secs[i] * 1e3)) * 1000000n;
+                return { values: secs, isTime: true, nsValues: ns };
+            }
+        } catch { /* fall through */ }
+    }
+
+    if (dep0) {
+        try {
             const dv = cdf.get_variable(dep0);
             if (dv && dv.copy_values && dv.copy_values.length)
                 return { values: Array.from(dv.copy_values, Number), isTime: false, nsValues: null };
         } catch { /* fall through to index */ }
     }
+
     return { values: Array.from({ length: nRec }, (_, i) => i), isTime: false, nsValues: null };
 }
 
