@@ -5,6 +5,16 @@
 
 export const VAR_GROUPS = ["data", "support_data", "metadata"];
 
+// Canonical display/compare string for a single attribute value or entry.
+// string -> trimmed; numeric/typed array or array -> comma list; else String().
+export function entryText(value) {
+    if (value == null) return "";
+    if (typeof value === "string") return value.trim();
+    if (Array.isArray(value) || ArrayBuffer.isView(value))
+        return Array.from(value).map(String).join(", ");
+    return String(value);
+}
+
 // Normalize an ISTP VAR_TYPE attribute value to one of VAR_GROUPS; default "data".
 export function normalizeVarType(varType) {
     const v = String(varType ?? "").trim().toLowerCase();
@@ -36,7 +46,7 @@ export function filterModel(model, query) {
     for (const g of VAR_GROUPS)
         groups[g] = model.groups[g].filter(v => variableHaystack(v).includes(q));
     const globalAttributes = model.globalAttributes.filter(
-        a => `${a.name}\n${a.value}`.toLowerCase().includes(q));
+        a => [a.name, ...a.entries.map(entryText)].join("\n").toLowerCase().includes(q));
     return { globalAttributes, groups };
 }
 
@@ -61,7 +71,7 @@ export function rawFromCdfFile(cdf) {
     });
     const rawGlobals = cdf.attribute_names().map(name => {
         const a = cdf.get_attribute(name);
-        return { name, value: a.entries.join(", ") };
+        return { name, entries: Array.from(a.entries), types: Array.from(a.types) };
     });
     return { rawVars, rawGlobals };
 }

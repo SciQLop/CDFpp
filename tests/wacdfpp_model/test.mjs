@@ -1,7 +1,7 @@
 // Pure Node test for wacdfpp/cdf-model.js — no WASM required.
 //   node test.mjs
 import {
-    VAR_GROUPS, normalizeVarType, buildModel, filterModel,
+    VAR_GROUPS, normalizeVarType, buildModel, filterModel, entryText,
 } from "../../wacdfpp/cdf-model.js";
 
 let failures = 0;
@@ -27,8 +27,8 @@ const rawVars = [
       varType: undefined, attributes: {} },
 ];
 const rawGlobals = [
-    { name: "Project", value: "THEMIS" },
-    { name: "Discipline", value: "Space Physics" },
+    { name: "Project", entries: ["THEMIS"], types: [51] },
+    { name: "Discipline", entries: ["Space Physics"], types: [51] },
 ];
 const model = buildModel(rawVars, rawGlobals);
 
@@ -63,5 +63,11 @@ const noMatch = filterModel(model, "zzzzz");
 check("no match empties all var groups",
     noMatch.groups.data.length === 0 && noMatch.groups.support_data.length === 0 &&
     noMatch.groups.metadata.length === 0);
+
+check("entryText trims strings", entryText("  THEMIS  ") === "THEMIS");
+check("entryText joins numeric array", entryText(new Float64Array([1, 2, 3])) === "1, 2, 3");
+check("entryText joins string array", entryText(["a", "b"]) === "a, b");
+check("entryText scalar", entryText(42) === "42");
+check("entryText nullish -> empty", entryText(undefined) === "" && entryText(null) === "");
 
 process.exit(failures ? 1 : 0);
