@@ -294,11 +294,17 @@ function drawSpectro(target, cdf, meta, spec, x, values, scale) {
         ctx.restore();
     };
 
+    // Pad the auto-range by the outer half-cells so edge columns render fully. Using
+    // a range *function* (not a static [min,max]) keeps drag-zoom working: a static
+    // array pins the x scale and uPlot snaps back to it on every redraw.
+    const xLoPad = xc[0] - xEdges[0];
+    const xHiPad = xEdges[cols] - xc[cols - 1];
+
     const opts = {
         width: (plotEl.clientWidth || 700),
         height: PLOT_HEIGHT,
         scales: {
-            x: { time: x.isTime, range: [xEdges[0], xEdges[cols]] },
+            x: { time: x.isTime, range: (u, dmin, dmax) => [dmin - xLoPad, dmax + xHiPad] },
             y: { distr: bins.log ? 3 : 1, range: [yLo, yHi] },
         },
         axes: [themeAxis(), themeAxis(bins.units ? { label: bins.units } : undefined)],
