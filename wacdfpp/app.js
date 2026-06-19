@@ -4,7 +4,7 @@ import createCdfModule from "./cdfpp.js";
 import { rawFromCdfFile, buildModel, filterModel } from "./cdf-model.js";
 import { renderList, renderDetail } from "./render.js";
 import { renderPlot } from "./plot.js";
-import { openValidation } from "./astralint.js";
+import { openValidation, openValidationBytes } from "./astralint.js";
 
 const els = {
     fileInput: document.getElementById("fileInput"),
@@ -28,15 +28,18 @@ let Module;
 let currentCdf;          // live CdfFile — delete before replacing
 let currentModel;        // built once per file
 let currentUrl = null;   // source URL of the loaded file (null for local/drag-drop)
+let currentBytes = null; // raw bytes of the loaded file (for the postMessage handoff)
+let currentName = null;  // file name of the loaded file
 let selectedName = null;
 let searchQuery = "";
 let busy = false;
 
 function updateValidate() {
-    els.validateBtn.disabled = !currentUrl;
-    els.validateBtn.title = currentUrl
+    const ready = !!(currentUrl || currentBytes);
+    els.validateBtn.disabled = !ready;
+    els.validateBtn.title = ready
         ? "Validate this CDF against ISTP in AstraLint"
-        : "Load from a URL to validate — local-file validation coming soon";
+        : "Load a CDF to validate it against ISTP in AstraLint";
 }
 
 function setStatus(cls, text) { els.status.className = cls; els.statusText.textContent = text; }
@@ -66,6 +69,8 @@ function inspect(data, name, sourceUrl) {
         searchQuery = "";
         els.search.value = "";
         currentUrl = null;
+        currentBytes = null;
+        currentName = null;
         updateValidate();
         refreshList();
         els.detail.innerHTML = `<div class="log-err">ERROR: failed to parse CDF</div>`;
@@ -79,6 +84,8 @@ function inspect(data, name, sourceUrl) {
     searchQuery = "";
     els.search.value = "";
     currentUrl = sourceUrl ?? null;
+    currentBytes = data;
+    currentName = name;
     updateValidate();
     els.fileName.textContent = name;
     els.parseTime.textContent = `parsed in ${dt} ms`;
@@ -130,7 +137,10 @@ els.search.addEventListener("input", () => {
     searchQuery = els.search.value;
     refreshList();
 });
-els.validateBtn.addEventListener("click", () => openValidation(currentUrl));
+els.validateBtn.addEventListener("click", () => {
+    if (currentUrl) openValidation(currentUrl);
+    else if (currentBytes) openValidationBytes(currentBytes, currentName ?? "file.cdf");
+});
 
 async function init() {
     try {
