@@ -108,24 +108,34 @@ export function renderDiff(container, diff) {
         `<span class="st-changed">${s.changed} changed</span>`;
     container.appendChild(summary);
 
-    const gBlocks = diff.globalAttributes.filter(a => a.status !== STATUS.SAME).map(globalBlock);
-    if (gBlocks.length) container.appendChild(section("Global Attributes", gBlocks));
+    // Render every block (including unchanged) so the "Show all" filter can reveal
+    // them; applyFilter hides same-status blocks by default ("changes" mode).
+    if (diff.globalAttributes.length)
+        container.appendChild(section("Global Attributes", diff.globalAttributes.map(globalBlock)));
 
     for (const g of ["data", "support_data", "metadata"]) {
-        const rows = diff.groups[g].filter(v => v.status !== STATUS.SAME).map(variableBlock);
-        if (rows.length) container.appendChild(section(GROUP_LABELS[g], rows));
+        const rows = diff.groups[g];
+        if (rows.length) container.appendChild(section(GROUP_LABELS[g], rows.map(variableBlock)));
     }
 
-    if (container.children.length === 1)
-        container.appendChild(diffRow("No structural differences", "same", ""));
+    if (s.added + s.removed + s.changed === 0) {
+        const note = diffRow("No structural differences", "same", "");
+        note.classList.add("diff-note");   // not a .diff-block -> always visible
+        container.appendChild(note);
+    }
     applyFilter(container, container.dataset.filter || "changes");
 }
 
-// Filter: "all" shows everything; "changes" hides same-status blocks (default).
+// Filter: "all" shows every block; "changes" (default) hides same-status blocks
+// and collapses sections left with nothing visible.
 export function applyFilter(container, mode) {
     container.dataset.filter = mode;
     for (const block of container.querySelectorAll(".diff-block"))
         block.style.display = (mode === "all" || block.dataset.status !== STATUS.SAME) ? "" : "none";
+    for (const sec of container.querySelectorAll(".diff-section")) {
+        const anyVisible = [...sec.querySelectorAll(".diff-block")].some(b => b.style.display !== "none");
+        sec.style.display = anyVisible ? "" : "none";
+    }
 }
 
 // Build a model from a source: { file } or { url }. Returns { model, name }.
