@@ -342,20 +342,25 @@
         .diff-view > .diff-hunk:first-child { border-top: none; }
         .dl { display: flex; gap: 0.5rem; padding: 0.05rem 0.6rem;
             white-space: pre-wrap; overflow-wrap: anywhere; }
-        .dsign { flex: 0 0 1ch; text-align: center; color: var(--text-dim); user-select: none; }
+        .dsign { flex: 0 0 1.5ch; text-align: center; font-weight: 700; color: var(--text-dim);
+            user-select: none; border-radius: 2px; }
         .dtext { flex: 1; }
         .dl-item { font-weight: 600; }
-        .add { background: rgba(74, 222, 128, 0.13); }
-        .del { background: rgba(248, 113, 113, 0.13); }
-        .chg { background: rgba(251, 191, 36, 0.10); }
-        .add .dsign { color: var(--green); }
-        .del .dsign { color: var(--red); }
-        .chg .dsign { color: var(--yellow); }
+        /* Strong tints plus a solid gutter chip — the +/-/~ glyph is a shape cue that
+           stays legible for red/green colour-vision deficiency. */
+        .add { background: rgba(74, 222, 128, 0.22); }
+        .del { background: rgba(248, 113, 113, 0.22); }
+        .chg { background: rgba(251, 191, 36, 0.12); }
+        .add .dsign { color: #08160d; background: var(--green); }
+        .del .dsign { color: #2a0a0a; background: var(--red); }
+        .chg .dsign { color: #241c05; background: var(--yellow); }
         .diff-split { display: grid; grid-template-columns: 1fr 1fr; }
         .diff-split .span { grid-column: 1 / -1; }
         .dcell { padding: 0.05rem 0.6rem; white-space: pre-wrap; overflow-wrap: anywhere;
             border-top: 1px solid var(--border); }
         .dcell.right { border-left: 1px solid var(--border); }
+        .dcell.add { box-shadow: inset 3px 0 0 var(--green); }
+        .dcell.del { box-shadow: inset 3px 0 0 var(--red); }
         .dcell.empty { background: rgba(255, 255, 255, 0.02); }
         .diff-note { padding: 0.75rem; color: var(--text-dim); font-family: var(--mono);
             font-size: 0.8rem; }
