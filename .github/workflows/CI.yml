@@ -11,7 +11,7 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Build sdist
         run: pipx run build --sdist
       - name: Upload artifact
@@ -65,7 +65,7 @@ jobs:
         setup-args="-Db_vscrt=mt"
         setup-args="-Dcpp_link_args=['ucrt.lib','vcruntime.lib','/nodefaultlib:libucrt.lib','/nodefaultlib:libvcruntime.lib']"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
@@ -107,7 +107,7 @@ jobs:
         run: |
           pip install numpy pyyaml
           pip install --no-index --find-links $env:GITHUB_WORKSPACE\dist pycdfpp
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: run tests
         run: |
           pip install ddt requests
@@ -139,7 +139,7 @@ jobs:
           pyenv local ${{ matrix.python-version }}
           python3 -m pip install --break-system-packages numpy pyyaml
           python3 -m pip install --break-system-packages --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: run tests
         run: |
           pyenv local ${{ matrix.python-version }}
