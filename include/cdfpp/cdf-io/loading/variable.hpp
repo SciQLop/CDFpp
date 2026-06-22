@@ -212,6 +212,57 @@ namespace
     }
 
 
+    template <typename cdf_version_tag_t, typename stream_t>
+    void count_blocks_in_vxr(stream_t& stream, const cdf_VXR_t<cdf_version_tag_t>& vxr,
+        std::size_t& count, std::size_t limit)
+    {
+        for (auto i = 0UL; i < vxr.NusedEntries && count < limit; i++)
+        {
+            if (cdf_mutable_variable_record_t<cdf_version_tag_t> rec {};
+                load_mut_record(rec, stream, vxr.Offset.values[i]))
+            {
+                using vvr_t = typename decltype(rec)::vvr_t;
+                using vxr_t = typename decltype(rec)::vxr_t;
+                using cvvr_t = typename decltype(rec)::cvvr_t;
+                rec.visit([&count](const vvr_t&) -> void { ++count; },
+                    [&stream, &count, limit](vxr_t sub) -> void
+                    {
+                        count_blocks_in_vxr<cdf_version_tag_t>(stream, sub, count, limit);
+                        while (sub.VXRnext && count < limit)
+                        {
+                            load_record(sub, stream, sub.VXRnext);
+                            count_blocks_in_vxr<cdf_version_tag_t>(stream, sub, count, limit);
+                        }
+                    },
+                    [&count](const cvvr_t&) -> void { ++count; },
+                    [](const std::monostate&) -> void {});
+            }
+        }
+    }
+
+    // Counts the leaf VVR/CVVR blocks reachable from a variable's VXR head, stopping
+    // early once `limit` is reached (callers only need contiguous ⟺ count <= 1). Reads
+    // index records only — no variable data — so it is cheap and works in lazy mode.
+    template <typename cdf_version_tag_t, typename stream_t>
+    std::size_t count_var_blocks(stream_t stream, std::size_t vxr_head, std::size_t limit = 2)
+    {
+        std::size_t count = 0UL;
+        if (vxr_head != 0)
+        {
+            cdf_VXR_t<cdf_version_tag_t> vxr;
+            if (load_record(vxr, stream, vxr_head))
+            {
+                count_blocks_in_vxr<cdf_version_tag_t>(stream, vxr, count, limit);
+                while (vxr.VXRnext && count < limit)
+                {
+                    load_record(vxr, stream, vxr.VXRnext);
+                    count_blocks_in_vxr<cdf_version_tag_t>(stream, vxr, count, limit);
+                }
+            }
+        }
+        return count;
+    }
+
     template <bool iso_8859_1_to_utf8, typename stream_t, typename VDR_t>
     struct defered_variable_loader
     {
@@ -280,6 +331,11 @@ namespace
                     {*/
                     shape.insert(std::cbegin(shape), record_count);
                     /*}*/
+                    constexpr bool is_zvariable = (type == cdf_r_z::z);
+                    auto block_counter
+                        = [buffer = context.buffer,
+                              vxr_head = static_cast<std::size_t>(vdr.VXRhead)]() -> std::size_t
+                    { return count_var_blocks<cdf_version_tag_t>(buffer, vxr_head); };
                     if (lazy_load)
                     {
                         common::add_lazy_variable(cdf, vdr.Name.value, vdr.Num,
@@ -288,7 +344,8 @@ namespace
                                             context.buffer, context.encoding(), vdr, record_count,
                                             record_size, compression_type },
                                 vdr.DataType },
-                            std::move(shape), is_nrv, compression_type);
+                            std::move(shape), is_nrv, compression_type, is_zvariable,
+                            std::move(block_counter));
                     }
                     else
                     {
@@ -297,7 +354,8 @@ namespace
                                 load_var_data(context.buffer, vdr, record_size, record_count,
                                     compression_type),
                                 context.encoding()),
-                            std::move(shape), is_nrv, compression_type);
+                            std::move(shape), is_nrv, compression_type, is_zvariable,
+                            std::move(block_counter));
                     }
                 }
             });

@@ -161,19 +161,24 @@ void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name
 
 void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
     Variable::var_data_t&& data, Variable::shape_t&& shape, bool is_nrv,
-    cdf_compression_type compression_type)
+    cdf_compression_type compression_type, bool is_zvariable = true,
+    std::function<std::size_t()>&& block_counter = {})
 {
     repr.variables[name] = Variable { name, number, std::move(data), std::move(shape),
-        repr.majority, is_nrv, compression_type };
+        repr.majority, is_nrv, compression_type, is_zvariable };
+    repr.variables[name].set_block_counter(std::move(block_counter));
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
     { return std::move(repr.var_attributes[number]); }();
 }
 
 void add_lazy_variable(cdf_repr& repr, const std::string& name, std::size_t number,
-    lazy_data&& data, Variable::shape_t&& shape, bool is_nrv, cdf_compression_type compression_type)
+    lazy_data&& data, Variable::shape_t&& shape, bool is_nrv,
+    cdf_compression_type compression_type, bool is_zvariable = true,
+    std::function<std::size_t()>&& block_counter = {})
 {
     repr.variables[name] = Variable { name, number, std::move(data), std::move(shape),
-        repr.majority, is_nrv, compression_type };
+        repr.majority, is_nrv, compression_type, is_zvariable };
+    repr.variables[name].set_block_counter(std::move(block_counter));
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
     { return std::move(repr.var_attributes[number]); }();
 }

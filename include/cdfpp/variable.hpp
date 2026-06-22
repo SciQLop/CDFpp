@@ -34,6 +34,7 @@
 #include "no_init_vector.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <iomanip>
 #include <optional>
 #include <source_location>
@@ -93,7 +94,8 @@ struct Variable
     Variable& operator=(Variable&&) = default;
     Variable(const std::string& name, std::size_t number, var_data_t&& data, shape_t&& shape,
         cdf_majority majority = cdf_majority::row, bool is_nrv = false,
-        cdf_compression_type compression_type = cdf_compression_type::no_compression)
+        cdf_compression_type compression_type = cdf_compression_type::no_compression,
+        bool is_zvariable = true)
             : p_name { name }
             , p_number { number }
             , p_data { std::move(data) }
@@ -101,6 +103,7 @@ struct Variable
             , p_majority { majority }
             , p_is_nrv { is_nrv }
             , p_compression { compression_type }
+            , p_is_zvariable { is_zvariable }
     {
         if (name.empty())
         {
@@ -115,7 +118,8 @@ struct Variable
 
     Variable(const std::string& name, std::size_t number, lazy_data&& data, shape_t&& shape,
         cdf_majority majority = cdf_majority::row, bool is_nrv = false,
-        cdf_compression_type compression_type = cdf_compression_type::no_compression)
+        cdf_compression_type compression_type = cdf_compression_type::no_compression,
+        bool is_zvariable = true)
             : p_name { name }
             , p_number { number }
             , p_data { std::move(data) }
@@ -123,6 +127,7 @@ struct Variable
             , p_majority { majority }
             , p_is_nrv { is_nrv }
             , p_compression { compression_type }
+            , p_is_zvariable { is_zvariable }
     {
         if (name.empty())
         {
@@ -223,6 +228,25 @@ struct Variable
     }
 
     [[nodiscard]] bool is_nrv() const noexcept { return p_is_nrv; }
+    [[nodiscard]] bool is_zvariable() const noexcept { return p_is_zvariable; }
+
+    // On-demand probe: walks the variable's VXR chain (index records only, no data)
+    // counting leaf VVR/CVVR blocks; the value is true when records are stored in a
+    // single contiguous block. Computed lazily on first call, then cached, and the
+    // retained file buffer handle is released. Variables not loaded from a file (no
+    // probe set) are reported contiguous.
+    [[nodiscard]] bool is_contiguous() const
+    {
+        if (not p_contiguous.has_value())
+            p_contiguous = not p_block_counter or p_block_counter() <= 1;
+        p_block_counter = nullptr;
+        return *p_contiguous;
+    }
+    void set_block_counter(std::function<std::size_t()> counter)
+    {
+        p_block_counter = std::move(counter);
+    }
+
     [[nodiscard]] std::size_t number() const noexcept { return p_number; }
     [[nodiscard]] cdf_majority majority() const noexcept { return p_majority; }
     [[nodiscard]] cdf_compression_type compression_type() const noexcept { return p_compression; }
@@ -315,6 +339,9 @@ Data:
     cdf_majority p_majority;
     bool p_is_nrv;
     cdf_compression_type p_compression;
+    bool p_is_zvariable = true;
+    mutable std::function<std::size_t()> p_block_counter;
+    mutable std::optional<bool> p_contiguous;
 };
 
 template <typename... Ts>
