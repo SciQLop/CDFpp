@@ -595,6 +595,11 @@ void def_variable_wrapper(T& mod)
             })
         .def_property_readonly("majority", &Variable::majority)
         .def_property_readonly("is_nrv", &Variable::is_nrv)
+        .def_property_readonly("is_zvariable", &Variable::is_zvariable)
+        .def("is_contiguous", &Variable::is_contiguous,
+            "Whether the variable's records are stored as a single contiguous block in the "
+            "file (True) or fragmented across several VVR/CVVR blocks (False). Walks the "
+            "variable's index records on first call, then caches the result.")
         .def_property_readonly("values_loaded", &Variable::values_loaded)
         .def_property("compression", &Variable::compression_type, &Variable::set_compression_type)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
