@@ -168,6 +168,12 @@ function previewTable(cdf, v) {
     const table = document.createElement("table");
     table.className = "preview";
 
+    // Gate first, before ANY value-reading branch (time / char / numeric) — each of
+    // them materializes the whole variable, so a high-rank or huge variable of any
+    // type must be stopped here.
+    const prev = previewability(v.shape);
+    if (!prev.ok) return { table: null, total: v.shape[0] ?? 0, shown: 0, reason: prev.reason };
+
     if (isTimeType(v.type)) {
         const ns = cdf.time_values_as_ns_since_1970(v.name);
         const total = ns ? ns.length : 0;
@@ -189,9 +195,6 @@ function previewTable(cdf, v) {
         });
         return { table, total, shown: strings.length };
     }
-
-    const prev = previewability(v.shape);
-    if (!prev.ok) return { table: null, total: v.shape[0] ?? 0, shown: 0, reason: prev.reason };
 
     const values = v.copy_values;
     if (values === undefined || values.length === 0) return { table, total: 0, shown: 0 };
