@@ -71,6 +71,22 @@ SCENARIO("Variable.is_contiguous() detects fragmented variable record blocks", "
             REQUIRE(cd["legacy_rvar"].is_contiguous());
         }
     }
+    GIVEN("a per-variable compressed variable stored in a single CVVR block")
+    {
+        auto cd = load_fixture("a_cdf_with_compressed_vars.cdf", true);
+        THEN("it reports is_contiguous() == true")
+        {
+            REQUIRE(cd["var"].is_contiguous());
+        }
+    }
+    GIVEN("a Variable not backed by a file")
+    {
+        Variable v;
+        THEN("it is reported contiguous (a single write is one block)")
+        {
+            REQUIRE(v.is_contiguous());
+        }
+    }
     GIVEN("the fragmented file loaded eagerly")
     {
         auto cd = load_fixture("fragmented.cdf", false);
