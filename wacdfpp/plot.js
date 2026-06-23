@@ -366,6 +366,13 @@ export function renderPlot(mount, cdf, name) {
     if (!v) return;
 
     const meta = { type: v.type, shape: Array.from(v.shape), attributes: v.attributes };
+
+    // Gate from metadata BEFORE materializing values: copy_values copies the whole
+    // variable, so a high-rank/oversized distribution would OOM here. plotSpec (no
+    // override) returns kind "none" for char, empty, >2-D and over-size variables.
+    const gate = plotSpec(meta);
+    if (gate.kind === "none") { mount.appendChild(note(gate.reason || "not plottable")); return; }
+
     const values = v.copy_values ? Float64Array.from(v.copy_values, Number) : new Float64Array(0);
     const x = resolveXAxis(cdf, meta);
 

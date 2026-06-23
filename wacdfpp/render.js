@@ -146,6 +146,22 @@ function recordLength(shape) {
     return shape.slice(1).reduce((a, b) => a * b, 1);
 }
 
+// Value-preview gate: the table reads the WHOLE variable (copy_values) and joins
+// every record's elements, so high-rank (e.g. 4-5D particle distributions) or huge
+// variables would crash / produce unreadable rows. Decided from shape alone, before
+// any values are read.
+export const MAX_PREVIEW_DIMENSIONS = 2;     // max shape rank (record dim + 1)
+export const MAX_PREVIEW_POINTS = 2_000_000; // max total elements (product of shape)
+
+export function previewability(shape) {
+    if (shape && shape.length > MAX_PREVIEW_DIMENSIONS)
+        return { ok: false, reason: `${shape.length}-dimensional data — value preview not shown` };
+    const total = shape && shape.length ? shape.reduce((a, b) => a * b, 1) : 0;
+    if (total > MAX_PREVIEW_POINTS)
+        return { ok: false, reason: `too large to preview (${total.toLocaleString()} values)` };
+    return { ok: true };
+}
+
 const PREVIEW_RECORDS = 20;
 
 function previewTable(cdf, v) {
@@ -173,6 +189,9 @@ function previewTable(cdf, v) {
         });
         return { table, total, shown: strings.length };
     }
+
+    const prev = previewability(v.shape);
+    if (!prev.ok) return { table: null, total: v.shape[0] ?? 0, shown: 0, reason: prev.reason };
 
     const values = v.copy_values;
     if (values === undefined || values.length === 0) return { table, total: 0, shown: 0 };
@@ -235,7 +254,15 @@ export function renderDetail(container, cdf, name) {
     }
     container.append(sectionLabel("Attributes"), attrs);
 
-    const { table, total, shown } = previewTable(cdf, v);
-    container.appendChild(sectionLabel(`Values (showing ${shown} of ${total})`));
-    container.appendChild(table);
+    const { table, total, shown, reason } = previewTable(cdf, v);
+    if (reason) {
+        container.appendChild(sectionLabel(`Values (${total} records)`));
+        const skipped = document.createElement("div");
+        skipped.className = "plot-note";
+        skipped.textContent = reason;
+        container.appendChild(skipped);
+    } else {
+        container.appendChild(sectionLabel(`Values (showing ${shown} of ${total})`));
+        container.appendChild(table);
+    }
 }

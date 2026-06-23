@@ -1,7 +1,8 @@
 // Pure Node test for wacdfpp/plot-model.js and the pure helpers of spectrogram.js.
 //   node test.mjs
 import {
-    MAX_LINES, recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON,
+    MAX_LINES, MAX_PLOT_DIMENSIONS, MAX_PLOT_POINTS,
+    recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON,
 } from "../../wacdfpp/plot-model.js";
 import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "../../wacdfpp/spectrogram.js";
 
@@ -48,6 +49,23 @@ check("char type -> none", plotSpec({ type: 51, shape: [10, 16], attributes: {} 
 check("zero records -> none", plotSpec({ type: 21, shape: [0, 3], attributes: {} }).kind === "none");
 check("empty shape var still plottable as line",
     plotSpec({ type: 21, shape: [5], attributes: {} }).kind === "line");
+
+// dimension + size gating: high-D (e.g. 4-5D particle distributions) and oversized
+// variables would crash copy_values / produce meaningless plots — gate to none.
+check("3-D var -> none", plotSpec({ type: 21, shape: [10, 16, 32], attributes: {} }).kind === "none");
+check("5-D particle dist -> none",
+    plotSpec({ type: 21, shape: [100, 32, 16, 32, 8], attributes: {} }).kind === "none");
+check("high-D none carries a reason",
+    typeof plotSpec({ type: 21, shape: [10, 16, 32], attributes: {} }).reason === "string");
+check("high-D gate ignores override",
+    plotSpec({ type: 21, shape: [10, 16, 32], attributes: {} }, "line").kind === "none");
+check("oversized 2-D var -> none",
+    plotSpec({ type: 21, shape: [MAX_PLOT_POINTS, 2], attributes: {} }).kind === "none");
+check("oversized gate ignores override",
+    plotSpec({ type: 21, shape: [MAX_PLOT_POINTS, 2], attributes: {} }, "spectrogram").kind === "none");
+check("within rank + size still plottable",
+    plotSpec({ type: 21, shape: [1000, 32], attributes: {} }).kind !== "none");
+check("MAX_PLOT_DIMENSIONS is 2", MAX_PLOT_DIMENSIONS === 2);
 
 // resolved fields surface DEPEND_*/LABL_PTR_1 and numeric FILLVAL
 const spec = plotSpec({

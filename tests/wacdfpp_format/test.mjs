@@ -1,6 +1,7 @@
 // Pure Node test for wacdfpp/render.js formatters — no WASM, no DOM.
 //   node test.mjs
-import { nsToISO, stripPadding, chunkRecords, decodeChars, formatAttrValue } from "../../wacdfpp/render.js";
+import { nsToISO, stripPadding, chunkRecords, decodeChars, formatAttrValue,
+         previewability, MAX_PREVIEW_DIMENSIONS, MAX_PREVIEW_POINTS } from "../../wacdfpp/render.js";
 
 let failures = 0;
 function check(name, ok) {
@@ -36,5 +37,15 @@ check("decodeChars total", decodeChars(twoRec, [5]).total === 2);
 check("decodeChars max clamp", decodeChars(twoRec, [5], 1).strings.length === 1);
 const padded = new Uint8Array([72, 101, 0, 0, 0, 87, 0, 0, 0, 0]); // "He","W" null-padded
 check("decodeChars strips null padding", eq(decodeChars(padded, [5]).strings, ["He", "W"]));
+
+// previewability gate: high-rank / oversized variables skip the value table
+check("MAX_PREVIEW_DIMENSIONS is 2", MAX_PREVIEW_DIMENSIONS === 2);
+check("1-D previewable", previewability([100]).ok === true);
+check("2-D previewable", previewability([100, 32]).ok === true);
+check("3-D not previewable", previewability([10, 16, 32]).ok === false);
+check("5-D particle dist not previewable", previewability([100, 32, 16, 32, 8]).ok === false);
+check("high-D reason is a string", typeof previewability([10, 16, 32]).reason === "string");
+check("oversized 2-D not previewable", previewability([MAX_PREVIEW_POINTS, 2]).ok === false);
+check("within rank+size previewable", previewability([1000, 100]).ok === true);
 
 process.exit(failures ? 1 : 0);

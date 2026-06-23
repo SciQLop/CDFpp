@@ -3,8 +3,20 @@
 // in plot.js. Unit-tested in Node (tests/wacdfpp_plot).
 
 export const MAX_LINES = 8;
+// Only 1-D time series and 2-D spectrograms are drawable. Higher-rank variables
+// (e.g. 4-5D particle distributions) have no sensible 2-D rendering and would
+// crash when their whole value array is materialized — so they are gated out.
+export const MAX_PLOT_DIMENSIONS = 2;     // max shape rank (record dim + 1)
+export const MAX_PLOT_POINTS = 10_000_000; // max total elements (product of shape)
 export const TIME_TYPES = new Set([31, 32, 33]); // CDF_EPOCH, EPOCH16, TT2000
 export const CHAR_TYPES = new Set([51, 52]);     // CDF_CHAR, CDF_UCHAR
+
+// Total element count = product of all dims (cheap; computed from shape, never
+// from the materialized values).
+export function totalElements(shape) {
+    if (!shape || shape.length === 0) return 0;
+    return shape.reduce((a, b) => a * b, 1);
+}
 
 // Record length = product of non-record dims (shape[1:]); 1 for 0/1-D records.
 export function recordLength(shape) {
@@ -40,6 +52,12 @@ export function plotSpec(variable, override) {
         return { ...base, kind: "none", reason: "character data is not plottable" };
     if (!variable.shape || variable.shape.length === 0 || (variable.shape[0] ?? 0) === 0)
         return { ...base, kind: "none", reason: "no records to plot" };
+    if (variable.shape.length > MAX_PLOT_DIMENSIONS)
+        return { ...base, kind: "none",
+            reason: `${variable.shape.length}-dimensional data is not plottable (only time series and spectrograms are supported)` };
+    if (totalElements(variable.shape) > MAX_PLOT_POINTS)
+        return { ...base, kind: "none",
+            reason: `too large to plot (${totalElements(variable.shape).toLocaleString()} values)` };
 
     let kind;
     if (override === "line" || override === "spectrogram") {
