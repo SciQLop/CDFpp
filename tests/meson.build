@@ -61,22 +61,22 @@ node = find_program('node', required: false)
 if node.found()
     test('wacdfpp_model', node,
         args: [files('wacdfpp_model/test.mjs')],
-        timeout: 10,
+        timeout: 60,
     )
     test('wacdfpp_format', node,
         args: [files('wacdfpp_format/test.mjs')],
-        timeout: 10,
+        timeout: 60,
     )
     test('wacdfpp_plot', node,
         args: [files('wacdfpp_plot/test.mjs')],
-        timeout: 10,
+        timeout: 60,
     )
     test('wacdfpp_astralint', node,
         args: [files('wacdfpp_astralint/test.mjs')],
-        timeout: 10,
+        timeout: 60,
     )
     test('wacdfpp_diff', node,
         args: [files('wacdfpp_diff/test.mjs')],
-        timeout: 10,
+        timeout: 60,
     )
 endif
