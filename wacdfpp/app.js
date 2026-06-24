@@ -6,6 +6,7 @@ import { renderList, renderDetail, setSelected } from "./render.js";
 import { renderPlot } from "./plot.js";
 import { openValidation, openValidationBytes } from "./astralint.js";
 import { runCompare, setView, setFilter } from "./compare.js";
+import { cdfFileToYaml } from "./cdf-yaml.js";
 
 const els = {
     fileInput: document.getElementById("fileInput"),
@@ -23,6 +24,7 @@ const els = {
     app: document.querySelector(".app"),
     resizer: document.getElementById("resizer"),
     validateBtn: document.getElementById("validateBtn"),
+    exportYamlBtn: document.getElementById("exportYamlBtn"),
     modeToggle: document.getElementById("modeToggle"),
     compareInputs: document.getElementById("compareInputs"),
     compareBar: document.getElementById("compareBar"),
@@ -52,6 +54,11 @@ function updateValidate() {
     els.validateBtn.title = ready
         ? "Validate this CDF against ISTP in AstraLint"
         : "Load a CDF to validate it against ISTP in AstraLint";
+    const exportable = !!currentCdf;
+    els.exportYamlBtn.disabled = !exportable;
+    els.exportYamlBtn.title = exportable
+        ? "Download a YAML metadata skeleton of this CDF"
+        : "Load a CDF to export its YAML skeleton";
 }
 
 function setStatus(cls, text) { els.status.className = cls; els.statusText.textContent = text; }
@@ -160,6 +167,16 @@ els.search.addEventListener("input", () => {
 els.validateBtn.addEventListener("click", () => {
     if (currentUrl) openValidation(currentUrl);
     else if (currentBytes) openValidationBytes(currentBytes, currentName ?? "file.cdf");
+});
+els.exportYamlBtn.addEventListener("click", () => {
+    if (!currentCdf) return;
+    const base = (currentName ?? "cdf").replace(/\.cdf$/i, "");
+    const blob = new Blob([cdfFileToYaml(currentCdf)], { type: "application/yaml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${base}.skeleton.yaml`;
+    a.click();
+    URL.revokeObjectURL(a.href);
 });
 
 // Reverse handoff: load a CDF handed to us by an opener (e.g. AstraLint's
