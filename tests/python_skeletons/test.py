@@ -26,6 +26,16 @@ class PycdfToSkeletonTest(unittest.TestCase):
         self.assertIsNotNone(skel)
         self.assertEqual(type(skel["attributes"]["tt2000_special_values"]["values"][0][0]), str)
 
+    def test_variable_attributes_are_serialized(self):
+        cdf = make_cdf()
+        skel = pycdfpp.to_dict_skeleton(cdf)
+        attrs = skel["variables"]["test_variable"]["attributes"]
+        self.assertIsNotNone(attrs["attr1"])
+        self.assertEqual(attrs["attr1"]["values"], [[1, 2, 3]])
+        self.assertEqual(len(attrs["attr1"]["types"]), 1)
+        # time-valued variable attributes must be stringified like global ones
+        self.assertEqual(type(attrs["attr2"]["values"][0][0]), str)
+
 
 if __name__ == '__main__':
     unittest.main()

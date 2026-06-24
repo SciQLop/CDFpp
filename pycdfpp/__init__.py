@@ -823,6 +823,30 @@ def _(attribute: Attribute) -> dict:
     }
 
 
+@to_dict_skeleton.register(VariableAttribute)
+def _(attribute: VariableAttribute) -> dict:
+    """
+    to_dict_skeleton builds a dictionary skeleton of the VariableAttribute object for use with json.dumps or similar functions.
+
+    A variable attribute holds a single entry, so its skeleton uses the same
+    shape as a global Attribute with a single-element values/types list.
+
+    Parameters
+    ----------
+    attribute: VariableAttribute
+        input VariableAttribute object
+
+    Returns
+    -------
+    dict
+        dictionary skeleton of the VariableAttribute
+    """
+    return {
+        "values": [_stringify_time_values(attribute.value, attribute.type())],
+        "types": [str(attribute.type())],
+    }
+
+
 @to_dict_skeleton.register(Variable)
 def _(variable: Variable) -> dict:
     """
