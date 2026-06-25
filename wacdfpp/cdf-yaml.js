@@ -36,7 +36,7 @@ function needsQuote(s) {
     if (QUOTE_RE.test(s)) return true;                // structural / indicator chars
     if (/^[-?:](\s|$)/.test(s)) return true;          // leading "- " / "? " / ":" indicator
     if (s[0] === "~") return true;                    // leading null indicator
-    if (/^[-+.]?[0-9]/.test(s)) return true;          // number-ish (incl. 1_000, 0x1a, .5)
+    if (/^[-+.]?\d/.test(s)) return true;             // number-ish (incl. 1_000, 0x1a, .5)
     if (/^[-+]?\.(inf|nan)$/i.test(s)) return true;   // YAML float specials
     if (/^(true|false|null|yes|no|on|off)$/i.test(s)) return true;  // reserved words
     return false;

@@ -21,7 +21,7 @@ check("reserved word quoted", toYaml({ a: "true" }) === 'a: "true"\n');
 check("bool", toYaml({ a: true }) === "a: true\n");
 check("null", toYaml({ a: null }) === "a: null\n");
 check("integer", toYaml({ a: 42 }) === "a: 42\n");
-check("nan -> .nan", toYaml({ a: NaN }) === "a: .nan\n");
+check("nan -> .nan", toYaml({ a: Number.NaN }) === "a: .nan\n");
 check("inf -> .inf", toYaml({ a: Infinity }) === "a: .inf\n");
 check("-inf -> -.inf", toYaml({ a: -Infinity }) === "a: -.inf\n");
 
