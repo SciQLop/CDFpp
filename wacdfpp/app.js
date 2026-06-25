@@ -1,12 +1,12 @@
 // Orchestration: load (file/URL/?url=/drag-drop), hold current CdfFile + model +
 // selection, wire search and list selection to re-render.
 import { loadModule } from "./wasm.js";
-import { rawFromCdfFile, buildModel, filterModel } from "./cdf-model.js";
+import { rawFromCdfFile, buildModel, filterModel, VAR_GROUPS } from "./cdf-model.js";
 import { renderList, renderDetail, setSelected } from "./render.js";
 import { renderPlot } from "./plot.js";
 import { openValidation, openValidationBytes } from "./astralint.js";
 import { runCompare, setView, setFilter } from "./compare.js";
-import { cdfFileToYaml } from "./cdf-yaml.js";
+import { toYaml, buildSkeleton } from "./cdf-yaml.js";
 
 const els = {
     fileInput: document.getElementById("fileInput"),
@@ -44,6 +44,7 @@ let currentModel;        // built once per file
 let currentUrl = null;   // source URL of the loaded file (null for local/drag-drop)
 let currentBytes = null; // raw bytes of the loaded file (for the postMessage handoff)
 let currentName = null;  // file name of the loaded file
+let currentCompression = null; // file-level compression (for the YAML skeleton)
 let selectedName = null;
 let searchQuery = "";
 let busy = false;
@@ -90,6 +91,7 @@ function inspect(data, name, sourceUrl) {
         currentUrl = null;
         currentBytes = null;
         currentName = null;
+        currentCompression = null;
         updateValidate();
         refreshList();
         els.detail.innerHTML = `<div class="log-err">ERROR: failed to parse CDF</div>`;
@@ -105,6 +107,7 @@ function inspect(data, name, sourceUrl) {
     currentUrl = sourceUrl ?? null;
     currentBytes = data;
     currentName = name;
+    currentCompression = cdf.compression();
     updateValidate();
     els.fileName.textContent = name;
     els.parseTime.textContent = `parsed in ${dt} ms`;
@@ -169,9 +172,13 @@ els.validateBtn.addEventListener("click", () => {
     else if (currentBytes) openValidationBytes(currentBytes, currentName ?? "file.cdf");
 });
 els.exportYamlBtn.addEventListener("click", () => {
-    if (!currentCdf) return;
+    if (!currentModel) return;
+    // Build from the already-extracted model — no WASM call, no value load.
+    const rawVars = VAR_GROUPS.flatMap((g) => currentModel.groups[g]);
+    const yaml = toYaml(buildSkeleton(rawVars, currentModel.globalAttributes,
+        { compression: currentCompression }));
     const base = (currentName ?? "cdf").replace(/\.cdf$/i, "");
-    const blob = new Blob([cdfFileToYaml(currentCdf)], { type: "application/yaml" });
+    const blob = new Blob([yaml], { type: "application/yaml" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `${base}.skeleton.yaml`;

@@ -58,15 +58,21 @@ export function rawFromCdfFile(cdf) {
     const rawVars = cdf.variable_names().map(name => {
         const v = cdf.get_variable(name);
         const attributes = {};
-        for (const an of v.attribute_names) attributes[an] = v.attributes[an];
+        const attributeTypes = {};
+        for (const an of v.attribute_names) {
+            attributes[an] = v.attributes[an];
+            attributeTypes[an] = v.attribute_types[an];
+        }
         return {
             name,
             shape: Array.from(v.shape),
             typeName: v.type_name,
             type: v.type,
             isNrv: v.is_nrv,
+            compression: v.compression,
             varType: attributes.VAR_TYPE,
             attributes,
+            attributeTypes,
         };
     });
     const rawGlobals = cdf.attribute_names().map(name => {
