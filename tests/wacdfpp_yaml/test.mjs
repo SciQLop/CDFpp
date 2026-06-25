@@ -37,6 +37,17 @@ check("array-of-array -> block",
 check("nested map", toYaml({ a: { b: 1 } }) === "a:\n  b: 1\n");
 check("empty map -> {}", toYaml({ a: {} }) === "a: {}\n");
 
+// --- toYaml: escaping must produce round-trippable YAML -----------------
+// (keys are emitted verbatim historically; values with leading YAML
+// indicators or YAML-1.1 number forms must be quoted or they re-parse wrong.)
+check("special key quoted", toYaml({ "min: max": 1 }) === '"min: max": 1\n');
+check("leading-dash value quoted", toYaml({ a: "- pending" }) === 'a: "- pending"\n');
+check("leading-question value quoted", toYaml({ a: "? x" }) === 'a: "? x"\n');
+check("underscore-number string quoted", toYaml({ a: "1_000" }) === 'a: "1_000"\n');
+check("digit-leading string quoted", toYaml({ a: "3things" }) === 'a: "3things"\n');
+check("tilde string quoted", toYaml({ a: "~" }) === 'a: "~"\n');
+check("bare dash quoted", toYaml({ a: "-" }) === 'a: "-"\n');
+
 // --- CDF_TYPE_NAMES -----------------------------------------------------
 check("type map double", CDF_TYPE_NAMES[45] === "CDF_DOUBLE");
 check("type map tt2000", CDF_TYPE_NAMES[33] === "CDF_TIME_TT2000");
