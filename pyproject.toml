@@ -32,6 +32,9 @@ homepage = "https://github.com/SciQLop/CDFpp"
 documentation = "https://pycdfpp.readthedocs.io/en/latest/"
 repository = "https://github.com/SciQLop/CDFpp"
 
+[project.scripts]
+cdfdump = "pycdfpp.cli:main"
+
 [tool.meson-python.args]
 install = ['--tags=runtime,python-runtime']
 setup = ['-Doptimization=3', '-Dcpp_std=c++20', '--force-fallback-for=libdeflate,fmt,pybind11', '--vsenv']

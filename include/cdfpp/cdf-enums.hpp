@@ -80,6 +80,43 @@ enum class cdf_record_type : int32_t
     UIR = -1,
 };
 
+[[nodiscard]] inline std::string cdf_record_type_str(cdf_record_type type) noexcept
+{
+    using enum cdf_record_type;
+    switch (type)
+    {
+        case CDR:
+            return "CDR";
+        case GDR:
+            return "GDR";
+        case rVDR:
+            return "rVDR";
+        case ADR:
+            return "ADR";
+        case AgrEDR:
+            return "AgrEDR";
+        case VXR:
+            return "VXR";
+        case VVR:
+            return "VVR";
+        case zVDR:
+            return "zVDR";
+        case AzEDR:
+            return "AzEDR";
+        case CCR:
+            return "CCR";
+        case CPR:
+            return "CPR";
+        case SPR:
+            return "SPR";
+        case CVVR:
+            return "CVVR";
+        case UIR:
+            return "UIR";
+    }
+    return "Unknown";
+}
+
 enum class cdf_attr_scope : int32_t
 {
     global = 1,
@@ -88,6 +125,23 @@ enum class cdf_attr_scope : int32_t
     variable_assumed = 4,
 
 };
+
+[[nodiscard]] inline std::string cdf_attr_scope_str(cdf_attr_scope scope) noexcept
+{
+    using enum cdf_attr_scope;
+    switch (scope)
+    {
+        case global:
+            return "global";
+        case variable:
+            return "variable";
+        case global_assumed:
+            return "global (assumed)";
+        case variable_assumed:
+            return "variable (assumed)";
+    }
+    return "Unknown";
+}
 
 enum class cdf_compression_type : int32_t
 {
@@ -142,6 +196,53 @@ enum class cdf_encoding : int32_t
     IA64VMSd = 20,
     IA64VMSg = 21
 };
+
+[[nodiscard]] inline std::string cdf_encoding_str(cdf_encoding encoding) noexcept
+{
+    using enum cdf_encoding;
+    switch (encoding)
+    {
+        case network:
+            return "network";
+        case SUN:
+            return "SUN";
+        case VAX:
+            return "VAX";
+        case decstation:
+            return "decstation";
+        case SGi:
+            return "SGi";
+        case IBMPC:
+            return "IBMPC";
+        case IBMRS:
+            return "IBMRS";
+        case PPC:
+            return "PPC";
+        case HP:
+            return "HP";
+        case NeXT:
+            return "NeXT";
+        case ALPHAOSF1:
+            return "ALPHAOSF1";
+        case ALPHAVMSd:
+            return "ALPHAVMSd";
+        case ALPHAVMSg:
+            return "ALPHAVMSg";
+        case ALPHAVMSi:
+            return "ALPHAVMSi";
+        case ARM_LITTLE:
+            return "ARM_LITTLE";
+        case ARM_BIG:
+            return "ARM_BIG";
+        case IA64VMSi:
+            return "IA64VMSi";
+        case IA64VMSd:
+            return "IA64VMSd";
+        case IA64VMSg:
+            return "IA64VMSg";
+    }
+    return "Unknown";
+}
 
 enum class CDF_Types : int32_t
 {

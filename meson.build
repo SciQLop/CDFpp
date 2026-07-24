@@ -148,7 +148,8 @@ pycdfpp_headers = files(
     'pycdfpp/attribute.hpp',
     'pycdfpp/variable.hpp',
     'pycdfpp/enums.hpp',
-    'pycdfpp/repr.hpp'
+    'pycdfpp/repr.hpp',
+    'pycdfpp/debug.hpp'
 )
 
 cdfpp_extra_files = files(

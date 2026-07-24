@@ -9,7 +9,7 @@ catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
 
 foreach test_name:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving',
               'rle_compression', 'libdeflate_compression', 'zlib_compression', 'simple_save', 'zstd_compression',
-              'structural_introspection']
+              'structural_introspection', 'record_stream', 'record_repr']
     exe = executable('test-'+test_name, test_name+'/main.cpp',
                     dependencies:[catch_dep, cdfpp_dep],
                     install: false
@@ -19,7 +19,7 @@ endforeach
 
 foreach py_test:['python_loading', 'python_saving', 'python_skeletons',
             'python_variable_set_values', 'full_corpus', 'python_chrono',
-            'python_windows_crash', 'python_structural_introspection']
+            'python_windows_crash', 'python_structural_introspection', 'python_debug']
     test(py_test, python3,
         args:[files(py_test+'/test.py')],
         env:['PYTHONPATH='+meson.project_build_root()],

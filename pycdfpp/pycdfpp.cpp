@@ -33,6 +33,7 @@
 #include "attribute.hpp"
 #include "cdf.hpp"
 #include "chrono.hpp"
+#include "debug.hpp"
 #include "enums.hpp"
 #include "repr.hpp"
 #include "variable.hpp"
@@ -121,6 +122,7 @@ PYBIND11_MODULE(_pycdfpp, m, py::mod_gil_not_used())
 
     def_cdf_loading_functions(m);
     def_cdf_saving_functions(m);
+    pycdfpp::debug::def_debug_wrapper(m);
     m.def("_buffer_info",
         [](py::buffer& buff) -> std::string
         {
