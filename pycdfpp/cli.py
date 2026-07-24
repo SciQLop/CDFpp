@@ -5,9 +5,17 @@ The ``cdfdump`` console script: dumps a CDF file's on-disk records in physical
 order, using :func:`pycdfpp.debug.for_each_record`.
 """
 
-import argparse
+import cyclopts
+from rich.console import Console
+from rich.tree import Tree
 
 from .debug import for_each_record
+
+app = cyclopts.App(
+    name='cdfdump',
+    help="Dump a CDF file's on-disk records in physical order "
+         "(not the reconstructed variable/attribute view pycdfpp.load() gives you).",
+)
 
 
 def _format_value(value) -> str:
@@ -18,8 +26,8 @@ def _format_value(value) -> str:
     return str(value)
 
 
-def dump(path: str) -> str:
-    """Format a CDF file's on-disk records, one line per field.
+def build_tree(path: str) -> Tree:
+    """Build a rich Tree of a CDF file's on-disk records, one node per record.
 
     Parameters
     ----------
@@ -28,28 +36,28 @@ def dump(path: str) -> str:
 
     Returns
     -------
-    str
-        Multi-line text: one ``@offset type_name`` header per record, followed by
-        one indented ``field_name: value`` line per field.
+    rich.tree.Tree
+        One child per record (in physical file order), each with one grandchild
+        leaf per field.
     """
-    lines = []
+    tree = Tree(path)
     for offset, type_name, fields in for_each_record(path):
-        lines.append(f'@{offset} {type_name}')
+        record_node = tree.add(f'[bold cyan]@{offset}[/bold cyan] [bold]{type_name}[/bold]')
         for name, value in fields.items():
-            lines.append(f'  {name}: {_format_value(value)}')
-    return '\n'.join(lines)
+            record_node.add(f'[green]{name}[/green]: {_format_value(value)}')
+    return tree
 
 
-def main(argv=None) -> None:
-    parser = argparse.ArgumentParser(
-        prog='cdfdump',
-        description="Dump a CDF file's on-disk records in physical order "
-                    "(not the reconstructed variable/attribute view pycdfpp.load() gives you).",
-    )
-    parser.add_argument('path', help='Path to the CDF file')
-    args = parser.parse_args(argv)
-    print(dump(args.path))
+@app.default
+def main(path: str):
+    """Dump a CDF file's on-disk records in physical order.
+
+    Parameters
+    ----------
+    path: Path to the CDF file.
+    """
+    Console().print(build_tree(path))
 
 
 if __name__ == '__main__':
-    main()
+    app()

@@ -30,7 +30,7 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install Python dependencies
-        run: python3.13 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests
+        run: python3.13 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests cyclopts rich
       - name: Configure with meson
         run: meson -Db_coverage=true -Dwith_tests=true -Dwith_experimental_zstd=true . build
       - name: Build (meson)

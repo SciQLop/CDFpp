@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install Python dependencies
-        run: python3.13 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests
+        run: python3.13 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests cyclopts rich
       - name: Configure with meson
         run: meson setup -Db_sanitize=address,undefined -Dwith_tests=true -Dwith_experimental_zstd=true build
       - name: Build
@@ -37,7 +37,7 @@ jobs:
           meson test -C build --print-errorlogs
           endianness simple_open majority chrono nomap records_loading records_saving
           rle_compression libdeflate_compression zlib_compression simple_save
-          zstd_compression structural_introspection
+          zstd_compression structural_introspection record_stream record_repr
           wacdfpp_astralint wacdfpp_diff wacdfpp_format wacdfpp_model wacdfpp_plot wacdfpp_yaml
       - name: Run Python-embedding tests under ASan+UBSan
         run: |
@@ -80,4 +80,4 @@ jobs:
           meson test -C build --print-errorlogs \
             python_loading python_saving python_skeletons python_variable_set_values \
             python_chrono python_windows_crash python_structural_introspection \
-            python_wrapper_cpp
+            python_debug python_wrapper_cpp

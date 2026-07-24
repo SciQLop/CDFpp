@@ -5,7 +5,7 @@ import unittest
 
 import pycdfpp
 import pycdfpp.debug as debug
-from pycdfpp.cli import dump
+from pycdfpp.cli import app, build_tree
 
 os.environ['TZ'] = 'UTC'
 
@@ -63,15 +63,30 @@ class DebugForEachRecordTest(unittest.TestCase):
         self.assertGreater(len(records), 0)
 
 
-class CliDumpTest(unittest.TestCase):
-    def test_dump_formats_every_record_and_field(self):
+class CliBuildTreeTest(unittest.TestCase):
+    def test_tree_has_one_node_per_record_with_field_leaves(self):
         path = os.path.join(_resources, 'a_cdf.cdf')
-        text = dump(path)
+        tree = build_tree(path)
 
-        self.assertIn('@8 CDR', text)
-        self.assertIn('Version: 3', text)
-        self.assertIn('Encoding: "IBMPC"', text)
-        self.assertIn('copyright: "', text)
+        self.assertEqual(tree.label, path)
+        self.assertEqual(len(tree.children), 89)
+
+        cdr_node = tree.children[0]
+        self.assertIn('@8', cdr_node.label)
+        self.assertIn('CDR', cdr_node.label)
+        field_labels = [leaf.label for leaf in cdr_node.children]
+        self.assertTrue(any('Version' in label and '3' in label for label in field_labels))
+        self.assertTrue(any('Encoding' in label and 'IBMPC' in label for label in field_labels))
+        self.assertTrue(any('copyright' in label for label in field_labels))
+
+    def test_cli_app_runs_end_to_end(self):
+        path = os.path.join(_resources, 'a_cdf.cdf')
+        # Exercises real argument parsing + console rendering, not just build_tree().
+        # cyclopts sys.exit()s on completion, like any CLI entry point - a clean exit
+        # (code 0) is success here, not a test error.
+        with self.assertRaises(SystemExit) as ctx:
+            app([path])
+        self.assertEqual(ctx.exception.code, 0)
 
 
 if __name__ == '__main__':
