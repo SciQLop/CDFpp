@@ -83,6 +83,55 @@ SCENARIO("for_each_record walks a well-formed v3 CDF's records in physical order
     }
 }
 
+SCENARIO("zVDR PadValues is read from disk instead of hardcoded empty", "[record_stream]")
+{
+    GIVEN("a_cdf.cdf's \"var\" zVariable, whose VDR Flags has the pad-value bit set")
+    {
+        const std::string path = std::string(DATA_PATH) + "/a_cdf.cdf";
+        bool found = false;
+        std::size_t found_offset = 0;
+        std::size_t pad_size = 0;
+        std::vector<char> pad_bytes;
+        int32_t flags = 0;
+
+        for_each_record(
+            path,
+            [&](std::size_t offset, const auto& record)
+            {
+                using T = std::decay_t<decltype(record)>;
+                if constexpr (std::is_same_v<T, cdf::io::cdf_zVDR_t<v3x_tag>>)
+                {
+                    if (record.Name.value == "var")
+                    {
+                        found = true;
+                        found_offset = offset;
+                        flags = record.Flags;
+                        pad_size = record.PadValues.size();
+                        pad_bytes.assign(record.PadValues.data(),
+                            record.PadValues.data() + record.PadValues.size());
+                    }
+                }
+            });
+
+        THEN("the VDR is the one expected at the known fixed offset, with the pad-value flag set")
+        {
+            REQUIRE(found);
+            REQUIRE(found_offset == 404);
+            REQUIRE((flags & 2) == 2);
+        }
+        THEN("PadValues holds cdf_type_size(DataType)*NumElems=8 raw bytes, matching the real "
+             "on-disk pad value (verified against NASA's cdfirsdump: -1.0e+30, little-endian "
+             "per this fixture's IBMPC encoding)")
+        {
+            REQUIRE(pad_size == 8);
+            const std::vector<char> expected {
+                '\xea', '\x8c', '\xa0', '\x39', '\x59', '\x3e', '\x29', '\xc6'
+            };
+            REQUIRE(pad_bytes == expected);
+        }
+    }
+}
+
 SCENARIO("for_each_record handles compressed CDFs", "[record_stream]")
 {
     GIVEN("a real compressed v3 fixture")

@@ -99,6 +99,11 @@ SCENARIO("print_record generically prints every field of a real record by name",
             REQUIRE(out.find('[') != std::string::npos);
             REQUIRE(out.find(']') != std::string::npos);
         }
+        THEN("the on-disk PadValues bytes render with a real byte count, not the hardcoded-empty "
+             "placeholder this fixture's \"var\" zVariable used to report")
+        {
+            REQUIRE(out.find("PadValues: <8 bytes>") != std::string::npos);
+        }
     }
     GIVEN("an undecoded (SPR/UIR) record placeholder")
     {

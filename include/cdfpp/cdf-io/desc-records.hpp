@@ -270,16 +270,16 @@ struct cdf_rVDR_t
     cdf_string_field_t<version_t, 256, 64> Name;
 
     cpp_utils::serde::dynamic_array<0, int32_t> DimVarys;
-    cpp_utils::serde::dynamic_array<1, int32_t> PadValues;
+    cpp_utils::serde::dynamic_array_bytes<1, char> PadValues;
 
     std::size_t field_size(const cpp_utils::serde::dynamic_array<0, int32_t>&,
         const vdr_context_t<version_t>& ctx) const
     {
         return ctx.rNumDims;
     }
-    constexpr std::size_t field_size(const cpp_utils::serde::dynamic_array<1, int32_t>&) const
+    constexpr std::size_t field_size(const cpp_utils::serde::dynamic_array_bytes<1, char>&) const
     {
-        return 0;
+        return (Flags & 2) ? cdf_type_size(DataType) * NumElems : 0;
     }
     constexpr std::size_t field_size(const cpp_utils::serde::dynamic_array<9, char>&) const
     {
@@ -314,7 +314,7 @@ struct cdf_zVDR_t
     int32_t zNumDims;
     cpp_utils::serde::dynamic_array<0, int32_t> zDimSizes;
     cpp_utils::serde::dynamic_array<1, int32_t> DimVarys;
-    cpp_utils::serde::dynamic_array<2, int32_t> PadValues;
+    cpp_utils::serde::dynamic_array_bytes<2, char> PadValues;
 
     std::size_t field_size(const cpp_utils::serde::dynamic_array<0, int32_t>&) const
     {
@@ -324,9 +324,9 @@ struct cdf_zVDR_t
     {
         return this->zNumDims;
     }
-    constexpr std::size_t field_size(const cpp_utils::serde::dynamic_array<2, int32_t>&) const
+    constexpr std::size_t field_size(const cpp_utils::serde::dynamic_array_bytes<2, char>&) const
     {
-        return 0;
+        return (Flags & 2) ? cdf_type_size(DataType) * NumElems : 0;
     }
     constexpr std::size_t field_size(const cpp_utils::serde::dynamic_array<9, char>&) const
     {
