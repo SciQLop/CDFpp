@@ -1,0 +1,1261 @@
+
+Scanning records...
+
+Magic number (1): 0xCDF30001
+Magic number (2): 0x0000FFFF
+
+RecordSize: 312 (@ 00000000000000000008)
+RecordType: 1 (CDR)
+GDRoffset: 00000000000000000320
+Version: 3
+Release: 9
+Encoding: 6 (IBMPC)
+Flags: 0x3 (Row,Single)
+rfuA: 0
+rfuB: 0
+Increment: 0
+Identifier: -1(CDFcore)
+rfuE: -1
+copyright...
+
+Common Data Format (CDF)
+https://cdf.gsfc.nasa.gov
+Space Physics Data Facility
+NASA/Goddard Space Flight Center
+Greenbelt, Maryland 20771 USA
+...followed by all NULs.
+
+RecordSize: 84 (@ 00000000000000000320)
+RecordType: 2 (GDR)
+rVDRhead: 00000000000000000000
+zVDRhead: 00000000000000000404
+ADRhead: 00000000000000009100
+eof: 00000000000000123070
+NumRvars: 0
+NumAttr: 14
+rMaxRec: -1
+rNumDims: 0
+NumZvars: 18
+UIRhead: 00000000000000000000
+rfuC: 0
+LeapSecondLastUpdated: 20170101
+rfuE: -1
+
+RecordSize: 352 (@ 00000000000000000404)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000009885
+DataType: 45 (DOUBLE)
+MaxRec: 100
+VXRhead: 00000000000000000756
+VXRtail: 00000000000000000756
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 0
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var"
+zNumDims: 0
+PadValue:  (0xC6293E5939A08CEA) -1.0e+30
+
+RecordSize: 140 (@ 00000000000000000756)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0     1023      00000000000000000896
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8204 (@ 00000000000000000896)
+RecordType: 7 (VVR)
+uSize: 8192
+
+RecordSize: 324 (@ 00000000000000009100)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000009500
+AgrEDRhead: 00000000000000000000
+Scope: 2 (Variable)
+Num: 0
+NumRentries: 0
+MaxRentry: -1
+rfuA: 0
+AzEDRhead: 00000000000000009424
+NumZentries: 1
+MaxZentry: 0
+rfuE: -1
+Name: "var_attr"
+
+RecordSize: 76 (@ 00000000000000009424)
+RecordType: 9 (AzEDR)
+AzEDRnext: 00000000000000000000
+AttrNum: 0
+DataType: 51 (CHAR)
+Num: 0
+NumElems: 20
+NumStrings: 1
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "a variable attribute" (61207661726961626C6520617474726962757465)
+
+RecordSize: 324 (@ 00000000000000009500)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000018581
+AgrEDRhead: 00000000000000000000
+Scope: 2 (Variable)
+Num: 1
+NumRentries: 0
+MaxRentry: -1
+rfuA: 0
+AzEDRhead: 00000000000000009824
+NumZentries: 1
+MaxZentry: 0
+rfuE: -1
+Name: "DEPEND0"
+
+RecordSize: 61 (@ 00000000000000009824)
+RecordType: 9 (AzEDR)
+AzEDRnext: 00000000000000000000
+AttrNum: 1
+DataType: 51 (CHAR)
+Num: 0
+NumElems: 5
+NumStrings: 1
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "epoch" (65706F6368)
+
+RecordSize: 352 (@ 00000000000000009885)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000018972
+DataType: 31 (EPOCH)
+MaxRec: 100
+VXRhead: 00000000000000010237
+VXRtail: 00000000000000010237
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 1
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "epoch"
+zNumDims: 0
+PadValue:  (0x0000000000000000) 0000-01-01T00:00:00.000
+
+RecordSize: 140 (@ 00000000000000010237)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0     1023      00000000000000010377
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8204 (@ 00000000000000010377)
+RecordType: 7 (VVR)
+uSize: 8192
+
+RecordSize: 324 (@ 00000000000000018581)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000053454
+AgrEDRhead: 00000000000000000000
+Scope: 2 (Variable)
+Num: 2
+NumRentries: 0
+MaxRentry: -1
+rfuA: 0
+AzEDRhead: 00000000000000018905
+NumZentries: 5
+MaxZentry: 7
+rfuE: -1
+Name: "attr1"
+
+RecordSize: 67 (@ 00000000000000018905)
+RecordType: 9 (AzEDR)
+AzEDRnext: 00000000000000027661
+AttrNum: 2
+DataType: 51 (CHAR)
+Num: 1
+NumElems: 11
+NumStrings: 1
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "attr1_value" (61747472315F76616C7565)
+
+RecordSize: 345 (@ 00000000000000018972)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000027728
+DataType: 41 (BYTE)
+MaxRec: 9
+VXRhead: 00000000000000019317
+VXRtail: 00000000000000019317
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 2
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "bytes"
+zNumDims: 0
+PadValue:  (0x81) -127
+
+RecordSize: 140 (@ 00000000000000019317)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0     8191      00000000000000019457
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8204 (@ 00000000000000019457)
+RecordType: 7 (VVR)
+uSize: 8192
+
+RecordSize: 67 (@ 00000000000000027661)
+RecordType: 9 (AzEDR)
+AzEDRnext: 00000000000000044616
+AttrNum: 2
+DataType: 51 (CHAR)
+Num: 2
+NumElems: 11
+NumStrings: 1
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "attr1_value" (61747472315F76616C7565)
+
+RecordSize: 352 (@ 00000000000000027728)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000044683
+DataType: 45 (DOUBLE)
+MaxRec: 2047
+VXRhead: 00000000000000028080
+VXRtail: 00000000000000028080
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 3
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "zeros"
+zNumDims: 0
+PadValue:  (0xC6293E5939A08CEA) -1.0e+30
+
+RecordSize: 140 (@ 00000000000000028080)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0     2047      00000000000000028220
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 16396 (@ 00000000000000028220)
+RecordType: 7 (VVR)
+uSize: 16384
+
+RecordSize: 67 (@ 00000000000000044616)
+RecordType: 9 (AzEDR)
+AzEDRnext: 00000000000000053387
+AttrNum: 2
+DataType: 51 (CHAR)
+Num: 3
+NumElems: 11
+NumStrings: 1
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "attr1_value" (61747472315F76616C7565)
+
+RecordSize: 360 (@ 00000000000000044683)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000053845
+DataType: 45 (DOUBLE)
+MaxRec: 2
+VXRhead: 00000000000000045043
+VXRtail: 00000000000000045043
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 4
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var2d"
+zNumDims: 1
+ zDimSizes[0]: 4
+ DimVarys[0]: -1 (T)
+PadValue:  (0xC6293E5939A08CEA) -1.0e+30
+
+RecordSize: 140 (@ 00000000000000045043)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0      255      00000000000000045183
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8204 (@ 00000000000000045183)
+RecordType: 7 (VVR)
+uSize: 8192
+
+RecordSize: 67 (@ 00000000000000053387)
+RecordType: 9 (AzEDR)
+AzEDRnext: 00000000000000080521
+AttrNum: 2
+DataType: 51 (CHAR)
+Num: 4
+NumElems: 11
+NumStrings: 1
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "attr1_value" (61747472315F76616C7565)
+
+RecordSize: 324 (@ 00000000000000053454)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000062573
+AgrEDRhead: 00000000000000000000
+Scope: 2 (Variable)
+Num: 3
+NumRentries: 0
+MaxRentry: -1
+rfuA: 0
+AzEDRhead: 00000000000000053778
+NumZentries: 2
+MaxZentry: 7
+rfuE: -1
+Name: "attr2"
+
+RecordSize: 67 (@ 00000000000000053778)
+RecordType: 9 (AzEDR)
+AzEDRnext: 00000000000000080588
+AttrNum: 3
+DataType: 51 (CHAR)
+Num: 4
+NumElems: 11
+NumStrings: 1
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "attr2_value" (61747472325F76616C7565)
+
+RecordSize: 368 (@ 00000000000000053845)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000062969
+DataType: 45 (DOUBLE)
+MaxRec: 3
+VXRhead: 00000000000000054213
+VXRtail: 00000000000000054213
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 5
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var3d"
+zNumDims: 2
+ zDimSizes[0]: 3
+ zDimSizes[1]: 2
+ DimVarys[0]: -1 (T)
+ DimVarys[1]: -1 (T)
+PadValue:  (0xC6293E5939A08CEA) -1.0e+30
+
+RecordSize: 140 (@ 00000000000000054213)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0      170      00000000000000054353
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8220 (@ 00000000000000054353)
+RecordType: 7 (VVR)
+uSize: 8208
+
+RecordSize: 324 (@ 00000000000000062573)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000119104
+AgrEDRhead: 00000000000000000000
+Scope: 2 (Variable)
+Num: 4
+NumRentries: 0
+MaxRentry: -1
+rfuA: 0
+AzEDRhead: 00000000000000062897
+NumZentries: 1
+MaxZentry: 5
+rfuE: -1
+Name: "var3d_attr_multi"
+
+RecordSize: 72 (@ 00000000000000062897)
+RecordType: 9 (AzEDR)
+AzEDRnext: 00000000000000000000
+AttrNum: 4
+DataType: 45 (DOUBLE)
+Num: 5
+NumElems: 2
+rfuA: 0
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: 10.0, 11.0
+
+RecordSize: 360 (@ 00000000000000062969)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000071721
+DataType: 45 (DOUBLE)
+MaxRec: 9
+VXRhead: 00000000000000063329
+VXRtail: 00000000000000063329
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 6
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var2d_counter"
+zNumDims: 1
+ zDimSizes[0]: 10
+ DimVarys[0]: -1 (T)
+PadValue:  (0xC6293E5939A08CEA) -1.0e+30
+
+RecordSize: 140 (@ 00000000000000063329)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0      102      00000000000000063469
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8252 (@ 00000000000000063469)
+RecordType: 7 (VVR)
+uSize: 8240
+
+RecordSize: 368 (@ 00000000000000071721)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000080655
+DataType: 45 (DOUBLE)
+MaxRec: 9
+VXRhead: 00000000000000072089
+VXRtail: 00000000000000072089
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 7
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var3d_counter"
+zNumDims: 2
+ zDimSizes[0]: 3
+ zDimSizes[1]: 5
+ DimVarys[0]: -1 (T)
+ DimVarys[1]: -1 (T)
+PadValue:  (0xC6293E5939A08CEA) -1.0e+30
+
+RecordSize: 140 (@ 00000000000000072089)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0       68      00000000000000072229
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8292 (@ 00000000000000072229)
+RecordType: 7 (VVR)
+uSize: 8280
+
+RecordSize: 67 (@ 00000000000000080521)
+RecordType: 9 (AzEDR)
+AzEDRnext: 00000000000000000000
+AttrNum: 2
+DataType: 51 (CHAR)
+Num: 7
+NumElems: 11
+NumStrings: 1
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "attr1_value" (61747472315F76616C7565)
+
+RecordSize: 67 (@ 00000000000000080588)
+RecordType: 9 (AzEDR)
+AzEDRnext: 00000000000000000000
+AttrNum: 3
+DataType: 51 (CHAR)
+Num: 7
+NumElems: 11
+NumStrings: 1
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "attr2_value" (61747472325F76616C7565)
+
+RecordSize: 384 (@ 00000000000000080655)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000089831
+DataType: 45 (DOUBLE)
+MaxRec: 5
+VXRhead: 00000000000000081039
+VXRtail: 00000000000000081039
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 8
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var5d_counter"
+zNumDims: 4
+ zDimSizes[0]: 5
+ zDimSizes[1]: 4
+ zDimSizes[2]: 3
+ zDimSizes[3]: 2
+ DimVarys[0]: -1 (T)
+ DimVarys[1]: -1 (T)
+ DimVarys[2]: -1 (T)
+ DimVarys[3]: -1 (T)
+PadValue:  (0xC6293E5939A08CEA) -1.0e+30
+
+RecordSize: 140 (@ 00000000000000081039)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0        8      00000000000000081179
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8652 (@ 00000000000000081179)
+RecordType: 7 (VVR)
+uSize: 8640
+
+RecordSize: 360 (@ 00000000000000089831)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000090359
+DataType: 52 (UCHAR)
+MaxRec: 0
+VXRhead: 00000000000000090191
+VXRtail: 00000000000000090191
+Flags: 0x2 (NOVARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 16
+Num: 9
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var_string_uchar"
+zNumDims: 0
+PadValue:  (0x20000000000000000000000000000000) " "
+
+RecordSize: 140 (@ 00000000000000090191)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0        0      00000000000000090331
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 28 (@ 00000000000000090331)
+RecordType: 7 (VVR)
+uSize: 16
+
+RecordSize: 360 (@ 00000000000000090359)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000090887
+DataType: 51 (CHAR)
+MaxRec: 0
+VXRhead: 00000000000000090719
+VXRtail: 00000000000000090719
+Flags: 0x2 (NOVARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 16
+Num: 10
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var_string"
+zNumDims: 0
+PadValue:  (0x20000000000000000000000000000000) " "
+
+RecordSize: 140 (@ 00000000000000090719)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0        0      00000000000000090859
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 28 (@ 00000000000000090859)
+RecordType: 7 (VVR)
+uSize: 16
+
+RecordSize: 370 (@ 00000000000000090887)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000091445
+DataType: 51 (CHAR)
+MaxRec: 0
+VXRhead: 00000000000000091257
+VXRtail: 00000000000000091257
+Flags: 0x2 (NOVARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 18
+Num: 11
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var2d_string"
+zNumDims: 1
+ zDimSizes[0]: 2
+ DimVarys[0]: -1 (T)
+PadValue:  (0x200000000000000000000000000000000000) " "
+
+RecordSize: 140 (@ 00000000000000091257)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0        0      00000000000000091397
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 48 (@ 00000000000000091397)
+RecordType: 7 (VVR)
+uSize: 36
+
+RecordSize: 369 (@ 00000000000000091445)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000092002
+DataType: 51 (CHAR)
+MaxRec: 0
+VXRhead: 00000000000000091814
+VXRtail: 00000000000000091814
+Flags: 0x2 (NOVARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 9
+Num: 12
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var3d_string"
+zNumDims: 2
+ zDimSizes[0]: 2
+ zDimSizes[1]: 2
+ DimVarys[0]: -1 (T)
+ DimVarys[1]: -1 (T)
+PadValue:  (0x200000000000000000) " "
+
+RecordSize: 140 (@ 00000000000000091814)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0        0      00000000000000091954
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 48 (@ 00000000000000091954)
+RecordType: 7 (VVR)
+uSize: 36
+
+RecordSize: 378 (@ 00000000000000092002)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000092652
+DataType: 51 (CHAR)
+MaxRec: 0
+VXRhead: 00000000000000092380
+VXRtail: 00000000000000092380
+Flags: 0x2 (NOVARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 10
+Num: 13
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var4d_string"
+zNumDims: 3
+ zDimSizes[0]: 3
+ zDimSizes[1]: 2
+ zDimSizes[2]: 2
+ DimVarys[0]: -1 (T)
+ DimVarys[1]: -1 (T)
+ DimVarys[2]: -1 (T)
+PadValue:  (0x20000000000000000000) " "
+
+RecordSize: 140 (@ 00000000000000092380)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0        0      00000000000000092520
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 132 (@ 00000000000000092520)
+RecordType: 7 (VVR)
+uSize: 120
+
+RecordSize: 360 (@ 00000000000000092652)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000093012
+DataType: 51 (CHAR)
+MaxRec: -1
+VXRhead: 00000000000000000000
+VXRtail: 00000000000000000000
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 16
+Num: 14
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "empty_var_recvary_string"
+zNumDims: 0
+PadValue:  (0x20000000000000000000000000000000) " "
+
+RecordSize: 347 (@ 00000000000000093012)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000101704
+DataType: 51 (CHAR)
+MaxRec: 2
+VXRhead: 00000000000000093359
+VXRtail: 00000000000000093359
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 3
+Num: 15
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "var_recvary_string"
+zNumDims: 0
+PadValue:  (0x200000) " "
+
+RecordSize: 140 (@ 00000000000000093359)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0     2730      00000000000000093499
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8205 (@ 00000000000000093499)
+RecordType: 7 (VVR)
+uSize: 8193
+
+RecordSize: 360 (@ 00000000000000101704)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000110408
+DataType: 32 (EPOCH16)
+MaxRec: 100
+VXRhead: 00000000000000102064
+VXRtail: 00000000000000102064
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 16
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "epoch16"
+zNumDims: 0
+PadValue: 0000-01-01T00:00:00.000000000000
+
+RecordSize: 140 (@ 00000000000000102064)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0      511      00000000000000102204
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8204 (@ 00000000000000102204)
+RecordType: 7 (VVR)
+uSize: 8192
+
+RecordSize: 352 (@ 00000000000000110408)
+RecordType: 8 (zVDR)
+zVDRnext: 00000000000000000000
+DataType: 33 (TT2000)
+MaxRec: 100
+VXRhead: 00000000000000110760
+VXRtail: 00000000000000110760
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 17
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "tt2000"
+zNumDims: 0
+PadValue:  (0x8000000000000001) 0000-01-01T00:00:00.000000000
+
+RecordSize: 140 (@ 00000000000000110760)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0     1023      00000000000000110900
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8204 (@ 00000000000000110900)
+RecordType: 7 (VVR)
+uSize: 8192
+
+RecordSize: 324 (@ 00000000000000119104)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000119504
+AgrEDRhead: 00000000000000000000
+Scope: 2 (Variable)
+Num: 5
+NumRentries: 0
+MaxRentry: -1
+rfuA: 0
+AzEDRhead: 00000000000000119428
+NumZentries: 1
+MaxZentry: 1
+rfuE: -1
+Name: "epoch_attr"
+
+RecordSize: 76 (@ 00000000000000119428)
+RecordType: 9 (AzEDR)
+AzEDRnext: 00000000000000000000
+AttrNum: 5
+DataType: 51 (CHAR)
+Num: 1
+NumElems: 20
+NumStrings: 1
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "a variable attribute" (61207661726961626C6520617474726962757465)
+
+RecordSize: 324 (@ 00000000000000119504)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000119904
+AgrEDRhead: 00000000000000119828
+Scope: 1 (Global)
+Num: 6
+NumRentries: 1
+MaxRentry: 0
+rfuA: 0
+AzEDRhead: 00000000000000000000
+NumZentries: 0
+MaxZentry: -1
+rfuE: -1
+Name: "attr"
+
+RecordSize: 76 (@ 00000000000000119828)
+RecordType: 5 (AgrEDR)
+AgrEDRnext: 00000000000000000000
+AttrNum: 6
+DataType: 51 (CHAR)
+Num: 0
+NumElems: 20
+NumStrings: 0
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "a cdf text attribute" (6120636466207465787420617474726962757465)
+
+RecordSize: 324 (@ 00000000000000119904)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000120364
+AgrEDRhead: 00000000000000120228
+Scope: 1 (Global)
+Num: 7
+NumRentries: 2
+MaxRentry: 1
+rfuA: 0
+AzEDRhead: 00000000000000000000
+NumZentries: 0
+MaxZentry: -1
+rfuE: -1
+Name: "attr_float"
+
+RecordSize: 68 (@ 00000000000000120228)
+RecordType: 5 (AgrEDR)
+AgrEDRnext: 00000000000000120296
+AttrNum: 7
+DataType: 44 (FLOAT)
+Num: 0
+NumElems: 3
+rfuA: 0
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: 1.0, 2.0, 3.0
+
+RecordSize: 68 (@ 00000000000000120296)
+RecordType: 5 (AgrEDR)
+AgrEDRnext: 00000000000000000000
+AttrNum: 7
+DataType: 44 (FLOAT)
+Num: 1
+NumElems: 3
+rfuA: 0
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: 4.0, 5.0, 6.0
+
+RecordSize: 324 (@ 00000000000000120364)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000120747
+AgrEDRhead: 00000000000000120688
+Scope: 1 (Global)
+Num: 8
+NumRentries: 1
+MaxRentry: 0
+rfuA: 0
+AzEDRhead: 00000000000000000000
+NumZentries: 0
+MaxZentry: -1
+rfuE: -1
+Name: "attr_int"
+
+RecordSize: 59 (@ 00000000000000120688)
+RecordType: 5 (AgrEDR)
+AgrEDRnext: 00000000000000000000
+AttrNum: 8
+DataType: 41 (BYTE)
+Num: 0
+NumElems: 3
+rfuA: 0
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: 1, 2, 3
+
+RecordSize: 324 (@ 00000000000000120747)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000121254
+AgrEDRhead: 00000000000000121071
+Scope: 1 (Global)
+Num: 9
+NumRentries: 3
+MaxRentry: 2
+rfuA: 0
+AzEDRhead: 00000000000000000000
+NumZentries: 0
+MaxZentry: -1
+rfuE: -1
+Name: "attr_multi"
+
+RecordSize: 58 (@ 00000000000000121071)
+RecordType: 5 (AgrEDR)
+AgrEDRnext: 00000000000000121129
+AttrNum: 9
+DataType: 41 (BYTE)
+Num: 0
+NumElems: 2
+rfuA: 0
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: 1, 2
+
+RecordSize: 64 (@ 00000000000000121129)
+RecordType: 5 (AgrEDR)
+AgrEDRnext: 00000000000000121193
+AttrNum: 9
+DataType: 44 (FLOAT)
+Num: 1
+NumElems: 2
+rfuA: 0
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: 2.0, 3.0
+
+RecordSize: 61 (@ 00000000000000121193)
+RecordType: 5 (AgrEDR)
+AgrEDRnext: 00000000000000000000
+AttrNum: 9
+DataType: 51 (CHAR)
+Num: 2
+NumElems: 5
+NumStrings: 0
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: "hello" (68656C6C6F)
+
+RecordSize: 324 (@ 00000000000000121254)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000121578
+AgrEDRhead: 00000000000000000000
+Scope: 1 (Global)
+Num: 10
+NumRentries: 0
+MaxRentry: -1
+rfuA: 0
+AzEDRhead: 00000000000000000000
+NumZentries: 0
+MaxZentry: -1
+rfuE: -1
+Name: "empty"
+
+RecordSize: 324 (@ 00000000000000121578)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000122046
+AgrEDRhead: 00000000000000121902
+Scope: 1 (Global)
+Num: 11
+NumRentries: 1
+MaxRentry: 0
+rfuA: 0
+AzEDRhead: 00000000000000000000
+NumZentries: 0
+MaxZentry: -1
+rfuE: -1
+Name: "epoch"
+
+RecordSize: 144 (@ 00000000000000121902)
+RecordType: 5 (AgrEDR)
+AgrEDRnext: 00000000000000000000
+AttrNum: 11
+DataType: 31 (EPOCH)
+Num: 0
+NumElems: 11
+rfuA: 0
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: 6.21672e+13 ==> 1970-01-01T00:00:00.000, ...
+
+RecordSize: 324 (@ 00000000000000122046)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000122602
+AgrEDRhead: 00000000000000122370
+Scope: 1 (Global)
+Num: 12
+NumRentries: 1
+MaxRentry: 0
+rfuA: 0
+AzEDRhead: 00000000000000000000
+NumZentries: 0
+MaxZentry: -1
+rfuE: -1
+Name: "epoch16"
+
+RecordSize: 232 (@ 00000000000000122370)
+RecordType: 5 (AgrEDR)
+AgrEDRnext: 00000000000000000000
+AttrNum: 12
+DataType: 32 (EPOCH16)
+Num: 0
+NumElems: 11
+rfuA: 0
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: 6.21672e+10 0 ==> 1970-01-01T00:00:00.000000000000, ...
+
+RecordSize: 324 (@ 00000000000000122602)
+RecordType: 4 (ADR)
+ADRnext: 00000000000000000000
+AgrEDRhead: 00000000000000122926
+Scope: 1 (Global)
+Num: 13
+NumRentries: 1
+MaxRentry: 0
+rfuA: 0
+AzEDRhead: 00000000000000000000
+NumZentries: 0
+MaxZentry: -1
+rfuE: -1
+Name: "tt2000"
+
+RecordSize: 144 (@ 00000000000000122926)
+RecordType: 5 (AgrEDR)
+AgrEDRnext: 00000000000000000000
+AttrNum: 13
+DataType: 33 (TT2000)
+Num: 0
+NumElems: 11
+rfuA: 0
+rfuB: 0
+rfuC: 0
+rfuD: -1
+rfuE: -1
+Value: -946727959814622001 ==> 1970-01-01T00:00:00.000000000, ...

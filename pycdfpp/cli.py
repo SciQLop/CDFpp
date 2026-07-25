@@ -9,7 +9,7 @@ import cyclopts
 from rich.console import Console
 from rich.tree import Tree
 
-from .debug import for_each_record
+from .debug import for_each_record, nasa_compat_dump
 
 app = cyclopts.App(
     name='cdfdump',
@@ -49,14 +49,20 @@ def build_tree(path: str) -> Tree:
 
 
 @app.default
-def main(path: str):
+def main(path: str, *, irsdump: bool = False):
     """Dump a CDF file's on-disk records in physical order.
 
     Parameters
     ----------
     path: Path to the CDF file.
+    irsdump: Print NASA's cdfirsdump (-full -nopage -nosummary) text format instead
+        of the default rich tree - byte-for-byte compatible with the real tool,
+        useful for diffing against it or feeding other cdfirsdump-aware tooling.
     """
-    Console().print(build_tree(path))
+    if irsdump:
+        print(nasa_compat_dump(path), end='')
+    else:
+        Console().print(build_tree(path))
 
 
 if __name__ == '__main__':

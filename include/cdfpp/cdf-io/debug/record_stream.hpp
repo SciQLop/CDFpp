@@ -91,9 +91,9 @@ struct default_corruption_handler
     }
 };
 
-// CDFpp doesn't model SPR (rarely-used sparseness parameters) or UIR (freed/unused
-// space CDF leaves behind rather than compacting) as full records - this carries just
-// enough to report and skip over them.
+// CDFpp doesn't model SPR (rarely-used sparseness parameters) as a full record - this
+// carries just enough to report and skip over it. UIR (freed/unused space) has its own
+// real struct (cdf_UIR_t, desc-records.hpp) and is decoded properly below.
 struct undecoded_record_t
 {
     cdf_record_type type;
@@ -104,7 +104,8 @@ template <typename version_t>
 using record_variant = std::variant<cdf_CDR_t<version_t>, cdf_GDR_t<version_t>,
     cdf_ADR_t<version_t>, cdf_AgrEDR_t<version_t>, cdf_AzEDR_t<version_t>,
     cdf_rVDR_t<version_t>, cdf_zVDR_t<version_t>, cdf_VXR_t<version_t>, cdf_VVR_t<version_t>,
-    cdf_CVVR_t<version_t>, cdf_CCR_t<version_t>, cdf_CPR_t<version_t>, undecoded_record_t>;
+    cdf_CVVR_t<version_t>, cdf_CCR_t<version_t>, cdf_CPR_t<version_t>, cdf_UIR_t<version_t>,
+    undecoded_record_t>;
 
 namespace details
 {
@@ -295,8 +296,14 @@ void for_each_record(buffer_t& buffer, version_t, std::size_t start_offset,
                 on_record(offset, r);
                 break;
             }
-            case SPR:
             case UIR:
+            {
+                cdf_UIR_t<version_t> r {};
+                load_record(r, buffer, offset);
+                on_record(offset, r);
+                break;
+            }
+            case SPR:
             default:
                 on_record(offset, undecoded_record_t { peek.record_type, record_size });
                 break;
@@ -310,11 +317,14 @@ namespace details
     // Mirrors loading.hpp's parse_cdf: for compressed files, the entire GDR-onward
     // record region (including a re-synthesized CDR at its original offset) is one
     // compressed blob attached to the CCR; decompression is a one-shot whole-buffer
-    // operation (cpp_utils/CDFpp have no incremental inflate today), so compressed
-    // files can't be walked as a true single-pass stream - only the *decompressed*
-    // content can be. The 8 magic bytes are copied ahead of the decompressed payload
-    // so absolute offsets recorded elsewhere in the file (GDRoffset, ADRhead, ...)
-    // stay valid against this reconstructed buffer.
+    // operation (cpp_utils/CDFpp have no incremental inflate today), so the *contents*
+    // of that blob can only be walked after decompressing, not as a true single-pass
+    // stream. The CCR and CPR themselves are real, physical records at their own real
+    // file offsets though (not merely internal decompression plumbing), so they are
+    // reported via on_record like everything else, before the decompressed walk
+    // begins. The 8 magic bytes are copied ahead of the decompressed payload so
+    // absolute offsets recorded elsewhere in the file (GDRoffset, ADRhead, ...) stay
+    // valid against this reconstructed buffer.
     template <typename version_t, typename buffer_t, typename on_record_t, typename on_corruption_t>
     void run_compressed(buffer_t& buffer, on_record_t&& on_record, on_corruption_t&& on_corruption)
     {
@@ -322,6 +332,8 @@ namespace details
         load_record(ccr, buffer, 8);
         cdf_CPR_t<version_t> cpr {};
         load_record(cpr, buffer, ccr.CPRoffset);
+        on_record(8UL, ccr);
+        on_record(static_cast<std::size_t>(ccr.CPRoffset), cpr);
         no_init_vector<char> data(8UL + ccr.uSize);
         buffer.read(data.data(), 0, 8);
         decompression::inflate(cpr.cType, ccr.data, data.data() + 8UL, std::size(data) - 8UL);

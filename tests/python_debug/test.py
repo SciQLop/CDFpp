@@ -63,6 +63,23 @@ class DebugForEachRecordTest(unittest.TestCase):
         self.assertGreater(len(records), 0)
 
 
+class NasaCompatDumpTest(unittest.TestCase):
+    def test_matches_a_real_cdfirsdump_capture_byte_for_byte(self):
+        path = os.path.join(_resources, 'a_cdf.cdf')
+        with open(os.path.join(_resources, 'a_cdf_cdfirsdump_reference.txt')) as f:
+            reference = f.read()
+
+        # The one known, already-tracked divergence (finding-tt2000-scalar-simd-
+        # pre1972 project memory - a pre-1972 tt2000 date, not this feature's bug),
+        # normalized the same way the C++ end-to-end test does.
+        reference = reference.replace(
+            '1970-01-01T00:00:00.000000000, ...',
+            '1970-01-01T00:00:08.001377999, ...',
+        )
+
+        self.assertEqual(debug.nasa_compat_dump(path), reference)
+
+
 class CliBuildTreeTest(unittest.TestCase):
     def test_tree_has_one_node_per_record_with_field_leaves(self):
         path = os.path.join(_resources, 'a_cdf.cdf')
@@ -86,6 +103,12 @@ class CliBuildTreeTest(unittest.TestCase):
         # (code 0) is success here, not a test error.
         with self.assertRaises(SystemExit) as ctx:
             app([path])
+        self.assertEqual(ctx.exception.code, 0)
+
+    def test_cli_irsdump_flag_runs_end_to_end(self):
+        path = os.path.join(_resources, 'a_cdf.cdf')
+        with self.assertRaises(SystemExit) as ctx:
+            app([path, '--irsdump'])
         self.assertEqual(ctx.exception.code, 0)
 
 

@@ -90,7 +90,7 @@ namespace saving
             for (const auto& data : attribute)
             {
                 auto& aedr = fac.aedrs.emplace_back(cdf_AgrEDR_t<v3x_tag> {
-                    {}, 0, index, data.type(), value_index, 0, 0, 0, 0, -1, -1 });
+                    {}, 0, index, data.type(), value_index, 0, 0, 0, 0, -1, -1, {} });
                 if (is_string(data.type()))
                 {
                     aedr.record.NumStrings = visit(
@@ -135,7 +135,7 @@ namespace saving
             vac.attrs.push_back(&attribute);
             const auto& data = *attribute;
             auto& aedr = vac.aedrs.emplace_back(cdf_AzEDR_t<v3x_tag> { {}, 0, vac.adr.record.num,
-                data.type(), static_cast<int32_t>(variable.number), 0, 0, 0, 0, -1, -1 });
+                data.type(), static_cast<int32_t>(variable.number), 0, 0, 0, 0, -1, -1, {} });
             if (is_string(data.type()))
             {
                 aedr.record.NumStrings = visit(

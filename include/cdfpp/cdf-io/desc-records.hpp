@@ -192,6 +192,18 @@ struct cdf_AgrEDR_t
     cpp_utils::serde::unused<int32_t> rfC;
     cpp_utils::serde::unused<int32_t> rfD;
     cpp_utils::serde::unused<int32_t> rfE;
+    // The entry's actual attribute value, trailing the fixed header. loading/attribute.hpp's
+    // load_data() independently re-reads these same bytes today via raw offset arithmetic
+    // (offset + packed_size(AEDR)) rather than this field - a small, harmless duplicate read,
+    // not a correctness issue (see save_field's dynamic_array_bytes_field overload: it writes
+    // from the container's own size(), never from field_size(), so this field being
+    // unpopulated at save-construction time changes nothing about what gets written).
+    cpp_utils::serde::dynamic_array_bytes<0, char> Value;
+
+    constexpr std::size_t field_size(const cpp_utils::serde::dynamic_array_bytes<0, char>&) const
+    {
+        return cdf_type_size(DataType) * NumElements;
+    }
 };
 
 template <typename version_t>
@@ -211,6 +223,18 @@ struct cdf_AzEDR_t
     cpp_utils::serde::unused<int32_t> rfC;
     cpp_utils::serde::unused<int32_t> rfD;
     cpp_utils::serde::unused<int32_t> rfE;
+    // The entry's actual attribute value, trailing the fixed header. loading/attribute.hpp's
+    // load_data() independently re-reads these same bytes today via raw offset arithmetic
+    // (offset + packed_size(AEDR)) rather than this field - a small, harmless duplicate read,
+    // not a correctness issue (see save_field's dynamic_array_bytes_field overload: it writes
+    // from the container's own size(), never from field_size(), so this field being
+    // unpopulated at save-construction time changes nothing about what gets written).
+    cpp_utils::serde::dynamic_array_bytes<0, char> Value;
+
+    constexpr std::size_t field_size(const cpp_utils::serde::dynamic_array_bytes<0, char>&) const
+    {
+        return cdf_type_size(DataType) * NumElements;
+    }
 };
 
 template <typename... T, typename U = cdf_DR_header<T...>>
@@ -433,6 +457,23 @@ struct cdf_CPR_t
     {
         return this->pCount;
     }
+};
+
+// Freed/unused space a CDF leaves behind rather than compacting - a doubly-linked list
+// of gaps between real records (Next/Prev, both file offsets; 0 = no more/none). The
+// semantic loader (records-loading.hpp) never needs this - it only follows the
+// ADRhead/VDRhead/VXRnext pointer chains that skip over free space entirely - but the
+// debug record-stream walker (record_stream.hpp) reports every physical record
+// including UIRs, so this is modeled purely for that consumer.
+template <typename version_t>
+struct cdf_UIR_t
+{
+    using cdf_version_t = version_t;
+    inline static constexpr bool v3 = is_v3_v<version_t>;
+    using endianness = cdf_record_endianness;
+    cdf_DR_header<version_t, cdf_record_type::UIR> header;
+    cdf_offset_field_t<version_t> Next;
+    cdf_offset_field_t<version_t> Prev;
 };
 
 template <typename T, typename = void>

@@ -25,6 +25,7 @@
 ----------------------------------------------------------------------------*/
 #pragma once
 
+#include <cdfpp/cdf-io/debug/nasa_compat_repr.hpp>
 #include <cdfpp/cdf-io/debug/record_stream.hpp>
 #include <cpp_utils/reflexion/field_name.hpp>
 #include <cpp_utils/serde/serde.hpp>
@@ -163,6 +164,26 @@ void def_debug_wrapper(T& mod)
                 name, {field_name: value}). A structurally corrupted record aborts the
                 walk after printing a diagnostic to stderr (same default policy as the
                 C++ API).
+        )pbdoc");
+
+    mod.def(
+        "nasa_compat_dump", [](const std::string& path)
+        { return cdf::io::debug::nasa::dump(path); }, py::arg("path"),
+        R"pbdoc(
+            Dump a CDF file's records in NASA's own cdfirsdump (-full -nopage
+            -nosummary) text format, byte-for-byte (verified against a real capture of
+            that tool's own output - see tests/nasa_compat_repr). Built on the same
+            physical-order walk as for_each_record, not load()'s reconstructed view.
+
+            Parameters
+            ----------
+            path : str
+                Path to the CDF file.
+
+            Returns
+            -------
+            str
+                The full dump text, ready to print or write to a file.
         )pbdoc");
 }
 

@@ -9,7 +9,7 @@ catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
 
 foreach test_name:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving',
               'rle_compression', 'libdeflate_compression', 'zlib_compression', 'simple_save', 'zstd_compression',
-              'structural_introspection', 'record_stream', 'record_repr']
+              'structural_introspection', 'record_stream', 'record_repr', 'nasa_compat_repr']
     exe = executable('test-'+test_name, test_name+'/main.cpp',
                     dependencies:[catch_dep, cdfpp_dep],
                     install: false

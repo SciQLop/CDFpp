@@ -132,6 +132,81 @@ SCENARIO("zVDR PadValues is read from disk instead of hardcoded empty", "[record
     }
 }
 
+SCENARIO("AzEDR/AgrEDR Value is read from disk instead of being entirely absent", "[record_stream]")
+{
+    GIVEN("a_cdf.cdf's \"var_attr\" attribute's zEntry (a CDF_CHAR value)")
+    {
+        const std::string path = std::string(DATA_PATH) + "/a_cdf.cdf";
+        bool found = false;
+        std::size_t found_offset = 0;
+        std::vector<char> value_bytes;
+
+        for_each_record(
+            path,
+            [&](std::size_t offset, const auto& record)
+            {
+                using T = std::decay_t<decltype(record)>;
+                if constexpr (std::is_same_v<T, cdf::io::cdf_AzEDR_t<v3x_tag>>)
+                {
+                    if (!found)
+                    {
+                        found = true;
+                        found_offset = offset;
+                        value_bytes.assign(
+                            record.Value.data(), record.Value.data() + record.Value.size());
+                    }
+                }
+            });
+
+        THEN("the AzEDR is the one expected at the known fixed offset")
+        {
+            REQUIRE(found);
+            REQUIRE(found_offset == 9424);
+        }
+        THEN("Value holds cdf_type_size(DataType)*NumElements=20 raw bytes, matching the real "
+             "on-disk entry value (verified by locating the raw ASCII bytes directly in the "
+             "fixture file, independent of NASA's cdfirsdump display)")
+        {
+            const std::vector<char> expected(
+                { 'a', ' ', 'v', 'a', 'r', 'i', 'a', 'b', 'l', 'e', ' ', 'a', 't', 't', 'r', 'i',
+                    'b', 'u', 't', 'e' });
+            REQUIRE(value_bytes == expected);
+        }
+    }
+}
+
+SCENARIO("UIR (freed space) records are decoded, not just skipped as undecoded_record_t",
+    "[record_stream]")
+{
+    GIVEN("testutf8.cdf, which has 3 real UIR records (checksum-enabled fixture)")
+    {
+        const std::string path = std::string(DATA_PATH) + "/testutf8.cdf";
+        std::vector<std::tuple<std::size_t, int64_t, int64_t>> uirs;
+
+        for_each_record(
+            path,
+            [&](std::size_t offset, const auto& record)
+            {
+                using T = std::decay_t<decltype(record)>;
+                if constexpr (std::is_same_v<T, cdf::io::cdf_UIR_t<v3x_tag>>)
+                    uirs.emplace_back(offset, static_cast<int64_t>(record.Next),
+                        static_cast<int64_t>(record.Prev));
+            },
+            [](const corruption_report&)
+            { return recovery_action { recovery_action::kind_t::abort }; });
+
+        THEN("all 3 are found, decoded with real Next/Prev pointers, matching NASA's "
+             "cdfirsdump ground truth exactly")
+        {
+            REQUIRE(uirs.size() == 3);
+            REQUIRE(uirs[0] == std::tuple { std::size_t { 10964 }, int64_t { 11478 }, int64_t { 0 } });
+            REQUIRE(uirs[1]
+                == std::tuple { std::size_t { 11478 }, int64_t { 12164 }, int64_t { 10964 } });
+            REQUIRE(uirs[2] == std::tuple { std::size_t { 12164 }, int64_t { 0 }, int64_t { 11478 } });
+        }
+    }
+}
+
 SCENARIO("for_each_record handles compressed CDFs", "[record_stream]")
 {
     GIVEN("a real compressed v3 fixture")
@@ -160,6 +235,26 @@ SCENARIO("for_each_record handles compressed CDFs", "[record_stream]")
             REQUIRE(n_records > 0);
             REQUIRE(saw_cdr);
             REQUIRE(saw_gdr);
+        }
+        THEN("the CCR and CPR that drive decompression are themselves visible to the caller, "
+             "not just consumed internally - they are real, physical on-disk records at their "
+             "own real offsets, same as everything else this walker reports")
+        {
+            std::vector<std::pair<std::size_t, cdf::cdf_record_type>> seen;
+            for_each_record(
+                path,
+                [&](std::size_t offset, const auto& record)
+                {
+                    using T = std::decay_t<decltype(record)>;
+                    if constexpr (std::is_same_v<T, cdf::io::cdf_CCR_t<v3x_tag>>)
+                        seen.emplace_back(offset, cdf::cdf_record_type::CCR);
+                    if constexpr (std::is_same_v<T, cdf::io::cdf_CPR_t<v3x_tag>>)
+                        seen.emplace_back(offset, cdf::cdf_record_type::CPR);
+                });
+
+            REQUIRE(seen.size() == 2);
+            REQUIRE(seen[0] == std::pair { std::size_t { 8 }, cdf::cdf_record_type::CCR });
+            REQUIRE(seen[1] == std::pair { std::size_t { 6128 }, cdf::cdf_record_type::CPR });
         }
     }
 }

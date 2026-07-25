@@ -37,7 +37,7 @@ jobs:
           meson test -C build --print-errorlogs
           endianness simple_open majority chrono nomap records_loading records_saving
           rle_compression libdeflate_compression zlib_compression simple_save
-          zstd_compression structural_introspection record_stream record_repr
+          zstd_compression structural_introspection record_stream record_repr nasa_compat_repr
           wacdfpp_astralint wacdfpp_diff wacdfpp_format wacdfpp_model wacdfpp_plot wacdfpp_yaml
       - name: Run Python-embedding tests under ASan+UBSan
         run: |

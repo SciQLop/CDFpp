@@ -9,5 +9,6 @@ tools like cdfdump, or diagnosing a file ``load()`` itself can't fully parse.
 from . import _pycdfpp
 
 for_each_record = _pycdfpp.debug_for_each_record
+nasa_compat_dump = _pycdfpp.nasa_compat_dump
 
-__all__ = ['for_each_record']
+__all__ = ['for_each_record', 'nasa_compat_dump']

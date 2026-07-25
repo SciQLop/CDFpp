@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install Python dependencies
-        run: python -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt
+        run: python -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt cyclopts rich
       - name: Configure with meson
         run: >
           meson setup
