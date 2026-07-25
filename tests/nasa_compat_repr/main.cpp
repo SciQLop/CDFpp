@@ -25,6 +25,21 @@ SCENARIO("nasa_offset formats file offsets like cdfirsdump's Deci64 (%020lld)", 
     }
 }
 
+SCENARIO("nasa_offset supports cdfirsdump's hex radix (real flag: -16, not -radix)",
+    "[nasa_compat_repr]")
+{
+    THEN("radix=10 (default) is unchanged")
+    {
+        REQUIRE(nasa_offset(320, dump_options { .radix = 10 }) == "00000000000000000320");
+    }
+    THEN("radix=16 renders 0x + 16 uppercase hex digits, two's-complement for negatives")
+    {
+        REQUIRE(nasa_offset(320, dump_options { .radix = 16 }) == "0x0000000000000140");
+        REQUIRE(nasa_offset(-1, dump_options { .radix = 16 }) == "0xFFFFFFFFFFFFFFFF");
+        REQUIRE(nasa_offset(0, dump_options { .radix = 16 }) == "0x0000000000000000");
+    }
+}
+
 SCENARIO("nasa_data_type_name mirrors cdfirsdump's DataTypeToken", "[nasa_compat_repr]")
 {
     THEN("every CDF_Types value used in real fixtures maps to its short NASA mnemonic")

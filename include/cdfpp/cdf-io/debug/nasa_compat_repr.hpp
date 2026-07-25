@@ -58,13 +58,27 @@
 namespace cdf::io::debug::nasa
 {
 
+// A dump()'s-worth of formatting knobs threaded through every print_nasa overload.
+// radix: 10 (default, cdfirsdump's own default) or 16 - the real tool's flags are the
+// bare numerals -10/-16 (qualifier names DECIqual/HEXAqual in cdfirsdump.c), not a
+// named -radix flag; this project's own CLI renames them to --radix {10,16} (modern
+// flag syntax, see the Phase A design spec) but the underlying feature and its exact
+// "0x%016llX" hex format are real, verified against a real capture.
+struct dump_options
+{
+    int radix = 10;
+    bool show_data = false;
+};
+
 // Deci64(OFF_T): snprintf(..., "%020lld", value) - width 20, zero-padded, sign
 // (if any) consumes one of the 20 slots, exactly like C's printf. Every
 // offset-shaped field in cdfirsdump (record offsets, *head/*next/*tail
 // pointers, CPRorSPRoffset, VXR entry Offset column, ...) goes through this
 // one function - there is no field-specific offset formatting anywhere.
-inline std::string nasa_offset(int64_t value)
+inline std::string nasa_offset(int64_t value, const dump_options& opts = {})
 {
+    if (opts.radix == 16)
+        return fmt::format("0x{:016X}", static_cast<uint64_t>(value));
     return fmt::format("{:020d}", value);
 }
 
