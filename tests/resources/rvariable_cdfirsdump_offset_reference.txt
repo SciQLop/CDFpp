@@ -1,0 +1,40 @@
+
+RecordSize: 344 (@ 00000000000000000404)
+RecordType: 3 (rVDR)
+rVDRnext: 00000000000000000000
+DataType: 4 (INT4)
+MaxRec: 3
+VXRhead: 00000000000000000748
+VXRtail: 00000000000000000748
+Flags: 0x3 (VARY,PadValue,NoSparseArrays,NoCompression)
+sRecords: 0 (No-Sparse Record)
+rfuB: 0
+rfuC: -1
+rfuF: -1
+NumElems: 1
+Num: 0
+CPRorSPRoffset: -0000000000000000001
+BlockingFactor: 0
+Name: "legacy_rvar"
+PadValue:  (0x01000080) -2147483647
+
+RecordSize: 140 (@ 00000000000000000748)
+RecordType: 6 (VXR)
+VXRnext: 00000000000000000000
+Nentries: 7
+NusedEntries: 1
+
+  Entry  FirstRec  LastRec           Offset
+      0         0     2047      00000000000000000888
+      1        -1       -1      -0000000000000000001
+      2        -1       -1      -0000000000000000001
+      3        -1       -1      -0000000000000000001
+      4        -1       -1      -0000000000000000001
+      5        -1       -1      -0000000000000000001
+      6        -1       -1      -0000000000000000001
+
+RecordSize: 8204 (@ 00000000000000000888)
+RecordType: 7 (VVR)
+uSize: 8192
+
+EOF encountered.

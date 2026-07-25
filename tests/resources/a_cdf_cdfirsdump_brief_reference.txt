@@ -1,0 +1,29 @@
+
+Scanning records...
+
+
+
+Summary...
+
+  Total bytes: 123070 (+16 if with checksum)
+   Used bytes: 123070, 100.000%
+ Unused bytes:      0,   0.000%
+
+     IR count:     89
+
+    CCR count:      0,      0 bytes,  0.000%
+    CDR count:      1,    312 bytes,  0.254%
+    GDR count:      1,     84 bytes,  0.068%
+    ADR count:     14,   4536 bytes,  3.686%
+ AgrEDR count:     10,    974 bytes,  0.791%
+  AzEDR count:     11,    754 bytes,  0.613%
+   rVDR count:      0,      0 bytes,  0.000%
+   zVDR count:     18,   6497 bytes,  5.279%
+    VXR count:     17,   2380 bytes,  1.934%
+    VVR count:     17, 107525 bytes, 87.369%
+   CVVR count:      0,      0 bytes,  0.000%
+    CPR count:      0,      0 bytes,  0.000%
+    SPR count:      0,      0 bytes,  0.000%
+    UIR count:      0,      0 bytes,  0.000%
+
+
