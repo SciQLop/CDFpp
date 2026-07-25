@@ -745,3 +745,23 @@ SCENARIO("dump() reproduces cdfirsdump -full -nopage -nosummary byte-for-byte, e
         }
     }
 }
+
+SCENARIO("dump() with radix=16 reproduces a real hex-radix cdfirsdump capture, end to end",
+    "[nasa_compat_repr]")
+{
+    GIVEN("a real captured -16 run of rvariable.cdf")
+    {
+        const std::string cdf_path = std::string(DATA_PATH) + "/rvariable.cdf";
+        const std::string reference_path
+            = std::string(DATA_PATH) + "/rvariable_cdfirsdump_hex_reference.txt";
+        std::ifstream f { reference_path, std::ios::binary };
+        REQUIRE(f.is_open());
+        std::string reference { std::istreambuf_iterator<char> { f },
+            std::istreambuf_iterator<char> {} };
+
+        THEN("dump() with radix=16 matches it exactly")
+        {
+            REQUIRE(dump(cdf_path, dump_options { .radix = 16 }) == reference);
+        }
+    }
+}

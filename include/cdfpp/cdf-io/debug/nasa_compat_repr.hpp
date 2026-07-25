@@ -233,8 +233,7 @@ inline std::string nasa_cdr_flags_str(
     constexpr int CDR_CHECKSUM_MD5_BIT = 3;
     constexpr int CDR_CHECKSUM_OTHER_BIT = 4;
 
-    const bool at_least_3_2_0
-        = std::tie(version, release, increment) >= std::tuple { 3, 2, 0 };
+    const bool at_least_3_2_0 = std::tie(version, release, increment) >= std::tuple { 3, 2, 0 };
 
     std::string s = fmt::format("0x{:x} (", flags);
     if (at_least_3_2_0 && bit_set(flags, CDR_CHECKSUM_BIT))
@@ -319,22 +318,23 @@ inline void print_nasa_magic_preamble(std::ostream& os, buffer_t& buffer)
 // blank line is baked into the first format string, which is what produces
 // exactly one blank line before every record, uniformly, including before
 // the very first one (right after the magic-number preamble above).
-inline void print_nasa_header(
-    std::ostream& os, std::int64_t record_size, std::size_t offset, cdf::cdf_record_type type)
+inline void print_nasa_header(std::ostream& os, std::int64_t record_size, std::size_t offset,
+    cdf::cdf_record_type type, const dump_options& opts = {})
 {
     os << '\n'
-       << "RecordSize: " << record_size << " (@ " << nasa_offset(static_cast<int64_t>(offset))
+       << "RecordSize: " << record_size << " (@ " << nasa_offset(static_cast<int64_t>(offset), opts)
        << ")\n";
     os << "RecordType: " << static_cast<int32_t>(type) << " (" << cdf::cdf_record_type_str(type)
        << ")\n";
 }
 
 template <typename version_t>
-inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_CDR_t<version_t>& r)
+inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_CDR_t<version_t>& r,
+    const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::CDR);
-    os << "GDRoffset: " << nasa_offset(static_cast<int64_t>(r.GDRoffset)) << '\n';
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::CDR, opts);
+    os << "GDRoffset: " << nasa_offset(static_cast<int64_t>(r.GDRoffset), opts) << '\n';
     os << "Version: " << r.Version << '\n';
     os << "Release: " << r.Release << '\n';
     os << "Encoding: " << static_cast<int32_t>(r.Encoding) << " (" << nasa_encoding_name(r.Encoding)
@@ -368,20 +368,21 @@ inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_
 // zVDR's zDimSizes - but with no real output to confirm the exact placement/format
 // against, rDimSizes is deliberately left unprinted here rather than guessed at.
 template <typename version_t>
-inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_GDR_t<version_t>& r)
+inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_GDR_t<version_t>& r,
+    const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::GDR);
-    os << "rVDRhead: " << nasa_offset(static_cast<int64_t>(r.rVDRhead)) << '\n';
-    os << "zVDRhead: " << nasa_offset(static_cast<int64_t>(r.zVDRhead)) << '\n';
-    os << "ADRhead: " << nasa_offset(static_cast<int64_t>(r.ADRhead)) << '\n';
-    os << "eof: " << nasa_offset(static_cast<int64_t>(r.eof)) << '\n';
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::GDR, opts);
+    os << "rVDRhead: " << nasa_offset(static_cast<int64_t>(r.rVDRhead), opts) << '\n';
+    os << "zVDRhead: " << nasa_offset(static_cast<int64_t>(r.zVDRhead), opts) << '\n';
+    os << "ADRhead: " << nasa_offset(static_cast<int64_t>(r.ADRhead), opts) << '\n';
+    os << "eof: " << nasa_offset(static_cast<int64_t>(r.eof), opts) << '\n';
     os << "NumRvars: " << r.NrVars << '\n';
     os << "NumAttr: " << r.NumAttr << '\n';
     os << "rMaxRec: " << r.rMaxRec << '\n';
     os << "rNumDims: " << r.rNumDims << '\n';
     os << "NumZvars: " << r.NzVars << '\n';
-    os << "UIRhead: " << nasa_offset(static_cast<int64_t>(r.UIRhead)) << '\n';
+    os << "UIRhead: " << nasa_offset(static_cast<int64_t>(r.UIRhead), opts) << '\n';
     os << "rfuC: " << 0 << '\n'; // see the CDR rfu* comment above: unused<T> always
                                  // decodes to 0, and 0 is this field's verified sentinel too
     os << "LeapSecondLastUpdated: " << r.LeapSecondLastUpdated << '\n';
@@ -389,19 +390,20 @@ inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_
 }
 
 template <typename version_t>
-inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_ADR_t<version_t>& r)
+inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_ADR_t<version_t>& r,
+    const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::ADR);
-    os << "ADRnext: " << nasa_offset(static_cast<int64_t>(r.ADRnext)) << '\n';
-    os << "AgrEDRhead: " << nasa_offset(static_cast<int64_t>(r.AgrEDRhead)) << '\n';
-    os << "Scope: " << static_cast<int32_t>(r.scope) << " (" << nasa_scope_name(static_cast<int32_t>(r.scope))
-       << ")\n";
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::ADR, opts);
+    os << "ADRnext: " << nasa_offset(static_cast<int64_t>(r.ADRnext), opts) << '\n';
+    os << "AgrEDRhead: " << nasa_offset(static_cast<int64_t>(r.AgrEDRhead), opts) << '\n';
+    os << "Scope: " << static_cast<int32_t>(r.scope) << " ("
+       << nasa_scope_name(static_cast<int32_t>(r.scope)) << ")\n";
     os << "Num: " << r.num << '\n';
     os << "NumRentries: " << r.NgrEntries << '\n';
     os << "MaxRentry: " << r.MAXgrEntries << '\n';
     os << "rfuA: " << 0 << '\n'; // verified sentinel, see the CDR rfu* comment above
-    os << "AzEDRhead: " << nasa_offset(static_cast<int64_t>(r.AzEDRhead)) << '\n';
+    os << "AzEDRhead: " << nasa_offset(static_cast<int64_t>(r.AzEDRhead), opts) << '\n';
     os << "NumZentries: " << r.NzEntries << '\n';
     os << "MaxZentry: " << r.MAXzEntries << '\n';
     os << "rfuE: " << -1 << '\n'; // verified sentinel, see the CDR rfu* comment above
@@ -575,10 +577,10 @@ namespace details
     // it "NumStrings" for string-typed entries and "rfuA" otherwise, so this always prints
     // the real r.NumStrings value, only the label varies.
     template <typename record_t>
-    inline void print_nasa_aedr_body(
-        std::ostream& os, const record_t& r, const char* next_label, cdf_encoding encoding)
+    inline void print_nasa_aedr_body(std::ostream& os, const record_t& r, const char* next_label,
+        cdf_encoding encoding, const dump_options& opts = {})
     {
-        os << next_label << ": " << nasa_offset(static_cast<int64_t>(r.AEDRnext)) << '\n';
+        os << next_label << ": " << nasa_offset(static_cast<int64_t>(r.AEDRnext), opts) << '\n';
         os << "AttrNum: " << r.AttrNum << '\n';
         os << "DataType: " << static_cast<int32_t>(r.DataType) << " ("
            << nasa_data_type_name(r.DataType) << ")\n";
@@ -598,20 +600,20 @@ namespace details
 
 template <typename version_t>
 inline void print_nasa(std::ostream& os, std::size_t offset,
-    const cdf::io::cdf_AgrEDR_t<version_t>& r, cdf_encoding encoding)
+    const cdf::io::cdf_AgrEDR_t<version_t>& r, cdf_encoding encoding, const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::AgrEDR);
-    details::print_nasa_aedr_body(os, r, "AgrEDRnext", encoding);
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::AgrEDR, opts);
+    details::print_nasa_aedr_body(os, r, "AgrEDRnext", encoding, opts);
 }
 
 template <typename version_t>
 inline void print_nasa(std::ostream& os, std::size_t offset,
-    const cdf::io::cdf_AzEDR_t<version_t>& r, cdf_encoding encoding)
+    const cdf::io::cdf_AzEDR_t<version_t>& r, cdf_encoding encoding, const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::AzEDR);
-    details::print_nasa_aedr_body(os, r, "AzEDRnext", encoding);
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::AzEDR, opts);
+    details::print_nasa_aedr_body(os, r, "AzEDRnext", encoding, opts);
 }
 
 namespace details
@@ -687,7 +689,8 @@ inline std::string nasa_pad_value_str(
     if (type == CDF_Types::CDF_EPOCH16)
         return decoded;
     const bool is_string = type == CDF_Types::CDF_CHAR || type == CDF_Types::CDF_UCHAR;
-    return " (0x" + details::nasa_hex_bytes(raw, raw_size, /*reversed=*/!is_string) + ") " + decoded;
+    return " (0x" + details::nasa_hex_bytes(raw, raw_size, /*reversed=*/!is_string) + ") "
+        + decoded;
 }
 
 namespace details
@@ -696,16 +699,16 @@ namespace details
     // leading next-record-pointer label ("rVDRnext" vs "zVDRnext", underlying field
     // VDRnext in both).
     template <typename record_t>
-    inline void print_nasa_vdr_body(
-        std::ostream& os, const record_t& r, const char* next_label, cdf_encoding encoding)
+    inline void print_nasa_vdr_body(std::ostream& os, const record_t& r, const char* next_label,
+        cdf_encoding encoding, const dump_options& opts = {})
     {
         (void)encoding;
-        os << next_label << ": " << nasa_offset(static_cast<int64_t>(r.VDRnext)) << '\n';
+        os << next_label << ": " << nasa_offset(static_cast<int64_t>(r.VDRnext), opts) << '\n';
         os << "DataType: " << static_cast<int32_t>(r.DataType) << " ("
            << nasa_data_type_name(r.DataType) << ")\n";
         os << "MaxRec: " << r.MaxRec << '\n';
-        os << "VXRhead: " << nasa_offset(static_cast<int64_t>(r.VXRhead)) << '\n';
-        os << "VXRtail: " << nasa_offset(static_cast<int64_t>(r.VXRtail)) << '\n';
+        os << "VXRhead: " << nasa_offset(static_cast<int64_t>(r.VXRhead), opts) << '\n';
+        os << "VXRtail: " << nasa_offset(static_cast<int64_t>(r.VXRtail), opts) << '\n';
         os << "Flags: " << nasa_vdr_flags_str(r.Flags) << '\n';
         os << "sRecords: " << r.SRecords << " (" << nasa_srecords_name(r.SRecords) << ")\n";
         os << "rfuB: " << 0 << '\n'; // verified sentinel, see the CDR rfu* comment above
@@ -713,7 +716,8 @@ namespace details
         os << "rfuF: " << -1 << '\n'; // verified sentinel, see the CDR rfu* comment above
         os << "NumElems: " << r.NumElems << '\n';
         os << "Num: " << r.Num << '\n';
-        os << "CPRorSPRoffset: " << nasa_offset(static_cast<int64_t>(r.CPRorSPRoffset)) << '\n';
+        os << "CPRorSPRoffset: " << nasa_offset(static_cast<int64_t>(r.CPRorSPRoffset), opts)
+           << '\n';
         os << "BlockingFactor: " << r.BlockingFactor << '\n';
         os << "Name: \"" << r.Name.value << "\"\n";
     }
@@ -744,40 +748,40 @@ namespace details
     {
         if (r.Flags & 2)
             os << "PadValue: "
-               << nasa_pad_value_str(
-                      r.DataType, encoding, r.PadValues.data(), r.PadValues.size())
+               << nasa_pad_value_str(r.DataType, encoding, r.PadValues.data(), r.PadValues.size())
                << '\n';
     }
 }
 
 template <typename version_t>
-inline void print_nasa(
-    std::ostream& os, std::size_t offset, const cdf::io::cdf_zVDR_t<version_t>& r, cdf_encoding encoding)
+inline void print_nasa(std::ostream& os, std::size_t offset,
+    const cdf::io::cdf_zVDR_t<version_t>& r, cdf_encoding encoding, const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::zVDR);
-    details::print_nasa_vdr_body(os, r, "zVDRnext", encoding);
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::zVDR, opts);
+    details::print_nasa_vdr_body(os, r, "zVDRnext", encoding, opts);
     details::print_nasa_vdr_dims(os, r);
     details::print_nasa_vdr_padvalue(os, r, encoding);
 }
 
 template <typename version_t>
-inline void print_nasa(
-    std::ostream& os, std::size_t offset, const cdf::io::cdf_rVDR_t<version_t>& r, cdf_encoding encoding)
+inline void print_nasa(std::ostream& os, std::size_t offset,
+    const cdf::io::cdf_rVDR_t<version_t>& r, cdf_encoding encoding, const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::rVDR);
-    details::print_nasa_vdr_body(os, r, "rVDRnext", encoding);
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::rVDR, opts);
+    details::print_nasa_vdr_body(os, r, "rVDRnext", encoding, opts);
     details::print_nasa_vdr_dims(os, r);
     details::print_nasa_vdr_padvalue(os, r, encoding);
 }
 
 template <typename version_t>
-inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_VXR_t<version_t>& r)
+inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_VXR_t<version_t>& r,
+    const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::VXR);
-    os << "VXRnext: " << nasa_offset(static_cast<int64_t>(r.VXRnext)) << '\n';
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::VXR, opts);
+    os << "VXRnext: " << nasa_offset(static_cast<int64_t>(r.VXRnext), opts) << '\n';
     os << "Nentries: " << r.Nentries << '\n';
     os << "NusedEntries: " << r.NusedEntries << '\n';
     os << '\n';
@@ -790,23 +794,25 @@ inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_
     for (std::size_t i = 0; i < n; ++i)
     {
         os << fmt::format("{:>7}{:>10}{:>9}      {}\n", i, r.First[i], r.Last[i],
-            nasa_offset(static_cast<int64_t>(r.Offset[i])));
+            nasa_offset(static_cast<int64_t>(r.Offset[i]), opts));
     }
 }
 
 template <typename version_t>
-inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_VVR_t<version_t>& r)
+inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_VVR_t<version_t>& r,
+    const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::VVR);
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::VVR, opts);
     os << "uSize: " << r.data_size() << '\n';
 }
 
 template <typename version_t>
-inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_CVVR_t<version_t>& r)
+inline void print_nasa(std::ostream& os, std::size_t offset,
+    const cdf::io::cdf_CVVR_t<version_t>& r, const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::CVVR);
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::CVVR, opts);
     os << "cSize: " << r.cSize << '\n';
     // CVVR is the one record type whose own format ends with an unconditional trailing
     // blank line (cdfirsdump.c's own WriteOut(OUTfp,"\n") after cSize, independent of
@@ -817,10 +823,11 @@ inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_
 }
 
 template <typename version_t>
-inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_CPR_t<version_t>& r)
+inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_CPR_t<version_t>& r,
+    const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::CPR);
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::CPR, opts);
     os << "cType: " << static_cast<int32_t>(r.cType) << '\n';
     os << "rfuA: " << 0 << '\n'; // verified sentinel, see the CDR rfu* comment above
     os << "pCount: " << r.pCount << '\n';
@@ -829,11 +836,12 @@ inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_
 }
 
 template <typename version_t>
-inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_CCR_t<version_t>& r)
+inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_CCR_t<version_t>& r,
+    const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::CCR);
-    os << "CPRoffset: " << nasa_offset(static_cast<int64_t>(r.CPRoffset)) << '\n';
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::CCR, opts);
+    os << "CPRoffset: " << nasa_offset(static_cast<int64_t>(r.CPRoffset), opts) << '\n';
     os << "uSize: " << r.uSize << '\n'; // not offset-formatted, unlike CPRoffset - verified
                                         // against a real fixture ("uSize: 123062", no
                                         // zero-padding)
@@ -844,22 +852,23 @@ inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_
 }
 
 template <typename version_t>
-inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_UIR_t<version_t>& r)
+inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_UIR_t<version_t>& r,
+    const dump_options& opts = {})
 {
-    print_nasa_header(
-        os, static_cast<std::int64_t>(r.header.record_size), offset, cdf::cdf_record_type::UIR);
-    os << "Next: " << nasa_offset(static_cast<int64_t>(r.Next)) << '\n';
-    os << "Prev: " << nasa_offset(static_cast<int64_t>(r.Prev)) << '\n';
+    print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
+        cdf::cdf_record_type::UIR, opts);
+    os << "Next: " << nasa_offset(static_cast<int64_t>(r.Next), opts) << '\n';
+    os << "Prev: " << nasa_offset(static_cast<int64_t>(r.Prev), opts) << '\n';
 }
 
 // SPR (sparse-arrays parameters) is the one record type this project has no struct for
 // at all (CDFpp doesn't support sparse arrays - see the project's own finding on this),
 // so it always arrives here as the generic undecoded_record_t placeholder, same as the
 // plain record_repr.hpp printer's own "[not decoded]" convention.
-inline void print_nasa(
-    std::ostream& os, std::size_t offset, const cdf::io::debug::undecoded_record_t& r)
+inline void print_nasa(std::ostream& os, std::size_t offset,
+    const cdf::io::debug::undecoded_record_t& r, const dump_options& opts = {})
 {
-    print_nasa_header(os, static_cast<std::int64_t>(r.record_size), offset, r.type);
+    print_nasa_header(os, static_cast<std::int64_t>(r.record_size), offset, r.type, opts);
     os << "[not decoded - CDFpp doesn't model this record type]\n";
 }
 
@@ -869,7 +878,7 @@ inline void print_nasa(
 // "Dumping \"<path>\"\n" line is not reproduced here (see print_nasa_magic_preamble's
 // own comment - that line goes to a different output stream in the real tool, so it's
 // a caller's concern, not this library's).
-inline void dump(std::ostream& os, const std::string& path)
+inline void dump(std::ostream& os, const std::string& path, const dump_options& opts = {})
 {
     auto buffer = cdf::io::buffers::make_shared_file_adapter(path);
     print_nasa_magic_preamble(os, buffer);
@@ -879,17 +888,17 @@ inline void dump(std::ostream& os, const std::string& path)
         {
             if constexpr (requires { record.Encoding; })
                 encoding = record.Encoding;
-            if constexpr (requires { print_nasa(os, offset, record, encoding); })
-                print_nasa(os, offset, record, encoding);
+            if constexpr (requires { print_nasa(os, offset, record, encoding, opts); })
+                print_nasa(os, offset, record, encoding, opts);
             else
-                print_nasa(os, offset, record);
+                print_nasa(os, offset, record, opts);
         });
 }
 
-inline std::string dump(const std::string& path)
+inline std::string dump(const std::string& path, const dump_options& opts = {})
 {
     std::ostringstream oss;
-    dump(oss, path);
+    dump(oss, path, opts);
     return oss.str();
 }
 
