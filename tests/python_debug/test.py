@@ -79,6 +79,30 @@ class NasaCompatDumpTest(unittest.TestCase):
 
         self.assertEqual(debug.nasa_compat_dump(path), reference)
 
+    def test_radix_16_matches_a_real_hex_capture(self):
+        path = os.path.join(_resources, 'rvariable.cdf')
+        with open(os.path.join(_resources, 'rvariable_cdfirsdump_hex_reference.txt')) as f:
+            reference = f.read()
+        self.assertEqual(debug.nasa_compat_dump(path, radix=16), reference)
+
+    def test_dump_from_offset_matches_a_real_offset_capture(self):
+        path = os.path.join(_resources, 'rvariable.cdf')
+        with open(os.path.join(_resources, 'rvariable_cdfirsdump_offset_reference.txt')) as f:
+            reference = f.read()
+        self.assertEqual(debug.nasa_compat_dump_from_offset(path, 404), reference)
+
+    def test_dump_brief_matches_a_real_brief_capture(self):
+        path = os.path.join(_resources, 'a_cdf.cdf')
+        with open(os.path.join(_resources, 'a_cdf_cdfirsdump_brief_reference.txt')) as f:
+            reference = f.read()
+        self.assertEqual(debug.nasa_compat_dump_brief(path), reference)
+
+    def test_summary_true_matches_a_real_full_plus_summary_capture(self):
+        path = os.path.join(_resources, 'rvariable.cdf')
+        with open(os.path.join(_resources, 'rvariable_cdfirsdump_summary_reference.txt')) as f:
+            reference = f.read()
+        self.assertEqual(debug.nasa_compat_dump(path, summary=True), reference)
+
 
 class CliBuildTreeTest(unittest.TestCase):
     def test_tree_has_one_node_per_record_with_field_leaves(self):

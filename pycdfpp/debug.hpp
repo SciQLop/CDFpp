@@ -167,13 +167,77 @@ void def_debug_wrapper(T& mod)
         )pbdoc");
 
     mod.def(
-        "nasa_compat_dump", [](const std::string& path)
-        { return cdf::io::debug::nasa::dump(path); }, py::arg("path"),
+        "nasa_compat_dump",
+        [](const std::string& path, int radix, bool show_data, bool summary)
+        {
+            cdf::io::debug::nasa::dump_options opts { radix, show_data };
+            return cdf::io::debug::nasa::dump(path, opts, summary);
+        },
+        py::arg("path"), py::arg("radix") = 10, py::arg("show_data") = false,
+        py::arg("summary") = false,
         R"pbdoc(
-            Dump a CDF file's records in NASA's own cdfirsdump (-full -nopage
-            -nosummary) text format, byte-for-byte (verified against a real capture of
-            that tool's own output - see tests/nasa_compat_repr). Built on the same
-            physical-order walk as for_each_record, not load()'s reconstructed view.
+            Dump a CDF file's records in NASA's own cdfirsdump (-full -nopage) text
+            format, byte-for-byte (verified against real captures of that tool's own
+            output - see tests/nasa_compat_repr). Built on the same physical-order walk
+            as for_each_record, not load()'s reconstructed view.
+
+            Parameters
+            ----------
+            path : str
+                Path to the CDF file.
+            radix : int, default 10
+                10 (decimal) or 16 (hex, "0x" + 16 uppercase digits) for record offsets.
+            show_data : bool, default False
+                Hex-dump VVR/CVVR payload bytes (cdfirsdump's -data).
+            summary : bool, default False
+                Append the closing record-type summary table (cdfirsdump's default
+                -summary behavior; this binding defaults to False to match this
+                project's own existing default, not NASA's).
+
+            Returns
+            -------
+            str
+                The full dump text, ready to print or write to a file.
+        )pbdoc");
+
+    mod.def(
+        "nasa_compat_dump_from_offset",
+        [](const std::string& path, std::size_t offset, int radix, bool show_data)
+        {
+            cdf::io::debug::nasa::dump_options opts { radix, show_data };
+            return cdf::io::debug::nasa::dump_from_offset(path, offset, opts);
+        },
+        py::arg("path"), py::arg("offset"), py::arg("radix") = 10, py::arg("show_data") = false,
+        R"pbdoc(
+            Same as nasa_compat_dump, but starts the walk at a given byte offset instead
+            of the file start - no magic-number preamble is printed (matching a real
+            cdfirsdump -offset capture).
+
+            Parameters
+            ----------
+            path : str
+                Path to the CDF file.
+            offset : int
+                Byte offset to start the walk at.
+            radix : int, default 10
+                10 (decimal) or 16 (hex) for record offsets.
+            show_data : bool, default False
+                Hex-dump VVR/CVVR payload bytes.
+
+            Returns
+            -------
+            str
+                The dump text from that offset onward.
+        )pbdoc");
+
+    mod.def(
+        "nasa_compat_dump_brief", [](const std::string& path)
+        { return cdf::io::debug::nasa::dump_brief(path); }, py::arg("path"),
+        R"pbdoc(
+            Dump only the record-type summary table (cdfirsdump's -brief, the real
+            tool's own default level), byte-for-byte, including its "(+16 if with
+            checksum)" quirk which is always shown at brief level regardless of the
+            file (see nasa_compat_repr.hpp's own notes on why).
 
             Parameters
             ----------
@@ -183,7 +247,7 @@ void def_debug_wrapper(T& mod)
             Returns
             -------
             str
-                The full dump text, ready to print or write to a file.
+                The banner + summary table text.
         )pbdoc");
 }
 
