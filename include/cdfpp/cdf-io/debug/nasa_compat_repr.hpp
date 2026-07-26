@@ -902,4 +902,54 @@ inline std::string dump(const std::string& path, const dump_options& opts = {})
     return oss.str();
 }
 
+// Like dump(), but starts the walk at start_offset instead of the file start (mirrors
+// cdfirsdump's own -offset flag) - matches the real tool's behaviour of skipping the
+// magic-number preamble and the "Dumping ..." line entirely once -offset is non-zero
+// (see tests/resources/rvariable_cdfirsdump_offset_reference.txt).
+//
+// cdfirsdump.c only learns the real end-of-file position (its "fileSize" global) from
+// the GDR's own eof field (or, for a compressed CDF, the CCR's uSize) as it walks past
+// one of them - there is no other source for it. Its main scan loop compares the
+// current position against that learned value and returns silently once they match
+// (cdfirsdump.c:612-613: "if (offset == fileSize) return;"); as long as fileSize is
+// still unknown (-1 at startup, cdfirsdump.c:80), that comparison can't match, so the
+// loop instead issues one more real read, which then legitimately fails against the
+// physical end of the file and prints "\nEOF encountered.\n" via DisplayReadFailure
+// (cdfirsdump.c:3245-3246). A -offset run that starts past the GDR - the common case,
+// since it is usually used to jump straight to one particular record - never gets the
+// chance to learn fileSize, so it always hits that explicit message; this is exactly
+// what tests/resources/rvariable_cdfirsdump_offset_reference.txt (-offset 404, well
+// past the GDR at 320) captures. Reproduced here by tracking whether the walk passed a
+// GDR/CCR itself (their eof/uSize fields are unique to those two record types among
+// the record_variant alternatives) and appending the same trailer if not.
+inline void dump_from_offset(std::ostream& os, const std::string& path, std::size_t start_offset,
+    const dump_options& opts = {})
+{
+    auto buffer = cdf::io::buffers::make_shared_file_adapter(path);
+    cdf_encoding encoding = cdf_encoding::network;
+    bool eof_position_known = false;
+    for_each_record(buffer, start_offset,
+        [&](std::size_t offset, const auto& record)
+        {
+            if constexpr (requires { record.Encoding; })
+                encoding = record.Encoding;
+            if constexpr (requires { record.eof; } || requires { record.uSize; })
+                eof_position_known = true;
+            if constexpr (requires { print_nasa(os, offset, record, encoding, opts); })
+                print_nasa(os, offset, record, encoding, opts);
+            else
+                print_nasa(os, offset, record, opts);
+        });
+    if (!eof_position_known)
+        os << "\nEOF encountered.\n";
+}
+
+inline std::string dump_from_offset(
+    const std::string& path, std::size_t start_offset, const dump_options& opts = {})
+{
+    std::ostringstream oss;
+    dump_from_offset(oss, path, start_offset, opts);
+    return oss.str();
+}
+
 } // namespace cdf::io::debug::nasa

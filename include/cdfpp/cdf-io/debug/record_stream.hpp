@@ -102,10 +102,9 @@ struct undecoded_record_t
 
 template <typename version_t>
 using record_variant = std::variant<cdf_CDR_t<version_t>, cdf_GDR_t<version_t>,
-    cdf_ADR_t<version_t>, cdf_AgrEDR_t<version_t>, cdf_AzEDR_t<version_t>,
-    cdf_rVDR_t<version_t>, cdf_zVDR_t<version_t>, cdf_VXR_t<version_t>, cdf_VVR_t<version_t>,
-    cdf_CVVR_t<version_t>, cdf_CCR_t<version_t>, cdf_CPR_t<version_t>, cdf_UIR_t<version_t>,
-    undecoded_record_t>;
+    cdf_ADR_t<version_t>, cdf_AgrEDR_t<version_t>, cdf_AzEDR_t<version_t>, cdf_rVDR_t<version_t>,
+    cdf_zVDR_t<version_t>, cdf_VXR_t<version_t>, cdf_VVR_t<version_t>, cdf_CVVR_t<version_t>,
+    cdf_CCR_t<version_t>, cdf_CPR_t<version_t>, cdf_UIR_t<version_t>, undecoded_record_t>;
 
 namespace details
 {
@@ -157,8 +156,8 @@ namespace details
 // record via on_record and every structural anomaly via on_corruption.
 template <typename version_t, typename buffer_t, typename on_record_t,
     typename on_corruption_t = default_corruption_handler>
-void for_each_record(buffer_t& buffer, version_t, std::size_t start_offset,
-    std::size_t end_offset, on_record_t&& on_record, on_corruption_t&& on_corruption = {})
+void for_each_record(buffer_t& buffer, version_t, std::size_t start_offset, std::size_t end_offset,
+    on_record_t&& on_record, on_corruption_t&& on_corruption = {})
 {
     using enum cdf_record_type;
     constexpr std::size_t header_size = sizeof(cdf_offset_field_t<version_t>) + sizeof(int32_t);
@@ -173,7 +172,8 @@ void for_each_record(buffer_t& buffer, version_t, std::size_t start_offset,
 
         auto report = [&](corruption_kind kind, std::string detail)
         {
-            recovery_action action = on_corruption(corruption_report { offset, kind, std::move(detail) });
+            recovery_action action
+                = on_corruption(corruption_report { offset, kind, std::move(detail) });
             if (action.kind == recovery_action::kind_t::abort)
                 return false;
             offset += action.skip_count;
@@ -183,15 +183,15 @@ void for_each_record(buffer_t& buffer, version_t, std::size_t start_offset,
         if (record_size < header_size)
         {
             if (!report(corruption_kind::undersized_record,
-                    "record_size=" + std::to_string(record_size) + ", must be >= "
-                        + std::to_string(header_size)))
+                    "record_size=" + std::to_string(record_size)
+                        + ", must be >= " + std::to_string(header_size)))
                 return;
             continue;
         }
         if (record_size > end_offset - offset) // no addition: offset <= end_offset is a loop
-                                                // invariant, so this can't overflow, unlike
-                                                // `offset + record_size > end_offset` would for
-                                                // a huge/corrupted record_size
+                                               // invariant, so this can't overflow, unlike
+                                               // `offset + record_size > end_offset` would for
+                                               // a huge/corrupted record_size
         {
             if (!report(corruption_kind::invalid_record_size,
                     "record_size=" + std::to_string(record_size) + " at offset "
@@ -326,7 +326,8 @@ namespace details
     // absolute offsets recorded elsewhere in the file (GDRoffset, ADRhead, ...) stay
     // valid against this reconstructed buffer.
     template <typename version_t, typename buffer_t, typename on_record_t, typename on_corruption_t>
-    void run_compressed(buffer_t& buffer, on_record_t&& on_record, on_corruption_t&& on_corruption)
+    void run_compressed(buffer_t& buffer, std::size_t start_offset, on_record_t&& on_record,
+        on_corruption_t&& on_corruption)
     {
         cdf_CCR_t<version_t> ccr {};
         load_record(ccr, buffer, 8);
@@ -338,19 +339,61 @@ namespace details
         buffer.read(data.data(), 0, 8);
         decompression::inflate(cpr.cType, ccr.data, data.data() + 8UL, std::size(data) - 8UL);
         auto decompressed = buffers::make_shared_array_adapter(std::move(data));
-        for_each_record(decompressed, version_t {}, 8UL, decompressed.size(),
+        for_each_record(decompressed, version_t {}, start_offset, decompressed.size(),
             std::forward<on_record_t>(on_record), std::forward<on_corruption_t>(on_corruption));
     }
 
     template <typename version_t, typename buffer_t, typename on_record_t, typename on_corruption_t>
-    void run(buffer_t& buffer, bool is_compressed, on_record_t&& on_record,
-        on_corruption_t&& on_corruption)
+    void run(buffer_t& buffer, bool is_compressed, std::size_t start_offset,
+        on_record_t&& on_record, on_corruption_t&& on_corruption)
     {
         if (is_compressed)
-            run_compressed<version_t>(
-                buffer, std::forward<on_record_t>(on_record), std::forward<on_corruption_t>(on_corruption));
+            run_compressed<version_t>(buffer, start_offset, std::forward<on_record_t>(on_record),
+                std::forward<on_corruption_t>(on_corruption));
         else
-            for_each_record(buffer, version_t {}, 8UL, buffer.size(),
+            for_each_record(buffer, version_t {}, start_offset, buffer.size(),
+                std::forward<on_record_t>(on_record), std::forward<on_corruption_t>(on_corruption));
+    }
+}
+
+// Same auto-detecting entry point as the 2-arg overload below, but starts the walk at an
+// arbitrary byte offset instead of right after the 8-byte magic. For a compressed file,
+// start_offset is interpreted in the *decompressed* reconstructed buffer's own offset space
+// (the same space GDRoffset/ADRhead/... already point into - see run_compressed's own
+// comment) - the CCR/CPR themselves are still always reported first regardless of
+// start_offset, since they're needed to even decompress the rest.
+template <typename buffer_t, typename on_record_t,
+    typename on_corruption_t = default_corruption_handler>
+void for_each_record(buffer_t&& buffer, std::size_t start_offset, on_record_t&& on_record,
+    on_corruption_t&& on_corruption = {})
+{
+    auto magic = details::peek_magic(buffer);
+    if (!common::is_cdf(magic))
+        throw std::runtime_error("cdf::io::debug::for_each_record: not a CDF file");
+
+    const bool compressed = common::is_compressed(magic);
+    if (common::is_v3x(magic))
+    {
+        details::run<v3x_tag>(buffer, compressed, start_offset,
+            std::forward<on_record_t>(on_record), std::forward<on_corruption_t>(on_corruption));
+    }
+    else if (compressed)
+    {
+        // Mirrors loading.hpp: a compressed v2.x file uses the coarse v2x_tag
+        // throughout (the finer v2.4-or-less/v2.5-or-more split below only applies to
+        // the uncompressed path there too).
+        details::run<v2x_tag>(buffer, true, start_offset, std::forward<on_record_t>(on_record),
+            std::forward<on_corruption_t>(on_corruption));
+    }
+    else
+    {
+        cdf_CDR_t<v2x_tag> cdr_probe {};
+        load_record(cdr_probe, buffer, 8);
+        if (cdr_probe.Release >= 5)
+            details::run<v2_5_or_more_tag>(buffer, false, start_offset,
+                std::forward<on_record_t>(on_record), std::forward<on_corruption_t>(on_corruption));
+        else
+            details::run<v2_4_or_less_tag>(buffer, false, start_offset,
                 std::forward<on_record_t>(on_record), std::forward<on_corruption_t>(on_corruption));
     }
 }
@@ -363,35 +406,8 @@ template <typename buffer_t, typename on_record_t,
 void for_each_record(
     buffer_t&& buffer, on_record_t&& on_record, on_corruption_t&& on_corruption = {})
 {
-    auto magic = details::peek_magic(buffer);
-    if (!common::is_cdf(magic))
-        throw std::runtime_error("cdf::io::debug::for_each_record: not a CDF file");
-
-    const bool compressed = common::is_compressed(magic);
-    if (common::is_v3x(magic))
-    {
-        details::run<v3x_tag>(buffer, compressed, std::forward<on_record_t>(on_record),
-            std::forward<on_corruption_t>(on_corruption));
-    }
-    else if (compressed)
-    {
-        // Mirrors loading.hpp: a compressed v2.x file uses the coarse v2x_tag
-        // throughout (the finer v2.4-or-less/v2.5-or-more split below only applies to
-        // the uncompressed path there too).
-        details::run<v2x_tag>(buffer, true, std::forward<on_record_t>(on_record),
-            std::forward<on_corruption_t>(on_corruption));
-    }
-    else
-    {
-        cdf_CDR_t<v2x_tag> cdr_probe {};
-        load_record(cdr_probe, buffer, 8);
-        if (cdr_probe.Release >= 5)
-            details::run<v2_5_or_more_tag>(buffer, false, std::forward<on_record_t>(on_record),
-                std::forward<on_corruption_t>(on_corruption));
-        else
-            details::run<v2_4_or_less_tag>(buffer, false, std::forward<on_record_t>(on_record),
-                std::forward<on_corruption_t>(on_corruption));
-    }
+    for_each_record(buffer, 8UL, std::forward<on_record_t>(on_record),
+        std::forward<on_corruption_t>(on_corruption));
 }
 
 template <typename on_record_t, typename on_corruption_t = default_corruption_handler>
@@ -399,17 +415,17 @@ void for_each_record(
     const std::string& path, on_record_t&& on_record, on_corruption_t&& on_corruption = {})
 {
     auto buffer = buffers::make_shared_file_adapter(path);
-    for_each_record(buffer, std::forward<on_record_t>(on_record),
-        std::forward<on_corruption_t>(on_corruption));
+    for_each_record(
+        buffer, std::forward<on_record_t>(on_record), std::forward<on_corruption_t>(on_corruption));
 }
 
 template <typename on_record_t, typename on_corruption_t = default_corruption_handler>
-void for_each_record(const std::vector<char>& data, on_record_t&& on_record,
-    on_corruption_t&& on_corruption = {})
+void for_each_record(
+    const std::vector<char>& data, on_record_t&& on_record, on_corruption_t&& on_corruption = {})
 {
     auto buffer = buffers::make_shared_array_adapter(data);
-    for_each_record(buffer, std::forward<on_record_t>(on_record),
-        std::forward<on_corruption_t>(on_corruption));
+    for_each_record(
+        buffer, std::forward<on_record_t>(on_record), std::forward<on_corruption_t>(on_corruption));
 }
 
 template <typename on_record_t, typename on_corruption_t = default_corruption_handler>
@@ -417,8 +433,8 @@ void for_each_record(
     std::vector<char>&& data, on_record_t&& on_record, on_corruption_t&& on_corruption = {})
 {
     auto buffer = buffers::make_shared_array_adapter(std::move(data));
-    for_each_record(buffer, std::forward<on_record_t>(on_record),
-        std::forward<on_corruption_t>(on_corruption));
+    for_each_record(
+        buffer, std::forward<on_record_t>(on_record), std::forward<on_corruption_t>(on_corruption));
 }
 
 } // namespace cdf::io::debug
