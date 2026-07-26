@@ -863,3 +863,53 @@ SCENARIO(
         }
     }
 }
+
+SCENARIO(
+    "dump_from_offset() with show_data=true hex-dumps a real VVR's payload, matching a "
+    "real -offset -data capture",
+    "[nasa_compat_repr]")
+{
+    GIVEN("a real captured -offset 404 -data run of rvariable.cdf")
+    {
+        // Neither of the two other real captures used elsewhere in this file covers this
+        // combination: rvariable_cdfirsdump_data_reference.txt is a full dump (offset 0)
+        // with -data, and rvariable_cdfirsdump_offset_reference.txt is a -offset 404 dump
+        // without -data. This fixture was captured fresh with both flags together
+        // (`cdfirsdump -full -nopage -nosummary -offset 404 -data rvariable`) and then
+        // stripped to the exact same shape as rvariable_cdfirsdump_offset_reference.txt
+        // (i.e. everything up to and including the real tool's unconditional "\nScanning
+        // records...\n\n" banner removed, matching dump_from_offset()'s own contract of
+        // not reproducing that banner - see dump_from_offset()'s doc comment). Its header
+        // and VVR-hex-dump portions were cross-checked byte-for-byte against those two
+        // other real references before being committed (header matches
+        // rvariable_cdfirsdump_offset_reference.txt line for line; hex dump matches the
+        // VVR payload section of rvariable_cdfirsdump_data_reference.txt line for line),
+        // so this is a faithful real capture even though no single prior fixture covered
+        // the combination directly.
+        //
+        // Capturing this also surfaced a real, reproducible bug in cdfirsdump.c itself:
+        // starting the scan via -offset skips the GDR, so the `rNumDims` local (used only
+        // by the rVDR/zVDR DimVarys-printing loop) is read uninitialized - roughly half
+        // of all real captures at this exact offset garbage-loop through thousands of
+        // bogus "DimVarys[N]" lines before hitting "Unexpected EOF encountered." instead
+        // of the clean, real "EOF encountered." this fixture ends with. That divergence is
+        // a property of the reference tool's own undefined behaviour, unrelated to
+        // CDFpp's dump_from_offset() (which always reports the correct rNumDims=0 for this
+        // scalar rVariable), so it isn't reproduced here - this fixture was captured by
+        // re-running until a clean, garbage-free result was obtained (verified stable
+        // across 5 repeated clean captures).
+        const std::string cdf_path = std::string(DATA_PATH) + "/rvariable.cdf";
+        const std::string reference_path
+            = std::string(DATA_PATH) + "/rvariable_cdfirsdump_offset_data_reference.txt";
+        std::ifstream f { reference_path, std::ios::binary };
+        REQUIRE(f.is_open());
+        std::string reference { std::istreambuf_iterator<char> { f },
+            std::istreambuf_iterator<char> {} };
+
+        THEN("dump_from_offset(path, 404, show_data=true) matches it exactly")
+        {
+            REQUIRE(
+                dump_from_offset(cdf_path, 404UL, dump_options { .show_data = true }) == reference);
+        }
+    }
+}
