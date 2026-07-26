@@ -630,6 +630,19 @@ namespace details
         return out;
     }
 
+    // cdfirsdump -data's raw payload dump: BYTESperLINE=38, uppercase, 2-space indent, no
+    // separator between hex pairs. Shared by VVR (raw bytes supplied by the caller, see the
+    // nasa::print_nasa(VVR, ...) overload's own comment), CVVR, and CCR.
+    inline void nasa_hex_dump_lines(std::ostream& os, const char* raw, std::size_t n)
+    {
+        constexpr std::size_t bytes_per_line = 38;
+        for (std::size_t line_start = 0; line_start < n; line_start += bytes_per_line)
+        {
+            const std::size_t line_len = std::min(bytes_per_line, n - line_start);
+            os << "  " << nasa_hex_bytes(raw + line_start, line_len, /*reversed=*/false) << '\n';
+        }
+    }
+
     // The decoded portion of a PadValue - same per-type decode as an attribute Value
     // (nasa_attribute_value_str), but a single value only (no comma list, no raw+"==>"
     // prefix - PadValues in every real fixture examined have NumElems==1 for every
@@ -798,13 +811,25 @@ inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_
     }
 }
 
+// Unlike CVVR/CCR, cdf_VVR_t stores no payload bytes at all (see this task's own plan
+// notes) - raw_data/raw_size are supplied by the caller (dump()'s lambda below), which
+// only reads them from the buffer when opts.show_data is true, to avoid eagerly loading
+// real variable data on every walk.
 template <typename version_t>
 inline void print_nasa(std::ostream& os, std::size_t offset, const cdf::io::cdf_VVR_t<version_t>& r,
-    const dump_options& opts = {})
+    const char* raw_data, std::size_t raw_size, const dump_options& opts = {})
 {
     print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
         cdf::cdf_record_type::VVR, opts);
     os << "uSize: " << r.data_size() << '\n';
+    if (opts.show_data)
+    {
+        // Verified against a real -data capture: an extra blank line separates uSize
+        // from the hex dump block itself (on top of the next record's own leading
+        // blank line, which still applies afterwards as usual).
+        os << '\n';
+        details::nasa_hex_dump_lines(os, raw_data, raw_size);
+    }
 }
 
 template <typename version_t>
@@ -814,6 +839,16 @@ inline void print_nasa(std::ostream& os, std::size_t offset,
     print_nasa_header(os, static_cast<std::int64_t>(r.header.record_size), offset,
         cdf::cdf_record_type::CVVR, opts);
     os << "cSize: " << r.cSize << '\n';
+    if (opts.show_data)
+    {
+        // Same leading-blank-line-before-the-hex-block convention as VVR's own
+        // print_nasa (see its comment) - not independently verified against a real
+        // CVVR -data capture (no compressed-variable fixture in this task's own
+        // reference corpus), but cSize's hex dump shares the same underlying
+        // cdfirsdump routine as uSize's, so the same separator is assumed to apply.
+        os << '\n';
+        details::nasa_hex_dump_lines(os, r.data.data(), r.data.size());
+    }
     // CVVR is the one record type whose own format ends with an unconditional trailing
     // blank line (cdfirsdump.c's own WriteOut(OUTfp,"\n") after cSize, independent of
     // -data) - every other record type here relies solely on the *next* record's
@@ -888,7 +923,29 @@ inline void dump(std::ostream& os, const std::string& path, const dump_options& 
         {
             if constexpr (requires { record.Encoding; })
                 encoding = record.Encoding;
-            if constexpr (requires { print_nasa(os, offset, record, encoding, opts); })
+            // data_size() is unique to cdf_VVR_t among every record_variant alternative
+            // (see the print_nasa(VVR) comment above) - a SFINAE-safe way to single it
+            // out here without naming cdf_VVR_t<...> directly, which would need a
+            // record_t::cdf_version_t that undecoded_record_t (also walked by this same
+            // generic lambda) doesn't have.
+            if constexpr (requires { record.data_size(); })
+            {
+                if (opts.show_data)
+                {
+                    // record_size is 8 bytes on v3 CDFs (cdf_offset_field_t<v3x_tag> ==
+                    // uint64_t) but only 4 on legacy v2 ones - always derived from the
+                    // real field's own size rather than assumed, so the payload read
+                    // starts at the right byte on both.
+                    const std::size_t header_size
+                        = sizeof(record.header.record_size) + sizeof(record.header.record_type);
+                    no_init_vector<char> raw(record.data_size());
+                    buffer.read(raw.data(), offset + header_size, raw.size());
+                    print_nasa(os, offset, record, raw.data(), raw.size(), opts);
+                }
+                else
+                    print_nasa(os, offset, record, nullptr, 0UL, opts);
+            }
+            else if constexpr (requires { print_nasa(os, offset, record, encoding, opts); })
                 print_nasa(os, offset, record, encoding, opts);
             else
                 print_nasa(os, offset, record, opts);
@@ -935,7 +992,29 @@ inline void dump_from_offset(std::ostream& os, const std::string& path, std::siz
                 encoding = record.Encoding;
             if constexpr (requires { record.eof; } || requires { record.uSize; })
                 eof_position_known = true;
-            if constexpr (requires { print_nasa(os, offset, record, encoding, opts); })
+            // data_size() is unique to cdf_VVR_t among every record_variant alternative
+            // (see the print_nasa(VVR) comment above / dump()'s own matching branch) -
+            // a SFINAE-safe way to single it out here without naming cdf_VVR_t<...>
+            // directly, which would need a record_t::cdf_version_t that
+            // undecoded_record_t (also walked by this same generic lambda) doesn't have.
+            if constexpr (requires { record.data_size(); })
+            {
+                if (opts.show_data)
+                {
+                    // record_size is 8 bytes on v3 CDFs (cdf_offset_field_t<v3x_tag> ==
+                    // uint64_t) but only 4 on legacy v2 ones - always derived from the
+                    // real field's own size rather than assumed, so the payload read
+                    // starts at the right byte on both.
+                    const std::size_t header_size
+                        = sizeof(record.header.record_size) + sizeof(record.header.record_type);
+                    no_init_vector<char> raw(record.data_size());
+                    buffer.read(raw.data(), offset + header_size, raw.size());
+                    print_nasa(os, offset, record, raw.data(), raw.size(), opts);
+                }
+                else
+                    print_nasa(os, offset, record, nullptr, 0UL, opts);
+            }
+            else if constexpr (requires { print_nasa(os, offset, record, encoding, opts); })
                 print_nasa(os, offset, record, encoding, opts);
             else
                 print_nasa(os, offset, record, opts);

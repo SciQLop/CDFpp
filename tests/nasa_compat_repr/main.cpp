@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 using namespace cdf::io::debug::nasa;
 using namespace cdf::io::debug;
@@ -323,7 +324,13 @@ std::string print_at_offset(const std::string& path, std::size_t target_offset,
             {
                 if (offset == target_offset)
                 {
-                    if constexpr (requires { print_nasa(oss, offset, record, encoding); })
+                    // cdf_VVR_t's print_nasa gains a required raw-bytes pair (see
+                    // nasa_compat_repr.hpp); data_size() is unique to it among every
+                    // record_variant alternative, so it doubles as a SFINAE-safe
+                    // discriminator here too.
+                    if constexpr (requires { record.data_size(); })
+                        print_nasa(oss, offset, record, nullptr, 0UL);
+                    else if constexpr (requires { print_nasa(oss, offset, record, encoding); })
                         print_nasa(oss, offset, record, encoding);
                     else
                         print_nasa(oss, offset, record);
@@ -811,6 +818,48 @@ SCENARIO(
         THEN("dump_from_offset(path, 404) matches it exactly")
         {
             REQUIRE(dump_from_offset(cdf_path, 404UL) == reference);
+        }
+    }
+}
+
+SCENARIO("nasa_hex_dump_lines formats raw bytes like cdfirsdump's -data VVR hex dump",
+    "[nasa_compat_repr]")
+{
+    THEN("38 bytes/line, uppercase, 2-space indented, short last line")
+    {
+        std::vector<char> raw(42);
+        for (std::size_t i = 0; i < raw.size(); ++i)
+            raw[i] = static_cast<char>(i);
+        std::ostringstream oss;
+        nasa::details::nasa_hex_dump_lines(oss, raw.data(), raw.size());
+        // 42 bytes at 38 bytes/line: line 1 covers indices 0-37 (0x00-0x25), the short
+        // last line covers indices 38-41 (0x26-0x29).
+        const std::string expected
+            = "  000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
+              "202122232425\n"
+              "  26272829\n";
+        REQUIRE(oss.str() == expected);
+    }
+}
+
+SCENARIO(
+    "dump() with show_data=true hex-dumps a real VVR's payload, matching a real -data "
+    "capture",
+    "[nasa_compat_repr]")
+{
+    GIVEN("a real captured -data run of rvariable.cdf")
+    {
+        const std::string cdf_path = std::string(DATA_PATH) + "/rvariable.cdf";
+        const std::string reference_path
+            = std::string(DATA_PATH) + "/rvariable_cdfirsdump_data_reference.txt";
+        std::ifstream f { reference_path, std::ios::binary };
+        REQUIRE(f.is_open());
+        std::string reference { std::istreambuf_iterator<char> { f },
+            std::istreambuf_iterator<char> {} };
+
+        THEN("dump() with show_data=true matches it exactly")
+        {
+            REQUIRE(dump(cdf_path, dump_options { .show_data = true }) == reference);
         }
     }
 }
