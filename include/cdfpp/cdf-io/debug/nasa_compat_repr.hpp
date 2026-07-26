@@ -1045,13 +1045,111 @@ inline void print_nasa(std::ostream& os, std::size_t offset,
     os << "[not decoded - CDFpp doesn't model this record type]\n";
 }
 
+namespace details
+{
+    inline int decimal_width(std::size_t v)
+    {
+        return static_cast<int>(fmt::format("{}", v).size());
+    }
+}
+
+// Reproduces cdfirsdump.c's DisplaySummary/DisplaySummary64 exactly: width1 is the
+// decimal digit-width of total_bytes (used to right-pad every count column and the
+// Total/Used/Unused byte columns), width2 is the decimal digit-width of the single
+// largest per-category byte total (used to right-pad every bytes column). show_adr_scope_split
+// also gates the checksum-note's truthfulness, matching the real tool's own accidental
+// coupling: DisplaySummary only decodes+prints the ADR global/variable split at MOST/FULL
+// level, and `checksum` only ever gets set to its real, decoded value while printing a
+// per-record CDR at a full per-record dump - brief mode does neither, so it always shows
+// the default-true note regardless of the file (see compute_summary's own checksum_eligible
+// comment; verified both ways against the two real captures in tests/resources).
+inline void print_summary(std::ostream& os, const summary_stats& s, bool show_adr_scope_split)
+{
+    const std::size_t total_bytes = s.used_bytes + s.wasted_bytes;
+    const std::size_t ir_count = s.CCR.count + s.CDR.count + s.GDR.count + s.ADR.count
+        + s.AgrEDR.count + s.AzEDR.count + s.rVDR.count + s.zVDR.count + s.VXR.count + s.VVR.count
+        + s.CVVR.count + s.CPR.count + s.SPR.count + s.UIR.count;
+    const std::size_t largest_bytes = std::max({ s.CCR.bytes, s.CDR.bytes, s.GDR.bytes, s.ADR.bytes,
+        s.AgrEDR.bytes, s.AzEDR.bytes, s.rVDR.bytes, s.zVDR.bytes, s.VXR.bytes, s.VVR.bytes,
+        s.CVVR.bytes, s.CPR.bytes, s.SPR.bytes, s.UIR.bytes });
+    const int width1 = details::decimal_width(total_bytes);
+    const int width2 = details::decimal_width(largest_bytes);
+    const bool checksum_note = show_adr_scope_split ? s.checksum_eligible : true;
+
+    auto pct = [&](std::size_t bytes)
+    { return 100.0 * static_cast<double>(bytes) / static_cast<double>(total_bytes); };
+
+    os << "\n\nSummary...";
+    if (checksum_note)
+        os << fmt::format(
+            "\n\n  Total bytes: {:>{}} (+16 if with checksum)\n", total_bytes, width1);
+    else
+        os << fmt::format("\n\n  Total bytes: {:>{}}\n", total_bytes, width1);
+    os << fmt::format("   Used bytes: {:>{}}, {:7.3f}%\n", s.used_bytes, width1, pct(s.used_bytes));
+    os << fmt::format(
+        " Unused bytes: {:>{}}, {:7.3f}%\n\n", s.wasted_bytes, width1, pct(s.wasted_bytes));
+    os << fmt::format("     IR count: {:>{}}\n\n", ir_count, width1);
+
+    auto row = [&](const char* label, const summary_counts_t& c)
+    {
+        os << fmt::format("{} count: {:>{}}, {:>{}} bytes, {:6.3f}%\n", label, c.count, width1,
+            c.bytes, width2, pct(c.bytes));
+    };
+    row("    CCR", s.CCR);
+    row("    CDR", s.CDR);
+    row("    GDR", s.GDR);
+    if (show_adr_scope_split)
+        os << fmt::format("    ADR count: {:>{}}, {:>{}} bytes, {:6.3f}% (G:{} V:{})\n",
+            s.ADR.count, width1, s.ADR.bytes, width2, pct(s.ADR.bytes), s.adr_global_count,
+            s.adr_variable_count);
+    else
+        row("    ADR", s.ADR);
+    row(" AgrEDR", s.AgrEDR);
+    row("  AzEDR", s.AzEDR);
+    row("   rVDR", s.rVDR);
+    row("   zVDR", s.zVDR);
+    row("    VXR", s.VXR);
+    row("    VVR", s.VVR);
+    row("   CVVR", s.CVVR);
+    row("    CPR", s.CPR);
+    row("    SPR", s.SPR);
+    os << fmt::format("    UIR count: {:>{}}, {:>{}} bytes, {:6.3f}%\n\n\n", s.UIR.count, width1,
+        s.UIR.bytes, width2, pct(s.UIR.bytes));
+}
+
+// A brief-level dump is banner + summary only, no per-record content at all. Note: unlike
+// the full-level preamble (print_nasa_magic_preamble, one blank line before the magic
+// numbers), a real -brief capture has *three* blank lines between "Scanning records..."
+// and "Summary..." (tests/resources/a_cdf_cdfirsdump_brief_reference.txt). print_summary's
+// own leading "\n\nSummary..." already accounts for two of those blank lines when appended
+// straight after a single \n-terminated line (verified against the -full+-summary
+// reference too, where the last VVR's "uSize: ...\n" is followed by exactly two blank
+// lines) - so this banner only needs one extra blank line of its own ("\n\n" after
+// "records...", not "\n\n\n") to reach the real capture's total of three. The plan's own
+// snippet for this function used "\n\n\n" here, which would produce one blank line too
+// many (four instead of three) once concatenated with print_summary's own prefix -
+// verified by building it literally and diffing against the real reference before fixing.
+inline void dump_brief(std::ostream& os, const std::string& path)
+{
+    os << "\nScanning records...\n\n";
+    print_summary(os, compute_summary(path), /*show_adr_scope_split=*/false);
+}
+
+inline std::string dump_brief(const std::string& path)
+{
+    std::ostringstream oss;
+    dump_brief(oss, path);
+    return oss.str();
+}
+
 // Top-level entry point: reproduces a full `cdfirsdump -full -nopage -nosummary` run
 // against `path`, byte-for-byte (verified against a real captured reference dump of
 // tests/resources/a_cdf.cdf - see tests/nasa_compat_repr). Only the CLI-level
 // "Dumping \"<path>\"\n" line is not reproduced here (see print_nasa_magic_preamble's
 // own comment - that line goes to a different output stream in the real tool, so it's
 // a caller's concern, not this library's).
-inline void dump(std::ostream& os, const std::string& path, const dump_options& opts = {})
+inline void dump(std::ostream& os, const std::string& path, const dump_options& opts = {},
+    bool show_summary = false)
 {
     auto buffer = cdf::io::buffers::make_shared_file_adapter(path);
     print_nasa_magic_preamble(os, buffer);
@@ -1088,12 +1186,15 @@ inline void dump(std::ostream& os, const std::string& path, const dump_options& 
             else
                 print_nasa(os, offset, record, opts);
         });
+    if (show_summary)
+        print_summary(os, compute_summary(path), /*show_adr_scope_split=*/true);
 }
 
-inline std::string dump(const std::string& path, const dump_options& opts = {})
+inline std::string dump(
+    const std::string& path, const dump_options& opts = {}, bool show_summary = false)
 {
     std::ostringstream oss;
-    dump(oss, path, opts);
+    dump(oss, path, opts, show_summary);
     return oss.str();
 }
 

@@ -899,6 +899,54 @@ SCENARIO("compute_summary accumulates real per-record-type counts/bytes", "[nasa
 }
 
 SCENARIO(
+    "dump_brief() reproduces a real -brief capture byte-for-byte, including the "
+    "always-on checksum note",
+    "[nasa_compat_repr]")
+{
+    GIVEN("a real captured -brief run of a_cdf.cdf")
+    {
+        const std::string cdf_path = std::string(DATA_PATH) + "/a_cdf.cdf";
+        const std::string reference_path
+            = std::string(DATA_PATH) + "/a_cdf_cdfirsdump_brief_reference.txt";
+        std::ifstream f { reference_path, std::ios::binary };
+        REQUIRE(f.is_open());
+        std::string reference { std::istreambuf_iterator<char> { f },
+            std::istreambuf_iterator<char> {} };
+
+        THEN(
+            "dump_brief() matches it exactly (a_cdf.cdf's real CDR has no checksum bit, "
+            "but brief mode shows the note anyway)")
+        {
+            REQUIRE(dump_brief(cdf_path) == reference);
+        }
+    }
+}
+
+SCENARIO(
+    "dump() with show_summary=true appends the real full-level summary trailer, "
+    "including the ADR G:/V: split and the correctly-computed checksum note",
+    "[nasa_compat_repr]")
+{
+    GIVEN("a real captured -full (default -summary) run of rvariable.cdf")
+    {
+        const std::string cdf_path = std::string(DATA_PATH) + "/rvariable.cdf";
+        const std::string reference_path
+            = std::string(DATA_PATH) + "/rvariable_cdfirsdump_summary_reference.txt";
+        std::ifstream f { reference_path, std::ios::binary };
+        REQUIRE(f.is_open());
+        std::string reference { std::istreambuf_iterator<char> { f },
+            std::istreambuf_iterator<char> {} };
+
+        THEN(
+            "dump() with show_summary=true matches it exactly (no checksum note here: "
+            "this fixture's real CDR flags lack the checksum bit)")
+        {
+            REQUIRE(dump(cdf_path, dump_options {}, /*show_summary=*/true) == reference);
+        }
+    }
+}
+
+SCENARIO(
     "dump_from_offset() with show_data=true hex-dumps a real VVR's payload, matching a "
     "real -offset -data capture",
     "[nasa_compat_repr]")
