@@ -864,6 +864,40 @@ SCENARIO(
     }
 }
 
+SCENARIO("compute_summary accumulates real per-record-type counts/bytes", "[nasa_compat_repr]")
+{
+    GIVEN("the real rvariable.cdf fixture (1 CDR, 1 GDR, 1 rVDR, 1 VXR, 1 VVR, no ADRs)")
+    {
+        const std::string path = std::string(DATA_PATH) + "/rvariable.cdf";
+        const auto stats = compute_summary(path);
+
+        THEN("per-type counts and bytes match the file exactly")
+        {
+            REQUIRE(stats.CDR.count == 1);
+            REQUIRE(stats.CDR.bytes == 312);
+            REQUIRE(stats.GDR.count == 1);
+            REQUIRE(stats.GDR.bytes == 84);
+            REQUIRE(stats.rVDR.count == 1);
+            REQUIRE(stats.rVDR.bytes == 344);
+            REQUIRE(stats.VXR.count == 1);
+            REQUIRE(stats.VXR.bytes == 140);
+            REQUIRE(stats.VVR.count == 1);
+            REQUIRE(stats.VVR.bytes == 8204);
+            REQUIRE(stats.ADR.count == 0);
+            REQUIRE(stats.UIR.count == 0);
+        }
+        THEN("used/wasted bytes match the file (no UIR freed space in this fixture)")
+        {
+            REQUIRE(stats.used_bytes == 9092);
+            REQUIRE(stats.wasted_bytes == 0);
+        }
+        THEN("checksum_eligible reflects this fixture's real CDR flags (no checksum bit set)")
+        {
+            REQUIRE_FALSE(stats.checksum_eligible);
+        }
+    }
+}
+
 SCENARIO(
     "dump_from_offset() with show_data=true hex-dumps a real VVR's payload, matching a "
     "real -offset -data capture",

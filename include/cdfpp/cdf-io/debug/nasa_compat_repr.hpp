@@ -217,6 +217,144 @@ namespace details
     }
 }
 
+struct summary_counts_t
+{
+    std::size_t count = 0;
+    std::size_t bytes = 0;
+};
+
+// Mirrors cdfirsdump.c's own flat per-record-type globals (CCRcount/CDRcount/...) plus
+// the two derived facts DisplaySummary/DisplaySummary64 print alongside them (the
+// global/variable ADR scope split, and the "checksum-eligible" quirk - see print_summary's
+// own comment for why the latter is a full-dump-only side effect, not a real per-file
+// feature).
+struct summary_stats
+{
+    summary_counts_t CCR, CDR, GDR, ADR, AgrEDR, AzEDR, rVDR, zVDR, VXR, VVR, CVVR, CPR, SPR, UIR;
+    std::size_t adr_global_count = 0;
+    std::size_t adr_variable_count = 0;
+    std::size_t used_bytes = 8; // the 8-byte magic preamble, always "used"
+    std::size_t wasted_bytes = 0;
+    bool checksum_eligible = true;
+};
+
+// Walks the whole file once (for_each_record's physical-order walk, same as dump()'s own)
+// and accumulates per-record-type count/bytes totals plus the two derived facts above -
+// cdfirsdump.c's DisplaySummary/DisplaySummary64 read the same information from a set of
+// flat globals its own main scan loop increments record-by-record as it goes; this does
+// the equivalent in one dedicated pass rather than threading counters through dump()'s own
+// walk, since a summary can also be produced standalone (dump_brief() never prints
+// per-record content at all).
+//
+// Deviation from this task's plan doc: the plan's own snippet places this function (and
+// the two structs above) "near the top of the file, after dump_options" - but its body
+// calls details::bit_set (just above), which isn't declared yet that early. A plain
+// top-of-file placement is a hard compile error (qualified-name lookup inside a template -
+// this lambda is a generic/auto one - still requires the name to be visible at the point
+// of definition, not instantiation). Verified by building the literal top-of-file
+// placement first and observing exactly that error before moving it here, after its one
+// real dependency.
+inline summary_stats compute_summary(const std::string& path)
+{
+    summary_stats stats;
+    for_each_record(path,
+        [&](std::size_t, const auto& record)
+        {
+            using record_t = std::decay_t<decltype(record)>;
+            cdf::cdf_record_type type;
+            std::size_t record_size;
+            if constexpr (std::is_same_v<record_t, cdf::io::debug::undecoded_record_t>)
+            {
+                type = record.type;
+                record_size = record.record_size;
+            }
+            else
+            {
+                type = record.header.record_type;
+                record_size = static_cast<std::size_t>(record.header.record_size);
+            }
+
+            using enum cdf::cdf_record_type;
+            summary_counts_t* bucket = nullptr;
+            switch (type)
+            {
+                case CCR:
+                    bucket = &stats.CCR;
+                    break;
+                case CDR:
+                    bucket = &stats.CDR;
+                    break;
+                case GDR:
+                    bucket = &stats.GDR;
+                    break;
+                case ADR:
+                    bucket = &stats.ADR;
+                    break;
+                case AgrEDR:
+                    bucket = &stats.AgrEDR;
+                    break;
+                case AzEDR:
+                    bucket = &stats.AzEDR;
+                    break;
+                case rVDR:
+                    bucket = &stats.rVDR;
+                    break;
+                case zVDR:
+                    bucket = &stats.zVDR;
+                    break;
+                case VXR:
+                    bucket = &stats.VXR;
+                    break;
+                case VVR:
+                    bucket = &stats.VVR;
+                    break;
+                case CVVR:
+                    bucket = &stats.CVVR;
+                    break;
+                case CPR:
+                    bucket = &stats.CPR;
+                    break;
+                case SPR:
+                    bucket = &stats.SPR;
+                    break;
+                case UIR:
+                    bucket = &stats.UIR;
+                    break;
+                default:
+                    return;
+            }
+            bucket->count++;
+            bucket->bytes += record_size;
+
+            if (type == UIR)
+                stats.wasted_bytes += record_size;
+            else
+                stats.used_bytes += record_size;
+
+            if constexpr (requires { record.scope; })
+            {
+                if (static_cast<int32_t>(record.scope) == 1)
+                    stats.adr_global_count++;
+                else
+                    stats.adr_variable_count++;
+            }
+            if constexpr (requires {
+                              record.Flags;
+                              record.Version;
+                              record.Release;
+                              record.Increment;
+                          })
+            {
+                const bool at_least_3_2_0
+                    = std::tie(record.Version, record.Release, record.Increment)
+                    >= std::tuple { 3, 2, 0 };
+                stats.checksum_eligible
+                    = at_least_3_2_0 && details::bit_set(record.Flags, 2 /* CDR_CHECKSUM_BIT */);
+            }
+        });
+    return stats;
+}
+
 // CDR Flags decode (cdfirsdump.c): "0x%lX (" + [checksum token,] + Row/Column,
 // + Single/Multi + ")". The checksum token only ever appears for CDFs at
 // version/release/increment >= 3.2.0 with the checksum bit set - no fixture
