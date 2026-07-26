@@ -15,7 +15,7 @@
 - New/changed public C++ entry points must keep every existing call site source-compatible (trailing defaulted parameters only — `tests/nasa_compat_repr/main.cpp`'s existing `SCENARIO`s and the existing `nasa_compat_dump` Python binding must keep compiling/passing unmodified).
 - This project's CI does **not** auto-discover tests: any new test *file* must be added to both `tests/meson.build` and `.github/workflows/tests-with-sanitizers.yml`'s hand-enumerated list, or it silently gets zero coverage (confirmed gap fixed twice already in this feature area). This plan avoids that entirely for 5 of 6 tasks by extending existing, already-registered test files (`tests/nasa_compat_repr/main.cpp`, `tests/python_debug/test.py`); only Task 6 introduces a new test file and must register it.
 - Flag syntax is modern `--flag` (cyclopts), never NASA's single-dash syntax — this is intentional, approved scope (see the design spec), not an oversight to "fix."
-- Skip the `full_corpus` test when running the suite locally (network fixtures) — `ninja test -C build --print-errorlogs` and check the summary rather than grepping for one test's output.
+- Skip the `full_corpus` test when running the full suite locally (it downloads fixtures over the network). Never run `ninja test`/`meson test` unfiltered. Use exactly: `meson test -C build --print-errorlogs $(meson test -C build --list | sed 's#.*:##' | grep -vx full_corpus)` — this expands to every test name except `full_corpus` and passes them explicitly.
 
 ---
 
@@ -1413,11 +1413,11 @@ Expected: all 6 tests PASS.
 
 - [ ] **Step 8: Run the full test suite (minus `full_corpus`) to confirm no regressions anywhere in the feature**
 
-Run: `ninja test -C build --print-errorlogs $(meson test -C build --list | grep -v full_corpus | sed 's/^/-R ^/;s/$/$/' | tr '\n' ' ')`
+Run: `ninja -C build && meson test -C build --print-errorlogs $(meson test -C build --list | sed 's#.*:##' | grep -vx full_corpus)`
 
-If that composed command is awkward in your shell, simpler equivalent: `ninja test -C build --print-errorlogs --suite '' 2>&1 | tee /tmp/test-output.txt; grep -c "^PASS\|Ok:" /tmp/test-output.txt` and separately confirm `full_corpus` was the only failure/skip (per `feedback-skip-full-corpus` project convention, it's expected to fail offline — don't let it block this task).
+(Per this project's own convention — see the plan's Global Constraints — never run `full_corpus`; it downloads fixtures over the network. This command excludes it by construction, not by tolerating its failure.)
 
-Expected: every test passes except (optionally) `full_corpus`, which needs network access and is not part of this feature's verification surface.
+Expected: every listed test passes (100% of the non-`full_corpus` suite).
 
 - [ ] **Step 9: Commit**
 
