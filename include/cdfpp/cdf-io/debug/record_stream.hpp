@@ -168,7 +168,7 @@ void for_each_record(buffer_t& buffer, version_t, std::size_t start_offset, std:
     {
         details::record_header_peek_t<version_t> peek {};
         load_record(peek, buffer, offset);
-        const std::size_t record_size = static_cast<std::size_t>(peek.record_size);
+        const auto record_size = static_cast<std::size_t>(peek.record_size);
 
         auto report = [&](corruption_kind kind, std::string detail)
         {
@@ -406,7 +406,7 @@ template <typename buffer_t, typename on_record_t,
 void for_each_record(
     buffer_t&& buffer, on_record_t&& on_record, on_corruption_t&& on_corruption = {})
 {
-    for_each_record(buffer, 8UL, std::forward<on_record_t>(on_record),
+    for_each_record(std::forward<buffer_t>(buffer), 8UL, std::forward<on_record_t>(on_record),
         std::forward<on_corruption_t>(on_corruption));
 }
 

@@ -72,7 +72,7 @@ struct dump_options
 
 // Deci64(OFF_T): snprintf(..., "%020lld", value) - width 20, zero-padded, sign
 // (if any) consumes one of the 20 slots, exactly like C's printf. Every
-// offset-shaped field in cdfirsdump (record offsets, *head/*next/*tail
+// offset-shaped field in cdfirsdump (record offsets, head / next / tail
 // pointers, CPRorSPRoffset, VXR entry Offset column, ...) goes through this
 // one function - there is no field-specific offset formatting anywhere.
 inline std::string nasa_offset(int64_t value, const dump_options& opts = {})
@@ -230,7 +230,20 @@ struct summary_counts_t
 // feature).
 struct summary_stats
 {
-    summary_counts_t CCR, CDR, GDR, ADR, AgrEDR, AzEDR, rVDR, zVDR, VXR, VVR, CVVR, CPR, SPR, UIR;
+    summary_counts_t CCR;
+    summary_counts_t CDR;
+    summary_counts_t GDR;
+    summary_counts_t ADR;
+    summary_counts_t AgrEDR;
+    summary_counts_t AzEDR;
+    summary_counts_t rVDR;
+    summary_counts_t zVDR;
+    summary_counts_t VXR;
+    summary_counts_t VVR;
+    summary_counts_t CVVR;
+    summary_counts_t CPR;
+    summary_counts_t SPR;
+    summary_counts_t UIR;
     std::size_t adr_global_count = 0;
     std::size_t adr_variable_count = 0;
     std::size_t used_bytes = 8; // the 8-byte magic preamble, always "used"
@@ -254,104 +267,111 @@ struct summary_stats
 // of definition, not instantiation). Verified by building the literal top-of-file
 // placement first and observing exactly that error before moving it here, after its one
 // real dependency.
+namespace details
+{
+    // One record's contribution to summary_stats: which bucket's count/bytes to bump, the
+    // used/wasted split, and the two derived facts (ADR scope split, checksum-eligible)
+    // computed only when this record type actually carries the relevant fields.
+    template <typename record_t>
+    void accumulate_record(summary_stats& stats, const record_t& record)
+    {
+        cdf::cdf_record_type type;
+        std::size_t record_size;
+        if constexpr (std::is_same_v<record_t, cdf::io::debug::undecoded_record_t>)
+        {
+            type = record.type;
+            record_size = record.record_size;
+        }
+        else
+        {
+            type = record.header.record_type;
+            record_size = static_cast<std::size_t>(record.header.record_size);
+        }
+
+        using enum cdf::cdf_record_type;
+        summary_counts_t* bucket = nullptr;
+        switch (type)
+        {
+            case CCR:
+                bucket = &stats.CCR;
+                break;
+            case CDR:
+                bucket = &stats.CDR;
+                break;
+            case GDR:
+                bucket = &stats.GDR;
+                break;
+            case ADR:
+                bucket = &stats.ADR;
+                break;
+            case AgrEDR:
+                bucket = &stats.AgrEDR;
+                break;
+            case AzEDR:
+                bucket = &stats.AzEDR;
+                break;
+            case rVDR:
+                bucket = &stats.rVDR;
+                break;
+            case zVDR:
+                bucket = &stats.zVDR;
+                break;
+            case VXR:
+                bucket = &stats.VXR;
+                break;
+            case VVR:
+                bucket = &stats.VVR;
+                break;
+            case CVVR:
+                bucket = &stats.CVVR;
+                break;
+            case CPR:
+                bucket = &stats.CPR;
+                break;
+            case SPR:
+                bucket = &stats.SPR;
+                break;
+            case UIR:
+                bucket = &stats.UIR;
+                break;
+            default:
+                return;
+        }
+        bucket->count++;
+        bucket->bytes += record_size;
+
+        if (type == UIR)
+            stats.wasted_bytes += record_size;
+        else
+            stats.used_bytes += record_size;
+
+        if constexpr (requires { record.scope; })
+        {
+            if (static_cast<int32_t>(record.scope) == 1)
+                stats.adr_global_count++;
+            else
+                stats.adr_variable_count++;
+        }
+        if constexpr (requires {
+                          record.Flags;
+                          record.Version;
+                          record.Release;
+                          record.Increment;
+                      })
+        {
+            const bool at_least_3_2_0 = std::tie(record.Version, record.Release, record.Increment)
+                >= std::tuple { 3, 2, 0 };
+            stats.checksum_eligible
+                = at_least_3_2_0 && details::bit_set(record.Flags, 2 /* CDR_CHECKSUM_BIT */);
+        }
+    }
+}
+
 inline summary_stats compute_summary(const std::string& path)
 {
     summary_stats stats;
-    for_each_record(path,
-        [&](std::size_t, const auto& record)
-        {
-            using record_t = std::decay_t<decltype(record)>;
-            cdf::cdf_record_type type;
-            std::size_t record_size;
-            if constexpr (std::is_same_v<record_t, cdf::io::debug::undecoded_record_t>)
-            {
-                type = record.type;
-                record_size = record.record_size;
-            }
-            else
-            {
-                type = record.header.record_type;
-                record_size = static_cast<std::size_t>(record.header.record_size);
-            }
-
-            using enum cdf::cdf_record_type;
-            summary_counts_t* bucket = nullptr;
-            switch (type)
-            {
-                case CCR:
-                    bucket = &stats.CCR;
-                    break;
-                case CDR:
-                    bucket = &stats.CDR;
-                    break;
-                case GDR:
-                    bucket = &stats.GDR;
-                    break;
-                case ADR:
-                    bucket = &stats.ADR;
-                    break;
-                case AgrEDR:
-                    bucket = &stats.AgrEDR;
-                    break;
-                case AzEDR:
-                    bucket = &stats.AzEDR;
-                    break;
-                case rVDR:
-                    bucket = &stats.rVDR;
-                    break;
-                case zVDR:
-                    bucket = &stats.zVDR;
-                    break;
-                case VXR:
-                    bucket = &stats.VXR;
-                    break;
-                case VVR:
-                    bucket = &stats.VVR;
-                    break;
-                case CVVR:
-                    bucket = &stats.CVVR;
-                    break;
-                case CPR:
-                    bucket = &stats.CPR;
-                    break;
-                case SPR:
-                    bucket = &stats.SPR;
-                    break;
-                case UIR:
-                    bucket = &stats.UIR;
-                    break;
-                default:
-                    return;
-            }
-            bucket->count++;
-            bucket->bytes += record_size;
-
-            if (type == UIR)
-                stats.wasted_bytes += record_size;
-            else
-                stats.used_bytes += record_size;
-
-            if constexpr (requires { record.scope; })
-            {
-                if (static_cast<int32_t>(record.scope) == 1)
-                    stats.adr_global_count++;
-                else
-                    stats.adr_variable_count++;
-            }
-            if constexpr (requires {
-                              record.Flags;
-                              record.Version;
-                              record.Release;
-                              record.Increment;
-                          })
-            {
-                const bool at_least_3_2_0
-                    = std::tie(record.Version, record.Release, record.Increment)
-                    >= std::tuple { 3, 2, 0 };
-                stats.checksum_eligible
-                    = at_least_3_2_0 && details::bit_set(record.Flags, 2 /* CDR_CHECKSUM_BIT */);
-            }
-        });
+    for_each_record(
+        path, [&](std::size_t, const auto& record) { details::accumulate_record(stats, record); });
     return stats;
 }
 
@@ -836,10 +856,11 @@ namespace details
 inline std::string nasa_pad_value_str(
     CDF_Types type, cdf_encoding encoding, const char* raw, std::size_t raw_size)
 {
+    using enum CDF_Types;
     std::string decoded = details::nasa_decode_single_value(type, encoding, raw, raw_size);
-    if (type == CDF_Types::CDF_EPOCH16)
+    if (type == CDF_EPOCH16)
         return decoded;
-    const bool is_string = type == CDF_Types::CDF_CHAR || type == CDF_Types::CDF_UCHAR;
+    const bool is_string = type == CDF_CHAR || type == CDF_UCHAR;
     return " (0x" + details::nasa_hex_bytes(raw, raw_size, /*reversed=*/!is_string) + ") "
         + decoded;
 }
