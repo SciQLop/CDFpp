@@ -38,7 +38,7 @@ repository = "https://github.com/SciQLop/CDFpp"
 
 [project.scripts]
 cdfdump = "pycdfpp.cli:main"
-cdfirsdump = "pycdfpp.cli_irsdump:main"
+cdfirsdump = "pycdfpp.cli_irsdump:app"
 
 [tool.meson-python.args]
 install = ['--tags=runtime,python-runtime']

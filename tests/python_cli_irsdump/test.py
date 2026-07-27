@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import re
 import tempfile
 import unittest
 
@@ -78,6 +79,32 @@ class CdfirsdumpCliTest(unittest.TestCase):
         with contextlib.redirect_stdout(buf):
             _run(os.path.join(_resources, 'a_cdf.cdf'), '--about')
         self.assertIn(__version__, buf.getvalue())
+
+    def test_app_object_is_the_correct_pyproject_toml_entry_point(self):
+        # Regression test: pyproject.toml's [project.scripts] entry MUST reference
+        # `app` (a cyclopts.App, callable with zero args -> parses sys.argv), not
+        # `main` directly (a plain function requiring `path` positionally - a real
+        # installed console script always calls its entry point with zero
+        # arguments, so pointing pyproject.toml at `main` crashes immediately with
+        # "missing 1 required positional argument: 'path'"). This was a real,
+        # independently-reproduced bug found in review - verify pyproject.toml's
+        # actual configured entry point targets `app` (the safety property the
+        # whole class of bug is about).
+        #
+        # Parsed with a regex rather than tomllib/tomli: tomllib is stdlib only
+        # from Python 3.11 (this project's requires-python is >=3.9), and adding
+        # the tomli backport as a dependency just for this one line isn't worth it.
+        pyproject_path = os.path.join(_here, '..', '..', 'pyproject.toml')
+        with open(pyproject_path) as f:
+            content = f.read()
+        match = re.search(r'^cdfirsdump\s*=\s*"([^"]+)"', content, re.MULTILINE)
+        self.assertIsNotNone(match, "cdfirsdump entry point not found in pyproject.toml")
+        module_name, _, attr_name = match.group(1).partition(':')
+        self.assertEqual(module_name, 'pycdfpp.cli_irsdump')
+        self.assertEqual(attr_name, 'app',
+            f"cdfirsdump entry point must reference 'app' (cyclopts.App, parses sys.argv), "
+            f"not '{attr_name}' - a real console script always calls its entry point with "
+            f"zero pre-supplied arguments, which crashes against 'main' directly")
 
 
 if __name__ == '__main__':
