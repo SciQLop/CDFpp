@@ -1,0 +1,10 @@
+# Byte-for-byte fixtures (real NASA cdfirsdump captures, CDF binaries) must never have
+# their line endings touched by git checkout/commit - a real capture is exact by
+# definition, and any LF/CRLF conversion breaks every REQUIRE(dump(...) == reference)
+# comparison on a platform whose git defaults to converting them (observed: Windows CI,
+# tests/nasa_compat_repr and tests/python_debug/python_cli_irsdump reference-fixture
+# comparisons all failed uniformly the first time this branch's tests ever ran on a real
+# Windows runner, including a pre-existing fixture from an earlier session - nothing here
+# had ever actually executed on Windows CI until this PR was pushed).
+tests/resources/*.txt -text
+tests/resources/*.cdf -text
