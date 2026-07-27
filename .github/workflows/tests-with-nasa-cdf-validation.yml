@@ -33,7 +33,7 @@ jobs:
       # URL below) only on a deliberate version bump.
       - name: Cache the NASA CDF reference library build
         id: nasa-cdf-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: nasa-cdf
           key: nasa-cdf-toolkit-3.9.2-${{ runner.os }}
@@ -42,7 +42,7 @@ jobs:
       # fetch_cdf): same key everywhere so one populated cache serves them all,
       # instead of each job re-fetching the same ~33 files from the mirror.
       - name: Cache full_corpus fixtures
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: tests/full_corpus/.cache
           key: cdf-corpus-v1-${{ hashFiles('tests/full_corpus/test.py') }}
