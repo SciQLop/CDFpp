@@ -94,15 +94,16 @@ class CdfirsdumpCliTest(unittest.TestCase):
         self.assertIn(__version__, buf.getvalue())
 
     def test_app_object_is_the_correct_pyproject_toml_entry_point(self):
-        # Regression test: pyproject.toml's [project.scripts] entry MUST reference
+        # Regression test: pyproject.toml's [project.scripts] entries MUST reference
         # `app` (a cyclopts.App, callable with zero args -> parses sys.argv), not
         # `main` directly (a plain function requiring `path` positionally - a real
         # installed console script always calls its entry point with zero
         # arguments, so pointing pyproject.toml at `main` crashes immediately with
         # "missing 1 required positional argument: 'path'"). This was a real,
-        # independently-reproduced bug found in review - verify pyproject.toml's
-        # actual configured entry point targets `app` (the safety property the
-        # whole class of bug is about).
+        # independently-reproduced bug found in review for cdfirsdump, and the
+        # identical bug was separately found (same review, same root cause) in the
+        # pre-existing cdfdump entry - both are checked here so the class of bug
+        # can't silently reappear on either script.
         #
         # Parsed with a regex rather than tomllib/tomli: tomllib is stdlib only
         # from Python 3.11 (this project's requires-python is >=3.9), and adding
@@ -110,14 +111,19 @@ class CdfirsdumpCliTest(unittest.TestCase):
         pyproject_path = os.path.join(_here, '..', '..', 'pyproject.toml')
         with open(pyproject_path) as f:
             content = f.read()
-        match = re.search(r'^cdfirsdump\s*=\s*"([^"]+)"', content, re.MULTILINE)
-        self.assertIsNotNone(match, "cdfirsdump entry point not found in pyproject.toml")
-        module_name, _, attr_name = match.group(1).partition(':')
-        self.assertEqual(module_name, 'pycdfpp.cli_irsdump')
-        self.assertEqual(attr_name, 'app',
-            f"cdfirsdump entry point must reference 'app' (cyclopts.App, parses sys.argv), "
-            f"not '{attr_name}' - a real console script always calls its entry point with "
-            f"zero pre-supplied arguments, which crashes against 'main' directly")
+        for script_name, expected_module in (
+            ('cdfdump', 'pycdfpp.cli'),
+            ('cdfirsdump', 'pycdfpp.cli_irsdump'),
+        ):
+            match = re.search(rf'^{script_name}\s*=\s*"([^"]+)"', content, re.MULTILINE)
+            self.assertIsNotNone(match, f"{script_name} entry point not found in pyproject.toml")
+            module_name, _, attr_name = match.group(1).partition(':')
+            self.assertEqual(module_name, expected_module)
+            self.assertEqual(attr_name, 'app',
+                f"{script_name} entry point must reference 'app' (cyclopts.App, parses "
+                f"sys.argv), not '{attr_name}' - a real console script always calls its "
+                f"entry point with zero pre-supplied arguments, which crashes against "
+                f"'main' directly")
 
 
 if __name__ == '__main__':

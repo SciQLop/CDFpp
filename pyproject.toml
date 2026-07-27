@@ -37,7 +37,7 @@ documentation = "https://pycdfpp.readthedocs.io/en/latest/"
 repository = "https://github.com/SciQLop/CDFpp"
 
 [project.scripts]
-cdfdump = "pycdfpp.cli:main"
+cdfdump = "pycdfpp.cli:app"
 cdfirsdump = "pycdfpp.cli_irsdump:app"
 
 [tool.meson-python.args]
