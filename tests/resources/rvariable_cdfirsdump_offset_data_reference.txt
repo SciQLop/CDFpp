@@ -1,4 +1,7 @@
 
+Scanning records...
+
+
 RecordSize: 344 (@ 00000000000000000404)
 RecordType: 3 (rVDR)
 rVDRnext: 00000000000000000000

@@ -1199,9 +1199,12 @@ inline std::string dump(
 }
 
 // Like dump(), but starts the walk at start_offset instead of the file start (mirrors
-// cdfirsdump's own -offset flag) - matches the real tool's behaviour of skipping the
-// magic-number preamble and the "Dumping ..." line entirely once -offset is non-zero
-// (see tests/resources/rvariable_cdfirsdump_offset_reference.txt).
+// cdfirsdump's own -offset flag) - matches the real tool's behaviour of still printing
+// the "\nScanning records...\n\n" banner (unconditional, printed before -offset is even
+// checked) while skipping the two Magic number lines and the "Dumping ..." line (the
+// former genuinely gated on offset==0, the latter a CLI-level concern, see
+// print_nasa_magic_preamble's own comment) once -offset is non-zero (see
+// tests/resources/rvariable_cdfirsdump_offset_reference.txt).
 //
 // cdfirsdump.c only learns the real end-of-file position (its "fileSize" global) from
 // the GDR's own eof field (or, for a compressed CDF, the CCR's uSize) as it walks past
@@ -1222,6 +1225,13 @@ inline void dump_from_offset(std::ostream& os, const std::string& path, std::siz
     const dump_options& opts = {})
 {
     auto buffer = cdf::io::buffers::make_shared_file_adapter(path);
+    // cdfirsdump.c: WriteOut(OUTfp, "\nScanning records...\n\n") is the unconditional
+    // first statement of ScanCDF/ScanCDF64, printed before the -offset check itself -
+    // only the two Magic number lines that follow it in print_nasa_magic_preamble are
+    // genuinely gated on offset==0 (verified against cdfirsdump.c source and cross-checked
+    // against real -offset captures - see
+    // tests/resources/rvariable_cdfirsdump_offset_reference.txt).
+    os << "\nScanning records...\n\n";
     cdf_encoding encoding = cdf_encoding::network;
     bool eof_position_known = false;
     for_each_record(buffer, start_offset,
