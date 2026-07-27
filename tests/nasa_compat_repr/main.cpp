@@ -742,18 +742,26 @@ SCENARIO("print_nasa(UIR) reproduces a real freed-space record", "[nasa_compat_r
     REQUIRE(print_at_offset<cdf::io::cdf_UIR_t<cdf::io::v3x_tag>>(path, 10964) == expected);
 }
 
+namespace
+{
+// Every end-to-end SCENARIO below compares dump()/dump_from_offset()/dump_brief()'s
+// output against a real captured cdfirsdump reference file - this is that read, shared
+// rather than repeated at each call site.
+std::string read_fixture(const std::string& name)
+{
+    std::ifstream f { std::string(DATA_PATH) + "/" + name, std::ios::binary };
+    REQUIRE(f.is_open());
+    return std::string { std::istreambuf_iterator<char> { f }, std::istreambuf_iterator<char> {} };
+}
+}
+
 SCENARIO("dump() reproduces cdfirsdump -full -nopage -nosummary byte-for-byte, end to end",
     "[nasa_compat_repr]")
 {
     GIVEN("a real captured reference dump of a_cdf.cdf from NASA's own cdf39_2 cdfirsdump")
     {
         const std::string cdf_path = std::string(DATA_PATH) + "/a_cdf.cdf";
-        const std::string reference_path
-            = std::string(DATA_PATH) + "/a_cdf_cdfirsdump_reference.txt";
-        std::ifstream f { reference_path, std::ios::binary };
-        REQUIRE(f.is_open());
-        std::string reference { std::istreambuf_iterator<char> { f },
-            std::istreambuf_iterator<char> {} };
+        std::string reference = read_fixture("a_cdf_cdfirsdump_reference.txt");
 
         // The one and only real divergence across all 1261 lines: a_cdf.cdf's "tt2000"
         // global attribute value predates 1972, which hits the pre-existing,
@@ -786,12 +794,7 @@ SCENARIO("dump() with radix=16 reproduces a real hex-radix cdfirsdump capture, e
     GIVEN("a real captured -16 run of rvariable.cdf")
     {
         const std::string cdf_path = std::string(DATA_PATH) + "/rvariable.cdf";
-        const std::string reference_path
-            = std::string(DATA_PATH) + "/rvariable_cdfirsdump_hex_reference.txt";
-        std::ifstream f { reference_path, std::ios::binary };
-        REQUIRE(f.is_open());
-        std::string reference { std::istreambuf_iterator<char> { f },
-            std::istreambuf_iterator<char> {} };
+        const std::string reference = read_fixture("rvariable_cdfirsdump_hex_reference.txt");
 
         THEN("dump() with radix=16 matches it exactly")
         {
@@ -808,12 +811,7 @@ SCENARIO(
     GIVEN("a real captured -offset 404 run of rvariable.cdf")
     {
         const std::string cdf_path = std::string(DATA_PATH) + "/rvariable.cdf";
-        const std::string reference_path
-            = std::string(DATA_PATH) + "/rvariable_cdfirsdump_offset_reference.txt";
-        std::ifstream f { reference_path, std::ios::binary };
-        REQUIRE(f.is_open());
-        std::string reference { std::istreambuf_iterator<char> { f },
-            std::istreambuf_iterator<char> {} };
+        const std::string reference = read_fixture("rvariable_cdfirsdump_offset_reference.txt");
 
         THEN("dump_from_offset(path, 404) matches it exactly")
         {
@@ -850,12 +848,7 @@ SCENARIO(
     GIVEN("a real captured -data run of rvariable.cdf")
     {
         const std::string cdf_path = std::string(DATA_PATH) + "/rvariable.cdf";
-        const std::string reference_path
-            = std::string(DATA_PATH) + "/rvariable_cdfirsdump_data_reference.txt";
-        std::ifstream f { reference_path, std::ios::binary };
-        REQUIRE(f.is_open());
-        std::string reference { std::istreambuf_iterator<char> { f },
-            std::istreambuf_iterator<char> {} };
+        const std::string reference = read_fixture("rvariable_cdfirsdump_data_reference.txt");
 
         THEN("dump() with show_data=true matches it exactly")
         {
@@ -906,12 +899,7 @@ SCENARIO(
     GIVEN("a real captured -brief run of a_cdf.cdf")
     {
         const std::string cdf_path = std::string(DATA_PATH) + "/a_cdf.cdf";
-        const std::string reference_path
-            = std::string(DATA_PATH) + "/a_cdf_cdfirsdump_brief_reference.txt";
-        std::ifstream f { reference_path, std::ios::binary };
-        REQUIRE(f.is_open());
-        std::string reference { std::istreambuf_iterator<char> { f },
-            std::istreambuf_iterator<char> {} };
+        const std::string reference = read_fixture("a_cdf_cdfirsdump_brief_reference.txt");
 
         THEN(
             "dump_brief() matches it exactly (a_cdf.cdf's real CDR has no checksum bit, "
@@ -930,12 +918,7 @@ SCENARIO(
     GIVEN("a real captured -full (default -summary) run of rvariable.cdf")
     {
         const std::string cdf_path = std::string(DATA_PATH) + "/rvariable.cdf";
-        const std::string reference_path
-            = std::string(DATA_PATH) + "/rvariable_cdfirsdump_summary_reference.txt";
-        std::ifstream f { reference_path, std::ios::binary };
-        REQUIRE(f.is_open());
-        std::string reference { std::istreambuf_iterator<char> { f },
-            std::istreambuf_iterator<char> {} };
+        const std::string reference = read_fixture("rvariable_cdfirsdump_summary_reference.txt");
 
         THEN(
             "dump() with show_summary=true matches it exactly (no checksum note here: "
@@ -981,12 +964,8 @@ SCENARIO(
         // re-running until a clean, garbage-free result was obtained (verified stable
         // across 5 repeated clean captures).
         const std::string cdf_path = std::string(DATA_PATH) + "/rvariable.cdf";
-        const std::string reference_path
-            = std::string(DATA_PATH) + "/rvariable_cdfirsdump_offset_data_reference.txt";
-        std::ifstream f { reference_path, std::ios::binary };
-        REQUIRE(f.is_open());
-        std::string reference { std::istreambuf_iterator<char> { f },
-            std::istreambuf_iterator<char> {} };
+        const std::string reference
+            = read_fixture("rvariable_cdfirsdump_offset_data_reference.txt");
 
         THEN("dump_from_offset(path, 404, show_data=true) matches it exactly")
         {
