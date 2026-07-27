@@ -113,7 +113,7 @@ jobs:
       # instead of each of this job's ~28 matrix instances re-fetching the same
       # ~33 files from the mirror.
       - name: Cache full_corpus fixtures
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: tests/full_corpus/.cache
           key: cdf-corpus-v1-${{ hashFiles('tests/full_corpus/test.py') }}
@@ -155,7 +155,7 @@ jobs:
       # instead of each of this job's matrix instances re-fetching the same
       # ~33 files from the mirror.
       - name: Cache full_corpus fixtures
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: tests/full_corpus/.cache
           key: cdf-corpus-v1-${{ hashFiles('tests/full_corpus/test.py') }}
