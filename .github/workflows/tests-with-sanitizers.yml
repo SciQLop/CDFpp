@@ -80,4 +80,4 @@ jobs:
           meson test -C build --print-errorlogs \
             python_loading python_saving python_skeletons python_variable_set_values \
             python_chrono python_windows_crash python_structural_introspection \
-            python_debug python_wrapper_cpp
+            python_debug python_cli_irsdump python_wrapper_cpp
