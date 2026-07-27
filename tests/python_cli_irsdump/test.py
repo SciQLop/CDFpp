@@ -80,6 +80,19 @@ class CdfirsdumpCliTest(unittest.TestCase):
             _run(os.path.join(_resources, 'a_cdf.cdf'), '--about')
         self.assertIn(__version__, buf.getvalue())
 
+    def test_about_with_no_path_prints_the_pycdfpp_version(self):
+        # Regression test: `path` used to be a required positional argument, so
+        # cyclopts rejected `cdfirsdump --about` (no path at all) before main()'s own
+        # `if about: ...; return` branch ever ran - the real, most common way `--about`
+        # is actually invoked (e.g. `cdfirsdump --about` with nothing else). `path`
+        # must default to None and the `about` branch must still run first.
+        import io
+        import contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            _run('--about')
+        self.assertIn(__version__, buf.getvalue())
+
     def test_app_object_is_the_correct_pyproject_toml_entry_point(self):
         # Regression test: pyproject.toml's [project.scripts] entry MUST reference
         # `app` (a cyclopts.App, callable with zero args -> parses sys.argv), not

@@ -7,6 +7,8 @@ flags (not NASA's single-dash syntax) - conceptual parity, not a literal drop-in
 shell scripts calling the real tool. See docs/superpowers/specs/2026-07-25-cdfirsdump-
 cli-design.md for the full flag-scope rationale.
 """
+import sys
+
 import cyclopts
 
 from . import __version__
@@ -20,13 +22,13 @@ app = cyclopts.App(
 
 
 @app.default
-def main(path: str, *, level: str = 'brief', summary: bool = True, data: bool = False,
+def main(path: str = None, *, level: str = 'brief', summary: bool = True, data: bool = False,
           output: str = None, offset: int = None, radix: int = 10, about: bool = False):
     """Dump a CDF file's Internal Records (IRs) in NASA cdfirsdump's text format.
 
     Parameters
     ----------
-    path: Path to the CDF file.
+    path: Path to the CDF file. Not required when --about is given.
     level: "brief" (summary table only, the default - matches the real tool's own
         default) or "full" (per-record dump). "most" is accepted as an alias for
         "full" - NASA's real MOST-level per-field gating isn't independently
@@ -43,6 +45,11 @@ def main(path: str, *, level: str = 'brief', summary: bool = True, data: bool = 
     if about:
         print(f'pycdfpp {__version__}')
         return
+
+    if path is None:
+        print('Error: the "path" argument is required (unless --about is given).',
+              file=sys.stderr)
+        raise SystemExit(1)
 
     resolved_level = 'full' if level == 'most' else level
 
