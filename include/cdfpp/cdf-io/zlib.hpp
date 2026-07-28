@@ -25,7 +25,8 @@
 ----------------------------------------------------------------------------*/
 #pragma once
 #include "../cdf-debug.hpp"
-#include "cdfpp/no_init_vector.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include <cstddef>
 #include <vector>
 #define ZLIB_CONST

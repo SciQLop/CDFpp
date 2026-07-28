@@ -28,7 +28,8 @@
 #include "cdf-enums.hpp"
 #include "cdf-helpers.hpp"
 #include "cdf-io/endianness.hpp"
-#include "no_init_vector.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include <algorithm>
 #include <cstdint>
 #include <functional>
@@ -233,7 +234,7 @@ inline data_t& data_t::operator=(const data_t& other)
     codep = (state != 0) ? (byte & 0x3fu) | (codep << 6) : (0xff >> type) & (byte);
 
     state = utf8d[256 + state * 16 + type];
-    return std::tuple{ state, codep };
+    return std::tuple { state, codep };
 }
 
 // switch to SIMD later together with XSIMD integration
@@ -293,9 +294,8 @@ template <CDF_Types _type, typename endianness_t, bool latin1_to_utf8_conv>
     {
         if constexpr (latin1_to_utf8_conv)
         {
-            return data_t { cdf_values_t {
-                                ensure_utf8<no_init_vector<from_cdf_type_t<_type>>>(
-                                    data.bytes_ptr(), data.bytes()) },
+            return data_t { cdf_values_t { ensure_utf8<no_init_vector<from_cdf_type_t<_type>>>(
+                                data.bytes_ptr(), data.bytes()) },
                 _type };
         }
         else
@@ -323,8 +323,7 @@ template <bool iso_8859_1_to_utf8>
             if (endianness::is_big_endian_encoding(encoding))
                 return load_values<t, endianness::big_endian_t, iso_8859_1_to_utf8>(
                     std::move(data));
-            return load_values<t, endianness::little_endian_t, iso_8859_1_to_utf8>(
-                std::move(data));
+            return load_values<t, endianness::little_endian_t, iso_8859_1_to_utf8>(std::move(data));
         });
 }
 
@@ -341,9 +340,8 @@ template <CDF_Types _type>
 {
     if (_type == CDF_Types::CDF_NONE)
         return {};
-    return cdf_type_dispatch(_type,
-        [&]<CDF_Types t>()
-        { return data_t { new_cdf_values_container<t>(bytes_len), t }; });
+    return cdf_type_dispatch(
+        _type, [&]<CDF_Types t>() { return data_t { new_cdf_values_container<t>(bytes_len), t }; });
 }
 
 

@@ -26,7 +26,8 @@
 #pragma once
 #include "../cdf-data.hpp"
 #include "../cdf-debug.hpp"
-#include "../no_init_vector.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include <algorithm>
 #include <cstdint>
 #include <cstring>

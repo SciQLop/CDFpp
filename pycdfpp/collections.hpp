@@ -36,7 +36,9 @@ typedef SSIZE_T ssize_t;
 #include <cdfpp/cdf-data.hpp>
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
-#include <cdfpp/no_init_vector.hpp>
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::default_init_allocator;
+using cpp_utils::containers::no_init_vector;
 using namespace cdf;
 
 #include <fmt/core.h>
@@ -65,7 +67,6 @@ template <typename T>
 concept Vector
     = std::is_same_v<std::decay_t<T>, no_init_vector<typename std::decay_t<T>::value_type>>
     || std::is_same_v<std::decay_t<T>, std::vector<typename std::decay_t<T>::value_type>>;
-
 
 
 namespace _details
@@ -191,7 +192,7 @@ template <typename T>
             return false;
         }
         // First dimension can be different (record variance)
-        if (dest_size >=2)
+        if (dest_size >= 2)
         {
             for (auto i = 1UL; i < dest_size; i++)
             {
@@ -206,12 +207,12 @@ template <typename T>
     else
     {
         // NRV variable
-        if ((dest_size -1 != source_size) && (dest_size != source_size))
+        if ((dest_size - 1 != source_size) && (dest_size != source_size))
         {
             return false;
         }
         const auto source_offset = dest_size - source_size;
-        if (dest_size >=2)
+        if (dest_size >= 2)
         {
             for (auto i = 1UL; i < source_size; i++)
             {
@@ -556,7 +557,9 @@ namespace ranges
             {
                 if (shape_span.size() < 2)
                 {
-                    throw std::out_of_range("Inconsistent shapes in nested lists/tuples: unexpected nested collection at leaf level");
+                    throw std::out_of_range(
+                        "Inconsistent shapes in nested lists/tuples: unexpected nested collection "
+                        "at leaf level");
                 }
                 res_ptr = _transform_inner<T>(
                     py::reinterpret_borrow<py::list>(const_cast<PyObject*>(obj)), f, res_ptr,
@@ -608,7 +611,9 @@ namespace ranges
             {
                 if (shape_span.size() < 2)
                 {
-                    throw std::out_of_range("Inconsistent shapes in nested string lists/tuples: unexpected nested collection at leaf level");
+                    throw std::out_of_range(
+                        "Inconsistent shapes in nested string lists/tuples: unexpected nested "
+                        "collection at leaf level");
                 }
                 res_ptr = _string_transform_inner<T>(
                     py::reinterpret_borrow<py::list>(const_cast<PyObject*>(obj)), f, res_ptr,
@@ -761,13 +766,16 @@ template <bool encode_strings>
 {
     Variable& variable = obj.cast<Variable&>();
     return cdf_type_dispatch(
-        variable.type(), [&variable]<CDF_Types T>(py::object& o) -> py::object {
+        variable.type(),
+        [&variable]<CDF_Types T>(py::object& o) -> py::object
+        {
             if constexpr (T == CDF_Types::CDF_CHAR || T == CDF_Types::CDF_UCHAR)
             {
                 return _details::make_str_array<T, encode_strings>(o);
             }
             return _details::make_array<T>(variable, o);
-        }, obj);
+        },
+        obj);
 }
 
 [[nodiscard]] py::buffer_info make_buffer(cdf::Variable& variable)

@@ -25,7 +25,8 @@
 ----------------------------------------------------------------------------*/
 #pragma once
 
-#include <cdfpp/no_init_vector.hpp>
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include <cpp_utils/io/buffer_view.hpp>
 #include <cpp_utils/io/memory_mapped_file.hpp>
 #include <cpp_utils/io/owned_buffer.hpp>

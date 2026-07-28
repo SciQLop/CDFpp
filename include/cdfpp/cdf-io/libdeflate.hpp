@@ -25,7 +25,8 @@
 ----------------------------------------------------------------------------*/
 #pragma once
 #include "../cdf-debug.hpp"
-#include "cdfpp/no_init_vector.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 
 #include <cstddef>
 #include <libdeflate.h>
@@ -61,8 +62,7 @@ namespace _internal
         auto compressor = libdeflate_alloc_compressor(6);
         if (!compressor)
             return {};
-        no_init_vector<char> result(
-            libdeflate_gzip_compress_bound(compressor, std::size(input)));
+        no_init_vector<char> result(libdeflate_gzip_compress_bound(compressor, std::size(input)));
         auto compressed_size = libdeflate_gzip_compress(
             compressor, input.data(), std::size(input), result.data(), std::size(result));
         libdeflate_free_compressor(compressor);

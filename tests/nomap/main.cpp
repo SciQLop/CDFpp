@@ -2,18 +2,17 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
-#include <tuple>
 
 
 #include <catch2/catch_all.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 
-
-#include "cdfpp/nomap.hpp"
 #include "cdfpp/variable.hpp"
+#include <cpp_utils/containers/nomap.hpp>
 
 #include "tests_config.hpp"
 
@@ -162,12 +161,12 @@ SCENARIO("nomap", "[CDF]")
 {
     GIVEN("a map")
     {
-        nomap<std::string,cdf::Variable> map;
+        nomap<std::string, cdf::Variable> map;
         WHEN("the map is empty")
         {
             THEN("its size must be 0")
             {
-                REQUIRE(std::size(map)==0);
+                REQUIRE(std::size(map) == 0);
             }
             THEN("empty must return true")
             {
@@ -176,11 +175,12 @@ SCENARIO("nomap", "[CDF]")
         }
         WHEN("adding some items")
         {
-            auto var = cdf::Variable("Var1",0,cdf::data_t{},{0,1},cdf::cdf_majority::row, false);
-            map["Var1"]=std::move(var);
+            auto var
+                = cdf::Variable("Var1", 0, cdf::data_t {}, { 0, 1 }, cdf::cdf_majority::row, false);
+            map["Var1"] = std::move(var);
             THEN("its size must be equals to the number of items added")
             {
-                REQUIRE(std::size(map)==1);
+                REQUIRE(std::size(map) == 1);
             }
             THEN("empty must return false")
             {

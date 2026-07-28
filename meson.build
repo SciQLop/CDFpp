@@ -91,8 +91,6 @@ endif
 
 cdfpp_headers = files(
     'include/cdfpp/attribute.hpp',
-    'include/cdfpp/nomap.hpp',
-    'include/cdfpp/no_init_vector.hpp',
     'include/cdfpp/cdf-map.hpp',
     'include/cdfpp/variable.hpp',
     'include/cdfpp/cdf.hpp',
@@ -204,8 +202,6 @@ endif
 install_headers(
 [
     'include/cdfpp/attribute.hpp',
-    'include/cdfpp/nomap.hpp',
-    'include/cdfpp/no_init_vector.hpp',
     'include/cdfpp/cdf-map.hpp',
     'include/cdfpp/variable.hpp',
     'include/cdfpp/cdf.hpp',

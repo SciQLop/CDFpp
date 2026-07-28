@@ -36,7 +36,8 @@
 #include "cdfpp/cdf-enums.hpp"
 #include "cdfpp/cdf-file.hpp"
 #include "cdfpp/chrono/cdf-leap-seconds.h"
-#include "cdfpp/no_init_vector.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include "cdfpp_config.h"
 #include <algorithm>
 #include <cstring>

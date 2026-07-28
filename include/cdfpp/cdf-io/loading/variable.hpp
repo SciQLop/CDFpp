@@ -29,7 +29,8 @@
 #include "../desc-records.hpp"
 #include "./records-loading.hpp"
 #include "cdfpp/cdf-data.hpp"
-#include "cdfpp/no_init_vector.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include "cdfpp/variable.hpp"
 #include <algorithm>
 #include <cstdint>
@@ -77,8 +78,8 @@ namespace
             no_init_vector<uint32_t> shape;
             if (std::size(vdr.DimVarys) != 0)
             {
-                std::copy_if(std::cbegin(context.gdr.rDimSizes),
-                    std::cend(context.gdr.rDimSizes), std::back_inserter(shape),
+                std::copy_if(std::cbegin(context.gdr.rDimSizes), std::cend(context.gdr.rDimSizes),
+                    std::back_inserter(shape),
                     [DimVarys = vdr.DimVarys.begin()]([[maybe_unused]] const auto& v) mutable
                     {
                         bool vary = *DimVarys != 0;
@@ -125,8 +126,7 @@ namespace
     inline void load_cvvr_data(const cdf_CVVR_t<cdf_version_tag_t>& cvvr, std::size_t& pos,
         const cdf_compression_type compression_type, char* data, std::size_t data_len)
     {
-        pos += decompression::inflate(
-            compression_type, cvvr.data, data + pos, data_len - pos);
+        pos += decompression::inflate(compression_type, cvvr.data, data + pos, data_len - pos);
     }
 
     template <typename cdf_version_tag_t, typename stream_t>
@@ -165,11 +165,13 @@ namespace
                         }
                     },
                     [&stream, &data, data_len, &pos, record_count, record_size, compression_type](
-                        const cvvr_t& cvvr) -> void {
+                        const cvvr_t& cvvr) -> void
+                    {
                         load_cvvr_data<cdf_version_tag_t, stream_t>(
                             cvvr, pos, compression_type, data, data_len);
                     },
-                    [](const std::monostate&) -> void {
+                    [](const std::monostate&) -> void
+                    {
                         throw std::runtime_error {
                             "Error loading variable data expecting VVR, CVVR or VXR"
                         };
@@ -190,16 +192,18 @@ namespace
 
         if (vdr.VXRhead != 0 && load_record(vxr, stream, vdr.VXRhead))
         {
-            load_var_data(stream, data.bytes_ptr(), static_cast<std::size_t>(record_count) * record_size, pos, vxr,
-                record_size, compression_type);
+            load_var_data(stream, data.bytes_ptr(),
+                static_cast<std::size_t>(record_count) * record_size, pos, vxr, record_size,
+                compression_type);
             if (vxr.VXRnext)
             {
                 do
                 {
                     if (load_record(vxr, stream, vxr.VXRnext))
                     {
-                        load_var_data(stream, data.bytes_ptr(), static_cast<std::size_t>(record_count) * record_size, pos,
-                            vxr, record_size, compression_type);
+                        load_var_data(stream, data.bytes_ptr(),
+                            static_cast<std::size_t>(record_count) * record_size, pos, vxr,
+                            record_size, compression_type);
                     }
                     else
                     {

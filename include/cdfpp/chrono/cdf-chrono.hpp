@@ -29,7 +29,8 @@
 #include "cdf-chrono-impl.hpp"
 #include "cdfpp/cdf-debug.hpp"
 #include "cdfpp/cdf-enums.hpp"
-#include "cdfpp/no_init_vector.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include <cdfpp/vectorized/cdf-chrono.hpp>
 
 #include <algorithm>

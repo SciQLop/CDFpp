@@ -27,7 +27,10 @@
 #include <unordered_map>
 
 #include "cdfpp_config.h"
-#include "nomap.hpp"
+#include <cpp_utils/containers/nomap.hpp>
+
+using cpp_utils::containers::nomap;
+using cpp_utils::containers::nomap_node;
 
 #ifdef CDFpp_USE_NOMAP
 template <typename Key, typename T>

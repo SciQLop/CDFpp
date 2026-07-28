@@ -30,7 +30,8 @@
 #include "./records-saving.hpp"
 #include "cdfpp/cdf-enums.hpp"
 #include "cdfpp/cdf-file.hpp"
-#include "cdfpp/no_init_vector.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include <algorithm>
 #include <cstring>
 #include <fstream>
@@ -126,8 +127,8 @@ namespace saving
                 int32_t index = std::size(svg_ctx.body.file_attributes)
                     + std::size(svg_ctx.body.variable_attributes);
                 svg_ctx.body.variable_attributes[name] = variable_attribute_ctx { index, {},
-                    cdf_ADR_t<v3x_tag> {
-                        {}, 0, 0, cdf_attr_scope::variable, index, 0, -1, 0, 0, 0, 0, -1, { name } },
+                    cdf_ADR_t<v3x_tag> { {}, 0, 0, cdf_attr_scope::variable, index, 0, -1, 0, 0, 0,
+                        0, -1, { name } },
                     {} };
             }
             auto& vac = svg_ctx.body.variable_attributes[name];

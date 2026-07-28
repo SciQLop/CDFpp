@@ -36,7 +36,8 @@
 #include <cdfpp/variable.hpp>
 
 #include <cdfpp/chrono/cdf-chrono.hpp>
-#include <cdfpp/no_init_vector.hpp>
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include <cdfpp_config.h>
 using namespace cdf;
 
@@ -169,8 +170,8 @@ std::pair<data_t, typename Variable::shape_t> _numeric_to_nd_data_t(const py::bu
     using T = from_cdf_type_t<data_type>;
     if (info.itemsize != static_cast<ssize_t>(sizeof(T)))
         throw std::invalid_argument { fmt::format(
-            "Buffer itemsize mismatch for {}: expected {} bytes, got {}",
-            cdf_type_str(data_type), sizeof(T), info.itemsize) };
+            "Buffer itemsize mismatch for {}: expected {} bytes, got {}", cdf_type_str(data_type),
+            sizeof(T), info.itemsize) };
     typename Variable::shape_t shape(info.ndim);
     std::copy(std::cbegin(info.shape), std::cend(info.shape), std::begin(shape));
     if (info.size != 0)
@@ -236,8 +237,7 @@ void to_cdf_string_t(PyObject* o, const std::span<T>& out)
     else
     {
         throw std::invalid_argument { fmt::format(
-            "Expected str for CDF string variable, got {}",
-            Py_TYPE(o)->tp_name) };
+            "Expected str for CDF string variable, got {}", Py_TYPE(o)->tp_name) };
     }
 }
 
@@ -471,8 +471,7 @@ struct _min_storage_result
         }
         else
         {
-            throw std::invalid_argument { fmt::format(
-                "Unsupported data type in input values: {}",
+            throw std::invalid_argument { fmt::format("Unsupported data type in input values: {}",
                 Py_TYPE(const_cast<PyObject*>(obj))->tp_name) };
         }
     }
@@ -544,7 +543,8 @@ inline void set_values(
         if (data_type == CDF_Types::CDF_NONE)
         {
             throw std::invalid_argument { fmt::format(
-                "Could not infer a compatible CDF data type from numpy array with dtype '{}' and kind '{}'",
+                "Could not infer a compatible CDF data type from numpy array with dtype '{}' and "
+                "kind '{}'",
                 std::string(py::str(values.dtype())), values.dtype().kind()) };
         }
     }
@@ -555,7 +555,8 @@ inline void set_values(
             if (not are_compatible_types(var.type(), *data_type))
             {
                 throw std::invalid_argument { fmt::format(
-                    "Incompatible specified CDF data type and input values: expected {}, but input has type {}",
+                    "Incompatible specified CDF data type and input values: expected {}, but input "
+                    "has type {}",
                     cdf_type_str(var.type()), cdf_type_str(spec.inferred_cdf_type)) };
             }
             if (not _details::are_compatible_shapes(var, spec.shape))
@@ -618,8 +619,8 @@ void def_variable_wrapper(T& mod)
                         "will raise an exception in future versions.",
                         PyExc_DeprecationWarning, 3);
                 }
-                auto effective_type = data_type ? data_type
-                    : (force ? std::nullopt : std::optional { var.type() });
+                auto effective_type
+                    = data_type ? data_type : (force ? std::nullopt : std::optional { var.type() });
                 set_values(var, ensure_utf8(values), effective_type, force);
             },
             py::arg("values").noconvert(), py::arg("data_type") = std::nullopt,
@@ -636,8 +637,8 @@ void def_variable_wrapper(T& mod)
                         "will raise an exception in future versions.",
                         PyExc_DeprecationWarning, 3);
                 }
-                auto effective_type = data_type ? data_type
-                    : (force ? std::nullopt : std::optional { var.type() });
+                auto effective_type
+                    = data_type ? data_type : (force ? std::nullopt : std::optional { var.type() });
                 set_values(var, values, effective_type, force);
             },
             py::arg("values").noconvert(), py::arg("data_type") = std::nullopt,
@@ -654,8 +655,8 @@ void def_variable_wrapper(T& mod)
                         "will raise an exception in future versions.",
                         PyExc_DeprecationWarning, 3);
                 }
-                auto effective_type = data_type ? data_type
-                    : (force ? std::nullopt : std::optional { var.type() });
+                auto effective_type
+                    = data_type ? data_type : (force ? std::nullopt : std::optional { var.type() });
                 set_values(var, values, effective_type, force);
             },
             py::arg("values").noconvert(), py::arg("data_type") = std::nullopt,

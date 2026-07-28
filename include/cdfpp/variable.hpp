@@ -31,7 +31,8 @@
 #include "cdf-io/majority-swap.hpp"
 #include "cdf-map.hpp"
 #include "cdf-repr.hpp"
-#include "no_init_vector.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 
 #include <cstdint>
 #include <functional>

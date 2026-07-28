@@ -33,8 +33,8 @@
 #include <cdfpp/variable.hpp>
 
 #include <cdfpp/chrono/cdf-chrono.hpp>
-#include <cdfpp/no_init_vector.hpp>
 #include <cdfpp_config.h>
+#include <cpp_utils/containers/no_init_vector.hpp>
 
 #include <fmt/core.h>
 
@@ -145,7 +145,9 @@ enum class BestTypeId : uint16_t
     auto r = a | b;
     if (is_invalid_mix(r))
     {
-        throw std::out_of_range("Incompatible types in nested lists/tuples: cannot mix strings, numbers, and datetimes");
+        throw std::out_of_range(
+            "Incompatible types in nested lists/tuples: cannot mix strings, numbers, and "
+            "datetimes");
     }
     return r;
 }
@@ -219,8 +221,8 @@ struct analyze_context
     {
         return { BestTypeId::DateTime, 0, 0, 0 };
     }
-    throw std::runtime_error(fmt::format("Unsupported data type encountered: {}",
-        Py_TYPE(obj)->tp_name));
+    throw std::runtime_error(
+        fmt::format("Unsupported data type encountered: {}", Py_TYPE(obj)->tp_name));
     return { BestTypeId::None, 0, 0, 0 };
 }
 
@@ -267,8 +269,7 @@ struct analyze_context
         case CDF_TIME_TT2000:
         case CDF_EPOCH:
         case CDF_EPOCH16:
-            return (source == CDF_TIME_TT2000) || (source == CDF_EPOCH)
-                || (source == CDF_EPOCH16);
+            return (source == CDF_TIME_TT2000) || (source == CDF_EPOCH) || (source == CDF_EPOCH16);
         case CDF_DOUBLE:
         case CDF_REAL8:
             return helpers::rt_is_in(source, CDF_DOUBLE, CDF_REAL8, CDF_FLOAT, CDF_INT1, CDF_INT2,
@@ -384,9 +385,10 @@ inline void _analyze_collection_impl(
                     = static_cast<std::size_t>(PyList_Size(const_cast<PyObject*>(obj)));
                 if (ctx.inner_collection_size && (curr_inner_size != *ctx.inner_collection_size))
                 {
-                    throw std::out_of_range(fmt::format(
-                        "Inconsistent shapes in nested lists/tuples at depth {}: expected length {}, got {}",
-                        depth + 1, *ctx.inner_collection_size, curr_inner_size));
+                    throw std::out_of_range(
+                        fmt::format("Inconsistent shapes in nested lists/tuples at depth {}: "
+                                    "expected length {}, got {}",
+                            depth + 1, *ctx.inner_collection_size, curr_inner_size));
                 }
                 else
                 {
@@ -403,9 +405,10 @@ inline void _analyze_collection_impl(
                     = static_cast<std::size_t>(PyTuple_Size(const_cast<PyObject*>(obj)));
                 if (ctx.inner_collection_size && (curr_inner_size != *ctx.inner_collection_size))
                 {
-                    throw std::out_of_range(fmt::format(
-                        "Inconsistent shapes in nested lists/tuples at depth {}: expected length {}, got {}",
-                        depth + 1, *ctx.inner_collection_size, curr_inner_size));
+                    throw std::out_of_range(
+                        fmt::format("Inconsistent shapes in nested lists/tuples at depth {}: "
+                                    "expected length {}, got {}",
+                            depth + 1, *ctx.inner_collection_size, curr_inner_size));
                 }
                 else
                 {
@@ -506,11 +509,11 @@ inline void _analyze_collection_impl(
     auto result = analyze_result {};
     result.shape = Variable::shape_t { input.shape(), input.shape() + input.ndim() };
     result.inferred_cdf_type = to_cdf_type(input);
-    
+
     if (result.inferred_cdf_type == CDF_Types::CDF_UCHAR)
     {
         result.shape.push_back(input.dtype().itemsize());
     }
-    
+
     return result;
 }

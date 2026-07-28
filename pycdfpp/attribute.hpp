@@ -37,7 +37,8 @@ typedef SSIZE_T ssize_t;
 #include <cdfpp/cdf-file.hpp>
 #include <cdfpp/cdf-map.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
-#include <cdfpp/no_init_vector.hpp>
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include <cdfpp_config.h>
 
 #include <cdfpp/cdf-repr.hpp>
@@ -183,9 +184,8 @@ auto visit(string_or_buffer_t& data, Ts... lambdas)
             return std::string(v.data(), std::size(v));
         }
         default:
-            throw std::runtime_error { fmt::format(
-                "Unsupported CDF type {} ({})", cdf_type_str(data.type()),
-                static_cast<int>(data.type())) };
+            throw std::runtime_error { fmt::format("Unsupported CDF type {} ({})",
+                cdf_type_str(data.type()), static_cast<int>(data.type())) };
     }
     return {};
 }
@@ -245,8 +245,8 @@ data_t _numeric_to_data_t(const py::buffer& buffer)
     using T = from_cdf_type_t<data_type>;
     if (info.itemsize != static_cast<ssize_t>(sizeof(T)))
         throw std::invalid_argument { fmt::format(
-            "Buffer itemsize mismatch for {}: expected {} bytes, got {}",
-            cdf_type_str(data_type), sizeof(T), info.itemsize) };
+            "Buffer itemsize mismatch for {}: expected {} bytes, got {}", cdf_type_str(data_type),
+            sizeof(T), info.itemsize) };
     no_init_vector<T> values(info.size);
     std::memcpy(values.data(), info.ptr, info.size * sizeof(T));
     return data_t { std::move(values), data_type };
@@ -301,8 +301,8 @@ data_t to_attr_data_entry(const py::buffer& buffer, CDF_Types data_type)
             return to_attr_data_entry<CDF_TIME_TT2000>(buffer);
         default:
             throw std::invalid_argument { fmt::format(
-                "Unsupported CDF type {} ({}) for buffer attribute",
-                cdf_type_str(data_type), static_cast<int>(data_type)) };
+                "Unsupported CDF type {} ({}) for buffer attribute", cdf_type_str(data_type),
+                static_cast<int>(data_type)) };
     }
 }
 
@@ -339,8 +339,7 @@ Attribute::attr_data_t to_attr_data_entries(
     }
     else
     {
-        throw std::invalid_argument { fmt::format(
-            "Global attribute '{}' already exists", name) };
+        throw std::invalid_argument { fmt::format("Global attribute '{}' already exists", name) };
     }
 }
 
@@ -356,8 +355,7 @@ Attribute::attr_data_t to_attr_data_entries(
     }
     else
     {
-        throw std::invalid_argument { fmt::format(
-            "Variable attribute '{}' already exists", name) };
+        throw std::invalid_argument { fmt::format("Variable attribute '{}' already exists", name) };
     }
 }
 
@@ -390,8 +388,8 @@ void def_attribute_wrapper(T& mod)
             {
                 if (index >= att.size())
                     throw std::out_of_range(fmt::format(
-                        "Attribute index {} out of range for attribute '{}' with {} entries",
-                        index, att.name, att.size()));
+                        "Attribute index {} out of range for attribute '{}' with {} entries", index,
+                        att.name, att.size()));
                 return to_py_cdf_data(att[index]);
             },
             py::return_value_policy::copy)
@@ -401,8 +399,8 @@ void def_attribute_wrapper(T& mod)
             {
                 if (index >= att.size())
                     throw std::out_of_range(fmt::format(
-                        "Attribute index {} out of range for attribute '{}' with {} entries",
-                        index, att.name, att.size()));
+                        "Attribute index {} out of range for attribute '{}' with {} entries", index,
+                        att.name, att.size()));
                 return att[index].type();
             });
 
@@ -420,9 +418,10 @@ void def_attribute_wrapper(T& mod)
             [](VariableAttribute& att, std::size_t index) -> py_cdf_attr_data_t
             {
                 if (index != 0)
-                    throw std::out_of_range(fmt::format(
-                        "VariableAttribute '{}' index {} out of range (has exactly 1 entry, use .value instead)",
-                        att.name, index));
+                    throw std::out_of_range(
+                        fmt::format("VariableAttribute '{}' index {} out of range (has exactly 1 "
+                                    "entry, use .value instead)",
+                            att.name, index));
                 return to_py_cdf_data(*att);
             },
             py::return_value_policy::copy)

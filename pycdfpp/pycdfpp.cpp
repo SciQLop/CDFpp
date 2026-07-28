@@ -26,9 +26,9 @@
 #include <cdfpp/attribute.hpp>
 #include <cdfpp/cdf-map.hpp>
 #include <cdfpp/cdf-repr.hpp>
-#include <cdfpp/no_init_vector.hpp>
 #include <cdfpp/variable.hpp>
 #include <cdfpp_config.h>
+#include <cpp_utils/containers/no_init_vector.hpp>
 
 #include "attribute.hpp"
 #include "cdf.hpp"

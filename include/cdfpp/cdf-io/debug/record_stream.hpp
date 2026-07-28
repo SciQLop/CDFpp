@@ -30,7 +30,8 @@
 #include "../desc-records.hpp"
 #include "../loading/buffers.hpp"
 #include "../loading/records-loading.hpp"
-#include <cdfpp/no_init_vector.hpp>
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include <cstdint>
 #include <iostream>
 #include <optional>

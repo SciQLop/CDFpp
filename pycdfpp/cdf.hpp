@@ -28,7 +28,8 @@
 #include <cdfpp/cdf-file.hpp>
 #include <cdfpp/cdf-io/loading/loading.hpp>
 #include <cdfpp/cdf-io/saving/saving.hpp>
-#include <cdfpp/no_init_vector.hpp>
+#include <cpp_utils/containers/no_init_vector.hpp>
+using cpp_utils::containers::no_init_vector;
 #include <cdfpp_config.h>
 
 #include "attribute.hpp"
@@ -263,8 +264,8 @@ void def_cdf_loading_functions(T& mod)
         {
             py::buffer_info info(buffer.request());
             if (info.ndim != 1)
-                throw std::runtime_error(fmt::format(
-                    "lazy_load requires a 1-D buffer, got ndim={}", info.ndim));
+                throw std::runtime_error(
+                    fmt::format("lazy_load requires a 1-D buffer, got ndim={}", info.ndim));
             py::gil_scoped_release release;
             return io::load(static_cast<char*>(info.ptr), info.shape[0], iso_8859_1_to_utf8, true);
         },
