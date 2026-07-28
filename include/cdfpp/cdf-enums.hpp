@@ -31,6 +31,8 @@
 #include <string_view>
 #include <type_traits>
 
+#include <cpp_utils/reflexion/enum_name.hpp>
+
 #include "cdf-helpers.hpp"
 
 namespace cdf
@@ -50,15 +52,8 @@ enum class cdf_majority
 
 [[nodiscard]] inline std::string cdf_majority_str(cdf_majority type) noexcept
 {
-    using enum cdf_majority;
-    switch (type)
-    {
-        case row:
-            return "row";
-        case column:
-            return "column";
-    }
-    return "Unknown";
+    auto name = cpp_utils::reflexion::enum_name(type);
+    return name.empty() ? "Unknown" : std::string(name);
 }
 
 
@@ -82,39 +77,8 @@ enum class cdf_record_type : int32_t
 
 [[nodiscard]] inline std::string cdf_record_type_str(cdf_record_type type) noexcept
 {
-    using enum cdf_record_type;
-    switch (type)
-    {
-        case CDR:
-            return "CDR";
-        case GDR:
-            return "GDR";
-        case rVDR:
-            return "rVDR";
-        case ADR:
-            return "ADR";
-        case AgrEDR:
-            return "AgrEDR";
-        case VXR:
-            return "VXR";
-        case VVR:
-            return "VVR";
-        case zVDR:
-            return "zVDR";
-        case AzEDR:
-            return "AzEDR";
-        case CCR:
-            return "CCR";
-        case CPR:
-            return "CPR";
-        case SPR:
-            return "SPR";
-        case CVVR:
-            return "CVVR";
-        case UIR:
-            return "UIR";
-    }
-    return "Unknown";
+    auto name = cpp_utils::reflexion::enum_name(type);
+    return name.empty() ? "Unknown" : std::string(name);
 }
 
 enum class cdf_attr_scope : int32_t
@@ -199,49 +163,8 @@ enum class cdf_encoding : int32_t
 
 [[nodiscard]] inline std::string cdf_encoding_str(cdf_encoding encoding) noexcept
 {
-    using enum cdf_encoding;
-    switch (encoding)
-    {
-        case network:
-            return "network";
-        case SUN:
-            return "SUN";
-        case VAX:
-            return "VAX";
-        case decstation:
-            return "decstation";
-        case SGi:
-            return "SGi";
-        case IBMPC:
-            return "IBMPC";
-        case IBMRS:
-            return "IBMRS";
-        case PPC:
-            return "PPC";
-        case HP:
-            return "HP";
-        case NeXT:
-            return "NeXT";
-        case ALPHAOSF1:
-            return "ALPHAOSF1";
-        case ALPHAVMSd:
-            return "ALPHAVMSd";
-        case ALPHAVMSg:
-            return "ALPHAVMSg";
-        case ALPHAVMSi:
-            return "ALPHAVMSi";
-        case ARM_LITTLE:
-            return "ARM_LITTLE";
-        case ARM_BIG:
-            return "ARM_BIG";
-        case IA64VMSi:
-            return "IA64VMSi";
-        case IA64VMSd:
-            return "IA64VMSd";
-        case IA64VMSg:
-            return "IA64VMSg";
-    }
-    return "Unknown";
+    auto name = cpp_utils::reflexion::enum_name(encoding);
+    return name.empty() ? "Unknown" : std::string(name);
 }
 
 enum class CDF_Types : int32_t

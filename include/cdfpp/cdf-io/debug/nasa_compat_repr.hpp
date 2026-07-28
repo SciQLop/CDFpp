@@ -33,6 +33,7 @@
 #include "record_stream.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cpp_utils/reflexion/enum_name.hpp>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -128,53 +129,19 @@ inline std::string nasa_data_type_name(CDF_Types type) noexcept
     return "?";
 }
 
-// EncodingToken(long): NASA's own casing, which diverges from CDFpp's own
-// cdf_encoding_str (e.g. "NETWORK"/"DECSTATION" vs "network"/"decstation").
+// EncodingToken(long): NASA's own casing, which diverges from CDFpp's own cdf_encoding_str
+// for exactly the two enumerators whose C++ spelling is itself all-lowercase
+// ("NETWORK"/"DECSTATION" vs "network"/"decstation") - every other enumerator's own source
+// name already matches NASA's casing verbatim.
 inline std::string nasa_encoding_name(cdf_encoding encoding) noexcept
 {
     using enum cdf_encoding;
-    switch (encoding)
-    {
-        case network:
-            return "NETWORK";
-        case SUN:
-            return "SUN";
-        case VAX:
-            return "VAX";
-        case decstation:
-            return "DECSTATION";
-        case SGi:
-            return "SGi";
-        case IBMPC:
-            return "IBMPC";
-        case IBMRS:
-            return "IBMRS";
-        case PPC:
-            return "PPC";
-        case HP:
-            return "HP";
-        case NeXT:
-            return "NeXT";
-        case ALPHAOSF1:
-            return "ALPHAOSF1";
-        case ALPHAVMSd:
-            return "ALPHAVMSd";
-        case ALPHAVMSg:
-            return "ALPHAVMSg";
-        case ALPHAVMSi:
-            return "ALPHAVMSi";
-        case ARM_LITTLE:
-            return "ARM_LITTLE";
-        case ARM_BIG:
-            return "ARM_BIG";
-        case IA64VMSi:
-            return "IA64VMSi";
-        case IA64VMSd:
-            return "IA64VMSd";
-        case IA64VMSg:
-            return "IA64VMSg";
-    }
-    return "?";
+    if (encoding == network)
+        return "NETWORK";
+    if (encoding == decstation)
+        return "DECSTATION";
+    auto name = cpp_utils::reflexion::enum_name(encoding);
+    return name.empty() ? "?" : std::string(name);
 }
 
 // cdfirsdump.c: `int32==1?"Global":"Variable"` - a strict binary rule, not a

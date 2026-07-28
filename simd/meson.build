@@ -50,7 +50,7 @@ if target_machine.cpu_family() == 'x86_64'
                 files('../src/arch/x86/chrono_arch.cpp'),
                 include_directories : include_directories('../include'),
                 cpp_args : arch['flags'] + [enable_arch_def, '-DCDFPP_ARCH='+arch['xsimd_name']],
-                dependencies : [xsimd_dep, hedley_dep, fmt_dep],
+                dependencies : [xsimd_dep, hedley_dep, fmt_dep, cpp_utils_dep],
                 )
         ]
         x86_vectorized_defs += [enable_arch_def]
@@ -63,7 +63,7 @@ if target_machine.cpu_family() == 'x86_64'
         sources : files('../src/arch/x86/chrono.cpp'),
         link_with : x86_vectorized_libs,
         compile_args : x86_vectorized_defs + ['-DCDFPP_XSIMD_ARCH_LIST=@0@'.format(xsimd_arch_list)],
-        dependencies : [xsimd_dep, fmt_dep, hedley_dep],
+        dependencies : [xsimd_dep, fmt_dep, hedley_dep, cpp_utils_dep],
     )
     simd_deps += [x86_vectorized_dep]
 
