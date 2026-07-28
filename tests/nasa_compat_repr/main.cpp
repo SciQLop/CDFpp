@@ -4,7 +4,9 @@
 #include "cdfpp/cdf-io/debug/nasa_compat_repr.hpp"
 #include "cdfpp/cdf-io/debug/record_stream.hpp"
 #include "tests_config.hpp"
+#include <cmath>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -129,6 +131,18 @@ SCENARIO("nasa_cdr_flags_str decodes the CDR Flags bitfield like cdfirsdump", "[
     {
         REQUIRE(nasa_cdr_flags_str(0x0) == "0x0 (Column,Multi)");
     }
+    THEN("MD5 token appears when the checksum and MD5 bits are set on a >=3.2.0 CDF")
+    {
+        REQUIRE(nasa_cdr_flags_str(0xC, 3, 2, 0) == "0xc (MD5,Column,Multi)");
+    }
+    THEN("OTHER token appears when the checksum bit is set but not the MD5 bit")
+    {
+        REQUIRE(nasa_cdr_flags_str(0x14, 3, 2, 0) == "0x14 (OTHER,Column,Multi)");
+    }
+    THEN("no checksum token at all below 3.2.0, even with the checksum+MD5 bits set")
+    {
+        REQUIRE(nasa_cdr_flags_str(0xC, 3, 1, 0) == "0xc (Column,Multi)");
+    }
 }
 
 SCENARIO(
@@ -160,6 +174,18 @@ SCENARIO(
     THEN("a value that already has a decimal point is left alone")
     {
         REQUIRE(nasa_format_g(1.5) == "1.5");
+    }
+    THEN("NaN renders as the bare literal, with no splice-rule post-processing")
+    {
+        REQUIRE(nasa_format_g(std::nan("")) == "nan");
+    }
+    THEN("positive infinity renders as the bare literal")
+    {
+        REQUIRE(nasa_format_g(std::numeric_limits<double>::infinity()) == "inf");
+    }
+    THEN("negative infinity renders as the bare literal")
+    {
+        REQUIRE(nasa_format_g(-std::numeric_limits<double>::infinity()) == "-inf");
     }
 }
 
@@ -887,6 +913,99 @@ SCENARIO("compute_summary accumulates real per-record-type counts/bytes", "[nasa
         THEN("checksum_eligible reflects this fixture's real CDR flags (no checksum bit set)")
         {
             REQUIRE_FALSE(stats.checksum_eligible);
+        }
+    }
+}
+
+SCENARIO(
+    "accumulate_record buckets every record type, including the ones no real fixture "
+    "exercises through compute_summary (CCR/CVVR/CPR/SPR/UIR)",
+    "[nasa_compat_repr]")
+{
+    using cdf::io::v3x_tag;
+
+    GIVEN("a CCR record")
+    {
+        nasa::summary_stats stats {};
+        cdf::io::cdf_CCR_t<v3x_tag> r {};
+        r.header.record_type = cdf::cdf_record_type::CCR;
+        r.header.record_size = 100;
+        nasa::details::accumulate_record(stats, r);
+
+        THEN("it lands in the CCR bucket and counts as used space")
+        {
+            REQUIRE(stats.CCR.count == 1);
+            REQUIRE(stats.CCR.bytes == 100);
+            REQUIRE(stats.used_bytes == 108); // 8-byte magic preamble + this record
+            REQUIRE(stats.wasted_bytes == 0);
+        }
+    }
+    GIVEN("a CVVR record")
+    {
+        nasa::summary_stats stats {};
+        cdf::io::cdf_CVVR_t<v3x_tag> r {};
+        r.header.record_type = cdf::cdf_record_type::CVVR;
+        r.header.record_size = 64;
+        nasa::details::accumulate_record(stats, r);
+
+        THEN("it lands in the CVVR bucket")
+        {
+            REQUIRE(stats.CVVR.count == 1);
+            REQUIRE(stats.CVVR.bytes == 64);
+        }
+    }
+    GIVEN("a CPR record")
+    {
+        nasa::summary_stats stats {};
+        cdf::io::cdf_CPR_t<v3x_tag> r {};
+        r.header.record_type = cdf::cdf_record_type::CPR;
+        r.header.record_size = 32;
+        nasa::details::accumulate_record(stats, r);
+
+        THEN("it lands in the CPR bucket")
+        {
+            REQUIRE(stats.CPR.count == 1);
+            REQUIRE(stats.CPR.bytes == 32);
+        }
+    }
+    GIVEN("a UIR record (freed/unused space)")
+    {
+        nasa::summary_stats stats {};
+        cdf::io::cdf_UIR_t<v3x_tag> r {};
+        r.header.record_type = cdf::cdf_record_type::UIR;
+        r.header.record_size = 48;
+        nasa::details::accumulate_record(stats, r);
+
+        THEN("it lands in the UIR bucket and counts as wasted, not used, space")
+        {
+            REQUIRE(stats.UIR.count == 1);
+            REQUIRE(stats.UIR.bytes == 48);
+            REQUIRE(stats.wasted_bytes == 48);
+            REQUIRE(stats.used_bytes == 8);
+        }
+    }
+    GIVEN("an SPR record (undecoded_record_t, since CDFpp has no struct for it)")
+    {
+        nasa::summary_stats stats {};
+        undecoded_record_t r { cdf::cdf_record_type::SPR, 16 };
+        nasa::details::accumulate_record(stats, r);
+
+        THEN("it lands in the SPR bucket via undecoded_record_t's own type/record_size fields")
+        {
+            REQUIRE(stats.SPR.count == 1);
+            REQUIRE(stats.SPR.bytes == 16);
+        }
+    }
+    GIVEN("an undecoded_record_t carrying a record_type outside cdf_record_type's real range")
+    {
+        nasa::summary_stats stats {};
+        undecoded_record_t r { static_cast<cdf::cdf_record_type>(-99), 16 };
+        nasa::details::accumulate_record(stats, r);
+
+        THEN("it hits no bucket and leaves the running totals untouched")
+        {
+            REQUIRE(stats.used_bytes == 8);
+            REQUIRE(stats.wasted_bytes == 0);
         }
     }
 }

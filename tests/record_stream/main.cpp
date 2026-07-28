@@ -6,6 +6,8 @@
 #include "tests_config.hpp"
 #include <cstring>
 #include <fstream>
+#include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -31,7 +33,8 @@ struct counting_corruption_handler
 };
 }
 
-SCENARIO("for_each_record walks a well-formed v3 CDF's records in physical order", "[record_stream]")
+SCENARIO(
+    "for_each_record walks a well-formed v3 CDF's records in physical order", "[record_stream]")
 {
     GIVEN("a real uncompressed v3 fixture")
     {
@@ -56,8 +59,8 @@ SCENARIO("for_each_record walks a well-formed v3 CDF's records in physical order
             REQUIRE(seen.size() == 89);
             REQUIRE(seen.front() == std::pair { std::size_t { 8 }, cdf::cdf_record_type::CDR });
             REQUIRE(seen[1] == std::pair { std::size_t { 320 }, cdf::cdf_record_type::GDR });
-            REQUIRE(seen.back()
-                == std::pair { std::size_t { 122926 }, cdf::cdf_record_type::AgrEDR });
+            REQUIRE(
+                seen.back() == std::pair { std::size_t { 122926 }, cdf::cdf_record_type::AgrEDR });
         }
         THEN("the number of zVDR records matches the number of loaded zVariables")
         {
@@ -94,8 +97,7 @@ SCENARIO("zVDR PadValues is read from disk instead of hardcoded empty", "[record
         std::vector<char> pad_bytes;
         int32_t flags = 0;
 
-        for_each_record(
-            path,
+        for_each_record(path,
             [&](std::size_t offset, const auto& record)
             {
                 using T = std::decay_t<decltype(record)>;
@@ -119,14 +121,14 @@ SCENARIO("zVDR PadValues is read from disk instead of hardcoded empty", "[record
             REQUIRE(found_offset == 404);
             REQUIRE((flags & 2) == 2);
         }
-        THEN("PadValues holds cdf_type_size(DataType)*NumElems=8 raw bytes, matching the real "
-             "on-disk pad value (verified against NASA's cdfirsdump: -1.0e+30, little-endian "
-             "per this fixture's IBMPC encoding)")
+        THEN(
+            "PadValues holds cdf_type_size(DataType)*NumElems=8 raw bytes, matching the real "
+            "on-disk pad value (verified against NASA's cdfirsdump: -1.0e+30, little-endian "
+            "per this fixture's IBMPC encoding)")
         {
             REQUIRE(pad_size == 8);
-            const std::vector<char> expected {
-                '\xea', '\x8c', '\xa0', '\x39', '\x59', '\x3e', '\x29', '\xc6'
-            };
+            const std::vector<char> expected { '\xea', '\x8c', '\xa0', '\x39', '\x59', '\x3e',
+                '\x29', '\xc6' };
             REQUIRE(pad_bytes == expected);
         }
     }
@@ -141,8 +143,7 @@ SCENARIO("AzEDR/AgrEDR Value is read from disk instead of being entirely absent"
         std::size_t found_offset = 0;
         std::vector<char> value_bytes;
 
-        for_each_record(
-            path,
+        for_each_record(path,
             [&](std::size_t offset, const auto& record)
             {
                 using T = std::decay_t<decltype(record)>;
@@ -163,13 +164,13 @@ SCENARIO("AzEDR/AgrEDR Value is read from disk instead of being entirely absent"
             REQUIRE(found);
             REQUIRE(found_offset == 9424);
         }
-        THEN("Value holds cdf_type_size(DataType)*NumElements=20 raw bytes, matching the real "
-             "on-disk entry value (verified by locating the raw ASCII bytes directly in the "
-             "fixture file, independent of NASA's cdfirsdump display)")
+        THEN(
+            "Value holds cdf_type_size(DataType)*NumElements=20 raw bytes, matching the real "
+            "on-disk entry value (verified by locating the raw ASCII bytes directly in the "
+            "fixture file, independent of NASA's cdfirsdump display)")
         {
-            const std::vector<char> expected(
-                { 'a', ' ', 'v', 'a', 'r', 'i', 'a', 'b', 'l', 'e', ' ', 'a', 't', 't', 'r', 'i',
-                    'b', 'u', 't', 'e' });
+            const std::vector<char> expected({ 'a', ' ', 'v', 'a', 'r', 'i', 'a', 'b', 'l', 'e',
+                ' ', 'a', 't', 't', 'r', 'i', 'b', 'u', 't', 'e' });
             REQUIRE(value_bytes == expected);
         }
     }
@@ -195,14 +196,17 @@ SCENARIO("UIR (freed space) records are decoded, not just skipped as undecoded_r
             [](const corruption_report&)
             { return recovery_action { recovery_action::kind_t::abort }; });
 
-        THEN("all 3 are found, decoded with real Next/Prev pointers, matching NASA's "
-             "cdfirsdump ground truth exactly")
+        THEN(
+            "all 3 are found, decoded with real Next/Prev pointers, matching NASA's "
+            "cdfirsdump ground truth exactly")
         {
             REQUIRE(uirs.size() == 3);
-            REQUIRE(uirs[0] == std::tuple { std::size_t { 10964 }, int64_t { 11478 }, int64_t { 0 } });
+            REQUIRE(
+                uirs[0] == std::tuple { std::size_t { 10964 }, int64_t { 11478 }, int64_t { 0 } });
             REQUIRE(uirs[1]
                 == std::tuple { std::size_t { 11478 }, int64_t { 12164 }, int64_t { 10964 } });
-            REQUIRE(uirs[2] == std::tuple { std::size_t { 12164 }, int64_t { 0 }, int64_t { 11478 } });
+            REQUIRE(
+                uirs[2] == std::tuple { std::size_t { 12164 }, int64_t { 0 }, int64_t { 11478 } });
         }
     }
 }
@@ -236,13 +240,13 @@ SCENARIO("for_each_record handles compressed CDFs", "[record_stream]")
             REQUIRE(saw_cdr);
             REQUIRE(saw_gdr);
         }
-        THEN("the CCR and CPR that drive decompression are themselves visible to the caller, "
-             "not just consumed internally - they are real, physical on-disk records at their "
-             "own real offsets, same as everything else this walker reports")
+        THEN(
+            "the CCR and CPR that drive decompression are themselves visible to the caller, "
+            "not just consumed internally - they are real, physical on-disk records at their "
+            "own real offsets, same as everything else this walker reports")
         {
             std::vector<std::pair<std::size_t, cdf::cdf_record_type>> seen;
-            for_each_record(
-                path,
+            for_each_record(path,
                 [&](std::size_t offset, const auto& record)
                 {
                     using T = std::decay_t<decltype(record)>;
@@ -259,10 +263,12 @@ SCENARIO("for_each_record handles compressed CDFs", "[record_stream]")
     }
 }
 
-SCENARIO("for_each_record reports corruption instead of crashing or looping forever", "[record_stream]")
+SCENARIO(
+    "for_each_record reports corruption instead of crashing or looping forever", "[record_stream]")
 {
-    GIVEN("a buffer built from a real CDR immediately followed by a real GDR, "
-          "with the CDR's record_size corrupted to a bogus huge value")
+    GIVEN(
+        "a buffer built from a real CDR immediately followed by a real GDR, "
+        "with the CDR's record_size corrupted to a bogus huge value")
     {
         auto file = read_file(std::string(DATA_PATH) + "/a_cdf.cdf");
         // magic(8) + CDR[8,320) (312 bytes) + GDR[320,404) (84 bytes)
@@ -308,11 +314,129 @@ SCENARIO("for_each_record reports corruption instead of crashing or looping fore
                     if constexpr (!std::is_same_v<T, undecoded_record_t>)
                         seen.push_back(record.header.record_type);
                 },
-                [&](const corruption_report&) {
-                    return recovery_action { recovery_action::kind_t::skip_bytes, 312 };
-                });
+                [&](const corruption_report&)
+                { return recovery_action { recovery_action::kind_t::skip_bytes, 312 }; });
 
             REQUIRE(seen == std::vector { cdf::cdf_record_type::GDR });
+        }
+    }
+}
+
+SCENARIO(
+    "for_each_record reports undersized_record when a record_size is too small to even hold "
+    "a header",
+    "[record_stream]")
+{
+    GIVEN("a buffer built from a real CDR, with its record_size corrupted below header_size")
+    {
+        auto file = read_file(std::string(DATA_PATH) + "/a_cdf.cdf");
+        std::vector<char> corrupted(file.begin(), file.begin() + 404);
+        // header_size for v3 is sizeof(uint64_t record_size) + sizeof(int32_t record_type) = 12
+        std::uint64_t bogus_size = 5;
+        char be[8];
+        for (int i = 0; i < 8; ++i)
+            be[i] = static_cast<char>((bogus_size >> (8 * (7 - i))) & 0xff);
+        std::memcpy(corrupted.data() + 8, be, 8);
+
+        THEN("the handler is called with corruption_kind::undersized_record")
+        {
+            corruption_report report {};
+            bool corruption_seen = false;
+            for_each_record(
+                std::as_const(corrupted), [&](std::size_t, const auto&) {},
+                [&](const corruption_report& r)
+                {
+                    corruption_seen = true;
+                    report = r;
+                    return recovery_action { recovery_action::kind_t::abort };
+                });
+
+            REQUIRE(corruption_seen);
+            REQUIRE(report.kind == corruption_kind::undersized_record);
+        }
+    }
+}
+
+SCENARIO("for_each_record reports unknown_record_type for a record_type it doesn't recognize",
+    "[record_stream]")
+{
+    GIVEN("a buffer built from a real CDR, with its record_type corrupted to an unused value")
+    {
+        auto file = read_file(std::string(DATA_PATH) + "/a_cdf.cdf");
+        std::vector<char> corrupted(file.begin(), file.begin() + 404);
+        // record_type is the int32_t right after the 8-byte record_size, i.e. bytes [16,20)
+        std::int32_t bogus_type = 9999;
+        char be[4];
+        for (int i = 0; i < 4; ++i)
+            be[i] = static_cast<char>((bogus_type >> (8 * (3 - i))) & 0xff);
+        std::memcpy(corrupted.data() + 16, be, 4);
+
+        THEN("the handler is called with corruption_kind::unknown_record_type")
+        {
+            corruption_report report {};
+            bool corruption_seen = false;
+            for_each_record(
+                std::as_const(corrupted), [&](std::size_t, const auto&) {},
+                [&](const corruption_report& r)
+                {
+                    corruption_seen = true;
+                    report = r;
+                    return recovery_action { recovery_action::kind_t::abort };
+                });
+
+            REQUIRE(corruption_seen);
+            REQUIRE(report.kind == corruption_kind::unknown_record_type);
+        }
+    }
+}
+
+SCENARIO(
+    "default_corruption_handler logs to stderr and aborts, unlike the custom handlers every "
+    "other scenario here supplies",
+    "[record_stream]")
+{
+    GIVEN("the same undersized-record corruption as above, but no handler passed at all")
+    {
+        auto file = read_file(std::string(DATA_PATH) + "/a_cdf.cdf");
+        std::vector<char> corrupted(file.begin(), file.begin() + 404);
+        std::uint64_t bogus_size = 5;
+        char be[8];
+        for (int i = 0; i < 8; ++i)
+            be[i] = static_cast<char>((bogus_size >> (8 * (7 - i))) & 0xff);
+        std::memcpy(corrupted.data() + 8, be, 8);
+
+        THEN("it prints a message naming the offset and detail, and the walk stops")
+        {
+            std::ostringstream captured;
+            auto* old_buf = std::cerr.rdbuf(captured.rdbuf());
+            bool saw_gdr = false;
+            for_each_record(std::as_const(corrupted),
+                [&](std::size_t, const auto& record)
+                {
+                    using T = std::decay_t<decltype(record)>;
+                    if constexpr (!std::is_same_v<T, undecoded_record_t>)
+                        saw_gdr = saw_gdr || record.header.record_type == cdf::cdf_record_type::GDR;
+                });
+            std::cerr.rdbuf(old_buf);
+
+            REQUIRE_FALSE(saw_gdr);
+            REQUIRE(captured.str().find("corrupted record at offset") != std::string::npos);
+            REQUIRE(captured.str().find("record_size=5") != std::string::npos);
+        }
+    }
+}
+
+SCENARIO("for_each_record refuses a buffer that isn't a CDF file at all", "[record_stream]")
+{
+    GIVEN("a buffer whose first 8 bytes aren't a valid CDF magic number")
+    {
+        std::vector<char> not_a_cdf(64, '\0');
+
+        THEN("it throws instead of misinterpreting garbage as records")
+        {
+            REQUIRE_THROWS_AS(
+                for_each_record(std::as_const(not_a_cdf), [](std::size_t, const auto&) { }),
+                std::runtime_error);
         }
     }
 }

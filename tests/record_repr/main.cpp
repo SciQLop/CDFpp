@@ -35,6 +35,15 @@ std::string print_first_matching_record(const std::string& path, bool& printed)
 }
 }
 
+SCENARIO("cdf_attr_scope_str names every scope, including the assumed variants", "[record_repr]")
+{
+    REQUIRE(cdf::cdf_attr_scope_str(cdf::cdf_attr_scope::global) == "global");
+    REQUIRE(cdf::cdf_attr_scope_str(cdf::cdf_attr_scope::variable) == "variable");
+    REQUIRE(cdf::cdf_attr_scope_str(cdf::cdf_attr_scope::global_assumed) == "global (assumed)");
+    REQUIRE(cdf::cdf_attr_scope_str(cdf::cdf_attr_scope::variable_assumed) == "variable (assumed)");
+    REQUIRE(cdf::cdf_attr_scope_str(static_cast<cdf::cdf_attr_scope>(99)) == "Unknown");
+}
+
 SCENARIO("print_record generically prints every field of a real record by name", "[record_repr]")
 {
     GIVEN("the CDR of a real v3 fixture")
