@@ -1,10 +1,13 @@
 #include <chrono>
 #include <ctime>
+#include <sstream>
+#include <string>
 
 #include <catch2/catch_all.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 
+#include "cdfpp/cdf-repr.hpp"
 #include "cdfpp/chrono/cdf-chrono.hpp"
 #include "test_values.hpp"
 
@@ -224,6 +227,40 @@ TEST_CASE("timepoint to cdf epoch16 sub-second precision", "")
     double expected_picoseconds = 123'456'789'000.0;
     REQUIRE(ep16.seconds == expected_seconds);
     REQUIRE(ep16.picoseconds == expected_picoseconds);
+}
+
+TEST_CASE("epoch/epoch16/tt2000_t repr for pre-1970 dates", "")
+{
+    // 1958-01-01T00:00:00Z: a pre-1970 date (negative time_t once converted).
+    // fmt::format's chrono formatter delegates to the platform's gmtime() to build the
+    // y/m/d/h/m/s breakdown - glibc's gmtime_r happily handles negative time_t, but the
+    // Windows CRT's gmtime/gmtime_s rejects it outright and fmt throws
+    // format_error("time_t value out of range"). VALIDMIN/FILLVAL metadata and
+    // pre-space-age mission data routinely carry such pre-1970 epoch/tt2000/epoch16
+    // values, so repr()/str() crashed on Windows while working fine on Linux. The fix
+    // replaced that path with a pure-arithmetic civil calendar conversion that never
+    // touches libc, so this string is now identical on every platform.
+    using namespace std::chrono;
+    const auto tp = time_point<system_clock> {} - seconds(378691200);
+    const std::string expected = "1958-01-01T00:00:00.000000000";
+
+    SECTION("epoch") { REQUIRE([&] {
+        std::ostringstream oss;
+        oss << cdf::to_cdf_time<cdf::epoch>(tp);
+        return oss.str();
+    }() == expected); }
+
+    SECTION("epoch16") { REQUIRE([&] {
+        std::ostringstream oss;
+        oss << cdf::to_cdf_time<cdf::epoch16>(tp);
+        return oss.str();
+    }() == expected); }
+
+    SECTION("tt2000_t") { REQUIRE([&] {
+        std::ostringstream oss;
+        oss << cdf::to_cdf_time<cdf::tt2000_t>(tp);
+        return oss.str();
+    }() == expected); }
 }
 
 TEST_CASE("timepoint to cdf tt2000", "")
