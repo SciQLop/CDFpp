@@ -208,9 +208,63 @@ static inline void from_ns_from_1970(const std::span<const int64_t>& input, cdf_
         });
 }
 
+namespace chrono::_impl
+{
+    // A double cast to int64_t, or an int64_t later multiplied into a finer-grained
+    // chrono::duration (e.g. milliseconds -> nanoseconds is a *1'000'000), is
+    // undefined behavior once the magnitude would overflow the destination — and
+    // system_clock::time_point's own nanosecond-resolution duration only spans
+    // roughly 1677-09-21..2262-04-11 to begin with. A CDF epoch/epoch16/tt2000 value
+    // representing a date outside that (a mis-encoded fill/pad sentinel that missed
+    // cdf-repr.hpp's exact-literal check, or just corrupt data) must not crash by
+    // invoking that UB, so clamp before doing any of this arithmetic - caught in
+    // practice by UBSan: "signed integer overflow: -9223372036854775808 * 1000000
+    // cannot be represented in type 'long int'".
+    // simplify: saturates to the nearest representable boundary rather than
+    // reporting an error; fine since such values are already outside CDF's own
+    // meaningful calendar range. Upgrade path: have callers that need to distinguish
+    // "saturated" from "a real boundary date" check the input against these same
+    // bounds themselves before calling to_time_point().
+    inline double clamp_to_safe_ms(double ms) noexcept
+    {
+        // |ms| * 1'000'000 plus up to 999'999 ns of sub-millisecond remainder added
+        // on top afterwards must both stay within int64.
+        constexpr double max_ms = 9'223'372'000'000.0;
+        if (std::isnan(ms))
+            return 0.;
+        return std::clamp(ms, -max_ms, max_ms);
+    }
+
+    inline double clamp_to_safe_s(double s) noexcept
+    {
+        // |s| * 1'000'000'000 plus up to 999'999'999 ns of sub-second remainder
+        // added on top afterwards must both stay within int64.
+        constexpr double max_s = 9'223'372'000.0;
+        if (std::isnan(s))
+            return 0.;
+        return std::clamp(s, -max_s, max_s);
+    }
+
+    inline double clamp_to_safe_sub_second_ns(double ns) noexcept
+    {
+        if (std::isnan(ns))
+            return 0.;
+        return std::clamp(ns, -999'999'999., 999'999'999.);
+    }
+
+    inline int64_t clamp_to_safe_tt2000_ns(int64_t nseconds) noexcept
+    {
+        // Generous headroom for tt2000_offset (~9.47e17) + any leap_second correction
+        // (at most tens of seconds in ns) added on top afterwards.
+        constexpr int64_t margin = 1'000'000'000'000'000'000LL;
+        return std::clamp(nseconds, std::numeric_limits<int64_t>::min() + margin,
+            std::numeric_limits<int64_t>::max() - margin);
+    }
+}
+
 inline auto to_time_point(const epoch& ep)
 {
-    double ms = ep.mseconds - constants::epoch_offset_miliseconds, ns;
+    double ms = _impl::clamp_to_safe_ms(ep.mseconds - constants::epoch_offset_miliseconds), ns;
     ns = std::modf(ms, &ms) * 1000000.;
     return std::chrono::time_point<std::chrono::system_clock> {} + milliseconds(int64_t(ms))
         + nanoseconds(int64_t(ns));
@@ -221,8 +275,8 @@ inline auto to_time_point(const epoch16& ep)
     // Unlike epoch (single double), epoch16 stores integer seconds separately from
     // picoseconds, so this subtraction is between integer-valued doubles both well
     // within 2^53 — no catastrophic cancellation.
-    double s = ep.seconds - constants::epoch_offset_seconds, ns;
-    ns = ep.picoseconds / 1000.;
+    double s = _impl::clamp_to_safe_s(ep.seconds - constants::epoch_offset_seconds), ns;
+    ns = _impl::clamp_to_safe_sub_second_ns(ep.picoseconds / 1000.);
     return std::chrono::time_point<std::chrono::system_clock> {} + seconds(static_cast<int64_t>(s))
         + nanoseconds(static_cast<int64_t>(ns));
 }
@@ -230,8 +284,9 @@ inline auto to_time_point(const epoch16& ep)
 inline auto to_time_point(const tt2000_t& ep)
 {
     using namespace std::chrono;
-    return time_point<system_clock> {}
-    + nanoseconds(ep.nseconds - _impl::leap_second(ep) + constants::tt2000_offset);
+    const int64_t leap = _impl::leap_second(ep);
+    const int64_t safe_ns = _impl::clamp_to_safe_tt2000_ns(ep.nseconds);
+    return time_point<system_clock> {} + nanoseconds(safe_ns - leap + constants::tt2000_offset);
 }
 
 }
