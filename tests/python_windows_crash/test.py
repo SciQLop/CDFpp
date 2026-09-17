@@ -7,8 +7,12 @@ Linux.  The goal is to catch the issue via CI on windows-latest.
 Symptoms on Windows:
   - Crash when the result of to_datetime64(variable) is freed / reassigned.
   - Crash when opening / repr'ing a CDF file twice in a row.
+  - RuntimeError: time_t value out of range, from str()/repr() on a pre-1970
+    (or otherwise pathological) epoch/epoch16/tt2000 value - see
+    pathological_times.cdf and its generator for the full case list.
 """
 import gc
+import math
 import os
 import tempfile
 import unittest
@@ -184,6 +188,78 @@ class TestOpenReprCycle(unittest.TestCase):
         repr(cdf2)
         var2 = pycdfpp.to_datetime64(cdf2['tt2000'])
         self.assertEqual(len(var2), 101)
+
+
+class PathologicalTimeReprTest(unittest.TestCase):
+    """str()/repr() on a pathological epoch/epoch16/tt2000 attribute value must not
+    raise, on any platform. Reproduces the exact shape of a real crash: a JASON3
+    CDF's Epoch variable carried VALIDMIN=1950-01-01 (a genuine pre-1970 date) as a
+    plain attribute, and Speasy's _fix_value_type() called str() on it while
+    recursing through the attribute dict - RuntimeError: time_t value out of range,
+    Windows only. See tests/resources/make_pathological_time_cdf.py for the full,
+    documented case list (fill/pad sentinels, near-miss sentinels, values that
+    overflow the internal int64-nanosecond time_point, NaN, DBL_MAX).
+    """
+
+    KNOWN_ISO = {
+        'FILL_epoch': '9999-12-31T23:59:59.999',
+        'FILL_epoch16': '9999-12-31T23:59:59.999999999',
+        'FILL_tt2000': '9999-12-31T23:59:59.999999999',
+        'PAD_YEAR0_epoch': '0000-01-01T00:00:00.000',
+        'PAD_YEAR0_epoch16': '0000-01-01T00:00:00.000000000000',
+        'PADVALUE_tt2000': '0000-01-01T00:00:00.000000000',
+        'MYSTERY_ALIAS_tt2000': '9999-12-31T23:59:59.999999999',
+        'PRE_1970_epoch': '1950-01-01T00:00:00.000000000',
+        'PRE_1970_epoch16': '1950-01-01T00:00:00.000000000',
+        'PRE_1970_tt2000': '1950-01-01T00:00:00.000000000',
+        'SAFE_2100_epoch': '2100-12-31T23:59:59.999000000',
+        'SAFE_2100_epoch16': '2100-12-31T23:59:59.999000000',
+        'SAFE_2100_tt2000': '2100-12-31T23:59:59.999000000',
+    }
+
+    def _fix_value_type(self, value):
+        """Speasy's actual recursive stringifier (the code that crashed)."""
+        if type(value) in (str, int, float):
+            return value
+        if type(value) is list:
+            return [self._fix_value_type(sub_v) for sub_v in value]
+        if type(value) is bytes:
+            return value.decode('utf-8')
+        return str(value)
+
+    def _check_variable(self, var, var_name):
+        for attr_name in ('FILLVAL', 'VALIDMIN', 'VALIDMAX'):
+            value = list(var.attributes[attr_name])[0][0]
+            self._fix_value_type(value)  # must not raise
+
+        labels = list(var.attributes['PATHOLOGICAL_CASE_LABELS'])[0].split(',')
+        cases = list(var.attributes['PATHOLOGICAL_CASES'])[0]
+        self.assertEqual(len(labels), len(cases))
+        fixed = self._fix_value_type(cases)  # must not raise, exercises the list branch
+        for label, out in zip(labels, fixed):
+            key = f'{label}_{var_name}'
+            if key in self.KNOWN_ISO:
+                self.assertEqual(out, self.KNOWN_ISO[key])
+
+    def test_pathological_times(self):
+        path = os.path.join(RESOURCES, 'pathological_times.cdf')
+        cdf = pycdfpp.load(path)
+        self._check_variable(cdf['Epoch'], 'epoch')
+        self._check_variable(cdf['Epoch16'], 'epoch16')
+        self._check_variable(cdf['TT2000'], 'tt2000')
+
+    def test_constructing_pathological_values_never_raises(self):
+        """Defensive: constructing+repring these values directly must not raise
+        either, independent of the fixture file."""
+        for value in (
+            pycdfpp.epoch(-1e31), pycdfpp.epoch(0.0), pycdfpp.epoch(math.nan),
+            pycdfpp.epoch(1.7976931348623157e+308),
+            pycdfpp.epoch16(-1e31, 0.0), pycdfpp.epoch16(math.nan, math.nan),
+            pycdfpp.tt2000_t(-9223372036854775806),  # INT64_MIN+2, the unhandled gap
+            pycdfpp.tt2000_t(9223372036854775807),  # INT64_MAX
+        ):
+            str(value)
+            repr(value)
 
 
 if __name__ == '__main__':
