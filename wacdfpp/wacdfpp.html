@@ -18,6 +18,11 @@
             --green: #4ade80;
             --yellow: #fbbf24;
             --red: #f87171;
+            /* Renames get their own hue, distinct from add/remove/change, so a
+               renamed-with-changes row is never mistaken for a plain change
+               (same rationale as git's --color-moved using magenta/cyan
+               instead of red/green for moved blocks). */
+            --violet: #c084fc;
             --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace;
             --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             --radius: 8px;
@@ -333,6 +338,7 @@
         .st-added { color: var(--green); }
         .st-removed { color: var(--red); }
         .st-changed { color: var(--yellow); }
+        .st-renamed { color: var(--violet); }
 
         .diff-view { font-family: var(--mono); font-size: 0.78rem; line-height: 1.5;
             border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
@@ -346,17 +352,41 @@
             user-select: none; border-radius: 2px; }
         .dtext { flex: 1; }
         .dl-item { font-weight: 600; }
+        /* A variable/global-attribute name (.dl-item) is a heading; every field or
+           per-variable attribute under it is indented, so nesting is visible from
+           position, not just font-weight -- the flat layout otherwise reads as one
+           list of equally-important rows with no visual cue for "this CATDESC
+           belongs to that variable" vs "this is itself a variable". */
+        .dl:not(.dl-item) { padding-left: 2.4rem; }
         /* Strong tints plus a solid gutter chip — the +/-/~ glyph is a shape cue that
            stays legible for red/green colour-vision deficiency. */
         .add { background: rgba(74, 222, 128, 0.22); }
         .del { background: rgba(248, 113, 113, 0.22); }
         .chg { background: rgba(251, 191, 36, 0.12); }
+        /* Renamed items get their own hue (see --violet) so a "renamed with a
+           content change" row can never read as a plain add/remove/change. */
+        .ren { background: rgba(192, 132, 252, 0.16); }
         .add .dsign { color: #08160d; background: var(--green); }
         .del .dsign { color: #2a0a0a; background: var(--red); }
         .chg .dsign { color: #241c05; background: var(--yellow); }
+        .ren .dsign { color: #2a0a3d; background: var(--violet); }
+        /* Word-level highlight within a changed field (jsdiff diffWords): a
+           second, independently-chosen, more saturated shade layered on top of
+           the row's own light tint -- not a deeper tint of the same value,
+           which loses contrast (this is the VS Code diff-editor convention:
+           insertedTextBackground/removedTextBackground are picked separately
+           from insertedLineBackground/removedLineBackground, never derived
+           from them). Keeps the reader from having to manually spot a small
+           change buried in a long, mostly-identical field (e.g. a CATDESC that
+           only differs in its last few words). */
+        .wd-add { background: rgba(74, 222, 128, 0.55); border-radius: 2px; }
+        .wd-del { background: rgba(248, 113, 113, 0.55); border-radius: 2px; text-decoration: line-through; }
         .diff-split { display: grid; grid-template-columns: 1fr 1fr; }
         .diff-split .span { grid-column: 1 / -1; }
-        .dcell { padding: 0.05rem 0.6rem; white-space: pre-wrap; overflow-wrap: anywhere;
+        /* .dcell is only ever a field/attribute value under an item header (item
+           rows span both columns via .dl.dl-item instead) -- indented for the same
+           nesting-cue reason as .dl:not(.dl-item) above. */
+        .dcell { padding: 0.05rem 0.6rem 0.05rem 2.4rem; white-space: pre-wrap; overflow-wrap: anywhere;
             border-top: 1px solid var(--border); }
         .dcell.right { border-left: 1px solid var(--border); }
         .dcell.add { box-shadow: inset 3px 0 0 var(--green); }
@@ -442,6 +472,9 @@
     </div>
 </div>
 <div id="dropzone" class="dropzone"><span>Drop a .cdf file</span></div>
+<!-- Vendored jsdiff (BSD-3-Clause, see wacdfpp/jsdiff.js) -- a classic script,
+     not a module, so it can set the global `Diff` compare.js reads. -->
+<script src="./jsdiff.js"></script>
 <script type="module" src="./app.js"></script>
 </body>
 </html>

@@ -25,10 +25,11 @@ const V = (name, over = {}) => ({
     check("identical var -> no attr diffs", row.attributes.length === 0);
 }
 
-// Added / removed variables.
+// Added / removed variables (distinct shape/type: no content overlap, so the
+// rename pass — added below — must not mistake this pair for a rename).
 {
-    const a = buildModel([V("only_a")], []);
-    const b = buildModel([V("only_b")], []);
+    const a = buildModel([V("only_a", { shape: [3], typeName: "CDF_FLOAT" })], []);
+    const b = buildModel([V("only_b", { shape: [7], typeName: "CDF_INT4" })], []);
     const d = diffModels(a, b);
     check("removed var", d.groups.data.find(v => v.name === "only_a").status === "removed");
     check("added var", d.groups.data.find(v => v.name === "only_b").status === "added");
@@ -58,6 +59,90 @@ const V = (name, over = {}) => ({
     check("attr removed (FILLVAL)", byName.FILLVAL.status === "removed" && byName.FILLVAL.b === null);
     check("attr added (SCALE)", byName.SCALE.status === "added" && byName.SCALE.a === null);
     check("unchanged attr not listed (VAR_TYPE absent)", byName.VAR_TYPE === undefined);
+}
+
+// Rename detection: same content, new name -> one "renamed" entry, not an
+// unrelated add+remove pair (SciQLop/CDFpp#102 — a whole screen of disconnected
+// +/- blocks for what were actually renames was reported as "messy to
+// understand at first glance").
+{
+    const attrs = { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1", FIELDNAM: "Energy" };
+    const a = buildModel([V("old_name", { attributes: attrs })], []);
+    const b = buildModel([V("new_name", { attributes: attrs })], []);
+    const d = diffModels(a, b);
+    check("pure rename -> no residual added/removed rows",
+        !d.groups.data.some(v => v.status === "added" || v.status === "removed"));
+    const row = d.groups.data.find(v => v.status === "renamed");
+    check("pure rename detected", !!row);
+    check("pure rename oldName/name", row?.oldName === "old_name" && row?.name === "new_name");
+    check("pure rename has no field/attr diffs (collapses to one line)",
+        row?.fields.length === 0 && row?.attributes.length === 0);
+}
+
+// Rename + a genuine content change: still detected as a rename, but with the
+// changed attribute reported so the UI can show a sub-diff under it.
+{
+    const a = buildModel([V("old_name", {
+        attributes: { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1", FIELDNAM: "Energy" },
+    })], []);
+    const b = buildModel([V("new_name", {
+        attributes: { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1 sr-1", FIELDNAM: "Energy" },
+    })], []);
+    const d = diffModels(a, b);
+    const row = d.groups.data.find(v => v.status === "renamed");
+    check("rename+change detected as renamed", row?.oldName === "old_name" && row?.name === "new_name");
+    check("rename+change reports the changed attribute",
+        row?.attributes.some(x => x.name === "UNITS" && x.status === "changed"));
+}
+
+// Unrelated add+remove (no meaningful content overlap) must NOT be paired up
+// as a rename — only content-similar pairs qualify.
+{
+    const a = buildModel([V("gone", { attributes: { VAR_TYPE: "data", CATDESC: "Magnetic field" } })], []);
+    const b = buildModel([V("new_thing", { shape: [7], typeName: "CDF_INT4", attributes: { VAR_TYPE: "data", CATDESC: "Spacecraft potential" } })], []);
+    const d = diffModels(a, b);
+    check("unrelated pair stays removed", d.groups.data.some(v => v.status === "removed" && v.name === "gone"));
+    check("unrelated pair stays added", d.groups.data.some(v => v.status === "added" && v.name === "new_thing"));
+    check("unrelated pair not renamed", !d.groups.data.some(v => v.status === "renamed") &&
+        !d.groups.support_data.some(v => v.status === "renamed"));
+}
+
+// Greedy matching picks the best-scoring pair when multiple candidates overlap
+// partially, rather than an arbitrary first match.
+{
+    const attrsClose = { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1", FIELDNAM: "IonE" };
+    const attrsFar = { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "counts", FIELDNAM: "Other" };
+    const a = buildModel([
+        V("ion_flux_old", { attributes: attrsClose }),
+        V("other_old", { attributes: attrsFar }),
+    ], []);
+    const b = buildModel([V("ion_flux_new", { attributes: attrsClose })], []);
+    const d = diffModels(a, b);
+    const renamed = d.groups.data.filter(v => v.status === "renamed");
+    check("best match wins the rename pairing", renamed.length === 1 && renamed[0].oldName === "ion_flux_old");
+    check("the weaker candidate stays removed", d.groups.data.some(v => v.status === "removed" && v.name === "other_old"));
+}
+
+// diffSummary counts renames separately from added/removed.
+{
+    const attrs = { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1" };
+    const a = buildModel([V("old_name", { attributes: attrs })], []);
+    const b = buildModel([V("new_name", { attributes: attrs })], []);
+    const s = diffSummary(diffModels(a, b));
+    check("summary counts the rename, not an add+remove", s.renamed === 1 && s.added === 0 && s.removed === 0);
+}
+
+// buildLines: a pure rename is one "item" line labeled "old -> new" with no
+// detail lines; a rename with a content change also gets its sub-diff details.
+{
+    const attrs = { VAR_TYPE: "data", CATDESC: "Ion energy flux", UNITS: "cm-2 s-1" };
+    const a = buildModel([V("old_name", { attributes: attrs })], []);
+    const b = buildModel([V("new_name", { attributes: attrs })], []);
+    const lines = buildLines(diffModels(a, b), false);
+    const item = lines.find(l => l.type === "item" && l.status === "renamed");
+    check("buildLines labels a rename 'old -> new'", item?.label === "old_name → new_name");
+    check("pure rename emits no detail lines",
+        !lines.some(l => l.type === "detail"));
 }
 
 // Variable placed by effective group (uses B's group; here VAR_TYPE support_data).
@@ -92,10 +177,13 @@ const V = (name, over = {}) => ({
     check("entry 0 unchanged not listed", e[0] === undefined);
 }
 
-// Summary counts across globals + variables.
+// Summary counts across globals + variables ("gone"/"new" get distinct
+// shape+type so they have no content overlap and aren't matched as a rename).
 {
-    const a = buildModel([V("keep"), V("gone")], [{ name: "A", entries: ["1"], types: [51] }]);
-    const b = buildModel([V("keep", { shape: [9] }), V("new")], [{ name: "B", entries: ["2"], types: [51] }]);
+    const a = buildModel([V("keep"), V("gone", { shape: [3], typeName: "CDF_FLOAT" })],
+        [{ name: "A", entries: ["1"], types: [51] }]);
+    const b = buildModel([V("keep", { shape: [9] }), V("new", { shape: [7], typeName: "CDF_INT4" })],
+        [{ name: "B", entries: ["2"], types: [51] }]);
     const s = diffSummary(diffModels(a, b));
     check("summary added (new var + B attr)", s.added === 2);
     check("summary removed (gone var + A attr)", s.removed === 2);
