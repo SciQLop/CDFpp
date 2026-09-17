@@ -3,7 +3,7 @@
 // attributes (per entry). Values are compared via entryText (shared canonicalizer).
 import { VAR_GROUPS, entryText } from "./cdf-model.js";
 
-export const STATUS = { ADDED: "added", REMOVED: "removed", CHANGED: "changed", SAME: "same" };
+export const STATUS = { ADDED: "added", REMOVED: "removed", CHANGED: "changed", RENAMED: "renamed", SAME: "same" };
 
 // name -> { group, v } across all variable groups of a model.
 function flattenVars(model) {
@@ -50,7 +50,79 @@ function diffVariable(name, group, a, b) {
     return { name, group, status, fields, attributes };
 }
 
-const RANK = { [STATUS.CHANGED]: 0, [STATUS.ADDED]: 1, [STATUS.REMOVED]: 2, [STATUS.SAME]: 3 };
+// A variable's "content" as a set of independent facts (shape/type/isNrv plus
+// every attribute key=value), so two variables can be compared by how much
+// content they share regardless of their name.
+function signature(v) {
+    const s = new Set();
+    s.add(`shape=${v.shape.join(",")}`);
+    s.add(`type=${v.typeName}`);
+    s.add(`isNrv=${!!v.isNrv}`);
+    for (const [k, val] of Object.entries(v.attributes ?? {})) s.add(`${k}=${entryText(val)}`);
+    return s;
+}
+
+function jaccard(sa, sb) {
+    let inter = 0;
+    for (const x of sa) if (sb.has(x)) inter += 1;
+    const union = sa.size + sb.size - inter;
+    return union === 0 ? 0 : inter / union;
+}
+
+// simplify: rename detection is a greedy approximation of Git's own algorithm
+// (score every removed x added pair by content overlap, match highest-scoring
+// pairs first above a threshold, same as `git diff -M`) rather than an optimal
+// bipartite assignment. Good enough for the handful of variables in a typical
+// CDF; a pathological case with many equally-similar candidates could pick a
+// less-than-ideal pairing. Upgrade path: the Hungarian algorithm, if that ever
+// matters in practice.
+const RENAME_SIMILARITY_THRESHOLD = 0.5;
+// Variables with almost no attributes would otherwise match trivially (e.g.
+// two variables that only share "VAR_TYPE=data" already hit 100% Jaccard).
+const RENAME_MIN_SIGNATURE_SIZE = 2;
+
+// Pair up same-group removed/added variables that are likely the same
+// variable renamed (SciQLop/CDFpp#102: a whole screen of unrelated-looking
+// +/- blocks for what were actually renames read as "messy at first glance").
+// removed/added: [{ name, v }]. Returns the matched pairs plus whatever is
+// left over as genuine adds/removes.
+function detectRenames(removed, added) {
+    const candidates = [];
+    for (const r of removed) {
+        const sr = signature(r.v);
+        if (sr.size < RENAME_MIN_SIGNATURE_SIZE) continue;
+        for (const a of added) {
+            const sa = signature(a.v);
+            if (sa.size < RENAME_MIN_SIGNATURE_SIZE) continue;
+            const score = jaccard(sr, sa);
+            if (score >= RENAME_SIMILARITY_THRESHOLD) candidates.push({ r, a, score });
+        }
+    }
+    candidates.sort((x, y) => y.score - x.score);
+    const usedR = new Set(), usedA = new Set(), pairs = [];
+    for (const c of candidates) {
+        if (usedR.has(c.r.name) || usedA.has(c.a.name)) continue;
+        usedR.add(c.r.name);
+        usedA.add(c.a.name);
+        pairs.push({ oldName: c.r.name, newName: c.a.name, a: c.r.v, b: c.a.v });
+    }
+    return {
+        pairs,
+        remainingRemoved: removed.filter((r) => !usedR.has(r.name)),
+        remainingAdded: added.filter((a) => !usedA.has(a.name)),
+    };
+}
+
+function diffRenamedVariable(group, oldName, newName, a, b) {
+    return {
+        name: newName, oldName, group, status: STATUS.RENAMED,
+        fields: diffFields(a, b), attributes: diffAttrs(a.attributes ?? {}, b.attributes ?? {}),
+    };
+}
+
+const RANK = {
+    [STATUS.CHANGED]: 0, [STATUS.RENAMED]: 1, [STATUS.ADDED]: 2, [STATUS.REMOVED]: 3, [STATUS.SAME]: 4,
+};
 function sortDiffs(list) {
     return list.sort((x, y) => RANK[x.status] - RANK[y.status] || x.name.localeCompare(y.name));
 }
@@ -87,18 +159,33 @@ export function diffModels(modelA, modelB) {
     const fa = flattenVars(modelA), fb = flattenVars(modelB);
     const names = new Set([...fa.keys(), ...fb.keys()]);
     const groups = Object.fromEntries(VAR_GROUPS.map(g => [g, []]));
+    // Removed/added variables are held back per group (not pushed yet) so a
+    // rename pass can pair up look-alikes before anything is finalized as a
+    // genuine add or remove.
+    const rawRemoved = Object.fromEntries(VAR_GROUPS.map(g => [g, []]));
+    const rawAdded = Object.fromEntries(VAR_GROUPS.map(g => [g, []]));
     for (const name of names) {
         const ea = fa.get(name), eb = fb.get(name);
         const group = eb ? eb.group : ea.group;
-        groups[group].push(diffVariable(name, group, ea?.v, eb?.v));
+        if (ea && eb) groups[group].push(diffVariable(name, group, ea.v, eb.v));
+        else if (ea) rawRemoved[group].push({ name, v: ea.v });
+        else rawAdded[group].push({ name, v: eb.v });
+    }
+    for (const g of VAR_GROUPS) {
+        const { pairs, remainingRemoved, remainingAdded } = detectRenames(rawRemoved[g], rawAdded[g]);
+        for (const p of pairs) groups[g].push(diffRenamedVariable(g, p.oldName, p.newName, p.a, p.b));
+        for (const r of remainingRemoved)
+            groups[g].push({ name: r.name, group: g, status: STATUS.REMOVED, fields: [], attributes: [] });
+        for (const a of remainingAdded)
+            groups[g].push({ name: a.name, group: g, status: STATUS.ADDED, fields: [], attributes: [] });
     }
     for (const g of VAR_GROUPS) sortDiffs(groups[g]);
     return { globalAttributes: diffGlobals(modelA, modelB), groups };
 }
 
-// Count added/removed/changed across global attributes and variables.
+// Count added/removed/changed/renamed across global attributes and variables.
 export function diffSummary(diff) {
-    const c = { added: 0, removed: 0, changed: 0 };
+    const c = { added: 0, removed: 0, changed: 0, renamed: 0 };
     const bump = (s) => { if (s in c) c[s] += 1; };
     for (const a of diff.globalAttributes) bump(a.status);
     for (const g of VAR_GROUPS) for (const v of diff.groups[g]) bump(v.status);
@@ -131,7 +218,8 @@ export function buildLines(diff, includeSame) {
         if (!items.length) continue;
         lines.push({ type: "section", section: g });
         for (const v of items) {
-            lines.push({ type: "item", status: v.status, label: v.name });
+            const label = v.status === STATUS.RENAMED ? `${v.oldName} → ${v.name}` : v.name;
+            lines.push({ type: "item", status: v.status, label });
             for (const f of v.fields)
                 lines.push({ type: "detail", status: f.status, label: f.field, a: f.a, b: f.b });
             for (const at of v.attributes)

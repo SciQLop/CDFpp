@@ -5,11 +5,14 @@ import { loadModule } from "./wasm.js";
 import { rawFromCdfFile, buildModel } from "./cdf-model.js";
 import { diffModels, diffSummary, buildLines, STATUS } from "./cdf-diff.js";
 import { esc } from "./render.js";
+// `Diff` is the vendored jsdiff global (wacdfpp/jsdiff.js, loaded as a classic
+// <script> in wacdfpp.html, before this module) -- not an ES import, since
+// jsdiff ships UMD/CJS builds only, no single-file ESM bundle.
 
 const SECTION_LABELS = {
     global: "Global Attributes", data: "Data", support_data: "Support", metadata: "Metadata",
 };
-const SIGN = { added: "+", removed: "−", changed: "~", same: " " };
+const SIGN = { added: "+", removed: "−", changed: "~", renamed: "↦", same: " " };
 
 async function bytesToModel(bytes) {
     const Module = await loadModule();
@@ -43,7 +46,25 @@ const cellText = (label, value) => (value === null ? "" : `${label}: ${value}`);
 const statusClass = (status) =>
     status === STATUS.ADDED ? "add"
         : status === STATUS.REMOVED ? "del"
-            : status === STATUS.CHANGED ? "chg" : "ctx";
+            : status === STATUS.CHANGED ? "chg"
+                : status === STATUS.RENAMED ? "ren" : "ctx";
+
+// Word-level diff for a changed field (jsdiff diffWords): returns HTML for
+// each side with the actually-differing words wrapped in a highlight span,
+// layered on top of the row's own red/del or green/add tint (see the .wd-add/
+// .wd-del CSS) — fixes the "small change buried in a long, mostly-identical
+// field" problem (e.g. a CATDESC differing only in its last few words) that
+// plain whole-row tinting can't show.
+function wordDiffHtml(a, b) {
+    const parts = Diff.diffWords(a ?? "", b ?? "");
+    let delHtml = "", addHtml = "";
+    for (const p of parts) {
+        if (p.added) addHtml += `<mark class="wd-add">${esc(p.value)}</mark>`;
+        else if (p.removed) delHtml += `<mark class="wd-del">${esc(p.value)}</mark>`;
+        else { const t = esc(p.value); delHtml += t; addHtml += t; }
+    }
+    return { delHtml, addHtml };
+}
 
 function hunk(label, span) {
     const el = document.createElement("div");
@@ -62,12 +83,20 @@ function renderInline(lines) {
         el.innerHTML = `<span class="dsign">${sign}</span><span class="dtext">${esc(text)}</span>`;
         root.appendChild(el);
     };
+    const rowHtml = (sign, cls, html) => {
+        const el = document.createElement("div");
+        el.className = `dl ${cls}`;
+        el.innerHTML = `<span class="dsign">${sign}</span><span class="dtext">${html}</span>`;
+        root.appendChild(el);
+    };
     for (const ln of lines) {
         if (ln.type === "section") { root.appendChild(hunk(SECTION_LABELS[ln.section])); }
         else if (ln.type === "item") { row(SIGN[ln.status], `dl-item ${statusClass(ln.status)}`, ln.label); }
         else if (ln.status === STATUS.CHANGED) {
-            row("−", "del", cellText(ln.label, ln.a));
-            row("+", "add", cellText(ln.label, ln.b));
+            const prefix = `${esc(ln.label)}: `;
+            const { delHtml, addHtml } = wordDiffHtml(ln.a, ln.b);
+            rowHtml("−", "del", prefix + delHtml);
+            rowHtml("+", "add", prefix + addHtml);
         } else if (ln.status === STATUS.ADDED) { row("+", "add", cellText(ln.label, ln.b)); }
         else if (ln.status === STATUS.REMOVED) { row("−", "del", cellText(ln.label, ln.a)); }
         else { row(" ", "ctx", cellText(ln.label, ln.a)); }
@@ -86,6 +115,12 @@ function renderSplit(lines) {
         el.textContent = text;
         root.appendChild(el);
     };
+    const cellHtml = (cls, html) => {
+        const el = document.createElement("div");
+        el.className = `dcell ${cls}`;
+        el.innerHTML = html;
+        root.appendChild(el);
+    };
     const itemRow = (status, label) => {
         const el = document.createElement("div");
         el.className = `dl span dl-item ${statusClass(status)}`;
@@ -96,8 +131,10 @@ function renderSplit(lines) {
         if (ln.type === "section") { const h = hunk(SECTION_LABELS[ln.section], true); root.appendChild(h); }
         else if (ln.type === "item") { itemRow(ln.status, ln.label); }
         else if (ln.status === STATUS.CHANGED) {
-            cell("del", cellText(ln.label, ln.a));
-            cell("add right", cellText(ln.label, ln.b));
+            const prefix = `${esc(ln.label)}: `;
+            const { delHtml, addHtml } = wordDiffHtml(ln.a, ln.b);
+            cellHtml("del", prefix + delHtml);
+            cellHtml("add right", prefix + addHtml);
         } else if (ln.status === STATUS.ADDED) {
             cell("empty", "");
             cell("add right", cellText(ln.label, ln.b));
@@ -119,7 +156,8 @@ function summaryEl(diff) {
     el.innerHTML =
         `<span class="st-added">${s.added} added</span> · ` +
         `<span class="st-removed">${s.removed} removed</span> · ` +
-        `<span class="st-changed">${s.changed} changed</span>`;
+        `<span class="st-changed">${s.changed} changed</span> · ` +
+        `<span class="st-renamed">${s.renamed} renamed</span>`;
     return el;
 }
 
