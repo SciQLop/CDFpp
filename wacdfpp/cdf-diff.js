@@ -155,13 +155,10 @@ function diffGlobals(modelA, modelB) {
     return names.map(name => diffGlobalAttr(name, ma.get(name), mb.get(name)));
 }
 
-export function diffModels(modelA, modelB) {
-    const fa = flattenVars(modelA), fb = flattenVars(modelB);
-    const names = new Set([...fa.keys(), ...fb.keys()]);
-    const groups = Object.fromEntries(VAR_GROUPS.map(g => [g, []]));
-    // Removed/added variables are held back per group (not pushed yet) so a
-    // rename pass can pair up look-alikes before anything is finalized as a
-    // genuine add or remove.
+// Splits every variable name into an exact-name diff (pushed straight into
+// `groups`) or a raw removed/added candidate per group -- held back so a
+// rename pass can pair up look-alikes before anything is finalized.
+function partitionVariables(fa, fb, names, groups) {
     const rawRemoved = Object.fromEntries(VAR_GROUPS.map(g => [g, []]));
     const rawAdded = Object.fromEntries(VAR_GROUPS.map(g => [g, []]));
     for (const name of names) {
@@ -171,14 +168,26 @@ export function diffModels(modelA, modelB) {
         else if (ea) rawRemoved[group].push({ name, v: ea.v });
         else rawAdded[group].push({ name, v: eb.v });
     }
-    for (const g of VAR_GROUPS) {
-        const { pairs, remainingRemoved, remainingAdded } = detectRenames(rawRemoved[g], rawAdded[g]);
-        for (const p of pairs) groups[g].push(diffRenamedVariable(g, p.oldName, p.newName, p.a, p.b));
-        for (const r of remainingRemoved)
-            groups[g].push({ name: r.name, group: g, status: STATUS.REMOVED, fields: [], attributes: [] });
-        for (const a of remainingAdded)
-            groups[g].push({ name: a.name, group: g, status: STATUS.ADDED, fields: [], attributes: [] });
-    }
+    return { rawRemoved, rawAdded };
+}
+
+// Runs the rename pass for one group's raw removed/added candidates, then
+// finalizes whatever's left over as genuine adds/removes.
+function resolveGroupRenames(groups, g, removed, added) {
+    const { pairs, remainingRemoved, remainingAdded } = detectRenames(removed, added);
+    for (const p of pairs) groups[g].push(diffRenamedVariable(g, p.oldName, p.newName, p.a, p.b));
+    for (const r of remainingRemoved)
+        groups[g].push({ name: r.name, group: g, status: STATUS.REMOVED, fields: [], attributes: [] });
+    for (const a of remainingAdded)
+        groups[g].push({ name: a.name, group: g, status: STATUS.ADDED, fields: [], attributes: [] });
+}
+
+export function diffModels(modelA, modelB) {
+    const fa = flattenVars(modelA), fb = flattenVars(modelB);
+    const names = new Set([...fa.keys(), ...fb.keys()]);
+    const groups = Object.fromEntries(VAR_GROUPS.map(g => [g, []]));
+    const { rawRemoved, rawAdded } = partitionVariables(fa, fb, names, groups);
+    for (const g of VAR_GROUPS) resolveGroupRenames(groups, g, rawRemoved[g], rawAdded[g]);
     for (const g of VAR_GROUPS) sortDiffs(groups[g]);
     return { globalAttributes: diffGlobals(modelA, modelB), groups };
 }
