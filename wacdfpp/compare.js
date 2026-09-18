@@ -43,11 +43,10 @@ async function fetchBytes(url) {
 // A detail value is null when absent on that side; otherwise show "label: value".
 const cellText = (label, value) => (value === null ? "" : `${label}: ${value}`);
 
-const statusClass = (status) =>
-    status === STATUS.ADDED ? "add"
-        : status === STATUS.REMOVED ? "del"
-            : status === STATUS.CHANGED ? "chg"
-                : status === STATUS.RENAMED ? "ren" : "ctx";
+const STATUS_CLASS = {
+    [STATUS.ADDED]: "add", [STATUS.REMOVED]: "del", [STATUS.CHANGED]: "chg", [STATUS.RENAMED]: "ren",
+};
+const statusClass = (status) => STATUS_CLASS[status] ?? "ctx";
 
 // Word-level diff for a changed field (jsdiff diffWords): returns HTML for
 // each side with the actually-differing words wrapped in a highlight span,
