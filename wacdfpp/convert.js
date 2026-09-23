@@ -1,11 +1,12 @@
 // Converter panel: re-encodes the loaded CDF with every codec this build offers,
 // reloads each output eagerly, checks the values round-trip bit-exactly, and lets
-// the user download any of the outputs.
+// the user download any of the outputs. The work runs in convert-worker.js so the
+// page stays responsive on large files.
 import { availableCodecs, summarizeRuns, outputName } from "./convert-model.js";
 
 const HEAD = ["Codec", "Size", "vs original", "vs GZIP", "Write", "Read", "Values", ""];
 
-const yieldToBrowser = () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve)));
+let activeWorker = null;
 
 function formatBytes(n) {
     if (n < 1024) return `${n} B`;
@@ -17,17 +18,6 @@ function formatChange(ratio) {
     if (ratio === null) return "…";
     const pct = Math.round((ratio - 1) * 100);
     return pct === 0 ? "same" : `${pct > 0 ? "+" : "−"}${Math.abs(pct)}%`;
-}
-
-function measure(Module, cdf, codec) {
-    const t0 = performance.now();
-    const bytes = cdf.save_as(Module.CompressionType[codec.key]);
-    const t1 = performance.now();
-    const reloaded = Module.load_eager(bytes);
-    const t2 = performance.now();
-    const identical = reloaded.is_valid() && reloaded.same_values(cdf);
-    reloaded.delete();
-    return { key: codec.key, bytes, size: bytes.length, writeMs: t1 - t0, readMs: t2 - t1, identical };
 }
 
 function download(bytes, name) {
@@ -54,6 +44,7 @@ function panelHtml() {
             <em>Write</em> is compress + serialize; <em>read</em> is parse + decompress every value.</p>
         <p class="convert-warn">Zstd and Blosc2 are experimental and not part of the CDF standard:
             only CDFpp reads them. To get a standard file back, load it here and download the GZIP version.</p>
+        <p class="log-err" hidden></p>
         <div class="convert-scroll"><table class="convert-table"><thead><tr>${HEAD.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody></tbody></table></div>`;
 }
 
@@ -85,8 +76,16 @@ function fillRow(tr, row, name) {
     }
 }
 
-/** Renders the panel into `mount` and runs every codec; stops if the panel is replaced. */
-export async function renderConverter(mount, Module, cdf, { name, originalSize }) {
+function showError(panel, message) {
+    const p = panel.querySelector(".log-err");
+    p.textContent = `Conversion failed: ${message}`;
+    p.hidden = false;
+    panel.querySelectorAll("td.pending").forEach((td) => { td.textContent = "–"; });
+}
+
+/** Renders the panel into `mount` and converts `bytes` with every codec in a worker. */
+export function renderConverter(mount, Module, { name, bytes }) {
+    activeWorker?.terminate();
     const panel = document.createElement("div");
     panel.className = "convert";
     panel.innerHTML = panelHtml();   // static markup; the file name goes in via textContent below
@@ -97,10 +96,19 @@ export async function renderConverter(mount, Module, cdf, { name, originalSize }
     const tbody = panel.querySelector("tbody");
     const trs = new Map(codecs.map((c) => [c.key, tbody.appendChild(codecRow(c))]));
     const runs = [];
-    for (const codec of codecs) {
-        await yieldToBrowser();
-        if (!panel.isConnected) return;   // user moved on; cdf may already be freed
-        runs.push(measure(Module, cdf, codec));
-        summarizeRuns(runs, originalSize).forEach((row) => fillRow(trs.get(row.key), row, name));
-    }
+    const worker = new Worker(new URL("./convert-worker.js", import.meta.url), { type: "module" });
+    activeWorker = worker;
+    const stop = () => { worker.terminate(); if (activeWorker === worker) activeWorker = null; };
+    worker.onmessage = ({ data }) => {
+        if (!panel.isConnected) return stop();   // user moved on to another view
+        if (data.type === "run") {
+            runs.push(data.run);
+            summarizeRuns(runs, bytes.length).forEach((row) => fillRow(trs.get(row.key), row, name));
+        } else {
+            if (data.type === "error") showError(panel, data.message);
+            stop();
+        }
+    };
+    worker.onerror = (e) => { showError(panel, e.message || "worker error"); stop(); };
+    worker.postMessage({ bytes, keys: codecs.map((c) => c.key) });   // structured clone: page keeps its copy
 }
