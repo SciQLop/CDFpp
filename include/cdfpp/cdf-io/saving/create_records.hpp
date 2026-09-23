@@ -65,6 +65,12 @@ namespace saving
                 cpr.record.cParms.push_back(zstd::compression_level);
                 break;
 #endif
+#ifdef CDFPP_USE_BLOSC2
+            case cdf_compression_type::blosc2_compression:
+                cpr.record.pCount = 1;
+                cpr.record.cParms.push_back(blosc2::compression_level);
+                break;
+#endif
             default:
                 throw std::invalid_argument { "Unsupported compression algorithm" };
                 break;

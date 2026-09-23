@@ -36,6 +36,9 @@
 #ifdef CDFPP_USE_ZSTD
 #include "./zstd.hpp"
 #endif
+#ifdef CDFPP_USE_BLOSC2
+#include "./blosc2.hpp"
+#endif
 
 #include "./rle.hpp"
 
@@ -69,6 +72,10 @@ std::size_t inflate(const T& input, char* output, const std::size_t output_size)
     if constexpr (type == cdf_compression_type::zstd_compression)
         return zstd::inflate(input, output, output_size);
 #endif
+#ifdef CDFPP_USE_BLOSC2
+    if constexpr (type == cdf_compression_type::blosc2_compression)
+        return blosc2::inflate(input, output, output_size);
+#endif
     throw std::runtime_error("Unknown compression type.");
 }
 
@@ -83,6 +90,10 @@ std::size_t inflate(
 #ifdef CDFPP_USE_ZSTD
     if (type == cdf_compression_type::zstd_compression)
         return zstd::inflate(input, output, output_size);
+#endif
+#ifdef CDFPP_USE_BLOSC2
+    if (type == cdf_compression_type::blosc2_compression)
+        return blosc2::inflate(input, output, output_size);
 #endif
     throw std::runtime_error("Unknown compression type.");
 }

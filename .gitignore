@@ -1,5 +1,6 @@
 build/
 subprojects/*
+!subprojects/packagefiles/
 !subprojects/*.wrap
 *.kdev4
 CMakeLists.txt.user

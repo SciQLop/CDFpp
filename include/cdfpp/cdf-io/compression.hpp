@@ -35,6 +35,9 @@
 #ifdef CDFPP_USE_ZSTD
 #include "./zstd.hpp"
 #endif
+#ifdef CDFPP_USE_BLOSC2
+#include "./blosc2.hpp"
+#endif
 
 #include "./rle.hpp"
 
@@ -79,6 +82,10 @@ no_init_vector<char> deflate(
 #ifdef CDFPP_USE_ZSTD
     if (type == cdf_compression_type::zstd_compression)
         return zstd::deflate(input);
+#endif
+#ifdef CDFPP_USE_BLOSC2
+    if (type == cdf_compression_type::blosc2_compression)
+        return blosc2::deflate(input, type_size);
 #endif
     return {};
 }
