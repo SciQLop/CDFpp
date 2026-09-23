@@ -41,7 +41,6 @@ jobs:
           -Dwith_experimental_wasm=true
           -Dwith_experimental_zstd=true
           -Dwith_experimental_blosc2=true
-          -Dzstd:multi_thread=disabled
 
       - name: Build
         run: ninja -C build_wasm
