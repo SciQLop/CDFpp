@@ -85,4 +85,8 @@ if node.found()
         args: [files('wacdfpp_yaml/test.mjs')],
         timeout: 60,
     )
+    test('wacdfpp_convert', node,
+        args: [files('wacdfpp_convert/test.mjs')],
+        timeout: 60,
+    )
 endif

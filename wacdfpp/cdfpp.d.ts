@@ -86,6 +86,15 @@ export interface CdfFile {
     /** Serialize the CDF file to an owned Uint8Array */
     save(): Uint8Array | undefined;
 
+    /**
+     * Serialize a copy with every variable compressed with `codec` (file-level
+     * compression dropped). The loaded file itself is not modified.
+     */
+    save_as(codec: CompressionType): Uint8Array | undefined;
+
+    /** True when both files have the same variables with byte-identical values. */
+    same_values(other: CdfFile): boolean;
+
     /** Free C++ memory — must be called when done */
     delete(): void;
 }
@@ -93,6 +102,9 @@ export interface CdfFile {
 export interface CdfModule {
     /** Load a CDF file from a Uint8Array buffer */
     load(data: Uint8Array): CdfFile;
+
+    /** Load a CDF file decoding every variable's values up front (no lazy loading) */
+    load_eager(data: Uint8Array): CdfFile;
 
     /** Get the string name of a CDF data type */
     type_name(type: DataType): string;
@@ -132,6 +144,10 @@ export interface CdfModule {
         huffman: CompressionType;
         adaptive_huffman: CompressionType;
         gzip: CompressionType;
+        /** Only in builds with -Dwith_experimental_zstd=true (non-standard) */
+        zstd?: CompressionType;
+        /** Only in builds with -Dwith_experimental_blosc2=true (non-standard) */
+        blosc2?: CompressionType;
     };
 }
 
