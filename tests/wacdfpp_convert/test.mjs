@@ -24,11 +24,12 @@ const runs = [
     { key: "gzip", size: 400, writeMs: 10, readMs: 4, identical: true },
     { key: "blosc2", size: 300, writeMs: 5, readMs: 1, identical: true },
 ];
+const near = (a, b) => Math.abs(a - b) < 1e-12;
 const rows = summarizeRuns(runs, 500);
 const blosc2 = rows.find((r) => r.key === "blosc2");
-check("vs original is size / original size", blosc2.vsOriginal === 0.6);
-check("vs gzip is size / gzip size", blosc2.vsGzip === 0.75);
-check("gzip is 1.0 against itself", rows.find((r) => r.key === "gzip").vsGzip === 1);
+check("vs original is size / original size", near(blosc2.vsOriginal, 0.6));
+check("vs gzip is size / gzip size", near(blosc2.vsGzip, 0.75));
+check("gzip is 1.0 against itself", near(rows.find((r) => r.key === "gzip").vsGzip, 1));
 check("smallest output is marked best", blosc2.best && !rows.find((r) => r.key === "gzip").best);
 check("vs gzip is null until gzip has run",
     summarizeRuns([{ key: "blosc2", size: 3, writeMs: 1, readMs: 1, identical: true }], 10)[0].vsGzip === null);
