@@ -193,11 +193,10 @@ els.exportYamlBtn.addEventListener("click", () => {
 });
 
 els.convertBtn.addEventListener("click", () => {
-    if (!currentCdf) return;
+    if (!currentCdf || !currentBytes) return;
     selectedName = null;
     setSelected(els.varlist, null);
-    renderConverter(els.detail, Module, currentCdf,
-        { name: currentName ?? "file.cdf", originalSize: currentBytes?.length ?? 0 });
+    renderConverter(els.detail, Module, { name: currentName ?? "file.cdf", bytes: currentBytes });
 });
 
 // Reverse handoff: load a CDF handed to us by an opener (e.g. AstraLint's
