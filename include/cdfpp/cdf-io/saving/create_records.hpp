@@ -217,7 +217,7 @@ namespace saving
             auto compressed = compression::deflate(v.compression_type(),
                 std::string_view {
                     v.bytes_ptr() + first_record * record_size, records_in_vvr * record_size },
-                cdf_type_size(v.type()));
+                cdf_type_size(v.type()), record_size);
             cvvr.record.data.resize(std::size(compressed));
             std::memcpy(cvvr.record.data.data(), compressed.data(), std::size(compressed));
             cvvr.record.cSize = std::size(cvvr.record.data);

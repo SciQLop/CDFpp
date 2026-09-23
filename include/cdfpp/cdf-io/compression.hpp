@@ -69,11 +69,11 @@ no_init_vector<char> deflate(const T& input)
         return rledeflate(input);
 }
 
-// type_size lets byte-shuffling codecs (blosc2) group bytes by position within each value;
-// pass 1 for untyped data such as a whole-file CCR payload.
+// element_size and record_size are shape hints for byte-shuffling codecs (blosc2); pass 1 for
+// untyped data such as a whole-file CCR payload.
 template <typename T>
-no_init_vector<char> deflate(
-    cdf_compression_type type, const T& input, [[maybe_unused]] std::size_t type_size)
+no_init_vector<char> deflate(cdf_compression_type type, const T& input,
+    [[maybe_unused]] std::size_t element_size, [[maybe_unused]] std::size_t record_size)
 {
     if (type == cdf_compression_type::gzip_compression)
         return gzdeflate(input);
@@ -85,7 +85,7 @@ no_init_vector<char> deflate(
 #endif
 #ifdef CDFPP_USE_BLOSC2
     if (type == cdf_compression_type::blosc2_compression)
-        return blosc2::deflate(input, type_size);
+        return blosc2::deflate(input, element_size, record_size);
 #endif
     return {};
 }
