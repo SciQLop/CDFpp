@@ -270,3 +270,80 @@ SCENARIO("RLE-compressed CDFs carry a spec-conformant Compression Parameters Rec
         }
     }
 }
+
+namespace
+{
+std::vector<cdf_compression_type> compiled_in_codecs()
+{
+    return {
+        cdf_compression_type::rle_compression,
+        cdf_compression_type::gzip_compression,
+#ifdef CDFPP_USE_ZSTD
+        cdf_compression_type::zstd_compression,
+#endif
+#ifdef CDFPP_USE_BLOSC2
+        cdf_compression_type::blosc2_compression,
+#endif
+    };
+}
+
+no_init_vector<tt2000_t> increasing_epochs(std::size_t size)
+{
+    no_init_vector<tt2000_t> values(size);
+    std::generate(std::begin(values), std::end(values),
+        [t = int64_t { 631108869184000000 }]() mutable { return tt2000_t { t += 62'500'000 }; });
+    return values;
+}
+
+CDF cdf_with_variables_compressed_as(cdf_compression_type codec)
+{
+    CDF cdf_obj;
+    cdf_obj.variables.emplace("cos",
+        Variable { "cos", 0, data_t { cos_gen<double> { 0.01 }(30000), CDF_Types::CDF_DOUBLE },
+            { 10000, 3 } });
+    cdf_obj.variables.emplace("epoch",
+        Variable { "epoch", 0,
+            data_t { increasing_epochs(10000), CDF_Types::CDF_TIME_TT2000 }, { 10000 } });
+    for (auto& [_, variable] : cdf_obj.variables)
+        variable.set_compression_type(codec);
+    return cdf_obj;
+}
+
+std::optional<CDF> saved_and_reloaded(const CDF& cdf_obj, std::vector<char>& buffer)
+{
+    auto saved = cdf::io::save(cdf_obj);
+    REQUIRE(std::size(saved) > 0);
+    buffer.assign(std::cbegin(saved), std::cend(saved));
+    return cdf::io::load(buffer, true, false);
+}
+}
+
+SCENARIO("Every compiled-in codec round-trips through save and reload", "[CDF]")
+{
+    const auto codec = GENERATE(from_range(compiled_in_codecs()));
+    std::vector<char> buffer;
+    GIVEN("variables compressed with " + cdf_compression_type_str(codec))
+    {
+        const auto original = cdf_with_variables_compressed_as(codec);
+        auto reloaded = saved_and_reloaded(original, buffer);
+        REQUIRE(reloaded != std::nullopt);
+        THEN("values and compression type survive")
+        {
+            REQUIRE(reloaded->variables["cos"] == original.variables.at("cos"));
+            REQUIRE(reloaded->variables["epoch"] == original.variables.at("epoch"));
+            REQUIRE(reloaded->variables["cos"].compression_type() == codec);
+        }
+    }
+    GIVEN("a whole file compressed with " + cdf_compression_type_str(codec))
+    {
+        auto original = cdf_with_variables_compressed_as(cdf_compression_type::no_compression);
+        original.compression = codec;
+        auto reloaded = saved_and_reloaded(original, buffer);
+        REQUIRE(reloaded != std::nullopt);
+        THEN("values and compression type survive")
+        {
+            REQUIRE(reloaded->variables["cos"] == original.variables.at("cos"));
+            REQUIRE(reloaded->compression == codec);
+        }
+    }
+}

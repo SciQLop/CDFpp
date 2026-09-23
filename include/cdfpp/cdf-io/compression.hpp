@@ -32,6 +32,10 @@
 #include "./zlib.hpp"
 #endif
 
+#ifdef CDFPP_USE_ZSTD
+#include "./zstd.hpp"
+#endif
+
 #include "./rle.hpp"
 
 namespace cdf::io::compression
@@ -62,13 +66,20 @@ no_init_vector<char> deflate(const T& input)
         return rledeflate(input);
 }
 
+// type_size lets byte-shuffling codecs (blosc2) group bytes by position within each value;
+// pass 1 for untyped data such as a whole-file CCR payload.
 template <typename T>
-no_init_vector<char> deflate(cdf_compression_type type, const T& input)
+no_init_vector<char> deflate(
+    cdf_compression_type type, const T& input, [[maybe_unused]] std::size_t type_size)
 {
     if (type == cdf_compression_type::gzip_compression)
         return gzdeflate(input);
     if (type == cdf_compression_type::rle_compression)
         return rledeflate(input);
+#ifdef CDFPP_USE_ZSTD
+    if (type == cdf_compression_type::zstd_compression)
+        return zstd::deflate(input);
+#endif
     return {};
 }
 
