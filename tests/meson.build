@@ -7,7 +7,8 @@ configure_file(output : 'tests_config.hpp',
 catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
 
 
-# Catch2 3.16's test macros push MSVC past the default COFF section limit (C1128 in simple_open).
+# Catch2 3.16's test macros push MSVC past the default COFF section limit (C1128), so every
+# test executable gets /bigobj there.
 test_cpp_args = meson.get_compiler('cpp').get_argument_syntax() == 'msvc' ? ['/bigobj'] : []
 
 foreach test_name:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving',
@@ -36,6 +37,7 @@ endforeach
 
 python_wrapper_cpp = executable('python_wrapper_cpp','python_wrapper_cpp/main.cpp',
                 dependencies:[pybind11_dep, python3.dependency(embed:true), catch_dep, cdfpp_dep, fmt_dep],
+                cpp_args: test_cpp_args,
                 install: false
                 )
 
@@ -46,11 +48,13 @@ test('python_wrapper_cpp', python_wrapper_cpp,
 
 manual_load = executable('manual_load','manual_load/main.cpp',
                 dependencies:[cdfpp_dep],
+                cpp_args: test_cpp_args,
                 install: false
                 )
 
 manual_load = executable('manual_save','manual_save/main.cpp',
                 dependencies:[cdfpp_dep],
+                cpp_args: test_cpp_args,
                 install: false
                 )
 
@@ -58,7 +62,7 @@ manual_load = executable('manual_save','manual_save/main.cpp',
 foreach example:['basic_cpp']
     exe = executable('example-'+example,'../examples/'+example+'/main.cpp',
                     dependencies:[cdfpp_dep],
-                    cpp_args: ['-DDATA_PATH="@0@/resources"'.format(meson.current_source_dir())],
+                    cpp_args: ['-DDATA_PATH="@0@/resources"'.format(meson.current_source_dir())] + test_cpp_args,
                     install: false
                     )
 endforeach
