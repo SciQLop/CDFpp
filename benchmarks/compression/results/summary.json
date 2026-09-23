@@ -1,0 +1,1158 @@
+{
+ "sweep": {
+  "overall": {
+   "gzip6": {
+    "ratio": 2.346,
+    "compress_MiBps": 54.7,
+    "decompress_MiBps": 425.5
+   },
+   "zstd1": {
+    "ratio": 2.191,
+    "compress_MiBps": 813.2,
+    "decompress_MiBps": 954.6
+   },
+   "zstd3": {
+    "ratio": 2.307,
+    "compress_MiBps": 384.6,
+    "decompress_MiBps": 887.3
+   },
+   "blosc2-zstd5-noshuffle": {
+    "ratio": 2.289,
+    "compress_MiBps": 174.4,
+    "decompress_MiBps": 2500.6
+   },
+   "blosc2-zstd5-shuffle": {
+    "ratio": 3.672,
+    "compress_MiBps": 256.3,
+    "decompress_MiBps": 2709.7
+   },
+   "blosc2-zstd5-shuffle-record": {
+    "ratio": 3.771,
+    "compress_MiBps": 242.5,
+    "decompress_MiBps": 2701.7
+   },
+   "blosc2-zstd5-bitshuffle": {
+    "ratio": 3.602,
+    "compress_MiBps": 253.0,
+    "decompress_MiBps": 2588.5
+   },
+   "blosc2-zstd5-bitshuffle-record": {
+    "ratio": 3.667,
+    "compress_MiBps": 241.3,
+    "decompress_MiBps": 2528.3
+   },
+   "blosc2-zstd5-delta-shuffle": {
+    "ratio": 2.88,
+    "compress_MiBps": 245.6,
+    "decompress_MiBps": 2565.4
+   },
+   "blosc2-zstd1-shuffle": {
+    "ratio": 3.465,
+    "compress_MiBps": 1024.4,
+    "decompress_MiBps": 2725.5
+   },
+   "blosc2-zstd9-shuffle": {
+    "ratio": 3.899,
+    "compress_MiBps": 8.3,
+    "decompress_MiBps": 2401.6
+   },
+   "blosc2-lz4-5-shuffle": {
+    "ratio": 2.996,
+    "compress_MiBps": 1871.7,
+    "decompress_MiBps": 2880.9
+   },
+   "blosc2-lz4-5-bitshuffle": {
+    "ratio": 3.037,
+    "compress_MiBps": 1562.0,
+    "decompress_MiBps": 2865.4
+   }
+  },
+  "by_kind": {
+   "time": {
+    "gzip6": 3.023,
+    "zstd1": 3.237,
+    "zstd3": 3.399,
+    "blosc2-zstd5-noshuffle": 3.592,
+    "blosc2-zstd5-shuffle": 48.31,
+    "blosc2-zstd5-shuffle-record": 48.31,
+    "blosc2-zstd5-bitshuffle": 52.486,
+    "blosc2-zstd5-bitshuffle-record": 52.486,
+    "blosc2-zstd5-delta-shuffle": 14.583,
+    "blosc2-zstd1-shuffle": 23.24,
+    "blosc2-zstd9-shuffle": 68.514,
+    "blosc2-lz4-5-shuffle": 15.309,
+    "blosc2-lz4-5-bitshuffle": 15.139
+   },
+   "float": {
+    "gzip6": 2.047,
+    "zstd1": 1.868,
+    "zstd3": 1.969,
+    "blosc2-zstd5-noshuffle": 1.937,
+    "blosc2-zstd5-shuffle": 2.788,
+    "blosc2-zstd5-shuffle-record": 2.864,
+    "blosc2-zstd5-bitshuffle": 2.731,
+    "blosc2-zstd5-bitshuffle-record": 2.782,
+    "blosc2-zstd5-delta-shuffle": 2.24,
+    "blosc2-zstd1-shuffle": 2.667,
+    "blosc2-zstd9-shuffle": 2.943,
+    "blosc2-lz4-5-shuffle": 2.331,
+    "blosc2-lz4-5-bitshuffle": 2.37
+   },
+   "integer": {
+    "gzip6": 15.762,
+    "zstd1": 16.857,
+    "zstd3": 17.204,
+    "blosc2-zstd5-noshuffle": 16.341,
+    "blosc2-zstd5-shuffle": 20.971,
+    "blosc2-zstd5-shuffle-record": 21.136,
+    "blosc2-zstd5-bitshuffle": 20.171,
+    "blosc2-zstd5-bitshuffle-record": 20.223,
+    "blosc2-zstd5-delta-shuffle": 15.383,
+    "blosc2-zstd1-shuffle": 19.708,
+    "blosc2-zstd9-shuffle": 25.691,
+    "blosc2-lz4-5-shuffle": 15.054,
+    "blosc2-lz4-5-bitshuffle": 13.652
+   }
+  },
+  "by_source": {
+   "cdaweb": {
+    "gzip6": 1.435,
+    "zstd1": 1.388,
+    "zstd3": 1.446,
+    "blosc2-zstd5-noshuffle": 1.435,
+    "blosc2-zstd5-shuffle": 1.904,
+    "blosc2-zstd5-shuffle-record": 1.967,
+    "blosc2-zstd5-bitshuffle": 1.852,
+    "blosc2-zstd5-bitshuffle-record": 1.888,
+    "blosc2-zstd5-delta-shuffle": 1.768,
+    "blosc2-zstd1-shuffle": 1.849,
+    "blosc2-zstd9-shuffle": 1.964,
+    "blosc2-lz4-5-shuffle": 1.728,
+    "blosc2-lz4-5-bitshuffle": 1.732
+   },
+   "lpp": {
+    "gzip6": 3.976,
+    "zstd1": 3.496,
+    "zstd3": 3.746,
+    "blosc2-zstd5-noshuffle": 3.714,
+    "blosc2-zstd5-shuffle": 9.156,
+    "blosc2-zstd5-shuffle-record": 9.232,
+    "blosc2-zstd5-bitshuffle": 9.216,
+    "blosc2-zstd5-bitshuffle-record": 9.351,
+    "blosc2-zstd5-delta-shuffle": 4.848,
+    "blosc2-zstd1-shuffle": 7.938,
+    "blosc2-zstd9-shuffle": 10.699,
+    "blosc2-lz4-5-shuffle": 5.683,
+    "blosc2-lz4-5-bitshuffle": 5.902
+   }
+  },
+  "raw_MiB_by_kind": {
+   "time": 301.5,
+   "float": 1212.0,
+   "integer": 128.6
+  },
+  "variables": 1011
+ },
+ "end_to_end": {
+  "per_file": {
+   "mms1_fgm_srvy_l2_20191231_v5.225.0.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 78019640,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 110969694,
+     "save_s": 0.103779,
+     "load_s": 0.017198
+    },
+    "gzip_compression": {
+     "bytes": 74295812,
+     "save_s": 0.99831,
+     "load_s": 0.172156
+    },
+    "zstd_compression": {
+     "bytes": 79013793,
+     "save_s": 0.17882,
+     "load_s": 0.079445
+    },
+    "blosc2_compression": {
+     "bytes": 49598198,
+     "save_s": 0.426356,
+     "load_s": 0.033257
+    }
+   },
+   "mms1_fpi_fast_l2_dis-moms_20200101000000_v3.4.0.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 2078203,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 2526817,
+     "save_s": 0.000366,
+     "load_s": 0.000292
+    },
+    "gzip_compression": {
+     "bytes": 1659784,
+     "save_s": 0.017292,
+     "load_s": 0.003409
+    },
+    "zstd_compression": {
+     "bytes": 1759127,
+     "save_s": 0.003841,
+     "load_s": 0.00191
+    },
+    "blosc2_compression": {
+     "bytes": 1540220,
+     "save_s": 0.024811,
+     "load_s": 0.001696
+    }
+   },
+   "mms1_fpi_fast_l2_des-dist_20200101000000_v3.4.0.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 186231219,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 210410319,
+     "save_s": 0.186912,
+     "load_s": 0.023985
+    },
+    "gzip_compression": {
+     "bytes": 195971944,
+     "save_s": 2.450237,
+     "load_s": 0.47239
+    },
+    "zstd_compression": {
+     "bytes": 197018229,
+     "save_s": 0.655795,
+     "load_s": 0.244201
+    },
+    "blosc2_compression": {
+     "bytes": 152036694,
+     "save_s": 1.432899,
+     "load_s": 0.140384
+    }
+   },
+   "mms1_edp_fast_l2_dce_20200101_v3.0.1.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 42657361,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 54660248,
+     "save_s": 0.049172,
+     "load_s": 0.006447
+    },
+    "gzip_compression": {
+     "bytes": 40085473,
+     "save_s": 0.522539,
+     "load_s": 0.119144
+    },
+    "zstd_compression": {
+     "bytes": 43259996,
+     "save_s": 0.068658,
+     "load_s": 0.039992
+    },
+    "blosc2_compression": {
+     "bytes": 27806973,
+     "save_s": 0.278654,
+     "load_s": 0.030416
+    }
+   },
+   "mms1_scm_srvy_l2_scsrvy_20191231_v2.2.0.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 52907796,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 63514804,
+     "save_s": 0.060301,
+     "load_s": 0.021197
+    },
+    "gzip_compression": {
+     "bytes": 43941978,
+     "save_s": 0.730779,
+     "load_s": 0.117694
+    },
+    "zstd_compression": {
+     "bytes": 44870778,
+     "save_s": 0.156478,
+     "load_s": 0.074354
+    },
+    "blosc2_compression": {
+     "bytes": 27358326,
+     "save_s": 0.281732,
+     "load_s": 0.034793
+    }
+   },
+   "mms1_mec_srvy_l2_epht89d_20200101_v2.1.0.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 2208402,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 3489003,
+     "save_s": 0.000399,
+     "load_s": 0.000642
+    },
+    "gzip_compression": {
+     "bytes": 2172311,
+     "save_s": 0.024097,
+     "load_s": 0.005045
+    },
+    "zstd_compression": {
+     "bytes": 2374795,
+     "save_s": 0.00267,
+     "load_s": 0.002406
+    },
+    "blosc2_compression": {
+     "bytes": 1852515,
+     "save_s": 0.01,
+     "load_s": 0.001499
+    }
+   },
+   "tha_l2_fgm_20191231_v01.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 40942696,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 55954862,
+     "save_s": 0.061225,
+     "load_s": 0.006496
+    },
+    "gzip_compression": {
+     "bytes": 42128511,
+     "save_s": 0.544492,
+     "load_s": 0.098054
+    },
+    "zstd_compression": {
+     "bytes": 43518393,
+     "save_s": 0.077776,
+     "load_s": 0.042791
+    },
+    "blosc2_compression": {
+     "bytes": 31770812,
+     "save_s": 0.203552,
+     "load_s": 0.018532
+    }
+   },
+   "tha_l2_esa_20191231_v01.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 16870785,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 57804753,
+     "save_s": 0.061519,
+     "load_s": 0.007768
+    },
+    "gzip_compression": {
+     "bytes": 15792115,
+     "save_s": 0.43261,
+     "load_s": 0.039832
+    },
+    "zstd_compression": {
+     "bytes": 16451180,
+     "save_s": 0.091116,
+     "load_s": 0.039527
+    },
+    "blosc2_compression": {
+     "bytes": 12907764,
+     "save_s": 0.254502,
+     "load_s": 0.020856
+    }
+   },
+   "psp_fld_l2_mag_rtn_1min_20200129_v02.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 91423,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 75520,
+     "save_s": 2.2e-05,
+     "load_s": 3.6e-05
+    },
+    "gzip_compression": {
+     "bytes": 59318,
+     "save_s": 0.000379,
+     "load_s": 0.000119
+    },
+    "zstd_compression": {
+     "bytes": 64291,
+     "save_s": 7.1e-05,
+     "load_s": 6.7e-05
+    },
+    "blosc2_compression": {
+     "bytes": 46534,
+     "save_s": 0.000279,
+     "load_s": 6.2e-05
+    }
+   },
+   "psp_swp_spi_sf00_l3_mom_20200128_v04.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 8034745,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 8030046,
+     "save_s": 0.000908,
+     "load_s": 0.000693
+    },
+    "gzip_compression": {
+     "bytes": 3643801,
+     "save_s": 0.047057,
+     "load_s": 0.007973
+    },
+    "zstd_compression": {
+     "bytes": 3898305,
+     "save_s": 0.006912,
+     "load_s": 0.00346
+    },
+    "blosc2_compression": {
+     "bytes": 3040462,
+     "save_s": 0.036846,
+     "load_s": 0.002254
+    }
+   },
+   "solo_l2_mag-rtn-normal_20210101_v06.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 12961115,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 19360299,
+     "save_s": 0.002941,
+     "load_s": 0.001644
+    },
+    "gzip_compression": {
+     "bytes": 10760414,
+     "save_s": 0.158535,
+     "load_s": 0.023882
+    },
+    "zstd_compression": {
+     "bytes": 12082480,
+     "save_s": 0.016504,
+     "load_s": 0.010388
+    },
+    "blosc2_compression": {
+     "bytes": 6028730,
+     "save_s": 0.06319,
+     "load_s": 0.005347
+    }
+   },
+   "solo_l2_swa-pas-grnd-mom_20210601_v03.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 940753,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 1291049,
+     "save_s": 9.4e-05,
+     "load_s": 0.0001
+    },
+    "gzip_compression": {
+     "bytes": 908872,
+     "save_s": 0.009974,
+     "load_s": 0.002192
+    },
+    "zstd_compression": {
+     "bytes": 923997,
+     "save_s": 0.001227,
+     "load_s": 0.000884
+    },
+    "blosc2_compression": {
+     "bytes": 725447,
+     "save_s": 0.005736,
+     "load_s": 0.000418
+    }
+   },
+   "wi_h2_mfi_20200101_v05.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 57572986,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 57590346,
+     "save_s": 0.01211,
+     "load_s": 0.006281
+    },
+    "gzip_compression": {
+     "bytes": 26620469,
+     "save_s": 0.3934,
+     "load_s": 0.092948
+    },
+    "zstd_compression": {
+     "bytes": 25947996,
+     "save_s": 0.071268,
+     "load_s": 0.042105
+    },
+    "blosc2_compression": {
+     "bytes": 18132735,
+     "save_s": 0.144161,
+     "load_s": 0.013382
+    }
+   },
+   "wi_pm_3dp_20200101_v05.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 3350900,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 3349412,
+     "save_s": 0.000185,
+     "load_s": 0.000126
+    },
+    "gzip_compression": {
+     "bytes": 1832593,
+     "save_s": 0.031211,
+     "load_s": 0.004151
+    },
+    "zstd_compression": {
+     "bytes": 2094824,
+     "save_s": 0.005698,
+     "load_s": 0.002344
+    },
+    "blosc2_compression": {
+     "bytes": 1835800,
+     "save_s": 0.028358,
+     "load_s": 0.001729
+    }
+   },
+   "wi_elpd_3dp_20200101_v02.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 686072,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 684676,
+     "save_s": 4.1e-05,
+     "load_s": 2.5e-05
+    },
+    "gzip_compression": {
+     "bytes": 405590,
+     "save_s": 0.00426,
+     "load_s": 0.000844
+    },
+    "zstd_compression": {
+     "bytes": 404743,
+     "save_s": 0.001014,
+     "load_s": 0.000372
+    },
+    "blosc2_compression": {
+     "bytes": 352524,
+     "save_s": 0.005952,
+     "load_s": 0.000275
+    }
+   },
+   "ac_h0_mfi_20200101_v07.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 253980,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 407404,
+     "save_s": 6e-05,
+     "load_s": 8.3e-05
+    },
+    "gzip_compression": {
+     "bytes": 212597,
+     "save_s": 0.002959,
+     "load_s": 0.000808
+    },
+    "zstd_compression": {
+     "bytes": 263810,
+     "save_s": 0.000612,
+     "load_s": 0.000366
+    },
+    "blosc2_compression": {
+     "bytes": 180871,
+     "save_s": 0.002543,
+     "load_s": 0.000269
+    }
+   },
+   "ac_h0_swe_20200101_v11.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 117896,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 157671,
+     "save_s": 4.8e-05,
+     "load_s": 8e-05
+    },
+    "gzip_compression": {
+     "bytes": 106891,
+     "save_s": 0.000885,
+     "load_s": 0.00029
+    },
+    "zstd_compression": {
+     "bytes": 117357,
+     "save_s": 0.000256,
+     "load_s": 0.000177
+    },
+    "blosc2_compression": {
+     "bytes": 91613,
+     "save_s": 0.001185,
+     "load_s": 0.000192
+    }
+   },
+   "omni_hro_1min_20200101_v01.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 8772821,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 8651445,
+     "save_s": 0.001177,
+     "load_s": 0.000669
+    },
+    "gzip_compression": {
+     "bytes": 2189521,
+     "save_s": 0.074456,
+     "load_s": 0.006034
+    },
+    "zstd_compression": {
+     "bytes": 2710824,
+     "save_s": 0.017302,
+     "load_s": 0.006744
+    },
+    "blosc2_compression": {
+     "bytes": 2592209,
+     "save_s": 0.1041,
+     "load_s": 0.005769
+    }
+   },
+   "rbsp-a_magnetometer_1sec-gsm_emfisis-l3_20180101_v1.7.1.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 3997343,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 6006640,
+     "save_s": 0.000336,
+     "load_s": 0.00037
+    },
+    "gzip_compression": {
+     "bytes": 3589731,
+     "save_s": 0.054585,
+     "load_s": 0.009741
+    },
+    "zstd_compression": {
+     "bytes": 4346637,
+     "save_s": 0.006254,
+     "load_s": 0.003886
+    },
+    "blosc2_compression": {
+     "bytes": 1886650,
+     "save_s": 0.028459,
+     "load_s": 0.002645
+    }
+   },
+   "rbspa_rel04_ect-hope-sci-l2sa_20180101_v6.2.0.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 2940354,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 11419470,
+     "save_s": 0.002517,
+     "load_s": 0.001034
+    },
+    "gzip_compression": {
+     "bytes": 2822251,
+     "save_s": 0.044466,
+     "load_s": 0.006698
+    },
+    "zstd_compression": {
+     "bytes": 2931862,
+     "save_s": 0.007499,
+     "load_s": 0.003709
+    },
+    "blosc2_compression": {
+     "bytes": 2749531,
+     "save_s": 0.055955,
+     "load_s": 0.003493
+    }
+   },
+   "mvn_mag_l2-sunstate-1sec_20191231_v01_r01.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 2695305,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 5213124,
+     "save_s": 0.000328,
+     "load_s": 0.00025
+    },
+    "gzip_compression": {
+     "bytes": 2247390,
+     "save_s": 0.040694,
+     "load_s": 0.005738
+    },
+    "zstd_compression": {
+     "bytes": 2908544,
+     "save_s": 0.005338,
+     "load_s": 0.002797
+    },
+    "blosc2_compression": {
+     "bytes": 1245364,
+     "save_s": 0.029865,
+     "load_s": 0.002799
+    }
+   },
+   "c1_cp_fgm_spin_20100101_v01.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 1025705,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 1024612,
+     "save_s": 7.6e-05,
+     "load_s": 8.6e-05
+    },
+    "gzip_compression": {
+     "bytes": 496955,
+     "save_s": 0.00719,
+     "load_s": 0.001416
+    },
+    "zstd_compression": {
+     "bytes": 586781,
+     "save_s": 0.000865,
+     "load_s": 0.000596
+    },
+    "blosc2_compression": {
+     "bytes": 326260,
+     "save_s": 0.004213,
+     "load_s": 0.000437
+    }
+   },
+   "ge_edb3sec_mgf_20050101_v01.cdf": {
+    "source": "cdaweb",
+    "original_bytes": 2805738,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 2678382,
+     "save_s": 0.000157,
+     "load_s": 0.000109
+    },
+    "gzip_compression": {
+     "bytes": 830373,
+     "save_s": 0.019829,
+     "load_s": 0.002653
+    },
+    "zstd_compression": {
+     "bytes": 1157971,
+     "save_s": 0.003234,
+     "load_s": 0.001938
+    },
+    "blosc2_compression": {
+     "bytes": 884361,
+     "save_s": 0.019608,
+     "load_s": 0.001247
+    }
+   },
+   "a1_k0_mpa_20050804_v02.cdf": {
+    "source": "lpp",
+    "original_bytes": 214528,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 216336,
+     "save_s": 8.9e-05,
+     "load_s": 0.000164
+    },
+    "gzip_compression": {
+     "bytes": 145635,
+     "save_s": 0.001172,
+     "load_s": 0.000456
+    },
+    "zstd_compression": {
+     "bytes": 145625,
+     "save_s": 0.000377,
+     "load_s": 0.000282
+    },
+    "blosc2_compression": {
+     "bytes": 135489,
+     "save_s": 0.001129,
+     "load_s": 0.000262
+    }
+   },
+   "ac_h2_sis_20101105_v06.cdf": {
+    "source": "lpp",
+    "original_bytes": 97388,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 112632,
+     "save_s": 0.000101,
+     "load_s": 0.000195
+    },
+    "gzip_compression": {
+     "bytes": 95028,
+     "save_s": 0.000629,
+     "load_s": 0.000306
+    },
+    "zstd_compression": {
+     "bytes": 95000,
+     "save_s": 0.000249,
+     "load_s": 0.000254
+    },
+    "blosc2_compression": {
+     "bytes": 97508,
+     "save_s": 0.000473,
+     "load_s": 0.000273
+    }
+   },
+   "ac_or_ssc_20031101_v01.cdf": {
+    "source": "lpp",
+    "original_bytes": 565160,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 551273,
+     "save_s": 4.3e-05,
+     "load_s": 3.9e-05
+    },
+    "gzip_compression": {
+     "bytes": 430712,
+     "save_s": 0.004579,
+     "load_s": 0.000877
+    },
+    "zstd_compression": {
+     "bytes": 455856,
+     "save_s": 0.000572,
+     "load_s": 0.000384
+    },
+    "blosc2_compression": {
+     "bytes": 304357,
+     "save_s": 0.001618,
+     "load_s": 0.00014
+    }
+   },
+   "c1_cp_fgm_spin_20080101_v01.cdf": {
+    "source": "lpp",
+    "original_bytes": 1012701,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 1029177,
+     "save_s": 7.9e-05,
+     "load_s": 8.1e-05
+    },
+    "gzip_compression": {
+     "bytes": 514391,
+     "save_s": 0.007319,
+     "load_s": 0.001461
+    },
+    "zstd_compression": {
+     "bytes": 596387,
+     "save_s": 0.000916,
+     "load_s": 0.000608
+    },
+    "blosc2_compression": {
+     "bytes": 332992,
+     "save_s": 0.00412,
+     "load_s": 0.000413
+    }
+   },
+   "c1_jp_pmp_20081001_v32.cdf": {
+    "source": "lpp",
+    "original_bytes": 303962,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 316566,
+     "save_s": 3.8e-05,
+     "load_s": 5e-05
+    },
+    "gzip_compression": {
+     "bytes": 84995,
+     "save_s": 0.001732,
+     "load_s": 0.000213
+    },
+    "zstd_compression": {
+     "bytes": 81295,
+     "save_s": 0.000427,
+     "load_s": 0.00021
+    },
+    "blosc2_compression": {
+     "bytes": 60041,
+     "save_s": 0.003896,
+     "load_s": 0.00017
+    }
+   },
+   "c1_pp_cis_20080101_v01.cdf": {
+    "source": "lpp",
+    "original_bytes": 1592722,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 1532898,
+     "save_s": 0.000125,
+     "load_s": 0.00014
+    },
+    "gzip_compression": {
+     "bytes": 470995,
+     "save_s": 0.007783,
+     "load_s": 0.001466
+    },
+    "zstd_compression": {
+     "bytes": 520216,
+     "save_s": 0.001043,
+     "load_s": 0.000653
+    },
+    "blosc2_compression": {
+     "bytes": 438657,
+     "save_s": 0.003166,
+     "load_s": 0.00039
+    }
+   },
+   "c1_waveform_wbd_200202080940_v01.cdf": {
+    "source": "lpp",
+    "original_bytes": 252911680,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 856263392,
+     "save_s": 0.738124,
+     "load_s": 0.103991
+    },
+    "gzip_compression": {
+     "bytes": 232313425,
+     "save_s": 4.774808,
+     "load_s": 0.792016
+    },
+    "zstd_compression": {
+     "bytes": 269329595,
+     "save_s": 1.230981,
+     "load_s": 0.488725
+    },
+    "blosc2_compression": {
+     "bytes": 84425691,
+     "save_s": 2.27581,
+     "load_s": 0.336985
+    }
+   },
+   "cl_jp_pgp_20031001_v52.cdf": {
+    "source": "lpp",
+    "original_bytes": 1700676,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 1722185,
+     "save_s": 0.000209,
+     "load_s": 0.000222
+    },
+    "gzip_compression": {
+     "bytes": 432664,
+     "save_s": 0.010434,
+     "load_s": 0.001873
+    },
+    "zstd_compression": {
+     "bytes": 493499,
+     "save_s": 0.002119,
+     "load_s": 0.001158
+    },
+    "blosc2_compression": {
+     "bytes": 305146,
+     "save_s": 0.012886,
+     "load_s": 0.0008
+    }
+   },
+   "cluster-2_cp3drl_2002052000000_v1.cdf": {
+    "source": "lpp",
+    "original_bytes": 134290184,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 129619524,
+     "save_s": 0.132747,
+     "load_s": 0.038392
+    },
+    "gzip_compression": {
+     "bytes": 9407414,
+     "save_s": 0.371746,
+     "load_s": 0.062403
+    },
+    "zstd_compression": {
+     "bytes": 7730896,
+     "save_s": 0.072633,
+     "load_s": 0.034425
+    },
+    "blosc2_compression": {
+     "bytes": 10019985,
+     "save_s": 0.816271,
+     "load_s": 0.050708
+    }
+   },
+   "de_uv_sai_19910218_v01.cdf": {
+    "source": "lpp",
+    "original_bytes": 1615185,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 3743075,
+     "save_s": 0.000383,
+     "load_s": 0.000248
+    },
+    "gzip_compression": {
+     "bytes": 1469846,
+     "save_s": 0.01953,
+     "load_s": 0.003805
+    },
+    "zstd_compression": {
+     "bytes": 1712305,
+     "save_s": 0.003408,
+     "load_s": 0.001627
+    },
+    "blosc2_compression": {
+     "bytes": 926802,
+     "save_s": 0.019139,
+     "load_s": 0.00123
+    }
+   },
+   "ge_k0_cpi_19921231_v02.cdf": {
+    "source": "lpp",
+    "original_bytes": 148480,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 142942,
+     "save_s": 6e-05,
+     "load_s": 0.00012
+    },
+    "gzip_compression": {
+     "bytes": 101507,
+     "save_s": 0.00072,
+     "load_s": 0.000295
+    },
+    "zstd_compression": {
+     "bytes": 100021,
+     "save_s": 0.000215,
+     "load_s": 0.000193
+    },
+    "blosc2_compression": {
+     "bytes": 93416,
+     "save_s": 0.000699,
+     "load_s": 0.000159
+    }
+   },
+   "i1_av_ott_1983351130734_v01.cdf": {
+    "source": "lpp",
+    "original_bytes": 241664,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 406903,
+     "save_s": 0.000116,
+     "load_s": 0.000205
+    },
+    "gzip_compression": {
+     "bytes": 249549,
+     "save_s": 0.00325,
+     "load_s": 0.000686
+    },
+    "zstd_compression": {
+     "bytes": 252218,
+     "save_s": 0.000741,
+     "load_s": 0.000463
+    },
+    "blosc2_compression": {
+     "bytes": 249070,
+     "save_s": 0.004351,
+     "load_s": 0.000603
+    }
+   },
+   "im_k0_euv_20011231_v01.cdf": {
+    "source": "lpp",
+    "original_bytes": 6142490,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 6150910,
+     "save_s": 0.000598,
+     "load_s": 0.000185
+    },
+    "gzip_compression": {
+     "bytes": 2433408,
+     "save_s": 0.036824,
+     "load_s": 0.00696
+    },
+    "zstd_compression": {
+     "bytes": 3270176,
+     "save_s": 0.007651,
+     "load_s": 0.003321
+    },
+    "blosc2_compression": {
+     "bytes": 3005873,
+     "save_s": 0.031154,
+     "load_s": 0.002493
+    }
+   },
+   "im_k0_rpi_20051218_v01.cdf": {
+    "source": "lpp",
+    "original_bytes": 25408514,
+    "original_compression": "no_compression",
+    "no_compression": {
+     "bytes": 25377511,
+     "save_s": 0.002671,
+     "load_s": 0.00207
+    },
+    "gzip_compression": {
+     "bytes": 3451153,
+     "save_s": 0.080341,
+     "load_s": 0.012022
+    },
+    "zstd_compression": {
+     "bytes": 3585913,
+     "save_s": 0.014425,
+     "load_s": 0.005432
+    },
+    "blosc2_compression": {
+     "bytes": 3554399,
+     "save_s": 0.094314,
+     "load_s": 0.015877
+    }
+   },
+   "mms1_fpi_brst_l2_des-moms_20180101005543_v3.3.0.cdf": {
+    "source": "lpp",
+    "original_bytes": 6208305,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 8372146,
+     "save_s": 0.001144,
+     "load_s": 0.000745
+    },
+    "gzip_compression": {
+     "bytes": 5241558,
+     "save_s": 0.059044,
+     "load_s": 0.010594
+    },
+    "zstd_compression": {
+     "bytes": 5453413,
+     "save_s": 0.012684,
+     "load_s": 0.00532
+    },
+    "blosc2_compression": {
+     "bytes": 4531814,
+     "save_s": 0.067747,
+     "load_s": 0.003603
+    }
+   },
+   "mms1_fpi_brst_l2_dis-qmoms_20170703052703_v3.3.0.cdf": {
+    "source": "lpp",
+    "original_bytes": 8389376,
+    "original_compression": "gzip_compression+no_compression",
+    "no_compression": {
+     "bytes": 12262182,
+     "save_s": 0.00256,
+     "load_s": 0.001152
+    },
+    "gzip_compression": {
+     "bytes": 6301782,
+     "save_s": 0.078715,
+     "load_s": 0.013227
+    },
+    "zstd_compression": {
+     "bytes": 6648691,
+     "save_s": 0.017785,
+     "load_s": 0.007396
+    },
+    "blosc2_compression": {
+     "bytes": 5922120,
+     "save_s": 0.129978,
+     "load_s": 0.006419
+    }
+   }
+  },
+  "total": {
+   "blosc2_compression": {
+    "bytes": 459393953,
+    "save_s": 6.91,
+    "load_s": 0.742
+   },
+   "gzip_compression": {
+    "bytes": 735918756,
+    "save_s": 12.069,
+    "load_s": 2.102
+   },
+   "no_compression": {
+    "bytes": 1733090248,
+    "save_s": 1.424,
+    "load_s": 0.244
+   },
+   "zstd_compression": {
+    "bytes": 789177819,
+    "save_s": 2.745,
+    "load_s": 1.155
+   },
+   "original_bytes": 969006253
+  }
+ }
+}
