@@ -134,6 +134,10 @@ enum class cdf_compression_type : int32_t
             return "Run-Length Encoding";
         case gzip_compression:
             return "GNU GZIP";
+#ifdef CDFPP_USE_ZSTD
+        case zstd_compression:
+            return "Zstandard (experimental)";
+#endif
     }
     return "Unknown";
 }

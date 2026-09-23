@@ -34,6 +34,8 @@ using cpp_utils::containers::no_init_vector;
 
 namespace cdf::io::zstd
 {
+inline constexpr int compression_level = 1;
+
 namespace _internal
 {
 
@@ -54,7 +56,7 @@ namespace _internal
     {
         no_init_vector<char> result(ZSTD_compressBound(std::size(input)));
         const auto ret
-            = ZSTD_compress(result.data(), result.size(), input.data(), std::size(input), 1);
+            = ZSTD_compress(result.data(), result.size(), input.data(), std::size(input), compression_level);
         if (!ZSTD_isError(ret))
         {
             result.resize(ret);
