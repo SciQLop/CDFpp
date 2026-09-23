@@ -241,7 +241,7 @@ Greenbelt, Maryland 20771 USA
             write_body(svg_ctx.body, writer, 8);
             svg_ctx.ccr->record.uSize = std::size(writer.data);
             auto compressed = compression::deflate(svg_ctx.compression,
-                std::string_view { writer.data.data(), std::size(writer.data) }, 1);
+                std::string_view { writer.data.data(), std::size(writer.data) }, 1, 1);
             svg_ctx.ccr->record.data.resize(std::size(compressed));
             std::memcpy(svg_ctx.ccr->record.data.data(), compressed.data(), std::size(compressed));
             update_size(svg_ctx.ccr.value());

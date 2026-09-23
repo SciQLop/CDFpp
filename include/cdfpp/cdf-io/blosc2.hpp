@@ -41,6 +41,14 @@ namespace cdf::io::blosc2
 {
 inline constexpr int compression_level = 5;
 
+// Shuffling whole records (when they fit blosc2's 255-byte typesize) gives each record component
+// its own byte streams, e.g. Bx, By, Bz of a vector. On a 39-file CDAWeb/NASA corpus this was
+// ~3% smaller overall than using the element size (benchmarks/compression/sweep.py).
+[[nodiscard]] inline std::size_t typesize_hint(std::size_t element_size, std::size_t record_size)
+{
+    return record_size <= BLOSC_MAX_TYPESIZE ? record_size : element_size;
+}
+
 namespace _internal
 {
     using context_ptr = std::unique_ptr<blosc2_context, decltype(&blosc2_free_ctx)>;
@@ -54,13 +62,13 @@ namespace _internal
         }();
     }
 
-    inline context_ptr make_cctx(std::size_t type_size)
+    inline context_ptr make_cctx(std::size_t typesize)
     {
         ensure_initialized();
         blosc2_cparams cparams = BLOSC2_CPARAMS_DEFAULTS;
         cparams.compcode = BLOSC_ZSTD;
         cparams.clevel = compression_level;
-        cparams.typesize = static_cast<int32_t>(std::clamp<std::size_t>(type_size, 1, 255));
+        cparams.typesize = static_cast<int32_t>(typesize);
         cparams.nthreads = 1;
         return { blosc2_create_cctx(cparams), &blosc2_free_ctx };
     }
@@ -87,11 +95,11 @@ namespace _internal
 
     template <typename T>
     CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(
-        const T& input, std::size_t type_size)
+        const T& input, std::size_t element_size, std::size_t record_size)
     {
         if (std::size(input) > static_cast<std::size_t>(BLOSC2_MAX_BUFFERSIZE))
             return {};
-        const auto ctx = make_cctx(type_size);
+        const auto ctx = make_cctx(typesize_hint(element_size, record_size));
         no_init_vector<char> result(std::size(input) + BLOSC2_MAX_OVERHEAD);
         const auto ret = blosc2_compress_ctx(ctx.get(), input.data(),
             static_cast<int32_t>(std::size(input)), result.data(),
@@ -112,9 +120,9 @@ std::size_t inflate(const T& input, char* output, const std::size_t output_size)
 }
 
 template <typename T>
-no_init_vector<char> deflate(const T& input, std::size_t type_size)
+no_init_vector<char> deflate(const T& input, std::size_t element_size, std::size_t record_size)
 {
     using namespace _internal;
-    return impl_deflate(input, type_size);
+    return impl_deflate(input, element_size, record_size);
 }
 }
