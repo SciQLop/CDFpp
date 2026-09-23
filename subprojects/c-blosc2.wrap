@@ -1,0 +1,9 @@
+[wrap-file]
+directory = c-blosc2-3.3.4
+source_url = https://github.com/Blosc/c-blosc2/archive/refs/tags/v3.3.4.tar.gz
+source_filename = c-blosc2-3.3.4.tar.gz
+source_hash = db6ba3ee4f863a3c15794fbba99a4e5704d6a01017799628546152c8f4b06818
+patch_directory = c-blosc2
+
+[provide]
+blosc2 = blosc2_dep

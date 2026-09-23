@@ -136,6 +136,16 @@ else
     zstd_dep = declare_dependency()
 endif
 
+if get_option('with_experimental_blosc2')
+    add_project_arguments('-DCDFPP_USE_BLOSC2', language : ['cpp'])
+    blosc2_dep = dependency('blosc2')
+    cdfpp_headers += files(
+        'include/cdfpp/cdf-io/blosc2.hpp'
+    )
+else
+    blosc2_dep = declare_dependency()
+endif
+
 subdir('simd')
 
 
@@ -186,7 +196,7 @@ cdfpp_dep_inc = include_directories('include', '.')
 
 
 cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
-                                dependencies: [zlib_dep, hedley_dep, fmt_dep, zstd_dep, cpp_utils_dep] + [simd_deps],
+                                dependencies: [zlib_dep, hedley_dep, fmt_dep, zstd_dep, blosc2_dep, cpp_utils_dep] + [simd_deps],
                                 link_args : link_args,
                                 compile_args : compile_args)
 
@@ -287,6 +297,7 @@ summary({
     'NoMap support': get_option('use_nomap'),
     'Python wrapper': not get_option('disable_python_wrapper'),
     'Experimental Zstd support': get_option('with_experimental_zstd'),
+    'Experimental Blosc2 support': get_option('with_experimental_blosc2'),
     'Experimental Wasm support': get_option('with_experimental_wasm'),
     'Tests': get_option('with_tests'),
     'Benchmarks': get_option('with_benchmarks')

@@ -51,6 +51,9 @@ void def_enums_wrappers(T& mod)
 #ifdef CDFPP_USE_ZSTD
         .value("zstd_compression", cdf_compression_type::zstd_compression)
 #endif
+#ifdef CDFPP_USE_BLOSC2
+        .value("blosc2_compression", cdf_compression_type::blosc2_compression)
+#endif
         .export_values()
         .finalize();
 

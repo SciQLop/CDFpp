@@ -117,6 +117,9 @@ enum class cdf_compression_type : int32_t
 #ifdef CDFPP_USE_ZSTD
     zstd_compression = 16,
 #endif
+#ifdef CDFPP_USE_BLOSC2
+    blosc2_compression = 17,
+#endif
 };
 
 [[nodiscard]] inline std::string cdf_compression_type_str(cdf_compression_type type) noexcept
@@ -137,6 +140,10 @@ enum class cdf_compression_type : int32_t
 #ifdef CDFPP_USE_ZSTD
         case zstd_compression:
             return "Zstandard (experimental)";
+#endif
+#ifdef CDFPP_USE_BLOSC2
+        case blosc2_compression:
+            return "Blosc2 (experimental)";
 #endif
     }
     return "Unknown";
