@@ -7,12 +7,16 @@ configure_file(output : 'tests_config.hpp',
 catch_dep = dependency('catch2-with-main', version:'>3.0.0', required : true)
 
 
+# Catch2 3.16's test macros push MSVC past the default COFF section limit (C1128 in simple_open).
+test_cpp_args = meson.get_compiler('cpp').get_argument_syntax() == 'msvc' ? ['/bigobj'] : []
+
 foreach test_name:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'records_loading', 'records_saving',
               'rle_compression', 'libdeflate_compression', 'zlib_compression', 'simple_save', 'zstd_compression', 'blosc2_compression',
               'structural_introspection', 'record_stream', 'record_repr', 'nasa_compat_repr',
               'pathological_time_repr']
     exe = executable('test-'+test_name, test_name+'/main.cpp',
                     dependencies:[catch_dep, cdfpp_dep],
+                    cpp_args: test_cpp_args,
                     install: false
                     )
     test(test_name, exe)
