@@ -7,6 +7,7 @@ import { renderPlot } from "./plot.js";
 import { openValidation, openValidationBytes } from "./astralint.js";
 import { runCompare, setView, setFilter } from "./compare.js";
 import { toYaml, buildSkeleton } from "./cdf-yaml.js";
+import { renderConverter } from "./convert.js";
 
 const els = {
     fileInput: document.getElementById("fileInput"),
@@ -25,6 +26,7 @@ const els = {
     resizer: document.getElementById("resizer"),
     validateBtn: document.getElementById("validateBtn"),
     exportYamlBtn: document.getElementById("exportYamlBtn"),
+    convertBtn: document.getElementById("convertBtn"),
     modeToggle: document.getElementById("modeToggle"),
     compareInputs: document.getElementById("compareInputs"),
     compareBar: document.getElementById("compareBar"),
@@ -60,6 +62,10 @@ function updateValidate() {
     els.exportYamlBtn.title = exportable
         ? "Download a YAML metadata skeleton of this CDF"
         : "Load a CDF to export its YAML skeleton";
+    els.convertBtn.disabled = !exportable;
+    els.convertBtn.title = exportable
+        ? "Re-encode this CDF with every codec and compare sizes and speeds"
+        : "Load a CDF to try other compression codecs";
 }
 
 function setStatus(cls, text) { els.status.className = cls; els.statusText.textContent = text; }
@@ -184,6 +190,14 @@ els.exportYamlBtn.addEventListener("click", () => {
     a.download = `${base}.skeleton.yaml`;
     a.click();
     URL.revokeObjectURL(a.href);
+});
+
+els.convertBtn.addEventListener("click", () => {
+    if (!currentCdf) return;
+    selectedName = null;
+    setSelected(els.varlist, null);
+    renderConverter(els.detail, Module, currentCdf,
+        { name: currentName ?? "file.cdf", originalSize: currentBytes?.length ?? 0 });
 });
 
 // Reverse handoff: load a CDF handed to us by an opener (e.g. AstraLint's

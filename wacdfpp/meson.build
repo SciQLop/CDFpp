@@ -24,6 +24,7 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
         extra_files: ['wasm.txt', 'wacdfpp.html', 'app.js', 'cdf-model.js', 'render.js',
                       'plot-model.js', 'spectrogram.js', 'plot.js', 'astralint.js',
                       'wasm.js', 'cdf-diff.js', 'compare.js', 'cdf-yaml.js', 'jsdiff.js',
+                      'convert.js', 'convert-model.js',
                       'uPlot.esm.js', 'uPlot.min.css']
     )
 
@@ -39,6 +40,8 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
     fs.copyfile('cdf-diff.js', 'cdf-diff.js')
     fs.copyfile('compare.js', 'compare.js')
     fs.copyfile('cdf-yaml.js', 'cdf-yaml.js')
+    fs.copyfile('convert.js', 'convert.js')
+    fs.copyfile('convert-model.js', 'convert-model.js')
     fs.copyfile('jsdiff.js', 'jsdiff.js')
     fs.copyfile('uPlot.esm.js', 'uPlot.esm.js')
     fs.copyfile('uPlot.min.css', 'uPlot.min.css')
@@ -65,6 +68,14 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
         test('wasm_save_roundtrip', node,
             args: [
                 files('../tests/wasm_save_roundtrip/test.mjs'),
+                meson.current_build_dir() / 'cdfpp.js',
+            ],
+            depends: wasm_exe,
+            timeout: 120,
+        )
+        test('wasm_convert', node,
+            args: [
+                files('../tests/wasm_convert/test.mjs'),
                 meson.current_build_dir() / 'cdfpp.js',
             ],
             depends: wasm_exe,

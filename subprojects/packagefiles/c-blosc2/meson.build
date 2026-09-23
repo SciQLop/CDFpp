@@ -13,7 +13,9 @@ cc = meson.get_compiler('c')
 deps = [
     dependency('liblz4'),
     dependency('libzstd'),
-    dependency('threads'),
+    # Emscripten's -pthread would turn the whole wasm link into a shared-memory build; its
+    # default libc already stubs the pthread API, which is all blosc2 needs with nthreads=1.
+    cc.get_id() == 'emscripten' ? dependency('', required : false) : dependency('threads'),
     cc.find_library('m', required : false),
     cc.find_library('rt', required : false),
     cc.find_library('dl', required : false),

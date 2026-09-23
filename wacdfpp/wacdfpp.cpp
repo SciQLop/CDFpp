@@ -31,7 +31,9 @@
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
+#include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -188,6 +190,22 @@ em::val data_to_string_or_copy(const cdf::data_t& data)
     return typed_array_view(ptr, data.bytes(), data.type()).call<em::val>("slice");
 }
 
+// Owned Uint8Array copy of saved bytes (the source buffer dies after return).
+em::val saved_bytes_to_js(const auto& data)
+{
+    if (std::size(data) == 0)
+        return em::val::undefined();
+    return em::val(em::typed_memory_view(
+                       std::size(data), reinterpret_cast<const uint8_t*>(data.data())))
+        .call<em::val>("slice");
+}
+
+bool same_bytes(const cdf::Variable& a, const cdf::Variable& b)
+{
+    return a.bytes() == b.bytes()
+        && (a.bytes() == 0 || std::memcmp(a.bytes_ptr(), b.bytes_ptr(), a.bytes()) == 0);
+}
+
 em::val to_js_string_array(const auto& map)
 {
     auto arr = em::val::array();
@@ -337,17 +355,37 @@ struct CdfFile
     {
         if (!cdf)
             return em::val::undefined();
-        auto data = cdf::io::save(*cdf);
-        if (std::size(data) == 0)
+        return saved_bytes_to_js(cdf::io::save(*cdf));
+    }
+
+    // Re-encodes every variable with one codec, on a copy so the loaded file keeps its own
+    // compression. Whole-file compression is dropped: the converter compares variable codecs.
+    em::val save_as(cdf::cdf_compression_type codec) const
+    {
+        if (!cdf)
             return em::val::undefined();
-        // Create an owned Uint8Array copy (the local vector dies after return)
-        return em::val(em::typed_memory_view(std::size(data),
-            reinterpret_cast<const uint8_t*>(data.data())))
-            .call<em::val>("slice");
+        auto converted = *cdf;
+        converted.compression = cdf::cdf_compression_type::no_compression;
+        for (auto& [_, variable] : converted.variables)
+            variable.set_compression_type(codec);
+        return saved_bytes_to_js(cdf::io::save(converted));
+    }
+
+    // Byte-for-byte comparison of every variable's values (bit-exact, NaN-safe).
+    bool same_values(CdfFile& other)
+    {
+        if (!cdf || !other.cdf || std::size(cdf->variables) != std::size(other.cdf->variables))
+            return false;
+        return std::all_of(std::begin(cdf->variables), std::end(cdf->variables),
+            [&other](auto& node)
+            {
+                auto it = other.cdf->variables.find(node.first);
+                return it != other.cdf->variables.end() && same_bytes(node.second, it->second);
+            });
     }
 };
 
-CdfFile load_cdf(em::val js_array)
+CdfFile load_cdf(em::val js_array, bool lazy)
 {
     CdfFile result;
     try
@@ -356,7 +394,7 @@ CdfFile load_cdf(em::val js_array)
         std::vector<char> buffer(length);
         em::val dest(em::typed_memory_view(length, reinterpret_cast<uint8_t*>(buffer.data())));
         dest.call<void>("set", js_array);
-        result.cdf = cdf::io::load(std::move(buffer), true, true);
+        result.cdf = cdf::io::load(std::move(buffer), true, lazy);
     }
     catch (const std::exception& e)
     {
@@ -403,7 +441,14 @@ EMSCRIPTEN_BINDINGS(cdfpp)
         .value("rle", cdf::cdf_compression_type::rle_compression)
         .value("huffman", cdf::cdf_compression_type::huff_compression)
         .value("adaptive_huffman", cdf::cdf_compression_type::ahuff_compression)
-        .value("gzip", cdf::cdf_compression_type::gzip_compression);
+        .value("gzip", cdf::cdf_compression_type::gzip_compression)
+#ifdef CDFPP_USE_ZSTD
+        .value("zstd", cdf::cdf_compression_type::zstd_compression)
+#endif
+#ifdef CDFPP_USE_BLOSC2
+        .value("blosc2", cdf::cdf_compression_type::blosc2_compression)
+#endif
+        ;
 
     em::class_<CdfFile>("CdfFile")
         .function("is_valid", &CdfFile::is_valid)
@@ -414,9 +459,13 @@ EMSCRIPTEN_BINDINGS(cdfpp)
         .function("get_attribute", &CdfFile::get_attribute)
         .function("majority", &CdfFile::majority)
         .function("compression", &CdfFile::compression)
-        .function("save", &CdfFile::save_to_bytes);
+        .function("save", &CdfFile::save_to_bytes)
+        .function("save_as", &CdfFile::save_as)
+        .function("same_values", &CdfFile::same_values);
 
-    em::function("load", &load_cdf);
+    em::function("load", +[](em::val data) { return load_cdf(data, true); });
+    // Decodes every value up front, so timing it measures decompression too.
+    em::function("load_eager", +[](em::val data) { return load_cdf(data, false); });
     em::function("type_name",
         +[](cdf::CDF_Types type) { return std::string(cdf::cdf_type_str(type)); });
     em::function("type_size", &cdf::cdf_type_size);
