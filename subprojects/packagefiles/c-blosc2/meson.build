@@ -6,13 +6,13 @@ project('c-blosc2', 'c',
     version : '3.3.4',
     license : 'BSD-3-Clause',
     meson_version : '>= 0.64.0',
-    default_options : ['c_std=gnu99', 'warning_level=0', 'default_library=static'])
+    default_options : ['warning_level=0', 'default_library=static'])
 
 cc = meson.get_compiler('c')
 
 deps = [
     dependency('liblz4'),
-    dependency('libzstd'),
+    dependency('libzstd', default_options : ['multi_thread=disabled']),   # see CDFpp's meson.build
     # Emscripten's -pthread would turn the whole wasm link into a shared-memory build; its
     # default libc already stubs the pthread API, which is all blosc2 needs with nthreads=1.
     cc.get_id() == 'emscripten' ? dependency('', required : false) : dependency('threads'),
@@ -42,12 +42,15 @@ endif
 # [sources, flags, dispatch define] per SIMD kernel, compiled only when the compiler accepts
 # the flags; shuffle.c picks the implementation at runtime from the defines.
 cpu = host_machine.cpu_family()
+msvc = cc.get_argument_syntax() == 'msvc'
 kernels = []
 if cpu in ['x86_64', 'x86']
     kernels += [
-        [['blosc/shuffle-sse2.c', 'blosc/bitshuffle-sse2.c'], ['-msse2'], 'SHUFFLE_SSE2_ENABLED'],
-        [['blosc/shuffle-avx2.c', 'blosc/bitshuffle-avx2.c'], ['-mavx2'], 'SHUFFLE_AVX2_ENABLED'],
-        [['blosc/bitshuffle-avx512.c'], ['-mavx512f', '-mavx512bw'], 'SHUFFLE_AVX512_ENABLED'],
+        [['blosc/shuffle-sse2.c', 'blosc/bitshuffle-sse2.c'], msvc ? [] : ['-msse2'], 'SHUFFLE_SSE2_ENABLED'],
+        [['blosc/shuffle-avx2.c', 'blosc/bitshuffle-avx2.c'], msvc ? ['/arch:AVX2'] : ['-mavx2'],
+            'SHUFFLE_AVX2_ENABLED'],
+        [['blosc/bitshuffle-avx512.c'], msvc ? ['/arch:AVX512'] : ['-mavx512f', '-mavx512bw'],
+            'SHUFFLE_AVX512_ENABLED'],
     ]
 elif cpu == 'aarch64'
     kernels += [

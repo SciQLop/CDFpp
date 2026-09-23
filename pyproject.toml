@@ -42,7 +42,8 @@ cdfirsdump = "pycdfpp.cli_irsdump:app"
 
 [tool.meson-python.args]
 install = ['--tags=runtime,python-runtime']
-setup = ['-Doptimization=3', '-Dcpp_std=c++20', '--force-fallback-for=libdeflate,fmt,pybind11', '--vsenv']
+setup = ['-Doptimization=3', '-Dcpp_std=c++20', '--force-fallback-for=libdeflate,fmt,pybind11,libzstd,liblz4,blosc2',
+         '-Dwith_experimental_zstd=true', '-Dwith_experimental_blosc2=true', '--vsenv']
 
 
 [tool.cibuildwheel]
