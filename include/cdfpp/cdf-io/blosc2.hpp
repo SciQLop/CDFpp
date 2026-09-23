@@ -28,6 +28,10 @@
 #include <cpp_utils/containers/no_init_vector.hpp>
 using cpp_utils::containers::no_init_vector;
 #include <algorithm>
+#if defined(_WIN32) && !defined(NOMINMAX)
+// blosc2.h includes <windows.h>, whose min/max macros break every later std::min/std::max.
+#define NOMINMAX
+#endif
 #include <blosc2.h>
 #include <cstddef>
 #include <memory>
