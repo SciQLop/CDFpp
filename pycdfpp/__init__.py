@@ -20,11 +20,12 @@ import copy
 from functools import singledispatch, wraps
 from datetime import datetime
 import re
+import warnings
 
 import numpy as np
 
 from ._pycdfpp import DataType, CompressionType, Majority, Variable, VariableAttribute, Attribute, CDF, tt2000_t, epoch, \
-    epoch16, save
+    epoch16
 from . import _pycdfpp
 
 # ByteString is deprecated in Python 3.9+ and removed in Python 3.14
@@ -37,7 +38,8 @@ if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] 
     os.add_dll_directory(__here__)
 
 __all__ = ['tt2000_t', 'epoch', 'epoch16', 'load', 'save', 'CDF', 'Variable',
-           'Attribute', 'to_datetime64', 'to_datetime', 'to_time_string', 'DataType', 'CompressionType', 'Majority']
+           'Attribute', 'to_datetime64', 'to_datetime', 'to_time_string', 'DataType', 'CompressionType', 'Majority',
+           'ExperimentalCompressionWarning']
 
 # Build dtype.num → CDF type mapping dynamically to handle platform differences.
 # On Windows, np.int64 is NPY_LONGLONG (num=9) while on Linux it's NPY_LONG (num=7).
@@ -756,6 +758,49 @@ to convert to CDF epoch16
     epoch16 or List[epoch16]
     """
     return _pycdfpp.to_epoch16(values)
+
+
+class ExperimentalCompressionWarning(UserWarning):
+    """A CDF was saved with a codec outside the CDF standard (zstd, blosc2): only CDFpp can read it."""
+
+
+_EXPERIMENTAL_CODECS = {getattr(CompressionType, name) for name in ("zstd_compression", "blosc2_compression")
+                        if hasattr(CompressionType, name)}
+
+
+def _warn_if_experimental_compression(cdf: CDF):
+    used = {cdf.compression} | {cdf[name].compression for name in cdf}
+    experimental = sorted(str(codec).split(".")[-1] for codec in used & _EXPERIMENTAL_CODECS)
+    if experimental:
+        warnings.warn(f"saving with {', '.join(experimental)}: this is not standard CDF, and only CDFpp "
+                      f"can read the file. Use gzip_compression for files meant to be shared.",
+                      ExperimentalCompressionWarning, stacklevel=3)
+
+
+def save(cdf: CDF, fname: str or None = None):
+    """
+    Save a CDF to a file, or to memory.
+
+    Parameters
+    ----------
+    cdf : CDF
+        The CDF to save.
+    fname : str, optional
+        Destination file name. When omitted, the CDF is serialized in memory.
+
+    Returns
+    -------
+    bool or buffer
+        True on success when saving to a file; otherwise an object implementing the buffer protocol
+        (e.g. ``bytes(pycdfpp.save(cdf))``).
+
+    Warns
+    -----
+    ExperimentalCompressionWarning
+        When the CDF or one of its variables uses zstd_compression or blosc2_compression.
+    """
+    _warn_if_experimental_compression(cdf)
+    return _pycdfpp.save(cdf) if fname is None else _pycdfpp.save(cdf, fname)
 
 
 def load(file_or_buffer: str or ByteString, iso_8859_1_to_utf8: bool = True, lazy_load: bool = True):
