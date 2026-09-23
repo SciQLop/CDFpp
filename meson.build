@@ -128,9 +128,10 @@ cdfpp_headers = files(
 
 if get_option('with_experimental_zstd')
     add_project_arguments('-DCDFPP_USE_ZSTD', language : ['cpp'])
-    # CDFpp only uses zstd's single-shot API; its multithreading adds -pthread, which breaks
-    # emscripten builds (web app, Pyodide wheels).
-    zstd_dep = dependency('libzstd', default_options : ['multi_thread=disabled'])
+    # Library only: CDFpp uses zstd's single-shot API. Multithreading adds -pthread, which breaks
+    # emscripten builds (web app, Pyodide wheels); the CLI programs (and the zlib/lzma/lz4 they
+    # link) would otherwise be installed into the Python wheels.
+    zstd_dep = dependency('libzstd', default_options : ['multi_thread=disabled', 'bin_programs=false', 'zlib=disabled', 'lzma=disabled', 'lz4=disabled'])
     cdfpp_headers += files(
         'include/cdfpp/cdf-io/zstd.hpp'
     )
