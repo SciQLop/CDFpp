@@ -6,6 +6,7 @@ from tempfile import NamedTemporaryFile
 import numpy as np
 import math
 import unittest
+import warnings
 from glob import glob
 import pycdfpp
 
@@ -227,6 +228,53 @@ class PycdfCreateCDFTest(unittest.TestCase):
         reloaded_cdf = pycdfpp.load(pycdfpp.save(cdf))
         self.assertEqual(reloaded_cdf["test"].shape, (0,))
         self.assertEqual(reloaded_cdf["test"].compression, pycdfpp.CompressionType.gzip_compression)
+
+
+EXPERIMENTAL_CODECS = [getattr(pycdfpp.CompressionType, name)
+                       for name in ("zstd_compression", "blosc2_compression")
+                       if hasattr(pycdfpp.CompressionType, name)]
+
+
+def cdf_with_one_variable(compression):
+    cdf = pycdfpp.CDF()
+    cdf.add_variable("x", np.arange(100.), compression=compression)
+    return cdf
+
+
+@unittest.skipUnless(EXPERIMENTAL_CODECS, "pycdfpp built without experimental codecs")
+class PycdfExperimentalCodecsTest(unittest.TestCase):
+    def test_saving_variables_with_an_experimental_codec_warns(self):
+        for codec in EXPERIMENTAL_CODECS:
+            with self.subTest(codec=codec), self.assertWarns(pycdfpp.ExperimentalCompressionWarning):
+                pycdfpp.save(cdf_with_one_variable(codec))
+
+    def test_saving_a_whole_file_with_an_experimental_codec_warns(self):
+        for codec in EXPERIMENTAL_CODECS:
+            cdf = cdf_with_one_variable(pycdfpp.CompressionType.no_compression)
+            cdf.compression = codec
+            with self.subTest(codec=codec), self.assertWarns(pycdfpp.ExperimentalCompressionWarning):
+                pycdfpp.save(cdf)
+
+    def test_experimental_codecs_round_trip(self):
+        for codec in EXPERIMENTAL_CODECS:
+            with self.subTest(codec=codec), warnings.catch_warnings():
+                warnings.simplefilter("ignore", pycdfpp.ExperimentalCompressionWarning)
+                reloaded = pycdfpp.load(bytes(pycdfpp.save(cdf_with_one_variable(codec))))
+                self.assertEqual(reloaded["x"].compression, codec)
+                self.assertTrue(np.array_equal(reloaded["x"].values, np.arange(100.)))
+
+    def test_saving_to_a_file_warns_too(self):
+        with NamedTemporaryFile(suffix=".cdf") as f, self.assertWarns(pycdfpp.ExperimentalCompressionWarning):
+            self.assertTrue(pycdfpp.save(cdf_with_one_variable(EXPERIMENTAL_CODECS[0]), f.name))
+
+
+class PycdfStandardCodecsTest(unittest.TestCase):
+    def test_saving_with_standard_codecs_does_not_warn(self):
+        for codec in (pycdfpp.CompressionType.no_compression, pycdfpp.CompressionType.gzip_compression,
+                      pycdfpp.CompressionType.rle_compression):
+            with self.subTest(codec=codec), warnings.catch_warnings():
+                warnings.simplefilter("error")
+                pycdfpp.save(cdf_with_one_variable(codec))
 
 
 if __name__ == '__main__':
