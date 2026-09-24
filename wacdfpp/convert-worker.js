@@ -18,10 +18,23 @@ function measure(Module, cdf, key) {
     return { key, chunks, size, writeMs: t1 - t0, readMs: t2 - t1, identical };
 }
 
+// Readable message for an error, including a C++ exception that reached JS undecoded.
+function describe(err, Module) {
+    if (typeof WebAssembly.Exception === "function" && err instanceof WebAssembly.Exception) {
+        try {
+            const [type, message] = Module.getExceptionMessage(err);
+            return `${type}: ${message}`;
+        } catch {
+            return "unexpected C++ exception (the WebAssembly memory may be exhausted)";
+        }
+    }
+    return err?.message ?? String(err);
+}
+
 self.onmessage = async ({ data: { bytes, keys, build } }) => {
-    let cdf;
+    let cdf, Module;
     try {
-        const Module = await (build === "wasm64" ? loadModule64() : loadModule());
+        Module = await (build === "wasm64" ? loadModule64() : loadModule());
         // Eager: decoding the original up front keeps it out of the first codec's write time.
         cdf = Module.load_eager(bytes);
         if (!cdf.is_valid()) throw new Error("failed to parse CDF");
@@ -31,7 +44,7 @@ self.onmessage = async ({ data: { bytes, keys, build } }) => {
         }
         self.postMessage({ type: "done" });
     } catch (err) {
-        self.postMessage({ type: "error", message: err?.message ?? String(err) });
+        self.postMessage({ type: "error", message: describe(err, Module) });
     } finally {
         cdf?.delete();
     }

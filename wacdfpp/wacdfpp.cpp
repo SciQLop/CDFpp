@@ -35,6 +35,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <new>
 #include <sstream>
 #include <string>
@@ -243,9 +244,15 @@ bool same_bytes(const cdf::Variable& a, const cdf::Variable& b)
         && (a.bytes() == 0 || std::memcmp(a.bytes_ptr(), b.bytes_ptr(), a.bytes()) == 0);
 }
 
-[[noreturn]] void throw_js_error(const std::string& message)
+// Error paths must not allocate in the WASM heap: they also run when it is exhausted, and a
+// std::bad_alloc thrown from a catch handler escapes to JS as an opaque WebAssembly.Exception.
+// em::val(const char*) copies the text straight into a JS string.
+constexpr const char* out_of_memory_message
+    = "out of memory: this file does not fit in the memory WebAssembly can use in this browser";
+
+[[noreturn]] void throw_js_error(const char* message)
 {
-    em::val::global("Error").new_(message).throw_();
+    em::val::global("Error").new_(em::val(message)).throw_();
     std::abort(); // throw_() never returns
 }
 
@@ -260,8 +267,7 @@ auto with_js_errors(F&& f)
     }
     catch (const std::bad_alloc&)
     {
-        throw_js_error("out of memory: this file does not fit in the browser's 4 GiB WebAssembly "
-                       "memory");
+        throw_js_error(out_of_memory_message);
     }
     catch (const std::exception& e)
     {
@@ -504,22 +510,27 @@ struct CdfFile
     }
 };
 
-CdfFile load_cdf(em::val js_array, bool lazy)
+// unique_ptr: embind hands it to JS without allocating, see load_eager below.
+std::unique_ptr<CdfFile> load_cdf(em::val js_array, bool lazy)
 {
-    CdfFile result;
+    auto result = std::make_unique<CdfFile>();
     try
     {
-        result.cdf = cdf::io::load(js_bytes_to_buffer(js_array), true, lazy);
+        result->cdf = cdf::io::load(js_bytes_to_buffer(js_array), true, lazy);
+    }
+    catch (const std::bad_alloc&)
+    {
+        em::val::global("console").call<void>(
+            "error", em::val("CDFpp load error:"), em::val(out_of_memory_message));
     }
     catch (const std::exception& e)
     {
-        em::val::global("console").call<void>("error",
-            std::string("CDFpp load error: ") + e.what());
+        em::val::global("console").call<void>(
+            "error", em::val("CDFpp load error:"), em::val(e.what()));
     }
     catch (...)
     {
-        em::val::global("console").call<void>("error",
-            std::string("CDFpp load error: unknown exception"));
+        em::val::global("console").call<void>("error", em::val("CDFpp load error: unknown exception"));
     }
     return result;
 }
@@ -581,8 +592,21 @@ EMSCRIPTEN_BINDINGS(cdfpp)
         .function("same_values", &CdfFile::same_values);
 
     em::function("load", +[](em::val data) { return load_cdf(data, true); });
-    // Decodes every value up front, so timing it measures decompression too.
-    em::function("load_eager", +[](em::val data) { return load_cdf(data, false); });
+    // Decodes every value up front, so timing it measures decompression too. Unlike load, errors
+    // (e.g. out of memory) are thrown as JS Errors instead of returning an invalid CdfFile.
+    // Returns a unique_ptr made inside with_js_errors: returning CdfFile by value would make
+    // embind heap-allocate the JS-owned copy after the try, where a bad_alloc escapes undecoded.
+    em::function("load_eager",
+        +[](em::val data)
+        {
+            return with_js_errors(
+                [&]
+                {
+                    auto result = std::make_unique<CdfFile>();
+                    result->cdf = cdf::io::load(js_bytes_to_buffer(data), true, false);
+                    return result;
+                });
+        });
     em::function("type_name",
         +[](cdf::CDF_Types type) { return std::string(cdf::cdf_type_str(type)); });
     em::function("type_size", &cdf::cdf_type_size);
