@@ -93,6 +93,12 @@ export interface CdfFile {
      */
     save_as(codec: CompressionType): Uint8Array | undefined;
 
+    /**
+     * save_as, split into Uint8Array chunks of at most `maxChunkBytes`: browsers refuse single
+     * ArrayBuffers of 2 GiB or more, but `new Blob(chunks)` has no such limit.
+     */
+    save_as_chunks(codec: CompressionType, maxChunkBytes: number): Uint8Array[] | undefined;
+
     /** Size in bytes of every variable's decoded values, from their shapes (loads nothing). */
     decoded_nbytes(): number;
 
@@ -108,7 +114,7 @@ export interface CdfModule {
     load(data: Uint8Array): CdfFile;
 
     /** Load a CDF file decoding every variable's values up front (no lazy loading) */
-    load_eager(data: Uint8Array): CdfFile;
+    load_eager(data: Uint8Array | Uint8Array[]): CdfFile;
 
     /** Get the string name of a CDF data type */
     type_name(type: DataType): string;

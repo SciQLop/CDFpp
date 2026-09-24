@@ -202,6 +202,41 @@ em::val saved_bytes_to_js(const auto& data)
         .call<em::val>("slice");
 }
 
+// Same as saved_bytes_to_js, split into owned chunks of at most max_chunk bytes: Chrome refuses
+// single ArrayBuffers of 2 GiB or more, but a Blob can be built from any number of chunks.
+em::val saved_bytes_to_js_chunks(const auto& data, std::size_t max_chunk)
+{
+    auto chunks = em::val::array();
+    const auto* bytes = reinterpret_cast<const uint8_t*>(data.data());
+    for (std::size_t pos = 0; pos < std::size(data); pos += max_chunk)
+    {
+        const auto n = std::min(max_chunk, std::size(data) - pos);
+        chunks.call<void>(
+            "push", em::val(em::typed_memory_view(n, bytes + pos)).call<em::val>("slice"));
+    }
+    return chunks;
+}
+
+// Copies a Uint8Array, or an array of Uint8Array chunks, into one buffer.
+std::vector<char> js_bytes_to_buffer(const em::val& js)
+{
+    const auto parts = js.isArray() ? js : [&] { auto a = em::val::array(); a.call<void>("push", js); return a; }();
+    const auto count = parts["length"].as<std::size_t>();
+    std::size_t total = 0;
+    for (std::size_t i = 0; i < count; ++i)
+        total += parts[i]["length"].as<std::size_t>();
+    std::vector<char> buffer(total);
+    std::size_t offset = 0;
+    for (std::size_t i = 0; i < count; ++i)
+    {
+        const auto length = parts[i]["length"].as<std::size_t>();
+        em::val(em::typed_memory_view(length, reinterpret_cast<uint8_t*>(buffer.data()) + offset))
+            .call<void>("set", parts[i]);
+        offset += length;
+    }
+    return buffer;
+}
+
 bool same_bytes(const cdf::Variable& a, const cdf::Variable& b)
 {
     return a.bytes() == b.bytes()
@@ -417,19 +452,32 @@ struct CdfFile
         return saved_bytes_to_js(cdf::io::save(*cdf));
     }
 
+    auto saved_with(cdf::cdf_compression_type codec)
+    {
+        const codec_override override { *cdf, codec };
+        return cdf::io::save(*cdf);
+    }
+
     // Re-encodes every variable with one codec; the loaded file keeps its own codecs.
     // Whole-file compression is dropped: the converter compares variable codecs.
     em::val save_as(cdf::cdf_compression_type codec)
     {
         if (!cdf)
             return em::val::undefined();
-        return with_js_errors(
-            [&]
-            {
-                const codec_override override { *cdf, codec };
-                return saved_bytes_to_js(cdf::io::save(*cdf));
-            });
+        return with_js_errors([&] { return saved_bytes_to_js(saved_with(codec)); });
     }
+
+    // save_as, returned as an array of Uint8Array chunks of at most max_chunk_bytes, for outputs
+    // too large for a single ArrayBuffer.
+    em::val save_as_chunks(cdf::cdf_compression_type codec, double max_chunk_bytes)
+    {
+        if (!cdf)
+            return em::val::undefined();
+        return with_js_errors([&] {
+            return saved_bytes_to_js_chunks(saved_with(codec), static_cast<std::size_t>(max_chunk_bytes));
+        });
+    }
+
 
     // Size of every variable's decoded values, computed from shapes without loading them.
     double decoded_nbytes() const
@@ -461,11 +509,7 @@ CdfFile load_cdf(em::val js_array, bool lazy)
     CdfFile result;
     try
     {
-        auto length = js_array["length"].as<std::size_t>();
-        std::vector<char> buffer(length);
-        em::val dest(em::typed_memory_view(length, reinterpret_cast<uint8_t*>(buffer.data())));
-        dest.call<void>("set", js_array);
-        result.cdf = cdf::io::load(std::move(buffer), true, lazy);
+        result.cdf = cdf::io::load(js_bytes_to_buffer(js_array), true, lazy);
     }
     catch (const std::exception& e)
     {
@@ -532,6 +576,7 @@ EMSCRIPTEN_BINDINGS(cdfpp)
         .function("compression", &CdfFile::compression)
         .function("save", &CdfFile::save_to_bytes)
         .function("save_as", &CdfFile::save_as)
+        .function("save_as_chunks", &CdfFile::save_as_chunks)
         .function("decoded_nbytes", &CdfFile::decoded_nbytes)
         .function("same_values", &CdfFile::same_values);
 

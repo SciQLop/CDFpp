@@ -45,6 +45,19 @@ jobs:
       - name: Build
         run: ninja -C build_wasm
 
+      # Same module with 64-bit memory, loaded by the converter for files over wasm32's 4 GiB.
+      - name: Configure wasm64
+        run: >
+          meson setup build_wasm64
+          --cross-file wacdfpp/wasm64.txt
+          -Ddisable_python_wrapper=true
+          -Dwith_experimental_wasm=true
+          -Dwith_experimental_zstd=true
+          -Dwith_experimental_blosc2=true
+
+      - name: Build wasm64
+        run: ninja -C build_wasm64
+
       - name: Prepare pages
         run: |
           mkdir -p _site
@@ -52,6 +65,7 @@ jobs:
           # plot/astralint) + vendored uPlot (.js/.css)
           cp build_wasm/wacdfpp/*.js build_wasm/wacdfpp/*.wasm build_wasm/wacdfpp/*.css _site/
           cp build_wasm/wacdfpp/wacdfpp.html _site/index.html
+          cp build_wasm64/wacdfpp/cdfpp64.js build_wasm64/wacdfpp/cdfpp64.wasm _site/
 
       - uses: actions/upload-pages-artifact@v5
 
