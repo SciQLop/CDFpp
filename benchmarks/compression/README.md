@@ -22,3 +22,25 @@ python summarize.py sweep.csv e2e.csv > summary.json
   all values, recording file size and save/load time.
 
 Timings are single-threaded wall clock, best of 3 for files under 50 MiB.
+
+## Projection on the whole SPDF archive
+
+```bash
+cd benchmarks/compression
+PYTHONPATH=../../build python archive_census.py census.json                       # 1.2 GB file list, cached
+PYTHONPATH=../../build python archive_projection.py measure   census.json samples.csv
+PYTHONPATH=../../build python archive_projection.py variables census.json samples.csv
+PYTHONPATH=../../build python archive_projection.py project   census.json samples.csv > projection.json
+```
+
+- `archive_census.py`: reads SPDF's `pub/catalogs/filelist.gz` and sums the bytes of every `.cdf` under
+  `pub/data` by mission, instrument, dataset directory and family (the same dataset on sibling
+  spacecraft, e.g. MMS1-4).
+- `archive_projection.py measure`: two median-sized files from each of the 40 largest families,
+  downloaded from SPDF and run through `end_to_end.py`, plus a transposed-layout estimate.
+- `archive_projection.py variables`: per-variable GZIP, Zstd and Blosc2 filter sizes, so `project`
+  can model a writer choosing the best codec per variable.
+- `archive_projection.py project`: scales each family's archive bytes by its samples' size ratios.
+
+`results/archive/` holds the 2026-09-23 file list's samples and projection (the census itself is
+regenerated from the list, which SPDF updates daily).
