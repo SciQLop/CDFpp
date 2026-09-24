@@ -10,6 +10,8 @@ flags = [
     '-sEXPORT_ES6=1',
     '-sENVIRONMENT=web,worker,node',
     '-fwasm-exceptions',
+    # getExceptionMessage() for C++ exceptions that reach JS undecoded (convert-worker.js)
+    '-sEXPORT_EXCEPTION_HANDLING_HELPERS=1',
 ]
 
 # A wasm64 build (cross file wasm64.txt) is the same module with 64-bit memory, for files whose
