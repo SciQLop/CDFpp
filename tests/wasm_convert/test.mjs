@@ -74,6 +74,22 @@ check("blosc2 output is smaller than uncompressed", sizes.blosc2 < sizes.none);
         original.get_variable(original.variable_names()[0]).compression !== "Huffman");
 }
 
+// Chrome refuses single ArrayBuffers of 2 GiB or more, so large outputs travel as chunks:
+// save_as_chunks() splits the saved file, and load_eager() accepts the chunks back.
+{
+    const whole = original.save_as(Module.CompressionType.gzip);
+    const chunks = original.save_as_chunks(Module.CompressionType.gzip, 10000);
+    const joined = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+    chunks.reduce((offset, c) => { joined.set(c, offset); return offset + c.length; }, 0);
+    check("save_as_chunks splits into chunks no larger than asked",
+        chunks.length > 1 && chunks.every((c) => c instanceof Uint8Array && c.length <= 10000));
+    check("the chunks are exactly the save_as bytes",
+        joined.length === whole.length && joined.every((b, i) => b === whole[i]));
+    const reloaded = Module.load_eager(chunks);
+    check("load_eager accepts chunks", reloaded.is_valid() && reloaded.same_values(original));
+    reloaded.delete();
+}
+
 // decoded_nbytes() sizes the decoded values from shapes, without loading them, so the
 // converter can refuse files that cannot fit the 4 GiB WASM memory up front.
 {

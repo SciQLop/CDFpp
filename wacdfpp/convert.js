@@ -2,7 +2,8 @@
 // reloads each output eagerly, checks the values round-trip bit-exactly, and lets
 // the user download any of the outputs. The work runs in convert-worker.js so the
 // page stays responsive on large files.
-import { availableCodecs, summarizeRuns, outputName, fitsInBrowser } from "./convert-model.js";
+import { availableCodecs, summarizeRuns, outputName, pickBuild } from "./convert-model.js";
+import { supportsMemory64 } from "./wasm.js";
 
 const HEAD = ["Codec", "Size", "vs original", "vs GZIP", "Write", "Read", "Values", ""];
 
@@ -21,9 +22,9 @@ function formatChange(ratio) {
     return pct === 0 ? "same" : `${pct > 0 ? "+" : "−"}${Math.abs(pct)}%`;
 }
 
-function download(bytes, name) {
+function download(chunks, name) {
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([bytes], { type: "application/x-cdf" }));
+    a.href = URL.createObjectURL(new Blob(chunks, { type: "application/x-cdf" }));
     a.download = name;
     a.click();
     URL.revokeObjectURL(a.href);
@@ -45,6 +46,7 @@ function panelHtml() {
             <em>Write</em> is compress + serialize; <em>read</em> is parse + decompress every value.</p>
         <p class="convert-warn">Zstd and Blosc2 are experimental and not part of the CDF standard:
             only CDFpp reads them. To get a standard file back, load it here and download the GZIP version.</p>
+        <p class="log-dim convert-build" hidden>Large file: converting with the 64-bit WebAssembly build.</p>
         <p class="log-err" hidden></p>
         <div class="convert-too-large" hidden>
             <p></p>
@@ -81,7 +83,7 @@ function fillRow(tr, row, name) {
         const button = document.createElement("button");
         button.className = "header-btn";
         button.textContent = "Download";
-        button.addEventListener("click", () => download(row.bytes, outputName(name, row.key)));
+        button.addEventListener("click", () => download(row.chunks, outputName(name, row.key)));
         cells[7].append(button);
     }
 }
@@ -93,12 +95,14 @@ function showError(panel, message) {
     panel.querySelectorAll("td.pending").forEach((td) => { td.textContent = "–"; });
 }
 
-function showTooLarge(panel, decodedBytes) {
+function showTooLarge(panel, decodedBytes, fitsWasm64) {
     const box = panel.querySelector(".convert-too-large");
+    const limit = fitsWasm64
+        ? "more than the 4 GiB this browser gives WebAssembly (Chrome 133+ and Firefox 134+ allow 16 GiB)"
+        : "more than the 16 GiB a browser gives WebAssembly";
     box.querySelector("p").textContent =
         `This file decodes to ${formatBytes(decodedBytes)}. Converting it here needs about ` +
-        `${formatBytes(3 * decodedBytes)} of memory, more than the 4 GiB a browser gives WebAssembly. ` +
-        "Convert it with pycdfpp instead:";
+        `${formatBytes(3 * decodedBytes)} of memory, ${limit}. Convert it with pycdfpp instead:`;
     box.hidden = false;
     panel.querySelectorAll("td.pending").forEach((td) => { td.textContent = "–"; });
 }
@@ -115,7 +119,9 @@ export function renderConverter(mount, Module, { name, bytes, decodedBytes }) {
     const codecs = availableCodecs(Module);
     const tbody = panel.querySelector("tbody");
     const trs = new Map(codecs.map((c) => [c.key, tbody.appendChild(codecRow(c))]));
-    if (!fitsInBrowser(bytes.length, decodedBytes)) return showTooLarge(panel, decodedBytes);
+    const build = pickBuild(bytes.length, decodedBytes, supportsMemory64());
+    if (!build) return showTooLarge(panel, decodedBytes, pickBuild(bytes.length, decodedBytes, true) === "wasm64");
+    panel.querySelector(".convert-build").hidden = build !== "wasm64";
     const runs = [];
     const worker = new Worker(new URL("./convert-worker.js", import.meta.url), { type: "module" });
     activeWorker = worker;
@@ -131,5 +137,5 @@ export function renderConverter(mount, Module, { name, bytes, decodedBytes }) {
         }
     };
     worker.onerror = (e) => { showError(panel, e.message || "worker error"); stop(); };
-    worker.postMessage({ bytes, keys: codecs.map((c) => c.key) });   // structured clone: page keeps its copy
+    worker.postMessage({ bytes, keys: codecs.map((c) => c.key), build });   // structured clone: page keeps its copy
 }

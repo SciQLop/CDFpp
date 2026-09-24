@@ -38,12 +38,18 @@ export function outputName(name, key) {
 
 // The converter's worst moment is the uncompressed round trip: the decoded original, the
 // uncompressed output and its decoded reload all live in WASM memory at once, plus the input
-// while it is first loaded. Keep 10% of the 4 GiB WASM32 limit for allocator overhead.
-// simplify: refuses files over ~1.1 GiB decoded; skipping the reload check for large files,
-// or a Memory64 build, would raise the ceiling.
-const WASM_MEMORY_BUDGET = 0.9 * 2 ** 32;
+// while it is first loaded. 10% of each limit is kept for allocator overhead.
+// simplify: ~1.1 GiB decoded fits wasm32 and ~4.6 GiB wasm64; skipping the reload check for
+// large files would raise both ceilings.
+const MEMORY_BUDGET = { wasm32: 0.9 * 2 ** 32, wasm64: 0.9 * 16 * 2 ** 30 };
 
-/** Whether converting a file of `inputBytes` whose values decode to `decodedBytes` fits in memory. */
-export function fitsInBrowser(inputBytes, decodedBytes) {
-    return inputBytes + 3 * decodedBytes <= WASM_MEMORY_BUDGET;
+/**
+ * Which WASM build can convert a file of `inputBytes` whose values decode to `decodedBytes`:
+ * "wasm32", "wasm64" (only if the browser supports 64-bit memory), or null if neither fits.
+ */
+export function pickBuild(inputBytes, decodedBytes, memory64Supported) {
+    const needed = inputBytes + 3 * decodedBytes;
+    if (needed <= MEMORY_BUDGET.wasm32) return "wasm32";
+    if (memory64Supported && needed <= MEMORY_BUDGET.wasm64) return "wasm64";
+    return null;
 }

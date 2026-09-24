@@ -1,0 +1,24 @@
+[binaries]
+c = 'emcc'
+cpp = 'em++'
+ar = 'emar'
+# No exe_wrapper: meson would run its sanity checks under node, and Node < 24 cannot run
+# wasm64 modules. Tests call node themselves when it supports them (wacdfpp/meson.build).
+
+[built-in options]
+c_args = ['-fwasm-exceptions', '-sMEMORY64=1']
+c_link_args = ['-sMEMORY64=1']
+cpp_args = ['-fwasm-exceptions', '-sMEMORY64=1']
+cpp_link_args = ['-sMEMORY64=1']
+
+
+[properties]
+# Emscripten always needs an exe wrapper. Again,
+# maybe Meson could just know this.
+needs_exe_wrapper = true
+
+[host_machine]
+system = 'wasm'
+cpu_family = 'wasm64'
+cpu = 'wasm64'
+endian = 'little'

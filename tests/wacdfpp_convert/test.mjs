@@ -1,6 +1,6 @@
 // Pure Node test for wacdfpp/convert-model.js — no WASM required.
 //   node test.mjs
-import { CODECS, availableCodecs, summarizeRuns, outputName, fitsInBrowser } from "../../wacdfpp/convert-model.js";
+import { CODECS, availableCodecs, summarizeRuns, outputName, pickBuild } from "../../wacdfpp/convert-model.js";
 
 let failures = 0;
 function check(name, ok) {
@@ -41,12 +41,14 @@ check("tags codec before extension", outputName("ac_h0_mfi_20200101_v07.cdf", "b
 check("case-insensitive extension", outputName("X.CDF", "gzip") === "X.gzip.cdf");
 check("no name falls back", outputName(null, "zstd") === "converted.zstd.cdf");
 
-// --- fitsInBrowser: the conversion must fit the 4 GiB WASM memory ------
+// --- pickBuild: 32-bit WASM when it fits, else 64-bit when the browser has it -------
 const GiB = 2 ** 30;
-check("a small file fits", fitsInBrowser(1e6, 3e6));
-check("the 295 MB HPCA file (2.34 GiB decoded) does not fit", !fitsInBrowser(294807679, 2.34 * GiB));
-check("about 1 GiB decoded still fits", fitsInBrowser(0.2 * GiB, 1.0 * GiB));
-check("just over the budget does not fit", !fitsInBrowser(0.2 * GiB, 1.2 * GiB));
+const HPCA = [294807679, 2.34 * GiB];   // 295 MB MMS HPCA file, 2.34 GiB decoded
+check("a small file uses wasm32", pickBuild(1e6, 3e6, true) === "wasm32");
+check("about 1 GiB decoded still uses wasm32", pickBuild(0.2 * GiB, 1.0 * GiB, true) === "wasm32");
+check("the HPCA file uses wasm64 when available", pickBuild(...HPCA, true) === "wasm64");
+check("the HPCA file cannot be converted without wasm64", pickBuild(...HPCA, false) === null);
+check("beyond 16 GiB nothing fits", pickBuild(1 * GiB, 5 * GiB, true) === null);
 
 if (failures > 0) {
     console.error(`\n${failures} check(s) failed`);
