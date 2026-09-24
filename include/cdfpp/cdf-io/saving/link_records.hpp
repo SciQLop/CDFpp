@@ -50,7 +50,7 @@ namespace saving
                 fac.adr.record.AgrEDRhead = fac.aedrs.front().offset;
             else
                 fac.adr.record.AzEDRhead = fac.aedrs.front().offset;
-            auto last_offset = 0;
+            std::size_t last_offset = 0;
             std::for_each(std::rbegin(fac.aedrs), std::rend(fac.aedrs),
                 [&last_offset](auto& aedr)
                 {
@@ -62,7 +62,7 @@ namespace saving
 
     inline void link_adrs(saving_context& svg_ctx)
     {
-        auto last_offset = 0;
+        std::size_t last_offset = 0;
         std::for_each(std::rbegin(svg_ctx.body.variable_attributes),
             std::rend(svg_ctx.body.variable_attributes),
             [&last_offset](auto& node)
@@ -90,7 +90,7 @@ namespace saving
 
     inline void link_vxrs(variable_ctx& vc)
     {
-        auto last_offset = 0;
+        std::size_t last_offset = 0;
         auto last_vvr = vc.values_records.rbegin();
         std::for_each(std::rbegin(vc.vxrs), std::rend(vc.vxrs),
             [&last_offset, &last_vvr](record_wrapper<cdf_VXR_t<v3x_tag>>& vxr)
@@ -109,7 +109,7 @@ namespace saving
 
     inline void link_vdrs(saving_context& svg_ctx)
     {
-        auto last_offset = 0;
+        std::size_t last_offset = 0;
         std::for_each(std::rbegin(svg_ctx.body.variables), std::rend(svg_ctx.body.variables),
             [&last_offset](variable_ctx& vc)
             {

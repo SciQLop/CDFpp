@@ -11,6 +11,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 
+#include "cdfpp/cdf-io/saving/link_records.hpp"
 #include "cdfpp/cdf-io/saving/records-saving.hpp"
 #include <cpp_utils/serde/serde.hpp>
 
@@ -129,4 +130,47 @@ SCENARIO("record loading", "[CDF]")
             static_assert(cdf::io::record_size(s)==312);
         }
     }
+}
+
+// Files over 2 GiB put records past offset 2^31: linking must keep full 64-bit offsets.
+// (A 32-bit accumulator used to wrap them negative, corrupting every chain past 2 GiB.)
+TEST_CASE("Record chains keep offsets beyond 2 GiB and 4 GiB", "[saving]")
+{
+    using namespace cdf::io;
+    using namespace cdf::io::saving;
+    constexpr std::size_t past_2GiB = (std::size_t { 1 } << 31) + 1000;
+    constexpr std::size_t past_4GiB = (std::size_t { 1 } << 32) + 2000;
+
+    saving_context ctx {};
+    for (auto offset : { past_2GiB, past_4GiB })
+    {
+        auto& vc = ctx.body.variables.emplace_back();
+        vc.vdr.offset = offset;
+        auto& vxr = vc.vxrs.emplace_back();
+        vxr.offset = offset + 100;
+        vxr.record.Offset.resize(1);
+        record_wrapper<cdf_VVR_t<v3x_tag>> vvr {};
+        vvr.offset = offset + 200;
+        vc.values_records.emplace_back(std::move(vvr));
+    }
+    auto& vac = ctx.body.variable_attributes["attr"];
+    vac.adr.offset = past_2GiB + 300;
+    for (auto offset : { past_2GiB + 400, past_4GiB + 400 })
+        vac.aedrs.emplace_back().offset = offset;
+    auto& vac2 = ctx.body.variable_attributes["attr2"];
+    vac2.adr.offset = past_4GiB + 300;
+
+    link_vdrs(ctx);
+    link_adrs(ctx);
+
+    const auto& vars = ctx.body.variables;
+    REQUIRE(vars[0].vdr.record.VDRnext == static_cast<int64_t>(past_4GiB));
+    REQUIRE(vars[0].vdr.record.VXRhead == static_cast<int64_t>(past_2GiB + 100));
+    REQUIRE(vars[1].vxrs[0].record.Offset[0] == static_cast<int64_t>(past_4GiB + 200));
+    REQUIRE(ctx.body.variable_attributes["attr"].adr.record.ADRnext
+        == static_cast<int64_t>(past_4GiB + 300));
+    REQUIRE(ctx.body.variable_attributes["attr"].adr.record.AzEDRhead
+        == static_cast<int64_t>(past_2GiB + 400));
+    REQUIRE(ctx.body.variable_attributes["attr"].aedrs[0].record.AEDRnext
+        == static_cast<int64_t>(past_4GiB + 400));
 }
