@@ -3,7 +3,7 @@
 // so we never hold two live CdfFiles and sidestep nomap reference invalidation.
 import { loadModule } from "./wasm.js";
 import { rawFromCdfFile, buildModel } from "./cdf-model.js";
-import { diffModels, diffSummary, buildLines, STATUS } from "./cdf-diff.js";
+import { diffModels, diffSummary, buildLines, lineRows, wordParts, STATUS } from "./cdf-diff.js";
 import { esc } from "./render.js";
 // `Diff` is the vendored jsdiff global (wacdfpp/jsdiff.js, loaded as a classic
 // <script> in wacdfpp.html, before this module) -- not an ES import, since
@@ -48,14 +48,10 @@ const STATUS_CLASS = {
 };
 const statusClass = (status) => STATUS_CLASS[status] ?? "ctx";
 
-// Word-level diff for a changed field (jsdiff diffWords): returns HTML for
-// each side with the actually-differing words wrapped in a highlight span,
-// layered on top of the row's own red/del or green/add tint (see the .wd-add/
-// .wd-del CSS) — fixes the "small change buried in a long, mostly-identical
-// field" problem (e.g. a CATDESC differing only in its last few words) that
-// plain whole-row tinting can't show.
-function wordDiffHtml(a, b) {
-    const parts = Diff.diffWords(a ?? "", b ?? "");
+// HTML for each side of an edited line, the differing words (wordParts) wrapped
+// in a highlight span layered on the line's own tint (see the .wd-add/.wd-del
+// CSS) — so a small change in a long, mostly-identical line stands out.
+function wordDiffHtml(parts) {
     let delHtml = "", addHtml = "";
     for (const p of parts) {
         if (p.added) addHtml += `<mark class="wd-add">${esc(p.value)}</mark>`;
@@ -64,6 +60,15 @@ function wordDiffHtml(a, b) {
     }
     return { delHtml, addHtml };
 }
+
+// Rows of a changed field, one per line (see lineRows): only an edited line
+// similar enough to its counterpart gets word-level marks (see wordParts).
+const changedRows = (ln) => lineRows(cellText(ln.label, ln.a), cellText(ln.label, ln.b));
+const isContext = (r) => r.a === r.b;
+const rowSides = (r) => {
+    const parts = r.a !== null && r.b !== null ? wordParts(r.a, r.b) : null;
+    return parts ? wordDiffHtml(parts) : { delHtml: esc(r.a ?? ""), addHtml: esc(r.b ?? "") };
+};
 
 function hunk(label, span) {
     const el = document.createElement("div");
@@ -88,15 +93,26 @@ function renderInline(lines) {
         el.innerHTML = `<span class="dsign">${sign}</span><span class="dtext">${html}</span>`;
         root.appendChild(el);
     };
+    // Like GitHub's unified view: each run of changed lines lists all its
+    // removed lines, then all its added lines; context lines appear once.
+    const changedInline = (ln) => {
+        let run = [];
+        const flushRun = () => {
+            for (const r of run) if (r.a !== null) rowHtml("−", "del", rowSides(r).delHtml);
+            for (const r of run) if (r.b !== null) rowHtml("+", "add", rowSides(r).addHtml);
+            run = [];
+        };
+        for (const r of changedRows(ln)) {
+            if (isContext(r)) { flushRun(); rowHtml(" ", "ctx", esc(r.a)); }
+            else run.push(r);
+        }
+        flushRun();
+    };
     for (const ln of lines) {
         if (ln.type === "section") { root.appendChild(hunk(SECTION_LABELS[ln.section])); }
         else if (ln.type === "item") { row(SIGN[ln.status], `dl-item ${statusClass(ln.status)}`, ln.label); }
-        else if (ln.status === STATUS.CHANGED) {
-            const prefix = `${esc(ln.label)}: `;
-            const { delHtml, addHtml } = wordDiffHtml(ln.a, ln.b);
-            rowHtml("−", "del", prefix + delHtml);
-            rowHtml("+", "add", prefix + addHtml);
-        } else if (ln.status === STATUS.ADDED) { row("+", "add", cellText(ln.label, ln.b)); }
+        else if (ln.status === STATUS.CHANGED) { changedInline(ln); }
+        else if (ln.status === STATUS.ADDED) { row("+", "add", cellText(ln.label, ln.b)); }
         else if (ln.status === STATUS.REMOVED) { row("−", "del", cellText(ln.label, ln.a)); }
         else { row(" ", "ctx", cellText(ln.label, ln.a)); }
     }
@@ -126,15 +142,24 @@ function renderSplit(lines) {
         el.innerHTML = `<span class="dsign">${SIGN[status]}</span><span class="dtext">${esc(label)}</span>`;
         root.appendChild(el);
     };
+    // One grid row per line; continuation lines of the same field drop the
+    // row separator so a multi-line value still reads as one block.
+    const changedSplit = (ln) => changedRows(ln).forEach((r, i) => {
+        const cont = i ? " cont" : "";
+        if (isContext(r)) {
+            cellHtml(`ctx${cont}`, esc(r.a));
+            cellHtml(`ctx right${cont}`, esc(r.b));
+            return;
+        }
+        const { delHtml, addHtml } = rowSides(r);
+        cellHtml(`${r.a === null ? "empty" : "del"}${cont}`, delHtml);
+        cellHtml(`${r.b === null ? "empty" : "add"} right${cont}`, addHtml);
+    });
     for (const ln of lines) {
         if (ln.type === "section") { const h = hunk(SECTION_LABELS[ln.section], true); root.appendChild(h); }
         else if (ln.type === "item") { itemRow(ln.status, ln.label); }
-        else if (ln.status === STATUS.CHANGED) {
-            const prefix = `${esc(ln.label)}: `;
-            const { delHtml, addHtml } = wordDiffHtml(ln.a, ln.b);
-            cellHtml("del", prefix + delHtml);
-            cellHtml("add right", prefix + addHtml);
-        } else if (ln.status === STATUS.ADDED) {
+        else if (ln.status === STATUS.CHANGED) { changedSplit(ln); }
+        else if (ln.status === STATUS.ADDED) {
             cell("empty", "");
             cell("add right", cellText(ln.label, ln.b));
         } else if (ln.status === STATUS.REMOVED) {

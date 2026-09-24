@@ -1,7 +1,10 @@
 // Pure Node test for wacdfpp/cdf-diff.js — no WASM required.
 //   node test.mjs
 import { buildModel } from "../../wacdfpp/cdf-model.js";
-import { diffModels, diffSummary, buildLines } from "../../wacdfpp/cdf-diff.js";
+import { diffModels, diffSummary, buildLines, lineRows, wordParts } from "../../wacdfpp/cdf-diff.js";
+import { createRequire } from "node:module";
+// The page loads jsdiff as a classic <script> that sets the global `Diff`.
+globalThis.Diff = createRequire(import.meta.url)("../../wacdfpp/jsdiff.js");
 
 let failures = 0;
 function check(name, ok) {
@@ -220,6 +223,36 @@ const V = (name, over = {}) => ({
     const all = buildLines(diff, true);
     check("buildLines (all) includes same_var", all.some(l => l.type === "item" && l.label === "same_var"));
     check("buildLines (all) includes unchanged global H", all.some(l => l.type === "item" && l.label === "H"));
+}
+
+// lineRows: GitHub-style line diff of a multi-line value. Unchanged lines come
+// back once (a === b); a removed run followed by an added run pairs up line by
+// line; leftovers are pure removals (b null) or additions (a null).
+{
+    const eq = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+    check("lineRows identical single line", eq(lineRows("x", "x"), [{ a: "x", b: "x" }]));
+    check("lineRows single-line edit pairs", eq(lineRows("11keV", "8keV"), [{ a: "11keV", b: "8keV" }]));
+    const rows = lineRows("one\ntwo\nthree", "one\nnew\ntwo\nTHREE");
+    check("lineRows keeps context, inserts, pairs edits", eq(rows, [
+        { a: "one", b: "one" },
+        { a: null, b: "new" },
+        { a: "two", b: "two" },
+        { a: "three", b: "THREE" },
+    ]));
+    check("lineRows unpaired removal", eq(lineRows("a\nb\nc", "a\nc"),
+        [{ a: "a", b: "a" }, { a: "b", b: null }, { a: "c", b: "c" }]));
+    check("lineRows null side is all-added", eq(lineRows(null, "p\nq"),
+        [{ a: null, b: "p" }, { a: null, b: "q" }]));
+}
+
+// wordParts: word-level parts for an edited line, or null when the two lines
+// are too different for word marks to help (GitHub then only tints the lines).
+{
+    const p = wordParts("H+ contamination above 11keV here", "H+ contamination above 8keV here");
+    check("wordParts similar lines -> parts", Array.isArray(p) && p.some(x => x.added) && p.some(x => x.removed));
+    check("wordParts unrelated lines -> null",
+        wordParts("No 1-spin delay correction from S/C clock", "Due to MSA flight software misconfiguration") === null);
+    check("wordParts short value edit kept", wordParts("UNITS: nT", "UNITS: T") !== null);
 }
 
 process.exit(failures ? 1 : 0);

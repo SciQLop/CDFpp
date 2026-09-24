@@ -237,3 +237,37 @@ export function buildLines(diff, includeSame) {
     }
     return lines;
 }
+
+// GitHub-style line diff of one changed value (jsdiff diffArrays, via the
+// global `Diff`). Returns one row per displayed line:
+//   { a, b } with a === b  -> unchanged context line
+//   { a, b } both non-null -> an edited line (removed run paired with the added run that follows)
+//   { a, b: null } / { a: null, b } -> a pure removal / addition
+const splitLines = (s) => (s === null || s === undefined ? [] : s.split("\n"));
+
+export function lineRows(a, b) {
+    const rows = [];
+    let dels = [], adds = [];
+    const flushChanges = () => {
+        for (let i = 0; i < Math.max(dels.length, adds.length); i++)
+            rows.push({ a: dels[i] ?? null, b: adds[i] ?? null });
+        dels = []; adds = [];
+    };
+    for (const part of Diff.diffArrays(splitLines(a), splitLines(b))) {
+        if (part.removed) dels.push(...part.value);
+        else if (part.added) adds.push(...part.value);
+        else { flushChanges(); rows.push(...part.value.map(line => ({ a: line, b: line }))); }
+    }
+    flushChanges();
+    return rows;
+}
+
+// Word-level parts (jsdiff diffWords) for an edited line, or null when the two
+// lines share less than half their text: lineRows pairs lines by position, so a
+// pair can be two unrelated sentences, and marking every word of those is noise.
+// simplify: fixed 0.5 threshold on shared characters; GitHub-like enough, tune if needed.
+export function wordParts(a, b) {
+    const parts = Diff.diffWords(a, b);
+    const shared = parts.filter(p => !p.added && !p.removed).reduce((n, p) => n + p.value.length, 0);
+    return shared * 2 >= Math.max(a.length, b.length) ? parts : null;
+}
