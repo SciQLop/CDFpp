@@ -87,10 +87,14 @@ export interface CdfFile {
     save(): Uint8Array | undefined;
 
     /**
-     * Serialize a copy with every variable compressed with `codec` (file-level
-     * compression dropped). The loaded file itself is not modified.
+     * Serialize with every variable compressed with `codec` (file-level compression
+     * dropped). The loaded file keeps its own codecs. Throws an Error on failure
+     * (e.g. unsupported codec, or out of memory).
      */
     save_as(codec: CompressionType): Uint8Array | undefined;
+
+    /** Size in bytes of every variable's decoded values, from their shapes (loads nothing). */
+    decoded_nbytes(): number;
 
     /** True when both files have the same variables with byte-identical values. */
     same_values(other: CdfFile): boolean;

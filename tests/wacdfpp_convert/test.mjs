@@ -1,6 +1,6 @@
 // Pure Node test for wacdfpp/convert-model.js — no WASM required.
 //   node test.mjs
-import { CODECS, availableCodecs, summarizeRuns, outputName } from "../../wacdfpp/convert-model.js";
+import { CODECS, availableCodecs, summarizeRuns, outputName, fitsInBrowser } from "../../wacdfpp/convert-model.js";
 
 let failures = 0;
 function check(name, ok) {
@@ -40,6 +40,13 @@ check("a failed round trip is never best",
 check("tags codec before extension", outputName("ac_h0_mfi_20200101_v07.cdf", "blosc2") === "ac_h0_mfi_20200101_v07.blosc2.cdf");
 check("case-insensitive extension", outputName("X.CDF", "gzip") === "X.gzip.cdf");
 check("no name falls back", outputName(null, "zstd") === "converted.zstd.cdf");
+
+// --- fitsInBrowser: the conversion must fit the 4 GiB WASM memory ------
+const GiB = 2 ** 30;
+check("a small file fits", fitsInBrowser(1e6, 3e6));
+check("the 295 MB HPCA file (2.34 GiB decoded) does not fit", !fitsInBrowser(294807679, 2.34 * GiB));
+check("about 1 GiB decoded still fits", fitsInBrowser(0.2 * GiB, 1.0 * GiB));
+check("just over the budget does not fit", !fitsInBrowser(0.2 * GiB, 1.2 * GiB));
 
 if (failures > 0) {
     console.error(`\n${failures} check(s) failed`);
