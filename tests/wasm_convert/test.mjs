@@ -61,6 +61,30 @@ for (const codec of codecs.filter((c) => Module.CompressionType[c] !== undefined
     reloaded.delete();
 }
 check("blosc2 output is smaller than uncompressed", sizes.blosc2 < sizes.none);
+
+// C++ exceptions must reach JS as Error objects carrying the C++ message, not as an
+// opaque WebAssembly.Exception (the converter used to show "[object WebAssembly.Exception]").
+{
+    let error;
+    try { original.save_as(Module.CompressionType.huffman); }
+    catch (e) { error = e; }
+    check("save_as with an unsupported codec throws an Error",
+        error instanceof Error && /Unsupported compression algorithm/.test(error.message));
+    check("the loaded file keeps its codecs after a failed save_as",
+        original.get_variable(original.variable_names()[0]).compression !== "Huffman");
+}
+
+// decoded_nbytes() sizes the decoded values from shapes, without loading them, so the
+// converter can refuse files that cannot fit the 4 GiB WASM memory up front.
+{
+    const lazy = Module.load(new Uint8Array(readFileSync(join(resourcesDir, RESOURCE))));
+    const estimate = lazy.decoded_nbytes();
+    const untouched = lazy.variable_names().every((n) => !lazy.get_variable(n).values_loaded);
+    const actual = lazy.variable_names().reduce((sum, n) => sum + (lazy.get_variable(n).values?.byteLength ?? 0), 0);
+    check("decoded_nbytes does not load values", untouched);
+    check("decoded_nbytes matches the decoded size", estimate === actual);
+    lazy.delete();
+}
 check("save_as leaves the loaded file untouched",
     original.get_variable(original.variable_names()[0]).compression
         === Module.load(new Uint8Array(readFileSync(join(resourcesDir, RESOURCE))))

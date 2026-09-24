@@ -2,7 +2,7 @@
 // reloads each output eagerly, checks the values round-trip bit-exactly, and lets
 // the user download any of the outputs. The work runs in convert-worker.js so the
 // page stays responsive on large files.
-import { availableCodecs, summarizeRuns, outputName } from "./convert-model.js";
+import { availableCodecs, summarizeRuns, outputName, fitsInBrowser } from "./convert-model.js";
 
 const HEAD = ["Codec", "Size", "vs original", "vs GZIP", "Write", "Read", "Values", ""];
 
@@ -11,7 +11,8 @@ let activeWorker = null;
 function formatBytes(n) {
     if (n < 1024) return `${n} B`;
     if (n < 2 ** 20) return `${(n / 1024).toFixed(1)} KiB`;
-    return `${(n / 2 ** 20).toFixed(2)} MiB`;
+    if (n < 2 ** 30) return `${(n / 2 ** 20).toFixed(2)} MiB`;
+    return `${(n / 2 ** 30).toFixed(2)} GiB`;
 }
 const formatMs = (ms) => (ms < 1000 ? `${ms.toFixed(ms < 10 ? 1 : 0)} ms` : `${(ms / 1000).toFixed(2)} s`);
 function formatChange(ratio) {
@@ -45,6 +46,15 @@ function panelHtml() {
         <p class="convert-warn">Zstd and Blosc2 are experimental and not part of the CDF standard:
             only CDFpp reads them. To get a standard file back, load it here and download the GZIP version.</p>
         <p class="log-err" hidden></p>
+        <div class="convert-too-large" hidden>
+            <p></p>
+            <pre>import pycdfpp
+
+cdf = pycdfpp.load("file.cdf")
+for name in cdf:
+    cdf[name].compression = pycdfpp.CompressionType.blosc2_compression
+pycdfpp.save(cdf, "file.blosc2.cdf")</pre>
+        </div>
         <div class="convert-scroll"><table class="convert-table"><thead><tr>${HEAD.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody></tbody></table></div>`;
 }
 
@@ -83,8 +93,18 @@ function showError(panel, message) {
     panel.querySelectorAll("td.pending").forEach((td) => { td.textContent = "–"; });
 }
 
+function showTooLarge(panel, decodedBytes) {
+    const box = panel.querySelector(".convert-too-large");
+    box.querySelector("p").textContent =
+        `This file decodes to ${formatBytes(decodedBytes)}. Converting it here needs about ` +
+        `${formatBytes(3 * decodedBytes)} of memory, more than the 4 GiB a browser gives WebAssembly. ` +
+        "Convert it with pycdfpp instead:";
+    box.hidden = false;
+    panel.querySelectorAll("td.pending").forEach((td) => { td.textContent = "–"; });
+}
+
 /** Renders the panel into `mount` and converts `bytes` with every codec in a worker. */
-export function renderConverter(mount, Module, { name, bytes }) {
+export function renderConverter(mount, Module, { name, bytes, decodedBytes }) {
     activeWorker?.terminate();
     const panel = document.createElement("div");
     panel.className = "convert";
@@ -95,6 +115,7 @@ export function renderConverter(mount, Module, { name, bytes }) {
     const codecs = availableCodecs(Module);
     const tbody = panel.querySelector("tbody");
     const trs = new Map(codecs.map((c) => [c.key, tbody.appendChild(codecRow(c))]));
+    if (!fitsInBrowser(bytes.length, decodedBytes)) return showTooLarge(panel, decodedBytes);
     const runs = [];
     const worker = new Worker(new URL("./convert-worker.js", import.meta.url), { type: "module" });
     activeWorker = worker;

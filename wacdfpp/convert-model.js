@@ -35,3 +35,15 @@ export function outputName(name, key) {
     const base = (name ?? "converted.cdf").replace(/\.cdf$/i, "");
     return `${base}.${key}.cdf`;
 }
+
+// The converter's worst moment is the uncompressed round trip: the decoded original, the
+// uncompressed output and its decoded reload all live in WASM memory at once, plus the input
+// while it is first loaded. Keep 10% of the 4 GiB WASM32 limit for allocator overhead.
+// simplify: refuses files over ~1.1 GiB decoded; skipping the reload check for large files,
+// or a Memory64 build, would raise the ceiling.
+const WASM_MEMORY_BUDGET = 0.9 * 2 ** 32;
+
+/** Whether converting a file of `inputBytes` whose values decode to `decodedBytes` fits in memory. */
+export function fitsInBrowser(inputBytes, decodedBytes) {
+    return inputBytes + 3 * decodedBytes <= WASM_MEMORY_BUDGET;
+}

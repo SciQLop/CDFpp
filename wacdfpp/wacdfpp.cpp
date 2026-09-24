@@ -33,7 +33,9 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <new>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -206,6 +208,63 @@ bool same_bytes(const cdf::Variable& a, const cdf::Variable& b)
         && (a.bytes() == 0 || std::memcmp(a.bytes_ptr(), b.bytes_ptr(), a.bytes()) == 0);
 }
 
+[[noreturn]] void throw_js_error(const std::string& message)
+{
+    em::val::global("Error").new_(message).throw_();
+    std::abort(); // throw_() never returns
+}
+
+// Runs f, turning C++ exceptions into JS Errors carrying their message: otherwise JS only
+// sees an opaque WebAssembly.Exception.
+template <typename F>
+auto with_js_errors(F&& f)
+{
+    try
+    {
+        return f();
+    }
+    catch (const std::bad_alloc&)
+    {
+        throw_js_error("out of memory: this file does not fit in the browser's 4 GiB WebAssembly "
+                       "memory");
+    }
+    catch (const std::exception& e)
+    {
+        throw_js_error(e.what());
+    }
+}
+
+// Sets every variable to one codec (and drops file-level compression) for its lifetime, then
+// restores the original codecs, even if saving throws. Lets save_as avoid copying the CDF,
+// whose decoded values can take GiBs.
+class codec_override
+{
+    cdf::CDF& cdf;
+    cdf::cdf_compression_type file_codec;
+    std::vector<cdf::cdf_compression_type> variable_codecs;
+
+public:
+    codec_override(cdf::CDF& cdf, cdf::cdf_compression_type codec)
+            : cdf { cdf }, file_codec { cdf.compression }
+    {
+        cdf.compression = cdf::cdf_compression_type::no_compression;
+        for (auto& [_, variable] : cdf.variables)
+        {
+            variable_codecs.push_back(variable.compression_type());
+            variable.set_compression_type(codec);
+        }
+    }
+    ~codec_override()
+    {
+        cdf.compression = file_codec;
+        auto codec = std::cbegin(variable_codecs);
+        for (auto& [_, variable] : cdf.variables)
+            variable.set_compression_type(*codec++);
+    }
+    codec_override(const codec_override&) = delete;
+    codec_override& operator=(const codec_override&) = delete;
+};
+
 em::val to_js_string_array(const auto& map)
 {
     auto arr = em::val::array();
@@ -358,17 +417,29 @@ struct CdfFile
         return saved_bytes_to_js(cdf::io::save(*cdf));
     }
 
-    // Re-encodes every variable with one codec, on a copy so the loaded file keeps its own
-    // compression. Whole-file compression is dropped: the converter compares variable codecs.
-    em::val save_as(cdf::cdf_compression_type codec) const
+    // Re-encodes every variable with one codec; the loaded file keeps its own codecs.
+    // Whole-file compression is dropped: the converter compares variable codecs.
+    em::val save_as(cdf::cdf_compression_type codec)
     {
         if (!cdf)
             return em::val::undefined();
-        auto converted = *cdf;
-        converted.compression = cdf::cdf_compression_type::no_compression;
-        for (auto& [_, variable] : converted.variables)
-            variable.set_compression_type(codec);
-        return saved_bytes_to_js(cdf::io::save(converted));
+        return with_js_errors(
+            [&]
+            {
+                const codec_override override { *cdf, codec };
+                return saved_bytes_to_js(cdf::io::save(*cdf));
+            });
+    }
+
+    // Size of every variable's decoded values, computed from shapes without loading them.
+    double decoded_nbytes() const
+    {
+        if (!cdf)
+            return 0;
+        std::size_t total = 0;
+        for (const auto& [_, variable] : cdf->variables)
+            total += variable.bytes();
+        return static_cast<double>(total);
     }
 
     // Byte-for-byte comparison of every variable's values (bit-exact, NaN-safe).
@@ -461,6 +532,7 @@ EMSCRIPTEN_BINDINGS(cdfpp)
         .function("compression", &CdfFile::compression)
         .function("save", &CdfFile::save_to_bytes)
         .function("save_as", &CdfFile::save_as)
+        .function("decoded_nbytes", &CdfFile::decoded_nbytes)
         .function("same_values", &CdfFile::same_values);
 
     em::function("load", +[](em::val data) { return load_cdf(data, true); });
