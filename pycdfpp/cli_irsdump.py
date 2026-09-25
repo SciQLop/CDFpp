@@ -28,19 +28,27 @@ def main(path: str = None, *, level: str = 'brief', summary: bool = True, data: 
 
     Parameters
     ----------
-    path: Path to the CDF file. Not required when --about is given.
-    level: "brief" (summary table only, the default - matches the real tool's own
+    path : str
+        Path to the CDF file. Not required when --about is given.
+    level : str
+        "brief" (summary table only, the default - matches the real tool's own
         default) or "full" (per-record dump). "most" is accepted as an alias for
         "full" - NASA's real MOST-level per-field gating isn't independently
         implemented here.
-    summary: Whether to print the closing summary table. Only meaningful at
+    summary : bool
+        Whether to print the closing summary table. Only meaningful at
         level="full" (level="brief" is nothing *but* the summary table).
-    data: Hex-dump VVR/CVVR payload bytes. Only applies at level="full".
-    output: Write to this file instead of stdout.
-    offset: Start the dump at this byte offset instead of the file start. Ignored
+    data : bool
+        Hex-dump VVR/CVVR payload bytes. Only applies at level="full".
+    output : str
+        Write to this file instead of stdout.
+    offset : int
+        Start the dump at this byte offset instead of the file start. Ignored
         when level="brief" (brief always summarizes the whole file).
-    radix: 10 (decimal, default) or 16 (hex) for record offsets.
-    about: Print pycdfpp's version and exit.
+    radix : int
+        10 (decimal, default) or 16 (hex) for record offsets.
+    about : bool
+        Print pycdfpp's version and exit.
     """
     if about:
         print(f'pycdfpp {__version__}')

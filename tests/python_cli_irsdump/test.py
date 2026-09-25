@@ -126,5 +126,29 @@ class CdfirsdumpCliTest(unittest.TestCase):
                 f"'main' directly")
 
 
+class CliHelpTest(unittest.TestCase):
+    """Every option's full description appears in --help (a malformed docstring used to drop
+    the first line of each)."""
+
+    def _help(self, module):
+        import subprocess, sys
+        env = dict(os.environ, COLUMNS="300")
+        result = subprocess.run([sys.executable, "-m", module, "--help"], capture_output=True,
+                                text=True, env=env, check=True)
+        return " ".join(result.stdout.split())
+
+    def test_cdfirsdump_help(self):
+        text = self._help("pycdfpp.cli_irsdump")
+        for sentence in ('"brief" (summary table only', "Hex-dump VVR/CVVR payload bytes",
+                         "Write to this file instead of stdout", "Start the dump at this byte offset",
+                         "10 (decimal, default) or 16 (hex)", "Print pycdfpp's version and exit"):
+            self.assertIn(sentence, text)
+
+    def test_cdfdump_help(self):
+        text = self._help("pycdfpp.cli")
+        self.assertIn("Path to the CDF file", text)
+        self.assertIn("Print NASA's cdfirsdump", text)
+
+
 if __name__ == '__main__':
     unittest.main()

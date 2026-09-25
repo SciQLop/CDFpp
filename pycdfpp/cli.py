@@ -54,8 +54,10 @@ def main(path: str, *, irsdump: bool = False):
 
     Parameters
     ----------
-    path: Path to the CDF file.
-    irsdump: Print NASA's cdfirsdump (-full -nopage -nosummary) text format instead
+    path : str
+        Path to the CDF file.
+    irsdump : bool
+        Print NASA's cdfirsdump (-full -nopage -nosummary) text format instead
         of the default rich tree - byte-for-byte compatible with the real tool,
         useful for diffing against it or feeding other cdfirsdump-aware tooling.
     """

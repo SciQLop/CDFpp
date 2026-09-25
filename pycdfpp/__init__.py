@@ -757,8 +757,8 @@ def to_time_string(values, format: str):
         CDF time values to format.
     format : str
         strftime-compatible format string (e.g. ``'%Y-%m-%dT%H:%M:%SZ'``).
-        ``%S`` automatically includes sub-second digits matching the input
-        precision (3 for epoch, 9 for tt2000, 12 for epoch16).
+        ``%S`` includes the fraction of a second, with 9 digits (nanoseconds) for every
+        time type.
 
     Returns
     -------
