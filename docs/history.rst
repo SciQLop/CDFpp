@@ -15,6 +15,8 @@ Unreleased
 * TT2000 values before 1972 convert like NASA's library, with the 1960-1972 drift of
   TAI-UTC. They were off by 0 to 10 s, differently on the scalar and SIMD paths.
 * ``pycdfpp.default_pad_value`` returns a space for strings, as the CDF User's Guide says.
+* Threads reading the same lazily loaded variable at once no longer crash: the first read
+  loads the values, the others wait for it. Before, they could get freed memory.
 
 0.13.0 (2026-09-25)
 -------------------

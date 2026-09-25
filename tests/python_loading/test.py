@@ -4,6 +4,8 @@ import os
 from datetime import datetime, timedelta
 import numpy as np
 import math
+import tempfile
+import threading
 import unittest
 from glob import glob
 import pycdfpp
@@ -474,6 +476,35 @@ class PycdfMissingRecords(unittest.TestCase):
 
     def test_default_pad_value_of_strings_is_a_space(self):
         self.assertEqual(pycdfpp.default_pad_value(pycdfpp.DataType.CDF_CHAR), b" ")
+
+
+class PycdfConcurrentReads(unittest.TestCase):
+    """Loading values releases the GIL: threads reading the same lazy variable at once must
+    each get the values, not a buffer another thread just replaced."""
+
+    def test_threads_read_the_same_lazy_variable(self):
+        values = np.arange(1_000_000, dtype=np.float64)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "big.cdf")
+            cdf = pycdfpp.CDF()
+            cdf.add_variable("x", values, compression=pycdfpp.CompressionType.gzip_compression)
+            pycdfpp.save(cdf, path)
+            for _ in range(20):
+                cdf = pycdfpp.load(path)
+                barrier = threading.Barrier(8)
+                reads = []
+
+                def read():
+                    barrier.wait()
+                    reads.append(np.array(cdf["x"].values))
+
+                threads = [threading.Thread(target=read) for _ in range(8)]
+                for t in threads:
+                    t.start()
+                for t in threads:
+                    t.join()
+                for read_values in reads:
+                    np.testing.assert_array_equal(read_values, values)
 
 
 if __name__ == '__main__':

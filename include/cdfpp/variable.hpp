@@ -34,9 +34,11 @@
 #include <cpp_utils/containers/no_init_vector.hpp>
 using cpp_utils::containers::no_init_vector;
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <iomanip>
+#include <mutex>
 #include <optional>
 #include <source_location>
 #include <vector>
@@ -76,6 +78,22 @@ template <typename T>
     }
     return 0UL;
 }
+
+// Loading values is a const read that replaces the variable's data: readers of a variable
+// that isn't loaded yet take the mutex; once loaded they only read the flag. Data never goes
+// back to lazy, so a copied flag stays true only for loaded data.
+struct lazy_load_guard
+{
+    std::mutex mutex;
+    std::atomic<bool> loaded = false;
+    lazy_load_guard() = default;
+    lazy_load_guard(const lazy_load_guard& other) : loaded { other.loaded.load() } { }
+    lazy_load_guard& operator=(const lazy_load_guard& other)
+    {
+        loaded = other.loaded.load();
+        return *this;
+    }
+};
 
 /*
  * Before version 1.0 it would make sense to consider exposing a view to data instead of
@@ -223,6 +241,7 @@ struct Variable
 
     [[nodiscard]] CDF_Types type() const
     {
+        auto lock = lock_unless_loaded();
         if (std::holds_alternative<var_data_t>(p_data))
             return std::get<var_data_t>(p_data).type();
         return std::get<lazy_data>(p_data).type();
@@ -238,10 +257,8 @@ struct Variable
     // probe set) are reported contiguous.
     [[nodiscard]] bool is_contiguous() const
     {
-        if (not p_contiguous.has_value())
-            p_contiguous = not p_block_counter or p_block_counter() <= 1;
-        p_block_counter = nullptr;
-        return *p_contiguous;
+        std::lock_guard lock { p_load_guard.mutex };
+        return _is_contiguous();
     }
     void set_block_counter(std::function<std::size_t()> counter)
     {
@@ -254,37 +271,42 @@ struct Variable
     [[nodiscard]] cdf_compression_type compression_type() const noexcept { return p_compression; }
     void set_compression_type(cdf_compression_type ct) noexcept { p_compression = ct; }
 
-    [[nodiscard]] inline bool values_loaded() const noexcept
+    [[nodiscard]] inline bool values_loaded() const
     {
-        return not std::holds_alternative<lazy_data>(p_data);
+        auto lock = lock_unless_loaded();
+        return holds_values();
     }
 
     inline void load_values() const
     {
-        if (not values_loaded())
+        if (p_load_guard.loaded.load(std::memory_order_acquire))
+            return;
+        std::lock_guard lock { p_load_guard.mutex };
+        if (holds_values())
         {
-            p_data = std::get<lazy_data>(p_data).load();
-            auto& data = std::get<data_t>(p_data);
-            if (this->majority() == cdf_majority::column)
-            {
-                majority::swap(data, p_shape);
-            }
-            check_shape();
-            release_file_if_loaded();
+            p_load_guard.loaded.store(true, std::memory_order_release);
+            return;
         }
+        p_data = std::get<lazy_data>(p_data).load();
+        if (this->majority() == cdf_majority::column)
+        {
+            majority::swap(std::get<data_t>(p_data), p_shape);
+        }
+        p_load_guard.loaded.store(true, std::memory_order_release);
+        check_shape();
+        release_file_if_loaded();
     }
+
+    template <typename... Ts>
+    friend auto visit(Variable& var, Ts... lambdas);
 
     // Once values are in memory, the block count is resolved right away so the variable
     // stops referencing its file: Windows can't overwrite a file that is still mapped.
     void release_file_if_loaded() const
     {
-        if (values_loaded())
-            (void)is_contiguous();
+        if (holds_values())
+            (void)_is_contiguous();
     }
-
-
-    template <typename... Ts>
-    friend auto visit(Variable& var, Ts... lambdas);
 
     template <class stream_t>
     inline stream_t& __repr__(stream_t& os, indent_t indent = {}, bool detailed = true) const
@@ -314,6 +336,26 @@ struct Variable
 
 
 private:
+    [[nodiscard]] bool holds_values() const noexcept
+    {
+        return not std::holds_alternative<lazy_data>(p_data);
+    }
+
+    [[nodiscard]] std::unique_lock<std::mutex> lock_unless_loaded() const
+    {
+        if (p_load_guard.loaded.load(std::memory_order_acquire))
+            return {};
+        return std::unique_lock { p_load_guard.mutex };
+    }
+
+    [[nodiscard]] bool _is_contiguous() const
+    {
+        if (not p_contiguous.has_value())
+            p_contiguous = not p_block_counter or p_block_counter() <= 1;
+        p_block_counter = nullptr;
+        return *p_contiguous;
+    }
+
     [[nodiscard]] var_data_t& _data()
     {
         load_values();
@@ -353,6 +395,7 @@ Data:
     bool p_is_zvariable = true;
     mutable std::function<std::size_t()> p_block_counter;
     mutable std::optional<bool> p_contiguous;
+    mutable lazy_load_guard p_load_guard;
 };
 
 template <typename... Ts>
