@@ -413,5 +413,27 @@ class PycdfEmptyVariables(unittest.TestCase):
         self.assertIsNotNone(memoryview(cdf['BGSM']))
 
 
+class PycdfLoadErrorsTest(unittest.TestCase):
+    RESOURCES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "resources")
+
+    def test_missing_file_raises_file_not_found(self):
+        with self.assertRaises(FileNotFoundError):
+            pycdfpp.load(os.path.join(self.RESOURCES, "does_not_exist.cdf"))
+
+    def test_invalid_file_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            pycdfpp.load(os.path.join(self.RESOURCES, "not_a_cdf.cdf"))
+
+    def test_invalid_buffer_raises_value_error(self):
+        for lazy_load in (True, False):
+            with self.subTest(lazy_load=lazy_load), self.assertRaises(ValueError):
+                pycdfpp.load(b"not a CDF file", lazy_load=lazy_load)
+
+    def test_loads_pathlib_paths(self):
+        from pathlib import Path
+        cdf = pycdfpp.load(Path(self.RESOURCES) / "a_cdf.cdf")
+        self.assertIn("var", cdf)
+
+
 if __name__ == '__main__':
     unittest.main()

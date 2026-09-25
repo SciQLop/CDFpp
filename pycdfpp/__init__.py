@@ -20,6 +20,7 @@ import copy
 from functools import singledispatch, wraps
 from datetime import datetime
 import re
+import errno
 import warnings
 
 import numpy as np
@@ -212,6 +213,14 @@ def _strict_kwargs(arg_names):
     return decorator
 
 
+def _as_single_record(values):
+    """Values of a non-record-varying variable are its only record: add the record axis if
+    it is missing. Values with zero or one record are left as they are."""
+    if isinstance(values, np.ndarray):
+        return values[np.newaxis] if values.ndim == 0 or len(values) > 1 else values
+    return [list(values)] if len(values) > 1 else values
+
+
 def _patch_set_values():
     def _set_values_wrapper(self, values, data_type=None, force=False):
         """Sets or resets the values of the variable.
@@ -256,8 +265,9 @@ def _patch_set_values():
         """
         if isinstance(values, Variable):
             return self._set_values(values, force=force)
-        else:
-            return self._set_values(values, data_type=data_type, force=force)
+        if self.is_nrv:
+            values = _as_single_record(values)
+        return self._set_values(values, data_type=data_type, force=force)
 
     # Removed python injected wrappers, the logic is now implemented in C++
     Variable.set_values = _set_values_wrapper
@@ -353,7 +363,17 @@ def _patch_add_variable():
     CDF.add_variable = _add_variable_wrapper
 
 
+def _as_attribute_entry(values):
+    """A single number or datetime becomes a one-element entry; numpy scalars keep their dtype."""
+    if isinstance(values, (np.generic, np.ndarray)) and np.ndim(values) == 0 and not isinstance(values, str):
+        return np.atleast_1d(values)
+    if isinstance(values, (int, float, datetime)):
+        return [values]
+    return values
+
+
 def _attribute_values_view_and_type(values: np.ndarray or list or str, data_type=None):
+    values = _as_attribute_entry(values)
     if type(values) is str:
         if data_type is None:
             data_type = DataType.CDF_CHAR
@@ -605,10 +625,10 @@ def filter_cdf(cdf: CDF,
         The CDF object to filter.
     variables : Union[List[str], str, re.Pattern, Callable[[Variable], bool]], optional
         A list of variable names to keep, a regex pattern, or a callable that returns True for variables to keep.
-        If None (default), no variables are kept.
+        If None (default), all variables are kept.
     attributes : Union[List[str], str, re.Pattern, Callable[[Attribute], bool]], optional
-        A list of attribute names to keep, a regex pattern, or a callable that returns True for attributes to keep.
-        If None (default), no attributes are kept.
+        A list of global attribute names to keep, a regex pattern, or a callable that returns True for attributes
+        to keep. If None (default), all global attributes are kept.
     inplace : bool, optional
         If True, modifies the original CDF object. If False, returns a new filtered CDF object. (Default is False)
 
@@ -622,7 +642,7 @@ def filter_cdf(cdf: CDF,
 
     def _make_filter(criterion):
         if criterion is None:
-            return lambda x: False
+            return lambda x: True
         elif isinstance(criterion, (list, tuple)):
             return lambda x: x.name in criterion
         elif isinstance(criterion, str):
@@ -821,14 +841,15 @@ def save(cdf: CDF, fname: Union[str, os.PathLike, None] = None):
     return True
 
 
-def load(file_or_buffer: str or ByteString, iso_8859_1_to_utf8: bool = True, lazy_load: bool = True):
+def load(file_or_buffer: Union[str, os.PathLike, ByteString], iso_8859_1_to_utf8: bool = True,
+         lazy_load: bool = True):
     """
     Load and parse a CDF file.
 
     Parameters
     ----------
-    file_or_buffer : str or ByteString
-        Either a filename to be loaded or an in-memory file implementing the Python buffer protocol.
+    file_or_buffer : str or os.PathLike or ByteString
+        Either a file path or an in-memory file implementing the Python buffer protocol.
     iso_8859_1_to_utf8 : bool, optional
         Automatically convert Latin-1 characters to their equivalent UTF counterparts when True.
         For CDF files prior to version 3.8, UTF-8 wasn't supported and some CDF files might contain "illegal" Latin-1 characters.
@@ -841,16 +862,30 @@ def load(file_or_buffer: str or ByteString, iso_8859_1_to_utf8: bool = True, laz
 
     Returns
     -------
-    CDF or None
-        Returns a CDF object upon successful read.
-        If there's an issue with the read, None is returned.
+    CDF
+
+    Raises
+    ------
+    FileNotFoundError
+        When the file doesn't exist.
+    ValueError
+        When the file or buffer is not a valid CDF file.
     """
-    if type(file_or_buffer) is str:
-        return _pycdfpp.load(file_or_buffer, iso_8859_1_to_utf8, lazy_load)
+    if isinstance(file_or_buffer, (str, os.PathLike)):
+        path = os.fspath(file_or_buffer)
+        if not os.path.exists(path):
+            raise FileNotFoundError(errno.ENOENT, "No such CDF file", path)
+        cdf = _pycdfpp.load(path, iso_8859_1_to_utf8, lazy_load)
+        if cdf is None:
+            raise ValueError(f"'{path}' is not a valid CDF file")
+        return cdf
     if lazy_load:
-        return _pycdfpp.lazy_load(file_or_buffer, iso_8859_1_to_utf8)
+        cdf = _pycdfpp.lazy_load(file_or_buffer, iso_8859_1_to_utf8)
     else:
-        return _pycdfpp.load(file_or_buffer, iso_8859_1_to_utf8)
+        cdf = _pycdfpp.load(file_or_buffer, iso_8859_1_to_utf8)
+    if cdf is None:
+        raise ValueError("the buffer does not hold a valid CDF file")
+    return cdf
 
 
 def _stringify_time_values(values, values_type):

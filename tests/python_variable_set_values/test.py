@@ -307,11 +307,11 @@ class PycdfFilterCDF(unittest.TestCase):
         self.assertNotIn("global_attr3", self.cdf.attributes)
         self.assertListEqual(self.cdf["var1"].values.tolist(), np.arange(10, dtype=np.float64).tolist())
 
-    def test_filter_cdf_no_variables_no_attributes(self):
+    def test_filter_cdf_without_criteria_keeps_everything(self):
         filtered = self.cdf.filter()
         self.assertIsNot(filtered, self.cdf)
-        self.assertEqual(len(filtered), 0)
-        self.assertEqual(len(filtered.attributes), 0)
+        self.assertEqual(len(filtered), 3)
+        self.assertEqual(len(filtered.attributes), 3)
 
     def test_filter_cdf_with_callable_predicate(self):
         def predicate(var):
@@ -322,7 +322,12 @@ class PycdfFilterCDF(unittest.TestCase):
         self.assertIn("var1", filtered)
         self.assertIn("var2", filtered)
         self.assertNotIn("var3", filtered)
-        self.assertEqual(len(filtered.attributes), 0)
+        self.assertEqual(len(filtered.attributes), 3)  # attributes not filtered: all kept
+
+    def test_filter_only_attributes_keeps_every_variable(self):
+        filtered = self.cdf.filter(attributes=["global_attr"])
+        self.assertEqual(len(filtered), 3)
+        self.assertEqual(list(filtered.attributes), ["global_attr"])
 
     def test_filter_cdf_with_regex(self):
         filtered = self.cdf.filter(variables="var[23]", attributes=".*")
@@ -346,6 +351,62 @@ class PycdfEmptyNamesAreNotAllowed(unittest.TestCase):
             cdf["var1"].add_attribute("", "value")
         with self.assertRaises(ValueError):
             cdf.add_attribute("", ["value"])
+
+
+class PycdfScalarAttributeValues(unittest.TestCase):
+    """A single value doesn't need to be wrapped in a list."""
+
+    def test_numpy_scalar_keeps_its_type(self):
+        cdf = pycdfpp.CDF()
+        var = cdf.add_variable("v", values=np.zeros(3, dtype=np.float32),
+                               attributes={"FILLVAL": np.float32(-1e31)})
+        self.assertEqual(var.attributes["FILLVAL"].type(), pycdfpp.DataType.CDF_FLOAT)
+        self.assertEqual(var.attributes["FILLVAL"].value, [np.float32(-1e31)])
+
+    def test_python_scalars_and_datetime(self):
+        cdf = pycdfpp.CDF()
+        var = cdf.add_variable("v", values=np.zeros(3))
+        var.add_attribute("SCALEMAX", 10.5)
+        var.add_attribute("COUNT", 3)
+        var.add_attribute("START", datetime(2020, 1, 1))
+        self.assertEqual(var.attributes["SCALEMAX"].value, [10.5])
+        self.assertEqual(var.attributes["COUNT"].value, [3])
+        self.assertEqual(var.attributes["START"].type(), pycdfpp.DataType.CDF_TIME_TT2000)
+        var.attributes["COUNT"].set_value(np.int16(7))
+        self.assertEqual(var.attributes["COUNT"].type(), pycdfpp.DataType.CDF_INT2)
+
+    def test_global_attribute_scalar_entries(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("mixed", ["text", np.float32(1.5), np.array([1, 2], dtype=np.int16)])
+        self.assertEqual(cdf.attributes["mixed"].type(1), pycdfpp.DataType.CDF_FLOAT)
+        self.assertEqual(cdf.attributes["mixed"][1], [1.5])
+
+
+class PycdfNrvValuesAreOneRecord(unittest.TestCase):
+    """Values given to a non-record-varying variable are its single record."""
+
+    def test_list_of_labels(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("labels", values=["Bx", "By", "Bz"], data_type=pycdfpp.DataType.CDF_CHAR,
+                         is_nrv=True)
+        self.assertEqual(cdf["labels"].shape, (1, 3, 2))
+
+    def test_numpy_vector(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("energy", values=np.array([10.0, 100.0, 1000.0]), is_nrv=True)
+        self.assertEqual(cdf["energy"].shape, (1, 3))
+
+    def test_values_already_one_record_are_unchanged(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("energy", values=np.array([[10.0, 100.0, 1000.0]]), is_nrv=True)
+        cdf.add_variable("labels", values=np.array([["Bx", "By", "Bz"]]), is_nrv=True)
+        self.assertEqual(cdf["energy"].shape, (1, 3))
+        self.assertEqual(cdf["labels"].shape, (1, 3, 2))
+
+    def test_record_varying_variables_are_unchanged(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("v", values=["Bx", "By", "Bz"], data_type=pycdfpp.DataType.CDF_CHAR)
+        self.assertEqual(cdf["v"].shape, (3, 2))
 
 
 if __name__ == '__main__':
