@@ -48,7 +48,11 @@ inline int64_t tai_minus_utc_before_1972(int64_t utc_ns_from_1970)
         [utc_ns_from_1970](const auto& period) { return period.start_ns_from_1970 <= utc_ns_from_1970; });
     const auto day = utc_ns_from_1970 / day_ns - (utc_ns_from_1970 % day_ns < 0 ? 1 : 0);
     const double mjd_at_noon = static_cast<double>(day) + 40587.0 + 0.5;
-    return static_cast<int64_t>((p.base + (mjd_at_noon - p.mjd_ref) * p.rate) * 1e9);
+    // volatile rounds the product before the sum, as NASA's library does: compilers targeting
+    // FMA hardware (every aarch64 build) would otherwise fuse them, rounding once, and land 1 ns
+    // off around truncation boundaries.
+    const volatile double drift = (mjd_at_noon - p.mjd_ref) * p.rate;
+    return static_cast<int64_t>((p.base + drift) * 1e9);
 }
 
 inline int64_t leap_second_branchless(int64_t ns_from_1970)
