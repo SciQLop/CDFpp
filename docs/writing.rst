@@ -5,6 +5,8 @@ Writing files
 This guide shows how to build a CDF file from scratch, and how to edit an existing one.
 It is written for people who produce data: instrument teams, ground segments, archives.
 
+If your mission provides a master CDF, start from it instead: see :doc:`masters`.
+
 If you have not read it yet, :doc:`concepts` explains records, attributes and types.
 Once you know how to write a file, :doc:`istp` shows how to make it follow the ISTP
 conventions, so every tool can read it.

@@ -46,7 +46,8 @@ What do you want to do?
         You work on a ground segment or instrument team. You need to write clean,
         ISTP-compliant CDF files that other people and tools can read.
 
-        Read :doc:`concepts`, then :doc:`writing` and :doc:`istp`.
+        Read :doc:`concepts`, then :doc:`writing` and :doc:`istp`. Have a master CDF?
+        See :doc:`masters`.
 
     .. grid-item-card:: ⚙️ Use CDFpp from C++
         :link: cpp
@@ -103,6 +104,7 @@ Why CDFpp?
    :caption: Producing files
 
    writing
+   masters
    istp
    compression
 

@@ -25,6 +25,8 @@ Unreleased
 * ``CDF.filter``: a criterion left out keeps everything. **Behavior change**: before,
   ``filter(variables=[...])`` dropped every global attribute.
 * Values given to a non-record-varying variable are its single record.
+* Filling the empty variables of a master CDF no longer warns about overriding values, and
+  scalars declared with records of shape ``(1,)`` accept plain 1-D arrays.
 * C++: headers can be included from several source files; CDFpp works as a Meson
   subproject; ``meson install`` installs the whole header tree, ``libcdfpp`` and a
   ``cdfpp.pc`` file; ``io::load("file.cdf", true, false)`` loads the file.
