@@ -1014,7 +1014,8 @@ def _(cdf: CDF) -> dict:
 
 def default_pad_value(cdf_type: DataType):
     """
-    Returns a default padding value for the given CDF data type.
+    Returns the default pad value for the given CDF data type (CDF User's Guide, table 2.8):
+    the value of records a file doesn't store, when it declares no pad value of its own.
     """
     if cdf_type in (DataType.CDF_INT1, DataType.CDF_BYTE):
         return np.int8(-127)
@@ -1035,7 +1036,7 @@ def default_pad_value(cdf_type: DataType):
     if cdf_type in (DataType.CDF_REAL8, DataType.CDF_DOUBLE):
         return np.float64(-1e30)
     if cdf_type in (DataType.CDF_CHAR, DataType.CDF_UCHAR):
-        return b'\x00'
+        return b' '
     if cdf_type == DataType.CDF_TIME_TT2000:
         return tt2000_t(-9223372036854775807)
     if cdf_type == DataType.CDF_EPOCH:

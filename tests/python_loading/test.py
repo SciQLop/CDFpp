@@ -435,5 +435,46 @@ class PycdfLoadErrorsTest(unittest.TestCase):
         self.assertIn("var", cdf)
 
 
+# Every record as NASA's CDF library 3.9.2 returns it (raw bytes, hex), missing records included:
+# generated with tests/resources/make_sparse_records.c; oracle = CDFgetzVarRecordData.
+NASA_RECORDS = {
+    "pad_explicit": ['00002041', '0000c03f', '0000c03f', '0000f041', '0000c03f', '00004842'],
+    "pad_with_fillval": ['00002041', '7c6ffcf2', '7c6ffcf2', '0000f041', '7c6ffcf2', '00004842'],
+    "prev": ['07000000', '07000000', '16000000', '16000000', '2c000000'],
+    "prev_with_fillval": ['9dffffff', '9dffffff', '16000000', '16000000', '2c000000'],
+    "default_double": ['000000000000f03f', 'ea8ca039593e29c6', '0000000000000840'],
+    "default_uint2": ['0100', 'feff', '0300'],
+    "default_char": ['616263', '200000', '78797a'],
+    "default_tt2000": ['0000000000000000', '0100000000000080', '0200000000000000'],
+    "default_epoch": ['0000a4b5e6fccc42', '0000000000000000', '0000a4b5e6fccc42'],
+    "compressed_pad": ['00002041', '00002040', '00002040', '0000f041'],
+    "no_sparse_gap": ['00002041', 'caf249f1', 'caf249f1', '0000f041'],
+    "testutf8.cdf:Temp": ['00005e42caf249f133338542', 'caf249f1caf249f1caf249f1', 'caf249f1caf249f1caf249f1', 'caf249f1caf249f1caf249f1', 'caf249f1caf249f1caf249f1', '3daa26444871424452385e44', 'caf249f1caf249f1caf249f1', 'caf249f1caf249f1caf249f1', 'caf249f1caf249f1caf249f1', 'caf249f1caf249f1caf249f1', '0000c1420000c3420000c542', '0000c9423333dd426666f142', '008048439a99524333b35c43'],
+}
+
+
+class PycdfMissingRecords(unittest.TestCase):
+    """Records a file doesn't store are filled like NASA's library does: with the previous
+    record (previous-missing sparse records), else FILLVAL, else the pad value."""
+    RESOURCES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "resources")
+
+    def _records(self, var):
+        data = np.ascontiguousarray(var.values).tobytes()
+        size = len(data) // len(var)
+        return [data[i * size:(i + 1) * size].hex() for i in range(len(var))]
+
+    def test_matches_nasa_library(self):
+        for lazy_load in (True, False):
+            files = {f: pycdfpp.load(os.path.join(self.RESOURCES, f), lazy_load=lazy_load)
+                     for f in ("sparse_records.cdf", "testutf8.cdf")}
+            for key, expected in NASA_RECORDS.items():
+                path, _, name = key.rpartition(":")
+                with self.subTest(variable=key, lazy_load=lazy_load):
+                    self.assertEqual(self._records(files[path or "sparse_records.cdf"][name]), expected)
+
+    def test_default_pad_value_of_strings_is_a_space(self):
+        self.assertEqual(pycdfpp.default_pad_value(pycdfpp.DataType.CDF_CHAR), b" ")
+
+
 if __name__ == '__main__':
     unittest.main()
