@@ -8,6 +8,8 @@ on:
       - 'include/**'
       - 'meson.build'
       - '.github/workflows/gh-pages.yml'
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
@@ -18,7 +20,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write  # attach the module to releases
     steps:
       - uses: actions/checkout@v7
 
@@ -67,10 +69,35 @@ jobs:
           cp build_wasm/wacdfpp/wacdfpp.html _site/index.html
           cp build_wasm64/wacdfpp/cdfpp64.js build_wasm64/wacdfpp/cdfpp64.wasm _site/
 
+      # The JavaScript module alone, for use in other web apps: a workflow artifact on every run,
+      # and a versioned download attached to each release.
+      - name: Package the JavaScript module
+        run: |
+          version=${{ github.event_name == 'release' && github.event.release.tag_name || 'dev' }}
+          mkdir -p cdfpp-wasm
+          cp build_wasm/wacdfpp/cdfpp.js build_wasm/wacdfpp/cdfpp.wasm \
+             build_wasm64/wacdfpp/cdfpp64.js build_wasm64/wacdfpp/cdfpp64.wasm \
+             wacdfpp/cdfpp.d.ts COPYING cdfpp-wasm/
+          zip -r "cdfpp-wasm-${version}.zip" cdfpp-wasm
+          echo "WASM_ZIP=cdfpp-wasm-${version}.zip" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: cdfpp-wasm
+          path: ${{ env.WASM_ZIP }}
+
+      - name: Attach the JavaScript module to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "$WASM_ZIP"
+
       - uses: actions/upload-pages-artifact@v5
+        if: github.event_name != 'release'
 
   deploy:
     needs: build
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     permissions:
       pages: write
