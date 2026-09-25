@@ -49,7 +49,6 @@ using cpp_utils::containers::no_init_vector;
 
 using namespace cdf;
 
-#include <pybind11/chrono.h>
 #include <pybind11/iostream.h>
 #include <pybind11/numpy.h>
 #include <pybind11/operators.h>
@@ -111,8 +110,7 @@ using py_cdf_attr_data_t = std::variant<std::monostate, std::string, no_init_vec
     no_init_vector<uint8_t>, no_init_vector<uint16_t>, no_init_vector<uint32_t>,
     no_init_vector<int8_t>, no_init_vector<int16_t>, no_init_vector<int32_t>,
     no_init_vector<int64_t>, no_init_vector<float>, no_init_vector<double>,
-    no_init_vector<tt2000_t>, no_init_vector<epoch>, no_init_vector<epoch16>,
-    no_init_vector<decltype(std::chrono::system_clock::now())>>;
+    no_init_vector<tt2000_t>, no_init_vector<epoch>, no_init_vector<epoch16>>;
 
 using string_or_buffer_t = std::variant<std::string, std::vector<tt2000_t>, std::vector<epoch>,
     std::vector<epoch16>, py::buffer>;

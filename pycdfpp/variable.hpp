@@ -41,7 +41,6 @@ using cpp_utils::containers::no_init_vector;
 #include <cdfpp_config.h>
 using namespace cdf;
 
-#include <pybind11/chrono.h>
 #include <pybind11/iostream.h>
 #include <pybind11/numpy.h>
 #include <pybind11/operators.h>

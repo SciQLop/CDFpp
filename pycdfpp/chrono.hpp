@@ -37,7 +37,6 @@ using cpp_utils::containers::no_init_vector;
 
 using namespace cdf;
 
-#include <pybind11/chrono.h>
 #include <pybind11/numpy.h>
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
@@ -48,6 +47,34 @@ using namespace cdf;
 #include <fmt/core.h>
 
 namespace py = pybind11;
+
+// A datetime.datetime argument, converted with _details::to_tp.
+struct py_datetime
+{
+    const PyObject* obj;
+};
+
+namespace pybind11::detail
+{
+template <>
+struct type_caster<py_datetime>
+{
+    PYBIND11_TYPE_CASTER(py_datetime, const_name("datetime.datetime"));
+
+    bool load(handle src, bool)
+    {
+        if (!PyDateTime_Check(src.ptr()))
+            return false;
+        value.obj = src.ptr();
+        return true;
+    }
+
+    static handle cast(const py_datetime& dt, return_value_policy, handle)
+    {
+        return py::handle(const_cast<PyObject*>(dt.obj)).inc_ref();
+    }
+};
+}
 
 namespace _details
 {
@@ -75,42 +102,56 @@ concept time_point_type = requires(T a) { a.time_since_epoch(); };
     return std::chrono::system_clock::time_point {} + std::chrono::nanoseconds(ns);
 }
 
+[[nodiscard]] inline std::chrono::microseconds utc_offset(const PyDateTime_DateTime* dt)
+{
+    auto offset = py::reinterpret_steal<py::object>(
+        PyObject_CallMethod(reinterpret_cast<PyObject*>(const_cast<PyDateTime_DateTime*>(dt)),
+            "utcoffset", nullptr));
+    if (!offset)
+        throw py::error_already_set();
+    if (offset.is_none())
+        return {};
+    return std::chrono::days { PyDateTime_DELTA_GET_DAYS(offset.ptr()) }
+    + std::chrono::seconds { PyDateTime_DELTA_GET_SECONDS(offset.ptr()) }
+    + std::chrono::microseconds { PyDateTime_DELTA_GET_MICROSECONDS(offset.ptr()) };
+}
+
+// Naive datetimes are UTC, whatever the machine's timezone; aware ones are shifted to UTC.
+// pybind11's own chrono caster is not used: it reads naive datetimes as local time.
 [[nodiscard]] inline auto to_tp(const PyDateTime_DateTime* dt)
 {
-    int year = PyDateTime_GET_YEAR(dt);
-    int month = PyDateTime_GET_MONTH(dt);
-    int day = PyDateTime_GET_DAY(dt);
-    int hour = PyDateTime_DATE_GET_HOUR(dt);
-    int minute = PyDateTime_DATE_GET_MINUTE(dt);
-    int second = PyDateTime_DATE_GET_SECOND(dt);
-    int micro = PyDateTime_DATE_GET_MICROSECOND(dt);
+    using namespace std::chrono;
+    const sys_days date = year_month_day { year { PyDateTime_GET_YEAR(dt) },
+        month { static_cast<unsigned>(PyDateTime_GET_MONTH(dt)) },
+        day { static_cast<unsigned>(PyDateTime_GET_DAY(dt)) } };
+    const auto wall_clock = date + hours { PyDateTime_DATE_GET_HOUR(dt) }
+        + minutes { PyDateTime_DATE_GET_MINUTE(dt) } + seconds { PyDateTime_DATE_GET_SECOND(dt) }
+        + microseconds { PyDateTime_DATE_GET_MICROSECOND(dt) };
+    const auto utc = dt->hastzinfo ? wall_clock - utc_offset(dt) : wall_clock;
+    return system_clock::time_point { duration_cast<system_clock::duration>(
+        utc.time_since_epoch()) };
+}
 
-    std::tm t = {};
-    t.tm_year = year - 1900;
-    t.tm_mon = month - 1;
-    t.tm_mday = day;
-    t.tm_hour = hour;
-    t.tm_min = minute;
-    t.tm_sec = second;
-    t.tm_isdst = -1; // Unknown DST
+[[nodiscard]] inline auto to_tp(const PyObject* dt)
+{
+    return to_tp(reinterpret_cast<const PyDateTime_DateTime*>(dt));
+}
 
-    // Warning: mktime uses local time. If your Python datetime is UTC,
-    // use timegm (Linux) or _mkgmtime (Windows).
-#ifdef _WIN32
-    std::time_t tt = _mkgmtime(&t);
-#else
-    std::time_t tt = timegm(&t);
-#endif
-
-    auto duration = std::chrono::seconds(tt) + std::chrono::microseconds(micro);
-    return std::chrono::system_clock::time_point(
-        std::chrono::duration_cast<std::chrono::system_clock::duration>(duration));
+// A naive datetime is already UTC: copying its fields is much faster than a round trip.
+[[nodiscard]] inline PyObject* to_utc_datetime(const PyObject* item)
+{
+    const auto* dt = reinterpret_cast<const PyDateTime_DateTime*>(item);
+    if (dt->hastzinfo)
+        return to_datetime(to_tp(dt));
+    return PyDateTime_FromDateAndTime(PyDateTime_GET_YEAR(dt), PyDateTime_GET_MONTH(dt),
+        PyDateTime_GET_DAY(dt), PyDateTime_DATE_GET_HOUR(dt), PyDateTime_DATE_GET_MINUTE(dt),
+        PyDateTime_DATE_GET_SECOND(dt), PyDateTime_DATE_GET_MICROSECOND(dt));
 }
 
 template <cdf_time_t time_t>
 [[nodiscard]] inline time_t from_datetime(const PyObject* dt)
 {
-    return cdf::to_cdf_time<time_t>(to_tp(reinterpret_cast<const PyDateTime_DateTime* const>(dt)));
+    return cdf::to_cdf_time<time_t>(to_tp(dt));
 }
 
 [[nodiscard]] inline PyObject* to_datetime(int64_t ns)
@@ -182,30 +223,10 @@ template <typename time_t>
     return py::array(py::dtype(dtype), {}, {}, &v);
 }
 
-[[nodiscard]] inline int64_t to_datetime64(const PyDateTime_DateTime* dt)
+[[nodiscard]] inline int64_t to_datetime64(const PyObject* dt)
 {
     using namespace std::chrono;
-
-    int y = PyDateTime_GET_YEAR(dt);
-    int m = PyDateTime_GET_MONTH(dt);
-    int d = PyDateTime_GET_DAY(dt);
-    int hh = PyDateTime_DATE_GET_HOUR(dt);
-    int mm = PyDateTime_DATE_GET_MINUTE(dt);
-    int ss = PyDateTime_DATE_GET_SECOND(dt);
-    int us = PyDateTime_DATE_GET_MICROSECOND(dt);
-
-    auto date = year_month_day { year { y }, month { static_cast<unsigned>(m) },
-        day { static_cast<unsigned>(d) } };
-    sys_days tp_days = date;
-
-    auto tp = tp_days + hours { hh } + minutes { mm } + seconds { ss } + microseconds { us };
-
-    return duration_cast<nanoseconds>(tp.time_since_epoch()).count();
-}
-
-[[nodiscard]] inline int64_t to_datetime64(const PyObject* o)
-{
-    return to_datetime64(reinterpret_cast<const PyDateTime_DateTime*>(o));
+    return duration_cast<nanoseconds>(_details::to_tp(dt).time_since_epoch()).count();
 }
 
 [[nodiscard]] inline py::object to_datetime64(const py_list_or_py_tuple auto& input)
@@ -276,10 +297,7 @@ template <typename time_t>
         {
             if (PyDateTime_Check(item))
             {
-                return PyDateTime_FromDateAndTime(PyDateTime_GET_YEAR(item),
-                    PyDateTime_GET_MONTH(item), PyDateTime_GET_DAY(item),
-                    PyDateTime_DATE_GET_HOUR(item), PyDateTime_DATE_GET_MINUTE(item),
-                    PyDateTime_DATE_GET_SECOND(item), PyDateTime_DATE_GET_MICROSECOND(item));
+                return _details::to_utc_datetime(item);
             }
             else
             {
@@ -420,17 +438,19 @@ template <typename time_t>
 }
 
 
-[[nodiscard]] inline auto to_epoch(const time_point_collection_t auto& tps)
+template <cdf_time_t time_t>
+[[nodiscard]] inline py::array_t<time_t> from_datetimes(const py_list_or_py_tuple auto& input)
 {
-    auto result = cdf::to_epoch(tps);
-    return py::array_t<epoch>(std::size(result), result.data());
-}
-
-[[nodiscard]] inline auto to_epoch16(
-    const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
-{
-    auto result = cdf::to_epoch16(tps);
-    return py::array_t<epoch16>(std::size(result), result.data());
+    auto result = py::array_t<time_t>(static_cast<py::ssize_t>(py::len(input)));
+    auto* out = result.mutable_data();
+    for (const PyObject* item : _details::ranges::py_list_or_tuple_view { input })
+    {
+        if (!PyDateTime_Check(item))
+            throw py::type_error(fmt::format("expected datetime.datetime items, got {}",
+                Py_TYPE(const_cast<PyObject*>(item))->tp_name));
+        *out++ = _details::from_datetime<time_t>(item);
+    }
+    return result;
 }
 
 
@@ -923,24 +943,22 @@ auto def_time_conversion_functions(auto& mod)
             py::arg { "values" }.noconvert());
 
         mod.def("to_tt2000",
-            [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_tt2000(tp); });
+            [](py_datetime dt) { return _details::from_datetime<tt2000_t>(dt.obj); });
 
         mod.def("to_tt2000",
             [](const py::array& input) -> py::object { return to_cdf_time_t<tt2000_t>(input); });
 
-        mod.def("to_epoch",
-            [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_epoch(tp); });
-        mod.def("to_epoch",
-            [](const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
-            { return to_epoch(tps); });
+        mod.def("to_epoch", [](py_datetime dt) { return _details::from_datetime<epoch>(dt.obj); });
+        mod.def("to_epoch", from_datetimes<epoch, py::list>, py::arg { "values" }.noconvert());
+        mod.def("to_epoch", from_datetimes<epoch, py::tuple>, py::arg { "values" }.noconvert());
         mod.def("to_epoch",
             [](const py::array& input) -> py::object { return to_cdf_time_t<epoch>(input); });
 
-        mod.def("to_epoch16",
-            [](decltype(std::chrono::system_clock::now()) tp) { return cdf::to_epoch16(tp); });
-        mod.def("to_epoch16",
-            [](const no_init_vector<decltype(std::chrono::system_clock::now())>& tps)
-            { return to_epoch16(tps); });
+        mod.def(
+            "to_epoch16", [](py_datetime dt) { return _details::from_datetime<epoch16>(dt.obj); });
+        mod.def("to_epoch16", from_datetimes<epoch16, py::list>, py::arg { "values" }.noconvert());
+        mod.def(
+            "to_epoch16", from_datetimes<epoch16, py::tuple>, py::arg { "values" }.noconvert());
         mod.def("to_epoch16",
             [](const py::array& input) -> py::object { return to_cdf_time_t<epoch16>(input); });
     }

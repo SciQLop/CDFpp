@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
-from datetime import datetime, timedelta
+import time
+from datetime import datetime, timedelta, timezone
 import numpy as np
 import unittest
 import pycdfpp
@@ -234,6 +235,42 @@ class PycdfChronoErrors(unittest.TestCase):
     def test_invalid_input(self):
         with self.assertRaises(ValueError):
             pycdfpp.to_datetime64(["not a datetime"])
+
+
+@unittest.skipUnless(hasattr(time, "tzset"), "needs time.tzset to change the local timezone")
+class PycdfDatetimeTimezones(unittest.TestCase):
+    """Naive datetimes are UTC, whatever the machine's timezone; aware ones are converted."""
+
+    def setUp(self):
+        self._tz = os.environ.get("TZ")
+        os.environ["TZ"] = "Asia/Tokyo"
+        time.tzset()
+
+    def tearDown(self):
+        os.environ["TZ"] = self._tz or "UTC"
+        time.tzset()
+
+    def _assert_is(self, cdf_times, expected):
+        np.testing.assert_array_equal(
+            np.asarray(pycdfpp.to_datetime64(cdf_times)).reshape(-1),
+            np.array([expected], dtype="datetime64[ns]"))
+
+    def test_naive_datetime_is_utc(self):
+        dt = datetime(2020, 1, 1, 12)
+        for convert in (pycdfpp.to_tt2000, pycdfpp.to_epoch, pycdfpp.to_epoch16):
+            with self.subTest(convert=convert.__name__):
+                self._assert_is(convert(dt), "2020-01-01T12:00")
+                self._assert_is(convert([dt]), "2020-01-01T12:00")
+        self._assert_is([dt], "2020-01-01T12:00")
+
+    def test_aware_datetime_is_converted_to_utc(self):
+        dt = datetime(2020, 1, 1, 14, tzinfo=timezone(timedelta(hours=2)))
+        for convert in (pycdfpp.to_tt2000, pycdfpp.to_epoch, pycdfpp.to_epoch16):
+            with self.subTest(convert=convert.__name__):
+                self._assert_is(convert(dt), "2020-01-01T12:00")
+                self._assert_is(convert([dt]), "2020-01-01T12:00")
+        self._assert_is([dt], "2020-01-01T12:00")
+        self.assertEqual(pycdfpp.to_datetime([dt]), [datetime(2020, 1, 1, 12)])
 
 
 class PycdfEpoch16Precision(unittest.TestCase):

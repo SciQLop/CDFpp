@@ -40,7 +40,6 @@
 
 using namespace cdf;
 
-#include <pybind11/chrono.h>
 #include <pybind11/iostream.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
