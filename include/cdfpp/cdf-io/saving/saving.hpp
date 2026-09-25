@@ -251,8 +251,7 @@ Greenbelt, Maryland 20771 USA
     }
 
 
-    template <typename T>
-    [[nodiscard]] bool impl_save(const CDF& cdf, T& writer)
+    [[nodiscard]] inline saving_context build_records(const CDF& cdf)
     {
         saving_context svg_ctx = make_saving_context(cdf);
         create_file_attributes_records(cdf, svg_ctx);
@@ -261,6 +260,13 @@ Greenbelt, Maryland 20771 USA
         link_records(svg_ctx);
         update_gdr(svg_ctx, eof);
         apply_compression(svg_ctx);
+        return svg_ctx;
+    }
+
+    template <typename T>
+    [[nodiscard]] bool impl_save(const CDF& cdf, T& writer)
+    {
+        auto svg_ctx = build_records(cdf);
         write_records(svg_ctx, writer);
         return true;
     }
@@ -268,10 +274,21 @@ Greenbelt, Maryland 20771 USA
 } // namespace
 
 
+// Every value is read and every record built before the file is opened: opening truncates it,
+// and a lazily loaded CDF may still be reading its values from that very file. Writing needs
+// all values anyway, so this doesn't raise peak memory.
+// Returns false when the file can't be opened or written.
 [[nodiscard]] inline bool save(const CDF& cdf, const std::string& path)
 {
+    for (const auto& [_, variable] : cdf.variables)
+        variable.load_values();
+    auto svg_ctx = saving::build_records(cdf);
     buffers::file_writer writer { path };
-    return saving::impl_save(cdf, writer);
+    if (!writer.is_open())
+        return false;
+    saving::write_records(svg_ctx, writer);
+    writer.os.flush();
+    return !writer.os.fail();
 }
 
 [[nodiscard]] inline no_init_vector<char> save(const CDF& cdf)

@@ -12,6 +12,7 @@
 
 
 #include <chrono>
+#include <filesystem>
 
 
 #include "cdfpp/attribute.hpp"
@@ -346,4 +347,39 @@ SCENARIO("Every compiled-in codec round-trips through save and reload", "[CDF]")
             REQUIRE(reloaded->compression == codec);
         }
     }
+}
+
+SCENARIO("Saving a lazily loaded CDF over its own file", "[CDF]")
+{
+    // Lazy variables read their values from the file when needed; saving over that file
+    // must not destroy them before they are read.
+    for (const std::string fixture : { "a_cdf.cdf", "a_cdf_with_compressed_vars.cdf" })
+    {
+        GIVEN(fixture + " loaded lazily from a copy")
+        {
+            const auto source = std::string(DATA_PATH) + "/" + fixture;
+            const auto copy = std::filesystem::temp_directory_path() / ("cdfpp_overwrite_" + fixture);
+            std::filesystem::copy_file(
+                source, copy, std::filesystem::copy_options::overwrite_existing);
+            const auto reference = cdf::io::load(source, true, false);
+            auto lazy = cdf::io::load(copy.string());
+            REQUIRE(reference != std::nullopt);
+            REQUIRE(lazy != std::nullopt);
+
+            THEN("saving it over that copy keeps every value")
+            {
+                REQUIRE(cdf::io::save(*lazy, copy.string()));
+                const auto reloaded = cdf::io::load(copy.string(), true, false);
+                REQUIRE(reloaded != std::nullopt);
+                REQUIRE(*reloaded == *reference);
+            }
+            std::filesystem::remove(copy);
+        }
+    }
+}
+
+SCENARIO("Saving to a path that can't be written reports a failure", "[CDF]")
+{
+    const auto path = std::filesystem::temp_directory_path() / "cdfpp_missing_dir" / "out.cdf";
+    REQUIRE_FALSE(cdf::io::save(CDF {}, path.string()));
 }

@@ -3,6 +3,8 @@
 import os
 from datetime import datetime, timedelta
 from tempfile import NamedTemporaryFile
+import tempfile
+import shutil
 import numpy as np
 import math
 import unittest
@@ -275,6 +277,29 @@ class PycdfStandardCodecsTest(unittest.TestCase):
             with self.subTest(codec=codec), warnings.catch_warnings():
                 warnings.simplefilter("error")
                 pycdfpp.save(cdf_with_one_variable(codec))
+
+
+class PycdfSaveOverSourceTest(unittest.TestCase):
+    RESOURCES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "resources")
+
+    def test_saving_a_lazily_loaded_cdf_over_its_file_keeps_the_data(self):
+        for fixture in ("a_cdf.cdf", "a_cdf_with_compressed_vars.cdf"):
+            with self.subTest(fixture=fixture), tempfile.TemporaryDirectory() as tmp:
+                path = os.path.join(tmp, fixture)
+                shutil.copyfile(os.path.join(self.RESOURCES, fixture), path)
+                reference = pycdfpp.load(path, lazy_load=False)
+                cdf = pycdfpp.load(path)
+                cdf.add_attribute("edited", ["yes"])
+                self.assertTrue(pycdfpp.save(cdf, path))
+                reloaded = pycdfpp.load(path, lazy_load=False)
+                self.assertEqual(reloaded.attributes["edited"][0], "yes")
+                for name in reference:
+                    np.testing.assert_array_equal(reloaded[name].values, reference[name].values)
+
+    def test_saving_to_an_unwritable_path_raises(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(OSError):
+                pycdfpp.save(pycdfpp.CDF(), os.path.join(tmp, "missing_dir", "out.cdf"))
 
 
 if __name__ == '__main__':

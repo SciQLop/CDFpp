@@ -782,22 +782,30 @@ def _warn_if_experimental_compression(cdf: CDF):
                       ExperimentalCompressionWarning, stacklevel=3)
 
 
-def save(cdf: CDF, fname: str or None = None):
+def save(cdf: CDF, fname: Union[str, os.PathLike, None] = None):
     """
     Save a CDF to a file, or to memory.
+
+    Saving over the file the CDF was loaded from is safe, even with lazy loading: every
+    value is read before the file is overwritten.
 
     Parameters
     ----------
     cdf : CDF
         The CDF to save.
-    fname : str, optional
+    fname : str or os.PathLike, optional
         Destination file name. When omitted, the CDF is serialized in memory.
 
     Returns
     -------
     bool or buffer
-        True on success when saving to a file; otherwise an object implementing the buffer protocol
+        True when saving to a file; otherwise an object implementing the buffer protocol
         (e.g. ``bytes(pycdfpp.save(cdf))``).
+
+    Raises
+    ------
+    OSError
+        When the file can't be written.
 
     Warns
     -----
@@ -805,7 +813,12 @@ def save(cdf: CDF, fname: str or None = None):
         When the CDF or one of its variables uses zstd_compression or blosc2_compression.
     """
     _warn_if_experimental_compression(cdf)
-    return _pycdfpp.save(cdf) if fname is None else _pycdfpp.save(cdf, fname)
+    if fname is None:
+        return _pycdfpp.save(cdf)
+    path = os.fspath(fname)
+    if not _pycdfpp.save(cdf, path):
+        raise OSError(f"could not write the CDF file '{path}'")
+    return True
 
 
 def load(file_or_buffer: str or ByteString, iso_8859_1_to_utf8: bool = True, lazy_load: bool = True):
