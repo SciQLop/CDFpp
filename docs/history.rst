@@ -5,8 +5,8 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
-Unreleased
-----------
+0.13.1 (2026-09-26)
+-------------------
 
 * Records a file doesn't store (sparse records, gaps) are read as NASA's library reads
   them: the previous record for "previous" sparse records, else ``FILLVAL``, else the
