@@ -1,5 +1,9 @@
 
-simd_deps = []
+# Read by the top-level meson.build: what goes into the compiled cdfpp library.
+cdfpp_no_simd = true
+cdfpp_simd_sources = []
+cdfpp_simd_libs = []
+cdfpp_simd_args = []
 
 
 if target_machine.cpu_family() == 'x86_64'
@@ -48,7 +52,7 @@ if target_machine.cpu_family() == 'x86_64'
         x86_vectorized_libs += [
             static_library('cdfpp_x86_vectorized_'+arch['name'],
                 files('../src/arch/x86/chrono_arch.cpp'),
-                include_directories : include_directories('../include'),
+                include_directories : include_directories('../include', '..'),
                 cpp_args : arch['flags'] + [enable_arch_def, '-DCDFPP_ARCH='+arch['xsimd_name']],
                 dependencies : [xsimd_dep, hedley_dep, fmt_dep, cpp_utils_dep],
                 )
@@ -59,18 +63,10 @@ if target_machine.cpu_family() == 'x86_64'
 
     xsimd_arch_list = 'xsimd::arch_list<' + ', '.join(xsimd_arch_list) + '>'
 
-    x86_vectorized_dep = declare_dependency(
-        sources : files('../src/arch/x86/chrono.cpp'),
-        link_with : x86_vectorized_libs,
-        compile_args : x86_vectorized_defs + ['-DCDFPP_XSIMD_ARCH_LIST=@0@'.format(xsimd_arch_list)],
-        dependencies : [xsimd_dep, fmt_dep, hedley_dep, cpp_utils_dep],
-    )
-    simd_deps += [x86_vectorized_dep]
-
-elif target_machine.cpu_family() == 'aarch64'
-# investigate later if we can have gains with SIMD on ARM architectures
-    add_project_arguments('-DCDFPP_NO_SIMD', language : ['cpp'])
-else
-# investigate too WASM SIMD support and benefits
-    add_project_arguments('-DCDFPP_NO_SIMD', language : ['cpp'])
+    cdfpp_no_simd = false
+    cdfpp_simd_sources = files('../src/arch/x86/chrono.cpp')
+    cdfpp_simd_libs = x86_vectorized_libs
+    cdfpp_simd_args = x86_vectorized_defs + ['-DCDFPP_XSIMD_ARCH_LIST=@0@'.format(xsimd_arch_list)]
 endif
+# Other architectures (aarch64, WebAssembly) use the scalar conversions: SIMD gains there are
+# still to be investigated.

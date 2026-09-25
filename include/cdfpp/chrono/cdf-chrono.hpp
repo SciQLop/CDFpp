@@ -35,6 +35,7 @@ using cpp_utils::containers::no_init_vector;
 
 #include <algorithm>
 #include <array>
+#include <cdfpp_config.h>
 #include <chrono>
 #include <cmath>
 #include <span>

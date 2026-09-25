@@ -33,6 +33,7 @@
 
 #include <cpp_utils/reflexion/enum_name.hpp>
 
+#include <cdfpp_config.h>
 #include "cdf-helpers.hpp"
 
 namespace cdf

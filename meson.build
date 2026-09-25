@@ -7,7 +7,7 @@ project(
                         env:{'SRC_ROOT':meson.project_source_root()}
                         ).stdout().strip() ,
   default_options : ['warning_level=3', 'cpp_std=c++20', 'default_library=static', 'buildtype=release'],
-  license : 'GPL3'
+  license : 'MIT'
 )
 
 if get_option('buildtype').contains('debug')
@@ -34,18 +34,18 @@ else
     conf_data.set('CDFpp_LITTLE_ENDIAN', true)
     conf_data.set('CDFpp_ENCODING', 'cdf_encoding::IBMPC')
 endif
-configure_file(output : 'cdfpp_config.h',
-               install : true,
-               install_dir : 'include/cdfpp',
-               configuration : conf_data)
-
 cpp = meson.get_compiler('cpp')
-if('clang'==cpp.get_id())
-    add_global_arguments('-fsized-deallocation', language : 'cpp')
-    add_global_arguments('-fvisibility=hidden', language : 'cpp')
-endif
-if('gcc'==cpp.get_id())
-    add_global_arguments('-fvisibility=hidden', language : 'cpp')
+# Global so that the static dependencies linked into the Python module (fmt, libdeflate, ...)
+# don't export their symbols either. Meson forbids global arguments in subprojects: there, the
+# parent project decides.
+if not meson.is_subproject()
+    if('clang'==cpp.get_id())
+        add_global_arguments('-fsized-deallocation', language : 'cpp')
+        add_global_arguments('-fvisibility=hidden', language : 'cpp')
+    endif
+    if('gcc'==cpp.get_id())
+        add_global_arguments('-fvisibility=hidden', language : 'cpp')
+    endif
 endif
 
 
@@ -127,7 +127,7 @@ cdfpp_headers = files(
 )
 
 if get_option('with_experimental_zstd')
-    add_project_arguments('-DCDFPP_USE_ZSTD', language : ['cpp'])
+    conf_data.set('CDFPP_USE_ZSTD', true)
     # Library only: CDFpp uses zstd's single-shot API. Multithreading adds -pthread, which breaks
     # emscripten builds (web app, Pyodide wheels); the CLI programs (and the zlib/lzma/lz4 they
     # link) would otherwise be installed into the Python wheels.
@@ -140,7 +140,7 @@ else
 endif
 
 if get_option('with_experimental_blosc2')
-    add_project_arguments('-DCDFPP_USE_BLOSC2', language : ['cpp'])
+    conf_data.set('CDFPP_USE_BLOSC2', true)
     blosc2_dep = dependency('blosc2')
     cdfpp_headers += files(
         'include/cdfpp/cdf-io/blosc2.hpp'
@@ -150,6 +150,16 @@ else
 endif
 
 subdir('simd')
+if cdfpp_no_simd
+    conf_data.set('CDFPP_NO_SIMD', true)
+endif
+
+# The build options that change what the headers compile (codecs, SIMD) live in this header,
+# so code using an installed CDFpp, or CDFpp as a subproject, sees the same configuration.
+configure_file(output : 'cdfpp_config.h',
+               install : true,
+               install_dir : get_option('includedir'),
+               configuration : conf_data)
 
 
 pycdfpp_headers = files(
@@ -197,13 +207,32 @@ cdfpp_doc_extra_files =  files(
 
 cdfpp_dep_inc = include_directories('include', '.')
 
+# The compiled part of CDFpp: the SIMD time conversions on x86 (the rest is headers).
+cdfpp_libs = []
+if cdfpp_simd_sources.length() > 0
+    cdfpp_libs += static_library('cdfpp', cdfpp_simd_sources,
+        link_whole : cdfpp_simd_libs,
+        cpp_args : cdfpp_simd_args,
+        include_directories : cdfpp_dep_inc,
+        dependencies : [xsimd_dep, hedley_dep, fmt_dep, cpp_utils_dep],
+        install : true)
+endif
 
 cdfpp_dep = declare_dependency(include_directories: cdfpp_dep_inc,
-                                dependencies: [zlib_dep, hedley_dep, fmt_dep, zstd_dep, blosc2_dep, cpp_utils_dep] + [simd_deps],
+                                dependencies: [zlib_dep, hedley_dep, fmt_dep, zstd_dep, blosc2_dep, cpp_utils_dep],
+                                link_with : cdfpp_libs,
                                 link_args : link_args,
                                 compile_args : compile_args)
+meson.override_dependency('cdfpp', cdfpp_dep)
 
-if get_option('disable_python_wrapper')
+import('pkgconfig').generate(
+    name : 'cdfpp',
+    description : 'Read and write NASA CDF files (C++20)',
+    url : 'https://github.com/SciQLop/CDFpp',
+    libraries : cdfpp_libs,
+)
+
+if get_option('disable_python_wrapper') or meson.is_subproject()
     message('building without Python wrapper')
 else
     subdir('pycdfpp')
@@ -212,59 +241,7 @@ endif
 
 
 
-install_headers(
-[
-    'include/cdfpp/attribute.hpp',
-    'include/cdfpp/cdf-map.hpp',
-    'include/cdfpp/variable.hpp',
-    'include/cdfpp/cdf.hpp',
-    'include/cdfpp/cdf-helpers.hpp',
-    'include/cdfpp/cdf-repr.hpp',
-    'include/cdfpp/cdf-data.hpp',
-    'include/cdfpp/cdf-debug.hpp',
-    'include/cdfpp/cdf-enums.hpp',
-    'include/cdfpp/cdf-file.hpp'
-], subdir:'cdfpp')
-
-install_headers(
-[
-    'include/cdfpp/chrono/cdf-chrono.hpp',
-    'include/cdfpp/chrono/cdf-chrono-constants.hpp',
-    'include/cdfpp/chrono/cdf-leap-seconds.h',
-], subdir:'cdfpp/chrono')
-
-install_headers(
-[
-    'include/cdfpp/cdf-io/cdf-io.hpp',
-    'include/cdfpp/cdf-io/common.hpp',
-    'include/cdfpp/cdf-io/desc-records.hpp',
-    'include/cdfpp/cdf-io/decompression.hpp',
-    'include/cdfpp/cdf-io/compression.hpp',
-    'include/cdfpp/cdf-io/zlib.hpp',
-    'include/cdfpp/cdf-io/libdeflate.hpp',
-    'include/cdfpp/cdf-io/rle.hpp',
-    'include/cdfpp/cdf-io/majority-swap.hpp',
-    'include/cdfpp/cdf-io/endianness.hpp'
-], subdir:'cdfpp/cdf-io')
-
-install_headers(
-[
-    'include/cdfpp/cdf-io/loading/attribute.hpp',
-    'include/cdfpp/cdf-io/loading/buffers.hpp',
-    'include/cdfpp/cdf-io/loading/loading.hpp',
-    'include/cdfpp/cdf-io/loading/records-loading.hpp',
-    'include/cdfpp/cdf-io/loading/variable.hpp',
-], subdir:'cdfpp/cdf-io/loading')
-
-install_headers(
-[
-    'include/cdfpp/cdf-io/saving/saving.hpp',
-    'include/cdfpp/cdf-io/saving/records-saving.hpp',
-    'include/cdfpp/cdf-io/saving/buffers.hpp',
-    'include/cdfpp/cdf-io/saving/create_records.hpp',
-    'include/cdfpp/cdf-io/saving/layout_records.hpp',
-    'include/cdfpp/cdf-io/saving/link_records.hpp'
-], subdir:'cdfpp/cdf-io/saving')
+install_subdir('include/cdfpp', install_dir : get_option('includedir'))
 
 if get_option('with_experimental_wasm')
     subdir('wacdfpp')
