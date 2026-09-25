@@ -180,7 +180,10 @@ std::pair<data_t, typename Variable::shape_t> _numeric_to_nd_data_t(const py::bu
          * this would require to tie the buffer lifetime to the variable lifetime
          */
         no_init_vector<T> values(info.size);
-        std::memcpy(values.data(), info.ptr, info.size * sizeof(T));
+        {
+            py::gil_scoped_release release;
+            std::memcpy(values.data(), info.ptr, info.size * sizeof(T));
+        }
         return { data_t { std::move(values), data_type }, std::move(shape) };
     }
     else
@@ -210,7 +213,10 @@ std::pair<data_t, typename Variable::shape_t> _str_to_nd_data_t(const py::buffer
     shape[info.ndim] = info.itemsize;
     no_init_vector<from_cdf_type_t<data_type>> values(flat_size(shape));
     if (auto size = std::size(values); size != 0)
+    {
+        py::gil_scoped_release release;
         std::memcpy(values.data(), info.ptr, size);
+    }
     return { data_t { std::move(values), data_type }, std::move(shape) };
 }
 
@@ -577,8 +583,8 @@ void def_variable_wrapper(T& mod)
 {
     py::class_<Variable>(mod, "Variable", py::buffer_protocol(), docstrings::_Variable)
         .def("__repr__", __repr__<Variable>)
-        .def(py::self == py::self)
-        .def(py::self != py::self)
+        .def(py::self == py::self, py::call_guard<py::gil_scoped_release>())
+        .def(py::self != py::self, py::call_guard<py::gil_scoped_release>())
         .def("__len__", &Variable::len)
         .def_readonly(
             "attributes", &Variable::attributes, py::return_value_policy::reference_internal)

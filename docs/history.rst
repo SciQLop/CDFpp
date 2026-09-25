@@ -17,6 +17,8 @@ Unreleased
 * ``pycdfpp.default_pad_value`` returns a space for strings, as the CDF User's Guide says.
 * Threads reading the same lazily loaded variable at once no longer crash: the first read
   loads the values, the others wait for it. Before, they could get freed memory.
+* More operations let other Python threads run: copying values in ``set_values``, comparing
+  variables or CDFs (which may decompress them), and copying a CDF.
 
 0.13.0 (2026-09-25)
 -------------------

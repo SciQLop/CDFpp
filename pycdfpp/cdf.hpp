@@ -81,13 +81,15 @@ void def_cdf_wrapper(T& mod)
 {
     py::class_<CDF>(mod, "CDF", docstrings::_CDF)
         .def(py::init<>())
-        .def(py::self == py::self)
-        .def(py::self != py::self)
+        .def(py::self == py::self, py::call_guard<py::gil_scoped_release>())
+        .def(py::self != py::self, py::call_guard<py::gil_scoped_release>())
         .def(
             "__copy__", [](const CDF& cdf) -> CDF { return CDF(cdf); },
+            py::call_guard<py::gil_scoped_release>(),
             py::return_value_policy::move)
         .def(
-            "__deepcopy__", [](const CDF& cdf, py::dict) -> CDF { return CDF(cdf); },
+            "__deepcopy__", [](const CDF& cdf, const py::dict&) -> CDF { return CDF(cdf); },
+            py::call_guard<py::gil_scoped_release>(),
             py::return_value_policy::move)
         .def_readonly("attributes", &CDF::attributes, py::return_value_policy::reference,
             py::keep_alive<0, 1>())
