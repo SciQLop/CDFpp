@@ -1,17 +1,9 @@
-requests
-urllib3>=1.26.0
-packaging
 numpy
-python_dateutil
 matplotlib
-PyYAML
-sphinx!=5.2.0.post0, <8.0.0
-sphinx-rtd-theme
-argh
-numpydoc
-sphinx-gallery
+sphinx>=7,<9
+furo
+sphinx-design
+sphinx-copybutton
 nbsphinx
-ipympl
-ipywidgets
-sphinx-codeautolink
-sphinxcontrib-apidoc
+ipykernel
+numpydoc

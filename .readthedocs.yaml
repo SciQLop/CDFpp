@@ -12,6 +12,7 @@ build:
       - g++
       - ninja-build
       - cmake
+      - pandoc
    tools:
       python: "3.12"
       # You can also specify other tool versions:

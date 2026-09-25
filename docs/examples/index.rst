@@ -1,18 +1,18 @@
-PyCDFpp examples gallery
-========================
+==================
+Example notebooks
+==================
 
-Browse example folder on MyBinder:
+These Jupyter notebooks walk through reading and creating CDF files. Run them online,
+with nothing to install:
 
 .. image:: https://mybinder.org/badge_logo.svg
-   :target: https://mybinder.org/v2/gh/SciQLop/cdfpp/main?labpath=docs/examples
-
-Browse example folder on Google Colab:
+   :target: https://mybinder.org/v2/gh/SciQLop/CDFpp/main?labpath=docs/examples
 
 .. image:: https://colab.research.google.com/assets/colab-badge.svg
-   :target: https://colab.research.google.com/github/SciQLop/cdfpp
+   :target: https://colab.research.google.com/github/SciQLop/CDFpp
 
-.. nbgallery::
-   :glob:
+.. toctree::
+   :maxdepth: 1
 
-   ./Loading_CDF
-   ./Creating_CDF
+   Loading_CDF
+   Creating_CDF

@@ -1,6 +1,54 @@
-=======
-History
-=======
+=========
+Changelog
+=========
+
+The full notes of each release are on
+`GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
+
+0.12.0 (2026-09-24)
+-------------------
+
+* Experimental Blosc2 compression (``CompressionType.blosc2_compression``). Whole records
+  are shuffled when they fit Blosc2's typesize limit.
+* zstd and blosc2 ship in the Python wheels. Saving with them emits an
+  ``ExperimentalCompressionWarning``: only CDFpp can read such files.
+* CDFpp Explorer: convert a file to every codec in the browser; a 64-bit WebAssembly
+  build for files over 4 GiB; GitHub-style line diff in the compare view; renamed
+  variables detected.
+* Fix corrupted record offsets in saved files over 2 GiB.
+* Fix the zstd save path.
+* Explorer: clear errors and a memory check for large files.
+* Windows/MSVC build fixes.
+
+0.11.1 (2026-09-17)
+-------------------
+
+* Fix ``str()``/``repr()`` of pre-1970 time values on Windows.
+* Fix undefined behavior in ``cdf::to_time_point()`` for out-of-range time values.
+
+0.11.0 (2026-06-23)
+-------------------
+
+* Add ``Variable.is_zvariable``.
+* Add ``Variable.is_contiguous()``.
+
+0.10.0 (2026-06-19)
+-------------------
+
+* Pyodide / ``wasm32`` wheels on PyPI: ``pycdfpp`` installs with ``micropip`` in Pyodide
+  and JupyterLite.
+* WebAssembly wrapper (``wacdfpp``) and the `CDFpp Explorer <https://sciqlop.github.io/CDFpp/>`_.
+* Fix ``wasm32`` save corruption and several read/write correctness issues.
+
+0.9.3 (2026-04-10)
+------------------
+
+* Fix ``force=True`` being ignored in ``Variable.set_values()`` (#76).
+
+0.9.2 (2026-04-04)
+------------------
+
+* Fix Windows heap corruption and mmap locking; add Windows CI.
 
 0.9.1 (2026-04-03)
 ------------------

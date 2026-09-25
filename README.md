@@ -10,11 +10,13 @@
 
 A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nasa.gov/) (Common Data Format) with full Python bindings.
 
+📖 **[Documentation](https://pycdfpp.readthedocs.io/en/latest/)**: quickstart, guides for reading and for producing ISTP-compliant files, cookbook, and C++ guide. The examples run live in your browser.
+
 **Why another CDF library?** NASA's official C implementation has no multi-thread support (global shared state), an aging C89 interface, and a license incompatible with most Linux distribution policies. CDFpp solves all three: it is thread-safe, idiomatic C++20, and MIT-licensed.
 
 ### Highlights
 
-- **Header-only C++20 library** — just add the include path, no linking required
+- **C++20 library, mostly headers** — see the [C++ guide](https://pycdfpp.readthedocs.io/en/latest/cpp.html) for the compiler flags
 - **Complete read/write support** — CDF versions 2.2 through 3.x, row and column major, compressed files and variables (GZip, RLE)
 - **Python bindings (`pycdfpp`)** via pybind11 — zero-copy NumPy integration, GIL-free I/O
 - **SIMD-accelerated time conversions** — AVX512/AVX2/SSE2 runtime dispatch for TT2000, EPOCH, EPOCH16
@@ -60,13 +62,9 @@ The WebAssembly wrapper lives in [`wacdfpp/`](wacdfpp/) and ships TypeScript dec
 pip install pycdfpp
 ```
 
-### From source (C++ library)
+### C++ library
 
-```bash
-meson setup build
-ninja -C build
-sudo ninja -C build install
-```
+See [Adding CDFpp to your project](https://pycdfpp.readthedocs.io/en/latest/cpp.html#adding-cdfpp-to-your-project) in the C++ guide.
 
 ### From source (Python wheel)
 
@@ -156,9 +154,9 @@ cdf.add_variable("Epoch", values=times, data_type=pycdfpp.DataType.CDF_TIME_TT20
 cdf.add_variable("B_GSM",
     values=np.random.randn(24, 3).astype(np.float32),
     attributes={
-        "FIELDNAM": ["Magnetic Field"],
-        "UNITS": ["nT"],
-        "DEPEND_0": ["Epoch"],
+        "FIELDNAM": "Magnetic Field",
+        "UNITS": "nT",
+        "DEPEND_0": "Epoch",
     })
 
 # Save to disk

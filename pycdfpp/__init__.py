@@ -227,13 +227,16 @@ def _patch_set_values():
         force : bool, optional
             If True, allows to overwrite existing values even if the shape or data type do not match.
             (Default is False)
+
         Returns
         -------
         None
+
         Raises
         ------
         ValueError
             If the shape or data type do not match and force is False.
+
         Examples
         --------
         >>> from pycdfpp import CDF, DataType
@@ -241,10 +244,10 @@ def _patch_set_values():
         >>> cdf = CDF()
         >>> cdf.add_variable("var1")
         var1:
-            shape: [  ]
-            type: CDF_NONE
-            record vary: True
-            compression: None
+          shape: [  ]
+          type: CDF_NONE
+          record vary: True
+          compression: None
           ...
         >>> # Setting values with numpy array
         >>> cdf["var1"].set_values(np.arange(10, 20, dtype=np.int32))
@@ -595,6 +598,7 @@ def filter_cdf(cdf: CDF,
                attributes: Union[List[str], str, re.Pattern, Callable[[Attribute], bool]]= None,
                inplace=False) -> CDF:
     """Filters the CDF object based on the provided criteria.
+
     Parameters
     ----------
     cdf : CDF
@@ -607,6 +611,7 @@ def filter_cdf(cdf: CDF,
         If None (default), no attributes are kept.
     inplace : bool, optional
         If True, modifies the original CDF object. If False, returns a new filtered CDF object. (Default is False)
+
     Returns
     -------
     CDF
@@ -660,8 +665,8 @@ to convert to numpy.datetime64
     TypeError or IndexError
         If the input values are not compatible time types.
 
-    Note
-    ----
+    Notes
+    -----
     On modern x86_64 systems, it will use the CPU's vectorized instructions to perform the conversion even faster.
     """
     return _pycdfpp.to_datetime64(values)

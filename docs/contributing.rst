@@ -85,8 +85,9 @@ Before you submit a pull request, check that it meets these guidelines:
 
 1. The pull request should include tests.
 2. If the pull request adds functionality, the docs should be updated. Put
-   your new functionality into a function with a docstring, and add the
-   feature to the list in README.rst.
+   your new functionality into a function with a docstring, and document it
+   in the relevant page under ``docs/``. Run ``python docs/check_examples.py``
+   to check that every Python example in the docs still runs.
 3. The pull request should work for Python 3.9 and above. Check
    https://github.com/SciQLop/cdfpp/actions
    and make sure that the tests pass for all supported Python versions.
@@ -96,11 +97,11 @@ Deploying
 ---------
 
 A reminder for the maintainers on how to deploy.
-Make sure all your changes are committed (including an entry in HISTORY.rst).
+Make sure all your changes are committed (including an entry in ``docs/history.rst``).
 Then run::
 
-$ bumpversion patch # possible: major / minor / patch
+$ bump-my-version bump patch # possible: major / minor / patch
 $ git push
 $ git push --tags
 
-GH Actions will then deploy to PyPI if tests pass.
+Then publish a GitHub release for the new tag. GH Actions deploys to PyPI if the tests pass.
