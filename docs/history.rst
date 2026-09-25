@@ -31,6 +31,7 @@ Unreleased
   subproject; ``meson install`` installs the whole header tree, ``libcdfpp`` and a
   ``cdfpp.pc`` file; ``io::load("file.cdf", true, false)`` loads the file.
 * ``cdfdump``/``cdfirsdump --help`` show every option's full description.
+* Documentation: new pages for master CDFs and for the JavaScript (WebAssembly) module.
 
 0.12.0 (2026-09-24)
 -------------------

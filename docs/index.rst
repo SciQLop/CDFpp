@@ -114,6 +114,7 @@ Why CDFpp?
 
    cli
    explorer
+   wasm
    cpp
 
 .. toctree::

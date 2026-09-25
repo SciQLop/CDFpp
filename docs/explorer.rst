@@ -82,7 +82,6 @@ memory they need. For those, use ``pycdfpp`` from Python.
 Using CDFpp in your own web app
 ===============================
 
-The WebAssembly module behind the Explorer can be embedded in other web applications.
-It reads and writes CDF files, with zero-copy typed arrays. See the
-`wacdfpp directory <https://github.com/SciQLop/CDFpp/tree/main/wacdfpp>`_; it ships
-TypeScript declarations in ``cdfpp.d.ts``.
+The WebAssembly module behind the Explorer can be embedded in other web applications,
+or used from Node.js. It reads CDF files into zero-copy typed arrays, and saves them with
+any codec. See :doc:`wasm`.
