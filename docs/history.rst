@@ -5,8 +5,8 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
-Unreleased
-----------
+0.13.0 (2026-09-25)
+-------------------
 
 * Saving a lazily loaded CDF over its own file no longer destroys it: ``save`` reads every
   value before opening the file. ``io::save`` returns ``false`` and ``pycdfpp.save`` raises
