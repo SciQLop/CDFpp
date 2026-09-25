@@ -644,3 +644,21 @@ SCENARIO("make_shared_array_adapter ownership semantics", "[CDF]")
         }
     }
 }
+
+SCENARIO("A string literal path picks the file overload of io::load", "[CDF]")
+{
+    // Without a dedicated overload, load("file.cdf", true, false) bound to
+    // load(const char* data, std::size_t size, ...) with size == 1, and silently failed.
+    THEN("load(literal, iso_8859_1_to_utf8, lazy_load) reads the file")
+    {
+        REQUIRE(cdf::io::load(DATA_PATH "/a_cdf.cdf", true, false) != std::nullopt);
+        REQUIRE(cdf::io::load(DATA_PATH "/a_cdf.cdf", true, true) != std::nullopt);
+        REQUIRE(cdf::io::load(DATA_PATH "/a_cdf.cdf", false) != std::nullopt);
+        REQUIRE(cdf::io::load(DATA_PATH "/a_cdf.cdf") != std::nullopt);
+    }
+    THEN("a pointer and a size still pick the in-memory overload")
+    {
+        std::vector<char> garbage(64, 0);
+        REQUIRE(cdf::io::load(garbage.data(), garbage.size()) == std::nullopt);
+    }
+}

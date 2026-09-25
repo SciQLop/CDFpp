@@ -198,6 +198,15 @@ namespace
     return std::nullopt;
 }
 
+// A string literal is a path. Without this overload, load("file.cdf", true, false) would bind
+// to load(const char* data, std::size_t size, ...) with size == 1.
+template <std::size_t N>
+[[nodiscard]] inline std::optional<CDF> load(
+    const char (&path)[N], bool iso_8859_1_to_utf8 = true, bool lazy_load = true)
+{
+    return load(std::string { path }, iso_8859_1_to_utf8, lazy_load);
+}
+
 [[nodiscard]] inline std::optional<CDF> load(
     const std::vector<char>& data, bool iso_8859_1_to_utf8 = true, bool lazy_load = false)
 {
