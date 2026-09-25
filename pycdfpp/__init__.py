@@ -221,6 +221,18 @@ def _as_single_record(values):
     return [list(values)] if len(values) > 1 else values
 
 
+def _add_trailing_unit_dims(values, record_shape):
+    """Records declared with trailing dimensions of size 1, like the (1,) scalars of many
+    master CDFs, accept values that leave them out: (N,) fills a variable of records (1,)."""
+    if not isinstance(values, np.ndarray) or values.dtype.kind in "USO":
+        return values
+    missing = len(record_shape) - (values.ndim - 1)
+    known = tuple(record_shape[:values.ndim - 1])
+    if missing > 0 and values.shape[1:] == known and tuple(record_shape[values.ndim - 1:]) == (1,) * missing:
+        return values.reshape(values.shape + (1,) * missing)
+    return values
+
+
 def _patch_set_values():
     def _set_values_wrapper(self, values, data_type=None, force=False):
         """Sets or resets the values of the variable.
@@ -267,6 +279,8 @@ def _patch_set_values():
             return self._set_values(values, force=force)
         if self.is_nrv:
             values = _as_single_record(values)
+        if self.type != DataType.CDF_NONE and not force:
+            values = _add_trailing_unit_dims(values, self.shape[1:])
         return self._set_values(values, data_type=data_type, force=force)
 
     # Removed python injected wrappers, the logic is now implemented in C++

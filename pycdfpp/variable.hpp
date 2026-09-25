@@ -611,7 +611,8 @@ void def_variable_wrapper(T& mod)
             [](Variable& var, const py::array& values, std::optional<CDF_Types> data_type,
                 bool force)
             {
-                if (not force and var.type() != CDF_Types::CDF_NONE)
+                // Filling an empty variable (e.g. from a master CDF) overrides nothing.
+                if (not force and var.type() != CDF_Types::CDF_NONE and var.len() > 0)
                 {
                     py::warnings::warn(
                         "Overriding existing variable values without force=True is deprecated and "
@@ -629,7 +630,8 @@ void def_variable_wrapper(T& mod)
             [](Variable& var, const py::list& values, std::optional<CDF_Types> data_type,
                 bool force)
             {
-                if (not force and var.type() != CDF_Types::CDF_NONE)
+                // Filling an empty variable (e.g. from a master CDF) overrides nothing.
+                if (not force and var.type() != CDF_Types::CDF_NONE and var.len() > 0)
                 {
                     py::warnings::warn(
                         "Overriding existing variable values without force=True is deprecated and "
@@ -647,7 +649,8 @@ void def_variable_wrapper(T& mod)
             [](Variable& var, const py::tuple& values, std::optional<CDF_Types> data_type,
                 bool force)
             {
-                if (not force and var.type() != CDF_Types::CDF_NONE)
+                // Filling an empty variable (e.g. from a master CDF) overrides nothing.
+                if (not force and var.type() != CDF_Types::CDF_NONE and var.len() > 0)
                 {
                     py::warnings::warn(
                         "Overriding existing variable values without force=True is deprecated and "

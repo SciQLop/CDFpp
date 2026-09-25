@@ -3,6 +3,7 @@
 import os
 from datetime import datetime, timedelta
 from tempfile import NamedTemporaryFile
+import warnings
 import numpy as np
 import math
 import unittest
@@ -417,6 +418,43 @@ class PycdfNrvValuesAreOneRecord(unittest.TestCase):
         cdf = pycdfpp.CDF()
         cdf.add_variable("v", values=["Bx", "By", "Bz"], data_type=pycdfpp.DataType.CDF_CHAR)
         self.assertEqual(cdf["v"].shape, (3, 2))
+
+
+class PycdfFillingAMasterCDF(unittest.TestCase):
+    """A master CDF holds empty variables to fill: filling them is not overriding values."""
+    MASTER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "resources",
+                          "ac_h0_mfi_00000000_v01.cdf")
+
+    def setUp(self):
+        self.master = pycdfpp.load(self.MASTER)
+        self.time = np.arange("2024-01-01", "2024-01-01T00:01", np.timedelta64(16, "s"),
+                              dtype="datetime64[ns]")
+
+    def test_filling_empty_variables_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            self.master["Epoch"].set_values(pycdfpp.to_epoch(self.time))
+            self.master["BGSEc"].set_values(np.ones((len(self.time), 3), dtype=np.float32))
+        self.assertEqual(self.master["BGSEc"].shape, (len(self.time), 3))
+
+    def test_scalar_records_accept_1d_values(self):
+        # Many masters declare scalar variables with records of shape (1,): (0, 1) when empty.
+        self.master["Epoch"].set_values(pycdfpp.to_epoch(self.time))
+        self.master["Magnitude"].set_values(np.arange(len(self.time), dtype=np.float32))
+        self.assertEqual(self.master["Epoch"].shape, (len(self.time), 1))
+        self.assertEqual(self.master["Magnitude"].shape, (len(self.time), 1))
+        saved = pycdfpp.load(bytes(pycdfpp.save(self.master)), lazy_load=False)
+        np.testing.assert_array_equal(saved["Magnitude"].values.ravel(), np.arange(len(self.time)))
+        np.testing.assert_array_equal(pycdfpp.to_datetime64(saved["Epoch"]).ravel(), self.time)
+
+    def test_real_shape_mismatch_is_still_rejected(self):
+        with self.assertRaises(ValueError):
+            self.master["BGSEc"].set_values(np.ones((len(self.time), 2), dtype=np.float32))
+
+    def test_overriding_values_still_warns(self):
+        self.master["BGSEc"].set_values(np.ones((4, 3), dtype=np.float32))
+        with self.assertWarns(DeprecationWarning):
+            self.master["BGSEc"].set_values(np.zeros((4, 3), dtype=np.float32))
 
 
 if __name__ == '__main__':
