@@ -116,10 +116,13 @@ Installing
 ``meson install`` installs the headers, a small ``libcdfpp`` library (the SIMD time
 conversions on x86), and a ``cdfpp.pc`` pkg-config file.
 
-.. note::
+The headers also need `cpp_utils <https://github.com/jeandet/cpp_utils>`_, which installs
+the same way (``meson install``, ``cpp_utils.pc``), plus ``hedley.h`` and the gzip library
+(libdeflate or zlib) from your system. Then:
 
-    The installed headers also need the cpp_utils headers, which are not installed yet.
-    Until they are, prefer the subproject, or the compiler flags above.
+.. code-block:: console
+
+    $ g++ -std=c++20 main.cpp $(pkg-config --cflags --libs cdfpp) -ldeflate
 
 
 Loading a file

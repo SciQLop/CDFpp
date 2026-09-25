@@ -230,6 +230,7 @@ import('pkgconfig').generate(
     description : 'Read and write NASA CDF files (C++20)',
     url : 'https://github.com/SciQLop/CDFpp',
     libraries : cdfpp_libs,
+    requires : ['cpp_utils'],
 )
 
 if get_option('disable_python_wrapper') or meson.is_subproject()
