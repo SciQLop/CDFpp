@@ -335,7 +335,7 @@ RLE inflate sustains ~**1.8 GB/s** for data that fits in cache.
     - [x] UTF-8 and ISO 8859-1 (Latin-1, auto-converted to UTF-8)
     - [x] In-memory loading (`std::vector<char>`, `char*`, Python `bytes`)
     - [ ] DEC floating-point encoding (VAX, Alpha, Itanium)
-    - [ ] Pad values
+    - [x] Pad values and sparse records
 - **Writing**
     - [x] Uncompressed and compressed files/variables
     - [x] All numeric types, strings, datetime types

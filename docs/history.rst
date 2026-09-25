@@ -5,6 +5,17 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
+Unreleased
+----------
+
+* Records a file doesn't store (sparse records, gaps) are read as NASA's library reads
+  them: the previous record for "previous" sparse records, else ``FILLVAL``, else the
+  file's pad value, else the default pad value. They were left as uninitialized memory,
+  and records after a gap were read at the wrong index.
+* TT2000 values before 1972 convert like NASA's library, with the 1960-1972 drift of
+  TAI-UTC. They were off by 0 to 10 s, differently on the scalar and SIMD paths.
+* ``pycdfpp.default_pad_value`` returns a space for strings, as the CDF User's Guide says.
+
 0.13.0 (2026-09-25)
 -------------------
 

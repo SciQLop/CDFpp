@@ -205,6 +205,11 @@ Sometimes an instrument has no valid measurement: it was off, saturated, or the 
 corrupted. The record is still there, so every variable keeps the same length. It holds
 a special **fill value** instead of a measurement.
 
+A file can also leave records out entirely, to save space ("sparse records"). ``pycdfpp``
+fills those records the way NASA's CDF library does: with the previous record when the
+variable asks for it, otherwise with ``FILLVAL``, otherwise with the variable's **pad
+value**. So a missing record reads like a fill value, and you can mask both at once.
+
 The ``FILLVAL`` attribute tells you which value that is. ``VALIDMIN`` and ``VALIDMAX``
 give the range of physically meaningful values. Always mask values outside it before
 you compute anything. The :doc:`cookbook` shows how.
