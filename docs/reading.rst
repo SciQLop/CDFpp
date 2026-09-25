@@ -24,21 +24,9 @@ From disk
 
     cdf = pycdfpp.load("ac_h0_mfi_20200101_v07.cdf")
 
-.. warning::
-
-   If the file is missing or is not a valid CDF, :func:`pycdfpp.load` returns ``None``.
-   It does not raise an exception. Check the result when the file comes from outside
-   your control:
-
-   .. code-block:: python
-
-       cdf = pycdfpp.load("ac_h0_mfi_20200101_v07.cdf")
-       if cdf is None:
-           raise RuntimeError("could not read the CDF file")
-
-.. note::
-
-   Pass the path as a string. For a :class:`pathlib.Path`, use ``str(path)``.
+The path can be a string or a :class:`pathlib.Path`. If the file doesn't exist,
+:func:`pycdfpp.load` raises :class:`FileNotFoundError`. If it is not a valid CDF file, it
+raises :class:`ValueError`.
 
 From memory
 -----------
@@ -256,16 +244,13 @@ function:
 
 .. code-block:: python
 
-    small = cdf.filter(variables=["Epoch", "BGSEc"], attributes=".*")
-    small = cdf.filter(variables="B.*", attributes=".*")
-    small = cdf.filter(variables=lambda v: v.type == pycdfpp.DataType.CDF_REAL4,
-                       attributes=".*")
+    small = cdf.filter(variables=["Epoch", "BGSEc"])
+    small = cdf.filter(variables="B.*")
+    small = cdf.filter(variables=lambda v: v.type == pycdfpp.DataType.CDF_REAL4)
+    small = cdf.filter(attributes=["Project", "TITLE"])   # all variables, 2 global attributes
 
-.. warning::
-
-   Global attributes that don't match ``attributes`` are dropped. If you leave
-   ``attributes`` out, **all global attributes are removed**. Pass ``attributes=".*"``
-   to keep them all.
+What you don't filter is kept: without ``attributes``, every global attribute stays, and
+without ``variables``, every variable stays.
 
 Add ``inplace=True`` to modify ``cdf`` itself instead of making a copy. Then save the
 result with :func:`pycdfpp.save` to get a smaller file.

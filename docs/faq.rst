@@ -19,22 +19,16 @@ Some answers use the ACE file from the :doc:`quickstart`:
 Reading
 =======
 
-``pycdfpp.load`` returns ``None``
----------------------------------
+``ValueError: '...' is not a valid CDF file``
+---------------------------------------------
 
-The file is missing, is not a CDF file, or is damaged. ``load`` doesn't raise an
-exception in that case. Check the path, and check that the file starts with the CDF
-magic bytes:
+The file is not a CDF file, or it is damaged: a partial download, for example. Check
+that it starts with the CDF magic bytes:
 
 .. code-block:: python
 
     with open("ac_h0_mfi_20200101_v07.cdf", "rb") as f:
         print(f.read(4).hex())    # 'cdf30001' for CDF 3.x files
-
-``TypeError`` when passing a ``Path``
--------------------------------------
-
-``pycdfpp.load`` takes a string path or bytes. Convert paths with ``str(path)``.
 
 Why does my scalar variable have shape ``(N, 1)``?
 --------------------------------------------------
@@ -61,29 +55,22 @@ My averages are huge negative numbers
 The data contains fill values, usually ``-1e31``. Replace them with ``NaN`` first. See
 :ref:`cookbook:Replace fill values with NaN`.
 
-Python crashes in ``to_datetime``
----------------------------------
-
-In pycdfpp 0.12.0 and earlier, :func:`pycdfpp.to_datetime` crashes on arrays with more
-than one dimension. Flatten first: ``pycdfpp.to_datetime(var.values.ravel())``. Or use
-:func:`pycdfpp.to_datetime64`, which is faster anyway.
-
 My times are shifted by a few hours
 -----------------------------------
 
-You passed a single naive :class:`datetime.datetime` to a conversion function. In
-pycdfpp 0.12.0 and earlier, it is read as local time. Use ``datetime64`` values, or a
-list: ``pycdfpp.to_tt2000([dt])``. See :doc:`time`.
+``pycdfpp`` takes a :class:`datetime.datetime` without a timezone as UTC. If your
+datetimes hold local times, give them a timezone (``dt.astimezone()``), and ``pycdfpp``
+converts them to UTC. See :doc:`time`.
 
 Writing
 =======
 
-Python crashes, or my file is empty, after saving
--------------------------------------------------
+Python crashes, or my file is empty, after saving over it
+----------------------------------------------------------
 
-You loaded a file lazily (the default) and saved over the same file. In pycdfpp 0.12.0
-and earlier, this destroys the file. Load with ``lazy_load=False`` when you save over
-the file you loaded, or save to a new name. See :ref:`writing:Editing an existing file`.
+This happened in pycdfpp 0.12.0 and earlier, when a file loaded lazily (the default) was
+saved over itself. Update ``pycdfpp``. With an old version, load with
+``lazy_load=False`` before saving over the same file.
 
 Python crashes after adding or removing variables
 -------------------------------------------------
@@ -104,12 +91,6 @@ Old references then point to freed memory. Fetch them again after any change:
     cdf.add_variable("var2", values=np.zeros(5))   # may move var1 in memory
     var1 = cdf["var1"]                             # fetch it again: safe
     print(var1.values)
-
-``ValueError: Attribute numeric values must be 1-D``
------------------------------------------------------
-
-An attribute value was a single numpy number, like ``np.float32(-1e31)``. Wrap it in a
-list: ``[np.float32(-1e31)]``.
 
 My attribute has the wrong type
 -------------------------------

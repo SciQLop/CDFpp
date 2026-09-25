@@ -5,6 +5,31 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
+Unreleased
+----------
+
+* Saving a lazily loaded CDF over its own file no longer destroys it: ``save`` reads every
+  value before opening the file. ``io::save`` returns ``false`` and ``pycdfpp.save`` raises
+  ``OSError`` when the file can't be written.
+* ``to_datetime`` no longer crashes on multi-dimensional time arrays, like ``(N, 1)``
+  ``Epoch`` variables. Time conversions of strided arrays (slices, transposes) are correct.
+* ``to_datetime64`` on EPOCH16 is exact (it lost up to 128 ns).
+* Naive ``datetime`` values are UTC in every conversion, whatever the local timezone;
+  timezone-aware ones are converted to UTC. ``to_epoch(list)`` is ~400x faster.
+* Time conversions and ``to_time_string`` work in Pyodide and other WebAssembly builds
+  without threads.
+* ``load`` raises ``FileNotFoundError`` or ``ValueError`` instead of returning ``None``,
+  and accepts ``pathlib.Path``. **Behavior change**: code checking ``is None`` must catch
+  the exceptions instead.
+* Single values (``5``, ``1.5``, a ``datetime``, a numpy scalar) are valid attribute values.
+* ``CDF.filter``: a criterion left out keeps everything. **Behavior change**: before,
+  ``filter(variables=[...])`` dropped every global attribute.
+* Values given to a non-record-varying variable are its single record.
+* C++: headers can be included from several source files; CDFpp works as a Meson
+  subproject; ``meson install`` installs the whole header tree, ``libcdfpp`` and a
+  ``cdfpp.pc`` file; ``io::load("file.cdf", true, false)`` loads the file.
+* ``cdfdump``/``cdfirsdump --help`` show every option's full description.
+
 0.12.0 (2026-09-24)
 -------------------
 

@@ -43,7 +43,7 @@ Here is a complete example. The rest of the page explains each step.
         "UNITS": "nT",
         "DEPEND_0": "Epoch",
         "LABL_PTR_1": "B_labels",
-        "FILLVAL": [np.float32(-1e31)],
+        "FILLVAL": np.float32(-1e31),
     })
 
     cdf.add_variable("B_labels", values=np.array([["Bx", "By", "Bz"]]),
@@ -176,17 +176,18 @@ Variables that don't change with time
 -------------------------------------
 
 Labels, energy tables and other constants are stored once, as **non-record-varying**
-(NRV) variables. Pass ``is_nrv=True``, and give the values as a **single record**, with
-an extra first dimension of size 1:
+(NRV) variables. Pass ``is_nrv=True``. The values you give are the variable's single
+record:
 
 .. code-block:: python
 
-    cdf.add_variable("Energy", values=np.array([[10.0, 100.0, 1000.0]], dtype=np.float32),
+    cdf.add_variable("Energy", values=np.array([10.0, 100.0, 1000.0], dtype=np.float32),
                      is_nrv=True)
     cdf["Energy"].shape      # (1, 3): one record of 3 values
 
-This matters for strings: ``np.array([["Bx", "By", "Bz"]])`` is one record of three
-labels, while ``["Bx", "By", "Bz"]`` would be three records.
+    cdf.add_variable("B_labels2", values=["Bx", "By", "Bz"], data_type=DataType.CDF_CHAR,
+                     is_nrv=True)
+    cdf["B_labels2"].shape   # (1, 3, 2): one record of 3 labels of 2 characters
 
 Variable attributes
 ===================
@@ -237,7 +238,7 @@ already with the right numpy dtype:
     pycdfpp.default_fill_value(DataType.CDF_INT2)          # np.int16(-32768)
     pycdfpp.default_fill_value(DataType.CDF_TIME_TT2000)   # 9999-12-31T23:59:59.999999999
 
-    cdf["Epoch"].add_attribute("FILLVAL", [pycdfpp.default_fill_value(DataType.CDF_TIME_TT2000)])
+    cdf["Epoch"].add_attribute("FILLVAL", pycdfpp.default_fill_value(DataType.CDF_TIME_TT2000))
 
 :func:`pycdfpp.default_pad_value` does the same for pad values.
 
@@ -275,8 +276,7 @@ everything else:
 
 .. code-block:: python
 
-    cdf.filter(variables=lambda v: v.name != "Instrument_mode", attributes=".*",
-               inplace=True)
+    cdf.filter(variables=lambda v: v.name != "Instrument_mode", inplace=True)
     "Instrument_mode" in cdf      # False
 
 Editing an existing file
@@ -286,18 +286,13 @@ Load it, change it, save it:
 
 .. code-block:: python
 
-    cdf = pycdfpp.load("my_mission.cdf", lazy_load=False)
+    cdf = pycdfpp.load("my_mission.cdf")
     cdf.attributes["PI_name"].set_values(["Grace Hopper"])
     cdf["B"].attributes["UNITS"].set_value("nanoTesla")
     pycdfpp.save(cdf, "my_mission.cdf")
 
-.. danger::
-
-   **Use** ``lazy_load=False`` **when you save over the file you loaded.** By default,
-   ``pycdfpp`` reads variable values from the file only when needed. Saving over that
-   same file erases it while those values are still being read. In pycdfpp 0.12.0 and
-   earlier, this **destroys the file** and crashes Python. With ``lazy_load=False``, all
-   values are in memory before you save. Saving to a new file name is always safe.
+Saving over the file you loaded is safe: ``pycdfpp`` reads every value before it
+overwrites the file.
 
 Saving
 ======
@@ -307,7 +302,7 @@ To a file
 
 .. code-block:: python
 
-    pycdfpp.save(cdf, "my_mission.cdf")      # returns True on success
+    pycdfpp.save(cdf, "my_mission.cdf")      # raises OSError if the file can't be written
 
 To memory
 ---------

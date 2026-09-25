@@ -54,13 +54,8 @@ To Python datetime
     first_times = pycdfpp.to_datetime(cdf["Epoch"].values.ravel()[:3])
 
 It is about 100 times slower than :func:`pycdfpp.to_datetime64`. Use it only for a few
-values, for display for example.
-
-.. warning::
-
-   In pycdfpp 0.12.0 and earlier, :func:`pycdfpp.to_datetime` crashes on time arrays
-   with more than one dimension, like the ``(5401, 1)`` ``Epoch`` above. Flatten the
-   array first with ``.values.ravel()``, as in the example.
+values, for display for example. For a multi-dimensional variable, like this ``(5401, 1)``
+``Epoch``, it returns nested lists; ``.values.ravel()`` flattens the input first.
 
 To text
 -------
@@ -119,7 +114,7 @@ To store another time type, say so with ``data_type``:
 
     out.add_variable("Epoch_ms", values=time, data_type=pycdfpp.DataType.CDF_EPOCH)
 
-Lists of :class:`datetime.datetime` work too. They are treated as UTC.
+Lists of :class:`datetime.datetime` work too.
 
 Explicit conversions
 --------------------
@@ -134,12 +129,8 @@ convert ``datetime64`` arrays, or lists of ``datetime``, to CDF time values:
     pycdfpp.to_tt2000(np.array(["2024-03-01T12:00"], dtype="datetime64[ns]"))
     pycdfpp.to_epoch([datetime(2024, 3, 1, 12)])
 
-.. warning::
-
-   Avoid passing a **single** naive :class:`datetime.datetime` (one without a
-   timezone) to these functions. In pycdfpp 0.12.0 and earlier it is read as *local*
-   time, not UTC, so the result is shifted on any machine that doesn't run in UTC.
-   Wrap it in a list, ``to_tt2000([dt])``, or use ``datetime64``.
+A :class:`datetime.datetime` without a timezone ("naive") is taken as UTC, whatever
+your computer's timezone. One with a timezone is converted to UTC.
 
 Leap seconds
 ============

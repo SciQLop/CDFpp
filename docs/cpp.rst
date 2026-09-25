@@ -86,21 +86,40 @@ gzip and RLE are always available. Two experimental codecs can be turned on:
     Only CDFpp can read files that use them.
     Use gzip for files you share with other people or tools.
 
-.. admonition:: Current packaging limitations
-    :class: warning
+With Meson
+----------
 
-    - **Include CDFpp from a single source file.**
-      Some functions are defined in the headers without ``inline``.
-      Including the headers from two ``.cpp`` files of the same program fails at link time
-      with "multiple definition" errors.
-      Put all your CDF code in one file, or wrap it behind your own small API.
-    - **Using CDFpp as a Meson subproject does not work yet.**
-      Its ``meson.build`` calls ``add_global_arguments``, which Meson forbids in subprojects.
-    - **Installing with meson does not give a usable install yet.**
-      It copies the CDFpp headers, but not the cpp_utils headers they need,
-      nor the ``vectorized/`` headers. There is no pkg-config file.
+CDFpp can be a Meson subproject. Add ``subprojects/cdfpp.wrap`` to your project:
 
-    Until these are fixed, use the compiler flags shown above.
+.. code-block:: ini
+
+    [wrap-git]
+    url = https://github.com/SciQLop/CDFpp.git
+    revision = main
+    depth = 1
+
+Then use it as a dependency. Meson fetches CDFpp's own dependencies for you:
+
+.. code-block:: meson
+
+    project('my_tool', 'cpp', 'c', default_options : ['cpp_std=c++20'])
+    cdfpp_dep = dependency('cdfpp', fallback : ['cdfpp', 'cdfpp_dep'],
+                           default_options : ['with_tests=false'])
+    executable('my_tool', 'main.cpp', dependencies : cdfpp_dep)
+
+Enable ``'c'`` as well as ``'cpp'``: the gzip library CDFpp uses by default,
+libdeflate, is written in C.
+
+Installing
+----------
+
+``meson install`` installs the headers, a small ``libcdfpp`` library (the SIMD time
+conversions on x86), and a ``cdfpp.pc`` pkg-config file.
+
+.. note::
+
+    The installed headers also need the cpp_utils headers, which are not installed yet.
+    Until they are, prefer the subproject, or the compiler flags above.
 
 
 Loading a file
@@ -197,8 +216,7 @@ Pass ``false`` as the third argument to read everything up front.
         std::cout << "Loaded after access: " << lazy->variables.at("BGSEc").values_loaded() << '\n';
 
         // Eager loading: the third argument is lazy_load.
-        // Pass a std::string: a bare string literal would pick the (data, size) overload.
-        auto eager = cdf::io::load(std::string { "ac_h0_mfi_20200101_v07.cdf" }, true, false);
+        auto eager = cdf::io::load("ac_h0_mfi_20200101_v07.cdf", true, false);
         std::cout << "Eager, loaded: " << eager->variables.at("BGSEc").values_loaded() << '\n';
 
         // From memory: move the buffer in, so the CDF owns it.
@@ -213,13 +231,6 @@ Pass ``false`` as the third argument to read everything up front.
     }
 
 The second argument converts old Latin-1 text to UTF-8. Leave it to ``true``.
-
-.. warning::
-
-    **Always pass the file name as a** ``std::string`` **when you add arguments.**
-    ``cdf::io::load("file.cdf", true, false)`` compiles, but it calls the in-memory overload
-    ``load(const char* data, std::size_t size, ...)``.
-    It reads 1 byte of your file name and returns an empty optional.
 
 Loading from memory
 -------------------
@@ -625,16 +636,8 @@ Two things can surprise you:
   Don't keep references across an ``erase`` or an ``emplace``: look the element up again.
   That is why the example erases first, then takes ``b_gse``.
 
-.. danger::
-
-    **Don't save a lazily loaded file over itself.**
-    With lazy loading, CDFpp reads values straight from the file on disk.
-    Saving to the same path truncates that file while it is still being read.
-    The program crashes and **the file is destroyed**.
-
-    To overwrite a file in place, load it eagerly:
-    ``cdf::io::load(std::string { path }, true, false)``.
-    Or save to a new file, then rename it.
+Saving over the file you loaded is safe, even with lazy loading: ``io::save`` reads every
+value before it opens the file. It returns ``false`` if the file can't be written.
 
 
 Errors and threads

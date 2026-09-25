@@ -143,7 +143,7 @@ added automatically, so list them too:
 
 .. code-block:: python
 
-    small = cdf.filter(variables=["Epoch", "BGSEc", "label_BGSE"], attributes=".*")
+    small = cdf.filter(variables=["Epoch", "BGSEc", "label_BGSE"])
     pycdfpp.save(small, "ace_bgse_only.cdf")
 
 Find every time variable in a file

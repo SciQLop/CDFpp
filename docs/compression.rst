@@ -107,7 +107,7 @@ Load the file, set the compression, and save it under a new name:
            "mfi_h0/2020/ac_h0_mfi_20200101_v07.cdf")
     urllib.request.urlretrieve(url, "ac_h0_mfi_20200101_v07.cdf")
 
-    cdf = pycdfpp.load("ac_h0_mfi_20200101_v07.cdf", lazy_load=False)
+    cdf = pycdfpp.load("ac_h0_mfi_20200101_v07.cdf")
     for name in cdf:
         cdf[name].compression = pycdfpp.CompressionType.gzip_compression
     cdf.compression = pycdfpp.CompressionType.no_compression
