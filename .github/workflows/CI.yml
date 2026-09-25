@@ -122,6 +122,19 @@ jobs:
         run: |
           pip install ddt requests
           python -v tests/full_corpus/test.py
+      # Free-threaded Python runs pycdfpp with no GIL at all: run the whole Python suite there,
+      # from tests/ so that `python -m pycdfpp...` doesn't import the source folder.
+      - name: run unit tests (free-threaded Python)
+        if: endsWith(matrix.python-version, 't')
+        shell: bash
+        working-directory: tests
+        run: |
+          pip install cyclopts rich
+          for t in python_loading python_saving python_skeletons python_variable_set_values python_chrono python_windows_crash python_structural_introspection python_debug python_cli_irsdump python_threads; do
+            echo "::group::$t"
+            python $t/test.py || exit 1
+            echo "::endgroup::"
+          done
 
   test_wheels_macos_14:
     needs: [build_wheels]
@@ -165,6 +178,19 @@ jobs:
           pyenv local ${{ matrix.python-version }}
           python3 -m pip install --break-system-packages ddt requests
           python3 tests/full_corpus/test.py
+      # Free-threaded Python runs pycdfpp with no GIL at all: run the whole Python suite there,
+      # from tests/ so that `python -m pycdfpp...` doesn't import the source folder.
+      - name: run unit tests (free-threaded Python)
+        if: endsWith(matrix.python-version, 't')
+        shell: bash
+        working-directory: tests
+        run: |
+          python3 -m pip install --break-system-packages cyclopts rich
+          for t in python_loading python_saving python_skeletons python_variable_set_values python_chrono python_windows_crash python_structural_introspection python_debug python_cli_irsdump python_threads; do
+            echo "::group::$t"
+            python3 $t/test.py || exit 1
+            echo "::endgroup::"
+          done
 
 
   upload_pypi:
