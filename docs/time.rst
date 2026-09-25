@@ -65,7 +65,6 @@ To text
 ``strftime`` codes you already know. ``%S`` includes the fraction of a second:
 
 .. code-block:: python
-    :class: no-playground
 
     pycdfpp.to_time_string(cdf["Epoch"], "%Y-%m-%dT%H:%M:%SZ")[:2]
     # [[b'2020-01-01T00:00:00.000000000Z']

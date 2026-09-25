@@ -125,7 +125,6 @@ Export a variable to CSV
 ========================
 
 .. code-block:: python
-    :class: no-playground
 
     time = pycdfpp.to_time_string(cdf["Epoch"], "%Y-%m-%dT%H:%M:%SZ").ravel().astype(str)
     b = cdf["BGSEc"].values
