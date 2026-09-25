@@ -375,6 +375,16 @@ class PycdfScalarAttributeValues(unittest.TestCase):
         var.attributes["COUNT"].set_value(np.int16(7))
         self.assertEqual(var.attributes["COUNT"].type(), pycdfpp.DataType.CDF_INT2)
 
+    def test_cdf_time_scalars(self):
+        cdf = pycdfpp.CDF()
+        var = cdf.add_variable("t", values=np.array(["2020-01-01"], dtype="datetime64[ns]"))
+        for name, data_type in (("TT", pycdfpp.DataType.CDF_TIME_TT2000),
+                                ("EP", pycdfpp.DataType.CDF_EPOCH),
+                                ("EP16", pycdfpp.DataType.CDF_EPOCH16)):
+            with self.subTest(data_type=data_type):
+                var.add_attribute(name, pycdfpp.default_fill_value(data_type))
+                self.assertEqual(var.attributes[name].type(), data_type)
+
     def test_global_attribute_scalar_entries(self):
         cdf = pycdfpp.CDF()
         cdf.add_attribute("mixed", ["text", np.float32(1.5), np.array([1, 2], dtype=np.int16)])

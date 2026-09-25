@@ -364,10 +364,11 @@ def _patch_add_variable():
 
 
 def _as_attribute_entry(values):
-    """A single number or datetime becomes a one-element entry; numpy scalars keep their dtype."""
+    """A single number, datetime or CDF time value becomes a one-element entry; numpy scalars
+    keep their dtype."""
     if isinstance(values, (np.generic, np.ndarray)) and np.ndim(values) == 0 and not isinstance(values, str):
         return np.atleast_1d(values)
-    if isinstance(values, (int, float, datetime)):
+    if isinstance(values, (int, float, datetime, tt2000_t, epoch, epoch16)):
         return [values]
     return values
 
