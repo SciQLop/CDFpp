@@ -185,7 +185,7 @@ namespace
 } // namespace
 
 
-[[nodiscard]] std::optional<CDF> load(
+[[nodiscard]] inline std::optional<CDF> load(
     const std::string& path, bool iso_8859_1_to_utf8 = true, bool lazy_load = true)
 {
     if (std::filesystem::is_directory(path))
@@ -198,7 +198,7 @@ namespace
     return std::nullopt;
 }
 
-[[nodiscard]] std::optional<CDF> load(
+[[nodiscard]] inline std::optional<CDF> load(
     const std::vector<char>& data, bool iso_8859_1_to_utf8 = true, bool lazy_load = false)
 {
     if (std::size(data))
@@ -208,7 +208,7 @@ namespace
     return std::nullopt;
 }
 
-[[nodiscard]] std::optional<CDF> load(
+[[nodiscard]] inline std::optional<CDF> load(
     std::vector<char>&& data, bool iso_8859_1_to_utf8 = true, bool lazy_load = true)
 {
     if (std::size(data))
@@ -219,7 +219,7 @@ namespace
     return std::nullopt;
 }
 
-[[nodiscard]] std::optional<CDF> load(
+[[nodiscard]] inline std::optional<CDF> load(
     const char* data, std::size_t size, bool iso_8859_1_to_utf8 = true, bool lazy_load = false)
 {
     if (size != 0 && data != nullptr)

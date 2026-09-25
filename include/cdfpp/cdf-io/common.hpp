@@ -135,12 +135,12 @@ struct cdf_repr
     cdf_repr& operator=(cdf_repr&&) = default;
 };
 
-void add_global_attribute(cdf_repr& repr, const std::string& name, Attribute::attr_data_t&& data)
+inline void add_global_attribute(cdf_repr& repr, const std::string& name, Attribute::attr_data_t&& data)
 {
     repr.attributes[name] = Attribute { name, std::move(data) };
 }
 
-void add_var_attribute(cdf_repr& repr, const std::vector<uint32_t>& variable_indexes,
+inline void add_var_attribute(cdf_repr& repr, const std::vector<uint32_t>& variable_indexes,
     const std::string& name, std::vector<VariableAttribute::attr_data_t>&& data)
 {
     assert(std::size(data) == std::size(variable_indexes));
@@ -159,7 +159,7 @@ void add_var_attribute(cdf_repr& repr, const std::vector<uint32_t>& variable_ind
     }
 }
 
-void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name,
+inline void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name,
     Attribute::attr_data_t&& data, const std::vector<uint32_t>& variable_indexes)
 {
     if (scope == cdf_attr_scope::global || scope == cdf_attr_scope::global_assumed)
@@ -170,7 +170,7 @@ void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name
     }
 }
 
-void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
+inline void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
     Variable::var_data_t&& data, Variable::shape_t&& shape, bool is_nrv,
     cdf_compression_type compression_type, bool is_zvariable = true,
     std::function<std::size_t()>&& block_counter = {})
@@ -182,7 +182,7 @@ void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
     { return std::move(repr.var_attributes[number]); }();
 }
 
-void add_lazy_variable(cdf_repr& repr, const std::string& name, std::size_t number,
+inline void add_lazy_variable(cdf_repr& repr, const std::string& name, std::size_t number,
     lazy_data&& data, Variable::shape_t&& shape, bool is_nrv,
     cdf_compression_type compression_type, bool is_zvariable = true,
     std::function<std::size_t()>&& block_counter = {})

@@ -57,7 +57,7 @@ inline stream_t& operator<<(
 namespace cdf
 {
 
-[[nodiscard]] std::size_t flat_size(const no_init_vector<uint32_t>& shape) noexcept
+[[nodiscard]] inline std::size_t flat_size(const no_init_vector<uint32_t>& shape) noexcept
 {
     if (std::size(shape) > 0)
     {

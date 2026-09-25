@@ -46,7 +46,7 @@ namespace cdf::io
 namespace saving
 {
 
-    record_wrapper<cdf_CPR_t<v3x_tag>> make_cpr(cdf_compression_type ct)
+    inline record_wrapper<cdf_CPR_t<v3x_tag>> make_cpr(cdf_compression_type ct)
     {
         record_wrapper<cdf_CPR_t<v3x_tag>> cpr { { {}, ct, 0, 0, {} } };
         switch (ct)
@@ -79,7 +79,7 @@ namespace saving
         return cpr;
     }
 
-    int32_t attribute_entry_num_elements(const data_t& entry)
+    inline int32_t attribute_entry_num_elements(const data_t& entry)
     {
         return visit(
             entry, [](const cdf_none&) -> int32_t { return 0; },
@@ -201,7 +201,7 @@ namespace saving
         vdr.MaxRec = variable.len() - 1;
     }
 
-    typename variable_ctx::values_records_t make_values_record(const Variable& v,
+    inline typename variable_ctx::values_records_t make_values_record(const Variable& v,
         const std::size_t records_in_vvr, const std::size_t record_size,
         const std::size_t first_record)
     {

@@ -47,7 +47,7 @@ using cpp_utils::endianness::decode_v;
         || encoding == cdf_encoding::ARM_BIG;
 }
 
-[[nodiscard]] bool is_little_endian_encoding(cdf_encoding encoding)
+[[nodiscard]] inline bool is_little_endian_encoding(cdf_encoding encoding)
 {
     return !is_big_endian_encoding(encoding);
 }

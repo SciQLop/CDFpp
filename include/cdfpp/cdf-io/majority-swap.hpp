@@ -105,7 +105,7 @@ namespace _private
         std::size_t src;
         std::size_t dest;
     };
-    void next_index(std::vector<std::size_t>& nd_index, const std::vector<std::size_t>& shape)
+    inline void next_index(std::vector<std::size_t>& nd_index, const std::vector<std::size_t>& shape)
     {
         for (auto dim = 0UL; dim < std::size(shape); dim++)
         {
@@ -116,7 +116,7 @@ namespace _private
         }
     }
 
-    auto generate_access_pattern(const std::vector<std::size_t>& record_shape)
+    inline auto generate_access_pattern(const std::vector<std::size_t>& record_shape)
     {
         const auto record_size = std::accumulate(std::cbegin(record_shape), std::cend(record_shape),
             1UL, std::multiplies<std::size_t>());
@@ -173,7 +173,7 @@ void swap(data_t& data, const shape_t& shape)
     }
 }
 
-void swap(data_t& data, const no_init_vector<uint32_t>& shape)
+inline void swap(data_t& data, const no_init_vector<uint32_t>& shape)
 {
     if (data.type() == CDF_Types::CDF_NONE)
         return;

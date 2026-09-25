@@ -69,7 +69,7 @@ void update_size(record_wrapper<T>& record, std::size_t size_offset = 0)
 }
 
 
-void update_size(record_wrapper<cdf_CCR_t<v3x_tag>>& record, std::size_t size_offset = 0)
+inline void update_size(record_wrapper<cdf_CCR_t<v3x_tag>>& record, std::size_t size_offset = 0)
 {
     record.size = std::size(record.record.data)
         + cpp_utils::serde::runtime_size(record.record.header) + sizeof(record.record.uSize)
@@ -78,7 +78,7 @@ void update_size(record_wrapper<cdf_CCR_t<v3x_tag>>& record, std::size_t size_of
     record.record.header.record_type = decltype(record.record.header)::expected_record_type;
 }
 
-void update_size(record_wrapper<cdf_CVVR_t<v3x_tag>>& record, std::size_t size_offset = 0)
+inline void update_size(record_wrapper<cdf_CVVR_t<v3x_tag>>& record, std::size_t size_offset = 0)
 {
     record.size = std::size(record.record.data)
         + cpp_utils::serde::runtime_size(record.record.header) + sizeof(record.record.rfuA)

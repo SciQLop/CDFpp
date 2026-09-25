@@ -23,6 +23,14 @@ foreach test_name:['endianness','simple_open', 'majority', 'chrono', 'nomap', 'r
     test(test_name, exe)
 endforeach
 
+multiple_translation_units = executable('test-multiple_translation_units',
+    'multiple_translation_units/main.cpp', 'multiple_translation_units/other.cpp',
+    dependencies:[catch_dep, cdfpp_dep],
+    cpp_args: test_cpp_args,
+    install: false
+)
+test('multiple_translation_units', multiple_translation_units)
+
 foreach py_test:['python_loading', 'python_saving', 'python_skeletons',
             'python_variable_set_values', 'full_corpus', 'python_chrono',
             'python_windows_crash', 'python_structural_introspection', 'python_debug',

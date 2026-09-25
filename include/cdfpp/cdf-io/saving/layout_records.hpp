@@ -70,7 +70,7 @@ namespace saving
     }
 
 
-    std::size_t layout(std::vector<variable_ctx::values_records_t>& items, std::size_t offset)
+    inline std::size_t layout(std::vector<variable_ctx::values_records_t>& items, std::size_t offset)
     {
         for (auto& item : items)
         {
