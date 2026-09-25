@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 import os
 from datetime import datetime, timedelta
-from tempfile import NamedTemporaryFile
+from contextlib import contextmanager
+import types
 import tempfile
 import shutil
 import numpy as np
@@ -61,6 +62,14 @@ def make_cdf():
                      data_type=pycdfpp.DataType.CDF_EPOCH16,
                      attributes={"FILLVAL": [pycdfpp.default_fill_value(pycdfpp.DataType.CDF_EPOCH16)]})
     return cdf
+
+
+@contextmanager
+def temporary_file(suffix=""):
+    """A path for a new file, in a temporary directory. NamedTemporaryFile can't be used for
+    saving: on Windows, its file is open, so it can't be opened again for writing."""
+    with tempfile.TemporaryDirectory() as tmp:
+        yield types.SimpleNamespace(name=os.path.join(tmp, "file" + suffix))
 
 
 class PycdfCreateCDFTest(unittest.TestCase):
@@ -179,11 +188,11 @@ class PycdfCreateCDFTest(unittest.TestCase):
         self.assertTrue(pycdfpp.load(pycdfpp.save(cdf)) == cdf)
 
     def test_can_save_an_empty_CDF_object(self):
-        with NamedTemporaryFile() as f:
+        with temporary_file() as f:
             self.assertTrue(pycdfpp.save(pycdfpp.CDF(), f.name))
 
     def test_can_save_a_CDF_object_with_several_numeric_1d_variables(self):
-        with NamedTemporaryFile() as f:
+        with temporary_file() as f:
             cdf = pycdfpp.CDF()
             for dtype in (np.float64, np.float32, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16,
                           np.uint32):
@@ -191,7 +200,7 @@ class PycdfCreateCDFTest(unittest.TestCase):
             self.assertTrue(pycdfpp.save(cdf, f.name))
 
     def test_can_save_a_CDF_object_with_several_numeric_nd_variables(self):
-        with NamedTemporaryFile() as f:
+        with temporary_file() as f:
             cdf = pycdfpp.CDF()
             for dtype in (np.float64, np.float32, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16,
                           np.uint32):
@@ -199,7 +208,7 @@ class PycdfCreateCDFTest(unittest.TestCase):
             self.assertTrue(pycdfpp.save(cdf, f.name))
 
     def test_can_save_a_CDF_object_with_several_datetime_variables(self):
-        with NamedTemporaryFile() as f:
+        with temporary_file() as f:
             cdf = pycdfpp.CDF()
             for cdf_type in (pycdfpp.DataType.CDF_TIME_TT2000, pycdfpp.DataType.CDF_EPOCH,
                              pycdfpp.DataType.CDF_EPOCH16):
@@ -208,7 +217,7 @@ class PycdfCreateCDFTest(unittest.TestCase):
             self.assertTrue(pycdfpp.save(cdf, f.name))
 
     def test_can_save_a_GZ_compressed_CDF(self):
-        with NamedTemporaryFile() as f:
+        with temporary_file() as f:
             cdf = pycdfpp.CDF()
             for dtype in (np.float64, np.float32, np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16,
                           np.uint32):
@@ -218,7 +227,7 @@ class PycdfCreateCDFTest(unittest.TestCase):
 
     def test_can_save_a_cdf_with_an_empty_var(self):
         # https://github.com/SciQLop/CDFpp/issues/25
-        with NamedTemporaryFile() as f:
+        with temporary_file() as f:
             cdf = pycdfpp.CDF()
             cdf.add_variable("test", data_type=pycdfpp.DataType.CDF_TIME_TT2000)
             self.assertTrue(pycdfpp.save(cdf, f.name))
@@ -266,7 +275,7 @@ class PycdfExperimentalCodecsTest(unittest.TestCase):
                 self.assertTrue(np.array_equal(reloaded["x"].values, np.arange(100.)))
 
     def test_saving_to_a_file_warns_too(self):
-        with NamedTemporaryFile(suffix=".cdf") as f, self.assertWarns(pycdfpp.ExperimentalCompressionWarning):
+        with temporary_file(suffix=".cdf") as f, self.assertWarns(pycdfpp.ExperimentalCompressionWarning):
             self.assertTrue(pycdfpp.save(cdf_with_one_variable(EXPERIMENTAL_CODECS[0]), f.name))
 
 
