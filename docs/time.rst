@@ -47,7 +47,8 @@ instructions to convert several values at once.
 To Python datetime
 ------------------
 
-:func:`pycdfpp.to_datetime` returns a list of :class:`datetime.datetime` objects:
+:func:`pycdfpp.to_datetime` returns a list of :class:`datetime.datetime` objects. They
+hold UTC times, whatever your computer's timezone, and have no ``tzinfo``:
 
 .. code-block:: python
 
@@ -78,10 +79,10 @@ for Python strings.
 Single values
 -------------
 
-Indexing a time variable's ``.values`` gives raw CDF values. Each time type has a small
-Python class: :class:`pycdfpp.tt2000_t`, :class:`pycdfpp.epoch` and
-:class:`pycdfpp.epoch16`. They print as readable dates, and the conversion functions
-accept them too:
+Each time type has a small Python class: :class:`pycdfpp.tt2000_t`,
+:class:`pycdfpp.epoch` and :class:`pycdfpp.epoch16`. Attribute values and
+:func:`pycdfpp.default_fill_value` return them. They print as readable dates, and the
+conversion functions accept them:
 
 .. code-block:: python
 

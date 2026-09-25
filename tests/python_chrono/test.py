@@ -273,6 +273,48 @@ class PycdfDatetimeTimezones(unittest.TestCase):
         self.assertEqual(pycdfpp.to_datetime([dt]), [datetime(2020, 1, 1, 12)])
 
 
+@unittest.skipUnless(hasattr(time, "tzset"), "needs time.tzset to change the local timezone")
+class PycdfCdfTimesAreUtc(unittest.TestCase):
+    """Every conversion from a CDF time gives UTC, whatever the machine's timezone."""
+    EXPECTED = datetime(2020, 6, 1, 12, 30, 15)
+    TIMEZONES = ("Asia/Tokyo", "America/New_York")  # +9, and -4 with daylight saving in June
+
+    def setUp(self):
+        self._tz = os.environ.get("TZ")
+
+    def tearDown(self):
+        os.environ["TZ"] = self._tz or "UTC"
+        time.tzset()
+
+    def _cdf_times(self):
+        dt64 = np.array([self.EXPECTED], dtype="datetime64[ns]")
+        cdf = pycdfpp.CDF()
+        for name, data_type in (("tt2000", pycdfpp.DataType.CDF_TIME_TT2000),
+                                ("epoch", pycdfpp.DataType.CDF_EPOCH),
+                                ("epoch16", pycdfpp.DataType.CDF_EPOCH16)):
+            cdf.add_variable(name, values=dt64, data_type=data_type)
+        return cdf
+
+    def test_every_path_gives_utc(self):
+        for tz in self.TIMEZONES:
+            os.environ["TZ"] = tz
+            time.tzset()
+            cdf = self._cdf_times()
+            for name, time_type in (("tt2000", pycdfpp.tt2000_t), ("epoch", pycdfpp.epoch),
+                                    ("epoch16", pycdfpp.epoch16)):
+                var = cdf[name]
+                scalar = time_type(*var.values[0].item())
+                with self.subTest(tz=tz, time_type=name):
+                    self.assertEqual(pycdfpp.to_datetime(var), [self.EXPECTED])
+                    self.assertEqual(pycdfpp.to_datetime(var.values), [self.EXPECTED])
+                    self.assertEqual(pycdfpp.to_datetime(scalar), self.EXPECTED)
+                    self.assertEqual(pycdfpp.to_datetime([scalar]), [self.EXPECTED])
+                    self.assertEqual(pycdfpp.to_datetime64(var)[0], np.datetime64(self.EXPECTED, "ns"))
+                    self.assertEqual(pycdfpp.to_time_string(var, "%Y-%m-%d %H:%M:%S")[0][:19],
+                                     b"2020-06-01 12:30:15")
+                    self.assertTrue(str(scalar).startswith("2020-06-01T12:30:15"), str(scalar))
+
+
 class PycdfEpoch16Precision(unittest.TestCase):
     def test_epoch16_to_datetime64_is_exact(self):
         # EPOCH16 stores whole seconds and picoseconds exactly: nanoseconds must round-trip.
