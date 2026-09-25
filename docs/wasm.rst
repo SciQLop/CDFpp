@@ -24,28 +24,50 @@ It doesn't create CDF files from scratch or modify their content: for that, use
 Getting the module
 ==================
 
-The module is two files: ``cdfpp.js`` and ``cdfpp.wasm``. They must be served from the
-same folder.
+The module is two files, ``cdfpp.js`` and ``cdfpp.wasm``, served from the same folder.
+It is the same build as the one running the :doc:`explorer`, with every codec included.
 
-**Build it** with `Emscripten <https://emscripten.org/>`_ and meson:
+Download it
+-----------
+
+Each release has a ``cdfpp-wasm-<version>.zip`` attached, starting with 0.13.0: get it from
+the `latest release <https://github.com/SciQLop/CDFpp/releases/latest>`_. It contains:
+
+- ``cdfpp.js`` and ``cdfpp.wasm``: the module;
+- ``cdfpp64.js`` and ``cdfpp64.wasm``: the same with 64-bit memory, for files over 4 GiB
+  (see `Large files`_);
+- ``cdfpp.d.ts``: TypeScript declarations for the whole API.
+
+Copy the files into your application and import ``cdfpp.js``. This is the recommended way:
+your application keeps working with the version you tested.
+
+Import it from the Explorer's site
+----------------------------------
+
+The Explorer's copy can be imported from any website, which is handy for a quick test:
+
+.. code-block:: javascript
+    :class: browser-only
+
+    import createCdfModule from "https://sciqlop.github.io/CDFpp/cdfpp.js";
+
+It always follows the latest development version, so don't rely on it in production.
+
+Build it
+--------
+
+With `Emscripten <https://emscripten.org/>`_ and meson:
 
 .. code-block:: console
 
-    $ meson setup build_wasm --cross-file wacdfpp/wasm.txt -Dwith_experimental_wasm=true
+    $ meson setup build_wasm --cross-file wacdfpp/wasm.txt -Ddisable_python_wrapper=true \
+          -Dwith_experimental_wasm=true -Dwith_experimental_zstd=true -Dwith_experimental_blosc2=true
     $ ninja -C build_wasm
     $ ls build_wasm/wacdfpp/cdfpp.*
     build_wasm/wacdfpp/cdfpp.js  build_wasm/wacdfpp/cdfpp.wasm
 
-Add ``-Dwith_experimental_zstd=true -Dwith_experimental_blosc2=true`` to include the
-experimental codecs (see :doc:`compression`).
-
-**Or use the copy published with the Explorer**, at
-``https://sciqlop.github.io/CDFpp/cdfpp.js``. It can be imported from any site, but it
-always follows the latest development version. For an application that must keep working,
-copy the two files into your project.
-
-TypeScript declarations for the whole API are in
-`wacdfpp/cdfpp.d.ts <https://github.com/SciQLop/CDFpp/blob/main/wacdfpp/cdfpp.d.ts>`_.
+Leave out the ``zstd`` and ``blosc2`` options for a module with only the standard codecs
+(see :doc:`compression`). Use ``--cross-file wacdfpp/wasm64.txt`` for the 64-bit variant.
 
 Loading the module
 ==================
@@ -261,9 +283,9 @@ Large files
 even for big files. ``Module.load_eager`` decodes everything up front: use it when you will
 read every variable anyway, or to measure decoding time.
 
-The standard module, ``cdfpp.js``, can use up to 4 GiB of memory. For bigger files, build
-the 64-bit variant (``--cross-file wacdfpp/wasm64.txt``, which produces ``cdfpp64.js``);
-it needs a browser with WebAssembly Memory64 support (recent Chrome and Firefox). Browsers
+The standard module, ``cdfpp.js``, can use up to 4 GiB of memory. For bigger files, use
+``cdfpp64.js``, the 64-bit variant from the same zip. It has the same API, and needs a
+browser with WebAssembly Memory64 support (recent Chrome and Firefox). Browsers
 also refuse single ``ArrayBuffer``\\ s of 2 GiB or more: ``save_as_chunks(codec, maxBytes)``
 returns the result in pieces that ``new Blob(chunks)`` can join.
 

@@ -19,35 +19,120 @@ Download it once, next to your program:
 Adding CDFpp to your project
 ============================
 
-CDFpp is a set of headers. There is no library to link, apart from a compression library.
+You need a C++20 compiler: a recent GCC or Clang, or MSVC 2022. There are three ways to
+use CDFpp, from the easiest to the most manual.
 
-You need:
+With Meson (recommended)
+------------------------
 
-- a C++20 compiler (a recent GCC, Clang or MSVC),
+CDFpp is a Meson project, and the easiest way to use it is as a Meson subproject: Meson
+fetches CDFpp and its dependencies, generates its configuration, and builds the SIMD time
+conversions for you.
+
+Add ``subprojects/cdfpp.wrap`` to your project:
+
+.. code-block:: ini
+
+    [wrap-git]
+    url = https://github.com/SciQLop/CDFpp.git
+    revision = v0.13.0
+    depth = 1
+
+Pick a release tag (0.13.0 or later) for ``revision``, or ``main`` for the latest
+development version. Then declare the dependency:
+
+.. code-block:: meson
+
+    project('my_tool', 'cpp', 'c', default_options : ['cpp_std=c++20'])
+    cdfpp_dep = dependency('cdfpp', fallback : ['cdfpp', 'cdfpp_dep'],
+                           default_options : ['with_tests=false'])
+    executable('my_tool', 'main.cpp', dependencies : cdfpp_dep)
+
+Enable ``'c'`` as well as ``'cpp'``: libdeflate, the gzip library CDFpp uses by default,
+is written in C.
+
+CDFpp's build options go in ``default_options``. The most useful ones:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Option
+     - Default
+     - Effect
+   * - ``use_libdeflate``
+     - ``true``
+     - Use libdeflate for gzip (faster). ``false`` uses zlib.
+   * - ``with_experimental_zstd``
+     - ``false``
+     - Read and write the experimental zstd codec.
+   * - ``with_experimental_blosc2``
+     - ``false``
+     - Read and write the experimental Blosc2 codec.
+
+.. warning::
+
+    zstd and Blosc2 are **not** part of the CDF standard.
+    Only CDFpp can read files that use them.
+    Use gzip for files you share with other people or tools.
+
+With an installed CDFpp (CMake, pkg-config)
+-------------------------------------------
+
+``meson install`` installs CDFpp: the headers, a small ``libcdfpp`` library (the SIMD
+time conversions on x86), and a ``cdfpp.pc`` pkg-config file. It installs
+`cpp_utils <https://github.com/jeandet/cpp_utils>`_, which CDFpp needs, the same way.
+
+.. code-block:: console
+
+    $ meson setup build -Ddisable_python_wrapper=true
+    $ ninja -C build
+    $ sudo ninja -C build install
+
+The headers also need ``hedley.h`` and the gzip library (libdeflate or zlib) from your
+system. Then use pkg-config, directly or from CMake:
+
+.. code-block:: console
+
+    $ g++ -std=c++20 main.cpp $(pkg-config --cflags --libs cdfpp) -ldeflate
+
+.. code-block:: cmake
+
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(CDFPP REQUIRED IMPORTED_TARGET cdfpp)
+    target_link_libraries(my_tool PRIVATE PkgConfig::CDFPP deflate)
+
+With compiler flags only
+------------------------
+
+Without a build system, compile against a clone of the repository. You need:
+
 - the CDFpp ``include/`` folder,
 - three small header-only dependencies: `cpp_utils <https://github.com/jeandet/cpp_utils>`_,
   `hedley <https://nemequ.github.io/hedley/>`_ and `fmt <https://fmt.dev>`_,
-- zlib, or `libdeflate <https://github.com/ebiggers/libdeflate>`_ (faster), for gzip.
+- zlib, or `libdeflate <https://github.com/ebiggers/libdeflate>`_ (faster), for gzip,
+- a small configuration header, ``cdfpp_config.h``.
 
-CDFpp also needs a small configuration header, ``cdfpp_config.h``.
-Meson generates it when you build CDFpp.
-You can also write it by hand. On a little-endian machine (x86_64, ARM64) it is:
+Meson generates ``cdfpp_config.h`` when you build CDFpp. You can also write it by hand. On a
+little-endian machine (x86_64, ARM64) it is:
 
 .. code-block:: cpp
 
     #pragma once
-    #define CDFPP_VERSION "0.12.0"
+    #define CDFPP_VERSION "0.13.0"
     #define CDFpp_ENCODING cdf_encoding::IBMPC
     #define CDFpp_LITTLE_ENDIAN
     #define CDFpp_USE_NOMAP
-    // #define CDFpp_USE_LIBDEFLATE   // uncomment to use libdeflate instead of zlib
+    #define CDFPP_NO_SIMD                 // the SIMD conversions need compiled code, see below
+    // #define CDFpp_USE_LIBDEFLATE       // libdeflate instead of zlib
+    // #define CDFPP_USE_ZSTD             // experimental zstd codec (link -lzstd)
+    // #define CDFPP_USE_BLOSC2           // experimental Blosc2 codec (link -lblosc2)
 
 Put it in a folder on your include path. Then compile your program like this.
 Here ``CDFpp`` is a clone of the repository, and its dependencies come from its ``subprojects/`` folder:
 
 .. code-block:: console
 
-    $ g++ -std=c++20 -DCDFPP_NO_SIMD -DFMT_HEADER_ONLY \
+    $ g++ -std=c++20 -DFMT_HEADER_ONLY \
           -Imy_config_dir \
           -ICDFpp/include \
           -ICDFpp/subprojects/cpp_utils/include \
@@ -58,71 +143,9 @@ Here ``CDFpp`` is a clone of the repository, and its dependencies come from its 
 The ``subprojects/`` folders are filled the first time you run ``meson setup`` in the CDFpp repository.
 You can also point at your own copies of cpp_utils, hedley and fmt.
 
-``-DCDFPP_NO_SIMD`` turns off the SIMD time conversions.
-They need two extra source files from ``src/arch/x86/``, compiled with xsimd.
-Without SIMD, time conversions still work. They are just slower on very large arrays.
-
-Optional codecs
----------------
-
-gzip and RLE are always available. Two experimental codecs can be turned on:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Codec
-     - Define
-     - Link with
-   * - zstd
-     - ``-DCDFPP_USE_ZSTD``
-     - ``-lzstd``
-   * - Blosc2
-     - ``-DCDFPP_USE_BLOSC2``
-     - ``-lblosc2``
-
-.. warning::
-
-    zstd and Blosc2 are **not** part of the CDF standard.
-    Only CDFpp can read files that use them.
-    Use gzip for files you share with other people or tools.
-
-With Meson
-----------
-
-CDFpp can be a Meson subproject. Add ``subprojects/cdfpp.wrap`` to your project:
-
-.. code-block:: ini
-
-    [wrap-git]
-    url = https://github.com/SciQLop/CDFpp.git
-    revision = main
-    depth = 1
-
-Then use it as a dependency. Meson fetches CDFpp's own dependencies for you:
-
-.. code-block:: meson
-
-    project('my_tool', 'cpp', 'c', default_options : ['cpp_std=c++20'])
-    cdfpp_dep = dependency('cdfpp', fallback : ['cdfpp', 'cdfpp_dep'],
-                           default_options : ['with_tests=false'])
-    executable('my_tool', 'main.cpp', dependencies : cdfpp_dep)
-
-Enable ``'c'`` as well as ``'cpp'``: the gzip library CDFpp uses by default,
-libdeflate, is written in C.
-
-Installing
-----------
-
-``meson install`` installs the headers, a small ``libcdfpp`` library (the SIMD time
-conversions on x86), and a ``cdfpp.pc`` pkg-config file.
-
-The headers also need `cpp_utils <https://github.com/jeandet/cpp_utils>`_, which installs
-the same way (``meson install``, ``cpp_utils.pc``), plus ``hedley.h`` and the gzip library
-(libdeflate or zlib) from your system. Then:
-
-.. code-block:: console
-
-    $ g++ -std=c++20 main.cpp $(pkg-config --cflags --libs cdfpp) -ldeflate
+``CDFPP_NO_SIMD`` turns off the SIMD time conversions, which need extra source files from
+``src/arch/x86/`` compiled with xsimd: the Meson build does that for you. Without SIMD, time
+conversions still work. They are just slower on very large arrays.
 
 
 Loading a file

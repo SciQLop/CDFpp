@@ -61,8 +61,16 @@ The build uses `meson <https://mesonbuild.com/>`_ and downloads its own dependen
 C++
 ===
 
-CDFpp is a C++20 library, made mostly of headers. To use it in your program, you add its
-``include/`` folder and three small header-only dependencies to your include path.
+CDFpp is a C++20 library, built with Meson. The easiest way to use it is as a Meson
+subproject: add a ``cdfpp.wrap`` file, then ``dependency('cdfpp')``.
 
-The :ref:`cpp:Adding CDFpp to your project` section of the :doc:`cpp` gives the exact
-compiler flags, and the current packaging limitations.
+.. code-block:: ini
+
+    # subprojects/cdfpp.wrap
+    [wrap-git]
+    url = https://github.com/SciQLop/CDFpp.git
+    revision = v0.13.0
+    depth = 1
+
+CMake and other build systems can use an installed CDFpp through pkg-config. The
+:ref:`cpp:Adding CDFpp to your project` section of the :doc:`cpp` explains every option.
