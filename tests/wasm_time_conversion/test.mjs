@@ -73,7 +73,8 @@ function load(file)
     const cdf = load("testutf8.cdf");
     const expected = {
         ep: [920610367100000000n, 883710245666000000n],
-        ep16: [1101743723030411520n, 1104339384031411584n, 1135875384031444608n],
+        // Exact: (seconds - epoch offset) * 1e9 + picoseconds / 1000, in integers.
+        ep16: [1101743723030411522n, 1104339384031411522n, 1135875384031444555n],
         tt2000: [
             1435708798123456789n, 1435708799123456789n, 1435708800123456789n,
             1435708800123456789n, 1435708801123456789n, 1435708802123456789n,
@@ -92,6 +93,27 @@ function load(file)
         cdf.time_values_as_ns_since_1970("Latitude") === undefined, true);
     check("missing var -> undefined",
         cdf.time_values_as_ns_since_1970("does_not_exist") === undefined, true);
+    cdf.delete();
+}
+
+// tt2000_2M_constant.cdf: 2.1M records, above the size where native builds split the
+// conversion over threads. WebAssembly without pthreads can't start threads, so this must
+// still convert (single-threaded) instead of throwing.
+{
+    const cdf = load("tt2000_2M_constant.cdf");
+    let ns;
+    try
+    {
+        ns = cdf.time_values_as_ns_since_1970("Epoch");
+    }
+    catch (err)
+    {
+        ns = undefined;
+        console.error(`conversion threw: ${err}`);
+    }
+    check("2.1M values: length", ns?.length, 2_100_000);
+    check("2.1M values: first", ns?.[0], 1577836800000000000n);
+    check("2.1M values: last", ns?.[2_099_999], 1577836800000000000n);
     cdf.delete();
 }
 

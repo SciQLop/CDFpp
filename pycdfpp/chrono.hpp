@@ -746,7 +746,8 @@ void format_time_to_bytes(
     static constexpr std::size_t min_chunk = 1024;
     static const auto threads_count
         = static_cast<std::size_t>(std::max(1U, std::thread::hardware_concurrency()));
-    if (count >= min_chunk * threads_count)
+    if (cdf::chrono::_impl::threads_supported && threads_count > 1
+        && count >= min_chunk * threads_count)
     {
         const auto chunk_size = (count + threads_count - 1) / threads_count;
         std::vector<std::thread> threads;

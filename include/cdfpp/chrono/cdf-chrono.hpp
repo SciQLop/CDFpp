@@ -54,6 +54,14 @@ using namespace cdf::chrono;
 
 namespace chrono::_impl
 {
+    // WebAssembly without pthreads (Pyodide, the CDFpp Explorer) can't start threads:
+    // std::thread throws there, so conversions must stay on the calling thread.
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+    inline constexpr bool threads_supported = false;
+#else
+    inline constexpr bool threads_supported = true;
+#endif
+
     static inline std::size_t ideal_threads_count()
     {
         static const auto threads_count = std::thread::hardware_concurrency() >= 32 ? 8U : 2U;
@@ -71,7 +79,7 @@ namespace chrono::_impl
     {
         static const auto threads_count = ideal_threads_count();
         const auto count = std::size(input);
-        if ((count >= (min_chunk_size * threads_count)))
+        if (threads_supported && count >= min_chunk_size * threads_count)
         {
             const auto chunk_size = [count]()
             {
