@@ -43,6 +43,12 @@ foreach py_test:['python_loading', 'python_saving', 'python_skeletons',
 endforeach
 
 
+nm = find_program('nm', required: false)
+if nm.found() and cdfpp_simd_libs.length() > 0
+    test('simd_isolation', python3,
+        args:[files('simd_isolation/test.py'), nm] + cdfpp_simd_libs)
+endif
+
 python_wrapper_cpp = executable('python_wrapper_cpp','python_wrapper_cpp/main.cpp',
                 dependencies:[pybind11_dep, python3.dependency(embed:true), catch_dep, cdfpp_dep, fmt_dep],
                 cpp_args: test_cpp_args,

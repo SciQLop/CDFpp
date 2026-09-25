@@ -37,6 +37,13 @@ namespace cdf::chrono::vectorized
 {
 using namespace cdf::chrono;
 
+// Defined in src/arch/x86/chrono.cpp, built without SIMD flags. Calling the inline
+// _impl::scalar_to_ns_from_1970 here would emit it in every per-arch object, and the linker
+// could keep the AVX-512 copy for everyone: SIGILL on CPUs without AVX-512.
+void scalar_to_ns_from_1970(const std::span<const tt2000_t>& input, int64_t* const output);
+void scalar_to_ns_from_1970(const std::span<const epoch>& input, int64_t* const output);
+void scalar_to_ns_from_1970(const std::span<const epoch16>& input, int64_t* const output);
+
 template <class Arch, typename align_mode>
 void stream_store(const auto& batch_data, auto* const output)
 {
@@ -148,7 +155,7 @@ struct _to_ns_from_1970_epoch16_t
         }
         if (i < count)
         {
-            _impl::scalar_to_ns_from_1970(input.subspan(i), output + i);
+            vectorized::scalar_to_ns_from_1970(input.subspan(i), output + i);
         }
     }
 
@@ -163,7 +170,7 @@ void _to_ns_from_1970_epoch16_t::operator()(
 {
     if constexpr (cdf::helpers::is_any_of_v<Arch, xsimd::unavailable, xsimd::sse2, xsimd::avx2>)
     {
-        return _impl::scalar_to_ns_from_1970(input, output);
+        return vectorized::scalar_to_ns_from_1970(input, output);
     }
     if (xsimd::is_aligned(input.data()) && xsimd::is_aligned(output))
     {
@@ -209,7 +216,7 @@ struct _to_ns_from_1970_epoch_t
         }
         if (i < count)
         {
-            _impl::scalar_to_ns_from_1970(input.subspan(i), output + i);
+            vectorized::scalar_to_ns_from_1970(input.subspan(i), output + i);
         }
     }
 
@@ -223,7 +230,7 @@ void _to_ns_from_1970_epoch_t::operator()(
 {
     if constexpr (cdf::helpers::is_any_of_v<Arch, xsimd::unavailable, xsimd::sse2, xsimd::avx2>)
     {
-        return _impl::scalar_to_ns_from_1970(input, output);
+        return vectorized::scalar_to_ns_from_1970(input, output);
     }
     if (xsimd::is_aligned(input.data()) && xsimd::is_aligned(output))
     {
@@ -277,7 +284,7 @@ struct _to_ns_from_1970_tt2000_t
         }
         if (i < count)
         {
-            _impl::scalar_to_ns_from_1970(input.subspan(i), &output[i]);
+            vectorized::scalar_to_ns_from_1970(input.subspan(i), &output[i]);
         }
     }
 
@@ -303,7 +310,7 @@ struct _to_ns_from_1970_tt2000_t
             // Before 1972, TAI-UTC isn't a whole number of seconds: the scalar code handles it.
             if (xsimd::any(tt2000_batch < first_leap_sec))
             {
-                _impl::scalar_to_ns_from_1970(input.subspan(i, simd_size), &output[i]);
+                vectorized::scalar_to_ns_from_1970(input.subspan(i, simd_size), &output[i]);
                 continue;
             }
             auto offset
@@ -328,7 +335,7 @@ struct _to_ns_from_1970_tt2000_t
         // sfence<Arch>();
         if (i < count)
         {
-            _impl::scalar_to_ns_from_1970(input.subspan(i), &output[i]);
+            vectorized::scalar_to_ns_from_1970(input.subspan(i), &output[i]);
         }
     }
 
@@ -366,7 +373,7 @@ void _to_ns_from_1970_tt2000_t::operator()(
     // worth it.
     if constexpr (cdf::helpers::is_any_of_v<Arch, xsimd::unavailable, xsimd::sse2>)
     {
-        return _impl::scalar_to_ns_from_1970(input, output);
+        return vectorized::scalar_to_ns_from_1970(input, output);
     }
     {
         if (xsimd::is_aligned(input.data()) && xsimd::is_aligned(output))
@@ -388,7 +395,7 @@ void _to_ns_from_1970_tt2000_t::operator()(
         {
             auto [ new_in, new_out ] = _realign(Arch {}, input, output,
                 static_cast<void (*)(const std::span<const tt2000_t>&, int64_t* const)>(
-                    _impl::scalar_to_ns_from_1970));
+                    vectorized::scalar_to_ns_from_1970));
             if (new_out != output)
             {
                 to_ns_from_1970<Arch, xsimd::aligned_mode, xsimd::aligned_mode>(
