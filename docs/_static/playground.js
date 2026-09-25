@@ -6,9 +6,22 @@
 
 const PYODIDE_URL = "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/";
 
+// The pycdfpp version these docs describe; the latest release when it isn't on PyPI yet.
+// Sphinx declares DOCUMENTATION_OPTIONS with a top-level const: a global name, but not a
+// property of globalThis.
+const DOCS_VERSION = typeof DOCUMENTATION_OPTIONS === "undefined" ? "" : DOCUMENTATION_OPTIONS.VERSION;
+
 const SETUP = `
 import micropip
-await micropip.install(["pycdfpp", "pyodide-http"])
+_playground_note = ""
+try:
+    await micropip.install("pycdfpp==${DOCS_VERSION}" if "${DOCS_VERSION}" else "pycdfpp")
+except Exception:
+    await micropip.install("pycdfpp")
+    import pycdfpp
+    _playground_note = (f"Note: pycdfpp ${DOCS_VERSION} isn't on PyPI yet, running "
+                        f"{pycdfpp.__version__}: some examples may fail.")
+await micropip.install("pyodide-http")
 import pyodide_http
 pyodide_http.patch_all()
 import warnings
@@ -33,6 +46,7 @@ def _playground_figures():
 `;
 
 let pyodideReady = null;
+let setupNote = "";  // shown once, in the first output
 
 function loadScript(src) {
     return new Promise((resolve, reject) => {
@@ -51,6 +65,7 @@ function loadPython() {
         await pyodide.loadPackage(["micropip", "numpy"]);
         await pyodide.runPythonAsync(SETUP);
         await pyodide.runPythonAsync(COLLECT_FIGURES);
+        setupNote = pyodide.globals.get("_playground_note");
         return pyodide;
     })();
     return pyodideReady;
@@ -87,7 +102,8 @@ function appendFigures(out, images) {
 
 async function execute(pyodide, block) {
     const out = outputArea(block);
-    const lines = [];
+    const lines = setupNote ? [setupNote] : [];
+    setupNote = "";
     pyodide.setStdout({ batched: (s) => lines.push(s) });
     pyodide.setStderr({ batched: (s) => lines.push(s) });
     try {
