@@ -133,7 +133,7 @@ struct _to_ns_from_1970_epoch16_t
 
         const auto offset = xsimd::broadcast<double, Arch>(constants::epoch_offset_seconds);
         const auto ps_in_ns = xsimd::broadcast<double, Arch>(1'000);
-        const auto ns_in_s = xsimd::broadcast<double, Arch>(1'000'000'000);
+        const auto ns_in_s = xsimd::broadcast<int64_t, Arch>(1'000'000'000);
         std::size_t i = 0;
         for (; i + simd_size <= count; i += simd_size)
         {
@@ -141,8 +141,10 @@ struct _to_ns_from_1970_epoch16_t
                 = batchin_type::gather(reinterpret_cast<const double*>(&input[i]), even_indexes);
             auto picos
                 = batchin_type::gather(reinterpret_cast<const double*>(&input[i]), odd_indexes);
-            xsimd::batch_cast<int64_t>(((seconds - offset) * ns_in_s + (picos / ps_in_ns)))
-                .store(output + i, output_align_mode {});
+            // Whole seconds are scaled in int64: ~1e18 ns doesn't fit a double's mantissa.
+            auto whole_seconds = xsimd::batch_cast<int64_t>(seconds - offset);
+            auto sub_second_ns = xsimd::batch_cast<int64_t>(picos / ps_in_ns);
+            (whole_seconds * ns_in_s + sub_second_ns).store(output + i, output_align_mode {});
         }
         if (i < count)
         {

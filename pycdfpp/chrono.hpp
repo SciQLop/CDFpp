@@ -491,10 +491,10 @@ template <typename time_t>
 template <typename time_t>
 inline py::object to_cdf_time_t(const py::array& input)
 {
-
-    auto res = _details::fast_allocate_array<time_t>(input);
+    const auto contiguous = _details::c_contiguous(input);
+    auto res = _details::fast_allocate_array<time_t>(contiguous);
     time_t* out = reinterpret_cast<time_t*>(res.request().ptr);
-    if (to_cdf_time_t<time_t>(input, out))
+    if (to_cdf_time_t<time_t>(contiguous, out))
     {
         return res;
     }
@@ -771,7 +771,8 @@ template <typename time_t>
 template <typename time_t>
 [[nodiscard]] py::array to_time_string(const py::array_t<time_t>& input, const std::string& format)
 {
-    auto info = input.request();
+    const auto contiguous = _details::c_contiguous(input);
+    auto info = contiguous.request();
     std::vector<ssize_t> shape(input.shape(), input.shape() + input.ndim());
     return to_time_string_span(
         std::span { static_cast<const time_t*>(info.ptr), static_cast<std::size_t>(info.size) },

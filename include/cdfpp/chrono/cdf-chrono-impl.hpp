@@ -178,11 +178,13 @@ inline void scalar_to_ns_from_1970(
     const std::span<const epoch16>& input, int64_t* const output)
 {
 
+    // Whole seconds are scaled in int64: ~1e18 ns doesn't fit a double's 53-bit mantissa.
     for (std::size_t i = 0; i < input.size(); ++i)
     {
         output[i]
-            = (input[i].seconds - constants::epoch_offset_seconds) * 1'000'000'000
-            + (input[i].picoseconds / 1'000);
+            = static_cast<int64_t>(input[i].seconds - constants::epoch_offset_seconds)
+                * 1'000'000'000
+            + static_cast<int64_t>(input[i].picoseconds / 1'000);
     }
 }
 

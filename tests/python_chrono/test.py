@@ -236,5 +236,53 @@ class PycdfChronoErrors(unittest.TestCase):
             pycdfpp.to_datetime64(["not a datetime"])
 
 
+class PycdfEpoch16Precision(unittest.TestCase):
+    def test_epoch16_to_datetime64_is_exact(self):
+        # EPOCH16 stores whole seconds and picoseconds exactly: nanoseconds must round-trip.
+        ns = np.arange(0, 10_000, dtype=np.int64) * 16_666_666_666 + 1_000_000_000_000_000_000
+        epochs16 = pycdfpp.to_epoch16(ns.astype("datetime64[ns]"))
+        np.testing.assert_array_equal(pycdfpp.to_datetime64(epochs16).astype(np.int64), ns)
+
+
+class PycdfMultiDimTimes(unittest.TestCase):
+    """Time arrays with more than one dimension, like ISTP files storing Epoch as (N, 1)."""
+
+    def _variable(self, shape, data_type):
+        # Millisecond-aligned times are stored exactly by every CDF time type.
+        values = make_datetime64_n_values(int(np.prod(shape))).reshape(shape)
+        values = values.astype("datetime64[ms]").astype("datetime64[ns]")
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("t", values=values, data_type=data_type)
+        return cdf["t"], values
+
+    def _expected(self, values):
+        return values.astype("datetime64[us]").tolist()
+
+    def test_to_datetime_2d_variables(self):
+        for data_type in (pycdfpp.DataType.CDF_TIME_TT2000, pycdfpp.DataType.CDF_EPOCH,
+                          pycdfpp.DataType.CDF_EPOCH16):
+            for shape in ((50, 1), (20, 3)):
+                with self.subTest(data_type=data_type, shape=shape):
+                    var, values = self._variable(shape, data_type)
+                    self.assertEqual(pycdfpp.to_datetime(var), self._expected(values))
+                    self.assertEqual(pycdfpp.to_datetime(var.values), self._expected(values))
+
+    def test_to_datetime_3d_array(self):
+        var, values = self._variable((4, 3, 2), pycdfpp.DataType.CDF_TIME_TT2000)
+        self.assertEqual(pycdfpp.to_datetime(var.values), self._expected(values))
+
+    def test_to_datetime_2d_datetime64(self):
+        values = make_datetime64_n_values(60).reshape((20, 3))
+        self.assertEqual(pycdfpp.to_datetime(values), self._expected(values))
+
+    def test_non_contiguous_arrays(self):
+        var, values = self._variable((40, 3), pycdfpp.DataType.CDF_TIME_TT2000)
+        strided = var.values[::3, 1]
+        expected = values[::3, 1]
+        self.assertEqual(pycdfpp.to_datetime(strided), self._expected(expected))
+        np.testing.assert_array_equal(pycdfpp.to_datetime64(strided), expected)
+        np.testing.assert_array_equal(pycdfpp.to_datetime64(var.values.T), values.T)
+
+
 if __name__ == '__main__':
     unittest.main()

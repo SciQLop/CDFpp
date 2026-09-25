@@ -361,6 +361,13 @@ template <py_list_or_py_tuple T>
 }
 
 
+// The conversions below read buffers as flat C-ordered memory. Contiguous inputs are passed
+// through untouched; strided ones (slices, transposes) are copied once.
+[[nodiscard]] inline py::array c_contiguous(const py::array& input)
+{
+    return py::array::ensure(input, py::array::c_style);
+}
+
 namespace ranges
 {
 
@@ -663,7 +670,8 @@ namespace ranges
     template <np_array output_t, typename in_value_t, typename out_value_t>
     [[nodiscard]] inline py::object transform(const py::array& input, const auto& f)
     {
-        py::buffer_info in_buff = input.request();
+        const auto contiguous = c_contiguous(input);
+        py::buffer_info in_buff = contiguous.request();
         auto result = _details::fast_allocate_array<out_value_t>(in_buff);
         in_value_t* in_ptr = static_cast<in_value_t*>(in_buff.ptr);
         f(std::span(in_ptr, result.size()), static_cast<out_value_t*>(result.request(true).ptr));
@@ -676,12 +684,12 @@ namespace ranges
     {
         py::list result;
         auto out = py_stealing_raw_sink { _details::underlying_pyobject(result) };
-        const auto flat_sz = _details::flat_size(shape_span);
+        const auto sub_array_size = _details::flat_size(shape_span.subspan(1));
         for (std::size_t i = 0; i < static_cast<std::size_t>(shape_span[0]); ++i)
         {
             if (shape_span.size() > 1)
             {
-                *out = transform<output_t>(input + i * flat_sz, shape_span.subspan(1), f);
+                *out = transform<output_t>(input + i * sub_array_size, shape_span.subspan(1), f);
             }
             else
             {
@@ -707,15 +715,15 @@ namespace ranges
     template <py_list output_t, typename value_t>
     [[nodiscard]] inline py::object transform(const py::array& input, const auto& f)
     {
-        auto view = [&input]() constexpr
+        auto view = [contiguous = c_contiguous(input)]() constexpr
         {
             if constexpr (helpers::is_any_of_v<value_t, int64_t, uint64_t>)
             {
-                return py::array(input.attr("view")("int64"));
+                return py::array(contiguous.attr("view")("int64"));
             }
             else
             {
-                return input;
+                return contiguous;
             }
         }();
         auto buffer = view.request();
