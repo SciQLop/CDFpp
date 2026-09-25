@@ -246,6 +246,7 @@ struct Variable
     void set_block_counter(std::function<std::size_t()> counter)
     {
         p_block_counter = std::move(counter);
+        release_file_if_loaded();
     }
 
     [[nodiscard]] std::size_t number() const noexcept { return p_number; }
@@ -269,7 +270,16 @@ struct Variable
                 majority::swap(data, p_shape);
             }
             check_shape();
+            release_file_if_loaded();
         }
+    }
+
+    // Once values are in memory, the block count is resolved right away so the variable
+    // stops referencing its file: Windows can't overwrite a file that is still mapped.
+    void release_file_if_loaded() const
+    {
+        if (values_loaded())
+            (void)is_contiguous();
     }
 
 

@@ -383,3 +383,22 @@ SCENARIO("Saving to a path that can't be written reports a failure", "[CDF]")
     const auto path = std::filesystem::temp_directory_path() / "cdfpp_missing_dir" / "out.cdf";
     REQUIRE_FALSE(cdf::io::save(CDF {}, path.string()));
 }
+
+SCENARIO("A variable whose values are loaded no longer depends on its file", "[CDF]")
+{
+    // Windows can't overwrite a file that is still memory-mapped: once values are in memory,
+    // nothing may keep the file's buffer alive (is_contiguous() used to).
+    const auto copy = std::filesystem::temp_directory_path() / "cdfpp_detached_copy.cdf";
+    std::filesystem::copy_file(std::string(DATA_PATH) + "/a_cdf.cdf", copy,
+        std::filesystem::copy_options::overwrite_existing);
+    {
+        auto cdf = cdf::io::load(copy.string());
+        REQUIRE(cdf != std::nullopt);
+        for (const auto& [_, variable] : cdf->variables)
+            variable.load_values();
+        std::filesystem::resize_file(copy, 0);
+        for (const auto& [_, variable] : cdf->variables)
+            REQUIRE_NOTHROW(variable.is_contiguous());
+    }
+    std::filesystem::remove(copy);
+}

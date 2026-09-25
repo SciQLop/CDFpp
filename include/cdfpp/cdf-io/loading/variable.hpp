@@ -222,14 +222,19 @@ namespace
     {
         for (int32_t i = 0; i < vxr.NusedEntries && count < limit; i++)
         {
-            if (cdf_mutable_variable_record_t<cdf_version_tag_t> rec {};
-                load_mut_record(rec, stream, vxr.Offset[i]))
+            // The header alone gives the record type: fully loading a VVR/CVVR would copy its
+            // data.
+            cdf_mutable_variable_record_t<cdf_version_tag_t> rec {};
+            if (!load_record(rec.header, stream, vxr.Offset[i]))
+                continue;
+            switch (rec.header.record_type)
             {
-                using vvr_t = typename decltype(rec)::vvr_t;
-                using vxr_t = typename decltype(rec)::vxr_t;
-                using cvvr_t = typename decltype(rec)::cvvr_t;
-                rec.visit([&count](const vvr_t&) -> void { ++count; },
-                    [&stream, &count, limit](vxr_t sub) -> void
+                case cdf_record_type::VVR:
+                case cdf_record_type::CVVR:
+                    ++count;
+                    break;
+                case cdf_record_type::VXR:
+                    if (cdf_VXR_t<cdf_version_tag_t> sub; load_record(sub, stream, vxr.Offset[i]))
                     {
                         count_blocks_in_vxr<cdf_version_tag_t>(stream, sub, count, limit);
                         while (sub.VXRnext && count < limit)
@@ -237,9 +242,10 @@ namespace
                             load_record(sub, stream, sub.VXRnext);
                             count_blocks_in_vxr<cdf_version_tag_t>(stream, sub, count, limit);
                         }
-                    },
-                    [&count](const cvvr_t&) -> void { ++count; },
-                    [](const std::monostate&) -> void {});
+                    }
+                    break;
+                default:
+                    break;
             }
         }
     }
