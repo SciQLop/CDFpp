@@ -68,15 +68,6 @@ class NasaCompatDumpTest(unittest.TestCase):
         path = os.path.join(_resources, 'a_cdf.cdf')
         with open(os.path.join(_resources, 'a_cdf_cdfirsdump_reference.txt')) as f:
             reference = f.read()
-
-        # The one known, already-tracked divergence (finding-tt2000-scalar-simd-
-        # pre1972 project memory - a pre-1972 tt2000 date, not this feature's bug),
-        # normalized the same way the C++ end-to-end test does.
-        reference = reference.replace(
-            '1970-01-01T00:00:00.000000000, ...',
-            '1970-01-01T00:00:08.001377999, ...',
-        )
-
         self.assertEqual(debug.nasa_compat_dump(path), reference)
 
     def test_radix_16_matches_a_real_hex_capture(self):

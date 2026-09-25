@@ -787,27 +787,9 @@ SCENARIO("dump() reproduces cdfirsdump -full -nopage -nosummary byte-for-byte, e
     GIVEN("a real captured reference dump of a_cdf.cdf from NASA's own cdf39_2 cdfirsdump")
     {
         const std::string cdf_path = std::string(DATA_PATH) + "/a_cdf.cdf";
-        std::string reference = read_fixture("a_cdf_cdfirsdump_reference.txt");
+        const std::string reference = read_fixture("a_cdf_cdfirsdump_reference.txt");
 
-        // The one and only real divergence across all 1261 lines: a_cdf.cdf's "tt2000"
-        // global attribute value predates 1972, which hits the pre-existing,
-        // already-tracked tt2000 scalar/SIMD divergence (finding-tt2000-scalar-simd-
-        // pre1972 project memory - "Not fixed", ~9s off before 1972's leap-second
-        // baseline; also worked around the same way in the dedicated PadValue/Value
-        // SCENARIOs above by picking post-1972 ground truth instead). Patching just
-        // this one known-bad line in the *comparison*, not the reference file itself,
-        // keeps the reference an honest, untouched capture of real cdfirsdump output.
-        const std::string real_nasa_line
-            = "1970-01-01T00:00:00.000000000, ...\n"; // real cdfirsdump output
-        const std::string cdfpp_known_divergence
-            = "1970-01-01T00:00:08.001377999, ...\n"; // pre-1972 tt2000 bug, not this
-                                                      // feature's to fix
-        if (auto pos = reference.find(real_nasa_line); pos != std::string::npos)
-            reference.replace(pos, real_nasa_line.size(), cdfpp_known_divergence);
-
-        THEN(
-            "dump()'s output matches every single line of it, modulo that one known, "
-            "already-tracked pre-1972 tt2000 divergence")
+        THEN("dump()'s output matches every single line of it")
         {
             REQUIRE(dump(cdf_path) == reference);
         }

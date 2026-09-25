@@ -36,10 +36,26 @@ using namespace std::chrono;
 using namespace cdf::chrono;
 
 
+// TAI-UTC in ns for a UTC time before 1972, as NASA's library computes it: constant over a UTC
+// day (evaluated at its noon), truncated to whole nanoseconds.
+inline int64_t tai_minus_utc_before_1972(int64_t utc_ns_from_1970)
+{
+    constexpr int64_t day_ns = 86'400'000'000'000;
+    const auto& periods = leap_seconds::drift_periods_before_1972;
+    if (utc_ns_from_1970 < periods.front().start_ns_from_1970)
+        return 0;
+    const auto& p = *std::find_if(std::crbegin(periods), std::crend(periods),
+        [utc_ns_from_1970](const auto& period) { return period.start_ns_from_1970 <= utc_ns_from_1970; });
+    const auto day = utc_ns_from_1970 / day_ns - (utc_ns_from_1970 % day_ns < 0 ? 1 : 0);
+    const double mjd_at_noon = static_cast<double>(day) + 40587.0 + 0.5;
+    return static_cast<int64_t>((p.base + (mjd_at_noon - p.mjd_ref) * p.rate) * 1e9);
+}
+
 inline int64_t leap_second_branchless(int64_t ns_from_1970)
 {
     const auto& table = leap_seconds::leap_seconds_tt2000;
-    int64_t offset = 0;
+    int64_t offset
+        = ns_from_1970 < table.front().first ? tai_minus_utc_before_1972(ns_from_1970) : 0;
     for (size_t i = 0; i < table.size(); ++i)
     {
         offset = (ns_from_1970 >= table[i].first) ? table[i].second : offset;
@@ -65,7 +81,28 @@ inline int64_t leap_second(int64_t ns_from_1970)
             return leap_seconds::leap_seconds_tt2000.back().second;
         }
     }
-    return 0;
+    return tai_minus_utc_before_1972(ns_from_1970);
+}
+
+// UTC from TAI before 1972. TAI-UTC depends on the UTC day, so this refines a guess at most
+// twice, like NASA's breakdownTT2000 (a guess may fall in 1972, hence leap_second).
+inline int64_t utc_from_tai_before_1972(int64_t tai_ns_from_1970)
+{
+    int64_t utc = tai_ns_from_1970;
+    for (int refinement = 0; refinement < 2; ++refinement)
+    {
+        const auto next = tai_ns_from_1970 - leap_second(utc);
+        if (next == utc)
+            break;
+        utc = next;
+    }
+    return utc;
+}
+
+inline int64_t leap_second_before_1972(const tt2000_t& ep)
+{
+    const auto tai = ep.nseconds + constants::tt2000_offset;
+    return tai - utc_from_tai_before_1972(tai);
 }
 
 inline int64_t leap_second(const tt2000_t& ep)
@@ -86,7 +123,7 @@ inline int64_t leap_second(const tt2000_t& ep)
             return leap_seconds::leap_seconds_tt2000_reverse.back().second;
         }
     }
-    return 0;
+    return leap_second_before_1972(ep);
 }
 
 inline auto _leap_second(const tt2000_t& ep, std::size_t leap_index_hint)
@@ -110,7 +147,7 @@ inline auto _leap_second(const tt2000_t& ep, std::size_t leap_index_hint)
             --leap_index_hint;
         }
         if (ep.nseconds < leap_seconds::leap_seconds_tt2000_reverse[0].first)
-            return std::tuple { int64_t { 0 }, std::size_t { 0 } };
+            return std::tuple { leap_second_before_1972(ep), std::size_t { 0 } };
         return std::tuple { static_cast<int64_t>(
                                 leap_seconds::leap_seconds_tt2000_reverse[leap_index_hint].second),
             leap_index_hint };

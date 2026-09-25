@@ -295,9 +295,17 @@ struct _to_ns_from_1970_tt2000_t
         const auto one_sec = xsimd::broadcast<int64_t, Arch>(1000000000LL);
 
 
+        const auto first_leap_sec = xsimd::broadcast<int64_t, Arch>(
+            leap_seconds::leap_seconds_tt2000_reverse.front().first);
         for (; i + simd_size <= count; i += simd_size)
         {
             auto tt2000_batch = batch_type::load(&input[i].nseconds, input_align_mode {});
+            // Before 1972, TAI-UTC isn't a whole number of seconds: the scalar code handles it.
+            if (xsimd::any(tt2000_batch < first_leap_sec))
+            {
+                _impl::scalar_to_ns_from_1970(input.subspan(i, simd_size), &output[i]);
+                continue;
+            }
             auto offset
                 = xsimd::broadcast<int64_t, Arch>(constants::tt2000_offset - max_leap_offset);
             int leap_index = std::size(leap_seconds::leap_seconds_tt2000_reverse) - 2;
@@ -315,8 +323,6 @@ struct _to_ns_from_1970_tt2000_t
                            leap_seconds::leap_seconds_tt2000_reverse[leap_index].first));
                 leap_index--;
             }
-            // Values before all table entries still need one final correction
-            offset = xsimd::select(needs_correction, offset + one_sec, offset);
             store<Arch, output_align_mode>(tt2000_batch + offset, &output[i]);
         }
         // sfence<Arch>();

@@ -44,18 +44,14 @@ function load(file)
 }
 
 // a_cdf.cdf: all three time types, 101 points each (exercises the threaded/bulk path).
-//
-// Note on tt2000[0]: its raw J2000 value decodes to 1969-12-31T23:59:59, i.e. before
-// the NASA leap-second table's first entry (1972-01-01). In that undefined extrapolation
-// zone CDFpp's scalar conversion (this WASM build, xsimd gated off non-x86) and its SIMD
-// conversion (pycdfpp on x86) disagree by 9 s. We therefore don't pin element 0 here;
-// leap-second correctness is pinned by testutf8.cdf below (spans the 2015 leap second).
+// tt2000[0] predates 1972, when TAI-UTC drifted by fractions of a second: NASA's library
+// decodes it as exactly 1970-01-01T00:00:00 UTC.
 {
     const cdf = load("a_cdf.cdf");
     const cases = {
         epoch: { n: 101, first: 0n, last: 1555200000000000000n },
         epoch16: { n: 101, first: 0n, last: 1555200000000000000n },
-        tt2000: { n: 101, last: 1555200000000000000n },
+        tt2000: { n: 101, first: 0n, last: 1555200000000000000n },
     };
     for (const [varname, exp] of Object.entries(cases))
     {

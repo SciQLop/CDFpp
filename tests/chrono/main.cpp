@@ -36,10 +36,16 @@ TEST_CASE("Leap Seconds", "")
         auto first_entry = leap_seconds_tt2000_reverse.front();
         REQUIRE(cdf::_impl::leap_second(cdf::tt2000_t { first_entry.first }) == first_entry.second);
     }
-    SECTION("tt2000_t leap_second returns 0 for pre-1972")
+    SECTION("tt2000_t leap_second follows the pre-1972 drift")
     {
-        // Any TT2000 value before Jan 1, 1972 should have 0 leap seconds
-        REQUIRE(cdf::_impl::leap_second(cdf::tt2000_t { -1000000000000000000 }) == 0);
+        // 1968-04-24: TAI-UTC drifted by a fraction of a second per day before 1972. Expected
+        // value from NASA's CDF library 3.9.2 (CDF_TT2000_to_UTC_parts).
+        REQUIRE(cdf::_impl::leap_second(cdf::tt2000_t { -1000000000000000000 }) == 6402114000);
+    }
+    SECTION("tt2000_t leap_second is 0 before 1960")
+    {
+        // 1958-10-22: before the first entry of the table, TAI-UTC is 0.
+        REQUIRE(cdf::_impl::leap_second(cdf::tt2000_t { -1300000000000000000 }) == 0);
     }
 }
 
