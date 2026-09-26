@@ -38,9 +38,15 @@ sys.path.append(__here__)
 if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] >= 8:
     os.add_dll_directory(__here__)
 
-__all__ = ['tt2000_t', 'epoch', 'epoch16', 'load', 'save', 'CDF', 'Variable',
-           'Attribute', 'to_datetime64', 'to_datetime', 'to_time_string', 'DataType', 'CompressionType', 'Majority',
-           'ExperimentalCompressionWarning']
+__all__ = ['load', 'save', 'CDF', 'Variable', 'Attribute', 'VariableAttribute', 'filter_cdf',
+           'to_datetime64', 'to_datetime', 'to_time_string', 'to_tt2000', 'to_epoch', 'to_epoch16',
+           'tt2000_t', 'epoch', 'epoch16', 'default_fill_value', 'default_pad_value', 'to_dict_skeleton',
+           'DataType', 'CompressionType', 'Majority', 'ExperimentalCompressionWarning']
+
+
+def __dir__():
+    # PEP 562: __all__ alone doesn't hide imports (np, os, ...) from dir() and tab completion
+    return sorted(__all__ + ['__version__'])
 
 # Build dtype.num → CDF type mapping dynamically to handle platform differences.
 # On Windows, np.int64 is NPY_LONGLONG (num=9) while on Linux it's NPY_LONG (num=7).

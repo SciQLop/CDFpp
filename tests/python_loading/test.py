@@ -186,6 +186,23 @@ def compare_attributes(attrs, ref):
     return True
 
 
+class PublicApiTest(unittest.TestCase):
+    def test_dir_lists_only_the_public_api(self):
+        self.assertNotIn('np', dir(pycdfpp))
+        self.assertNotIn('os', dir(pycdfpp))
+        self.assertNotIn('List', dir(pycdfpp))
+        self.assertIn('__version__', dir(pycdfpp))
+
+    def test_every_public_name_exists(self):
+        for name in pycdfpp.__all__:
+            self.assertTrue(hasattr(pycdfpp, name), name)
+
+    def test_documented_helpers_are_public(self):
+        for name in ('VariableAttribute', 'filter_cdf', 'to_tt2000', 'to_epoch', 'to_epoch16',
+                     'to_dict_skeleton', 'default_fill_value', 'default_pad_value'):
+            self.assertIn(name, pycdfpp.__all__)
+
+
 class PycdfEncodingTest(unittest.TestCase):
     def test_can_load_and_repr_utf8(self):
         cdf = pycdfpp.load(
