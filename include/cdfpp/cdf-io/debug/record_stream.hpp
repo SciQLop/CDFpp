@@ -344,6 +344,17 @@ namespace details
             std::forward<on_record_t>(on_record), std::forward<on_corruption_t>(on_corruption));
     }
 
+    // With the CDR checksum flag set, the file ends with a 16-byte MD5 digest, not a record.
+    template <typename version_t, typename buffer_t>
+    std::size_t record_region_end(buffer_t& buffer)
+    {
+        constexpr int32_t checksum_flag = 4;
+        constexpr std::size_t md5_size = 16;
+        cdf_CDR_t<version_t> cdr {};
+        load_record(cdr, buffer, 8);
+        return buffer.size() - ((cdr.Flags & checksum_flag) ? md5_size : 0);
+    }
+
     template <typename version_t, typename buffer_t, typename on_record_t, typename on_corruption_t>
     void run(buffer_t& buffer, bool is_compressed, std::size_t start_offset,
         on_record_t&& on_record, on_corruption_t&& on_corruption)
@@ -352,8 +363,9 @@ namespace details
             run_compressed<version_t>(buffer, start_offset, std::forward<on_record_t>(on_record),
                 std::forward<on_corruption_t>(on_corruption));
         else
-            for_each_record(buffer, version_t {}, start_offset, buffer.size(),
-                std::forward<on_record_t>(on_record), std::forward<on_corruption_t>(on_corruption));
+            for_each_record(buffer, version_t {}, start_offset,
+                record_region_end<version_t>(buffer), std::forward<on_record_t>(on_record),
+                std::forward<on_corruption_t>(on_corruption));
     }
 }
 

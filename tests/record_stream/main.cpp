@@ -33,6 +33,23 @@ struct counting_corruption_handler
 };
 }
 
+SCENARIO("for_each_record stops before the MD5 checksum trailer", "[record_stream]")
+{
+    GIVEN("a file written by NASA's library with the MD5 checksum enabled")
+    {
+        const std::string path = std::string(DATA_PATH) + "/checksum.cdf";
+        THEN("the 16-byte checksum at the end of the file is not reported as corruption")
+        {
+            counting_corruption_handler on_corruption;
+            std::size_t records = 0;
+            for_each_record(
+                path, [&](std::size_t, const auto&) { records++; }, std::ref(on_corruption));
+            REQUIRE(on_corruption.count == 0);
+            REQUIRE(records > 0);
+        }
+    }
+}
+
 SCENARIO(
     "for_each_record walks a well-formed v3 CDF's records in physical order", "[record_stream]")
 {
