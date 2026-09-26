@@ -95,6 +95,7 @@ cdfpp_headers = files(
     'include/cdfpp/variable.hpp',
     'include/cdfpp/cdf.hpp',
     'include/cdfpp/cdf-helpers.hpp',
+    'include/cdfpp/cdf-parallel.hpp',
     'include/cdfpp/cdf-repr.hpp',
     'include/cdfpp/cdf-data.hpp',
     'include/cdfpp/cdf-debug.hpp',

@@ -41,6 +41,8 @@ using cpp_utils::containers::no_init_vector;
 #include <span>
 #include <thread>
 
+#include "cdfpp/cdf-parallel.hpp"
+
 #ifndef CDFPP_NO_SIMD
 #include "cdfpp/vectorized/cdf-chrono.hpp"
 #endif
@@ -55,13 +57,7 @@ using namespace cdf::chrono;
 
 namespace chrono::_impl
 {
-    // WebAssembly without pthreads (Pyodide, the CDFpp Explorer) can't start threads:
-    // std::thread throws there, so conversions must stay on the calling thread.
-#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
-    inline constexpr bool threads_supported = false;
-#else
-    inline constexpr bool threads_supported = true;
-#endif
+    using cdf::parallel::threads_supported;
 
     static inline std::size_t ideal_threads_count()
     {

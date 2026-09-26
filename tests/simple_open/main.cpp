@@ -17,6 +17,7 @@
 #include "cdfpp/cdf-debug.hpp"
 #include "cdfpp/cdf-file.hpp"
 #include "cdfpp/cdf-io/cdf-io.hpp"
+#include "cdfpp/cdf-io/debug/record_stream.hpp"
 #include "cdfpp/chrono/cdf-chrono.hpp"
 
 #include "tests_config.hpp"
@@ -286,6 +287,50 @@ std::size_t filesize(std::fstream& file)
             'T', 'h', 'i', 's', ' ', 'i', 's', ' ', 'a', ' ', 's', 't', 'r', 'i', 'n', 'g' }))
 
 
+// Loads the second block of the file's first VXR alone, into a buffer filled with a sentinel,
+// and tells whether any byte outside that block changed.
+bool second_block_writes_outside_itself(const std::string& path, std::size_t record_size,
+    std::size_t records)
+{
+    auto stream = cdf::io::buffers::make_shared_file_adapter(path);
+    std::optional<cdf::io::cdf_VXR_t<cdf::io::v3x_tag>> leaf_vxr;
+    cdf::io::debug::for_each_record(path,
+        [&](std::size_t, const auto& record)
+        {
+            using T = std::decay_t<decltype(record)>;
+            if constexpr (std::is_same_v<T, cdf::io::cdf_VXR_t<cdf::io::v3x_tag>>)
+            {
+                cdf::io::cdf_mutable_variable_record_t<cdf::io::v3x_tag> first_entry {};
+                if (!leaf_vxr && record.NusedEntries > 1
+                    && cdf::io::load_record(first_entry.header, stream, record.Offset[0])
+                    && first_entry.header.record_type == cdf::cdf_record_type::CVVR)
+                    leaf_vxr = record;
+            }
+        });
+    REQUIRE(leaf_vxr);
+
+    constexpr char sentinel = 0x5A;
+    std::vector<char> data(records * record_size, sentinel);
+    const cdf::io::variable::values_block block { { static_cast<std::size_t>(leaf_vxr->First[1]),
+                                                      static_cast<std::size_t>(leaf_vxr->Last[1]) },
+        static_cast<std::size_t>(leaf_vxr->Offset[1]) };
+    cdf::io::variable::load_block<cdf::io::v3x_tag>(stream, block, data.data(), std::size(data),
+        record_size, cdf::cdf_compression_type::gzip_compression);
+
+    const auto untouched = [](auto begin, auto end)
+    { return std::all_of(begin, end, [](char c) { return c == sentinel; }); };
+    return !untouched(data.begin(), data.begin() + block.records.first * record_size)
+        || !untouched(data.begin() + (block.records.last + 1) * record_size, data.end());
+}
+
+SCENARIO("Loading a compressed block writes only its own records", "[CDF]")
+{
+    // Blocks are decompressed in parallel, so one block must never write over its neighbours.
+    // Real FGM data: libdeflate wrote past this block's end when given more output space.
+    REQUIRE_FALSE(second_block_writes_outside_itself(
+        std::string(DATA_PATH) + "/fgm_blocks.cdf", 4 * sizeof(float), 3 * 4096));
+}
+
 SCENARIO("Loading cdf files", "[CDF]")
 {
     GIVEN("a cdf file")
@@ -544,6 +589,22 @@ SCENARIO("Loading cdf files", "[CDF]")
             THEN("All expected variables are loaded")
             {
                 CHECK_VARIABLES(cd);
+            }
+        }
+        WHEN("a compressed variable is split into many blocks, as in mission archives")
+        {
+            auto path = std::string(DATA_PATH) + "/many_compressed_blocks.cdf";
+            REQUIRE(file_exists(path));
+            for (bool lazy : { true, false })
+            {
+                auto cd_opt = cdf::io::load(path, true, lazy);
+                REQUIRE(cd_opt != std::nullopt);
+                const auto values = (*cd_opt)["values"].get<int32_t>();
+                REQUIRE(std::size(values) == 250'000);
+                bool all_in_place = true;
+                for (std::uint64_t i = 0; i < std::size(values); ++i)
+                    all_in_place &= values[i] == static_cast<int32_t>(((i / 5) * 2654435761U) % 65521);
+                REQUIRE(all_in_place);
             }
         }
         WHEN("file exists and is a column major cdf file")

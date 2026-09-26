@@ -29,6 +29,7 @@
 #include "../desc-records.hpp"
 #include "./records-loading.hpp"
 #include "cdfpp/cdf-data.hpp"
+#include "cdfpp/cdf-parallel.hpp"
 #include <cpp_utils/containers/no_init_vector.hpp>
 using cpp_utils::containers::no_init_vector;
 #include "cdfpp/variable.hpp"
@@ -118,60 +119,98 @@ namespace
         std::size_t last;
     };
 
-    // Each block goes at the place of its first record: a file may leave records out (sparse
-    // records), so blocks are not necessarily back to back.
+    // A VVR or CVVR: the records it holds, and where it is in the file.
+    struct values_block
+    {
+        stored_records records;
+        std::size_t file_offset;
+    };
+
+    // Lists the blocks under a VXR, reading only their headers: loading a VVR/CVVR would
+    // copy its data.
     template <typename cdf_version_tag_t, typename stream_t>
-    void load_var_data(stream_t& stream, char* data, std::size_t data_len,
-        const cdf_VXR_t<cdf_version_tag_t>& vxr, std::size_t record_size,
-        const cdf_compression_type compression_type, std::vector<stored_records>& stored)
+    void list_blocks(stream_t& stream, const cdf_VXR_t<cdf_version_tag_t>& vxr,
+        std::vector<values_block>& blocks)
     {
         for (int32_t i = 0; i < vxr.NusedEntries; i++)
         {
-            const auto first = static_cast<std::size_t>(vxr.First[i]);
-            const auto last = static_cast<std::size_t>(vxr.Last[i]);
-            const std::size_t offset = first * record_size;
-            if (offset >= data_len)
+            const auto file_offset = static_cast<std::size_t>(vxr.Offset[i]);
+            cdf_mutable_variable_record_t<cdf_version_tag_t> rec {};
+            if (!load_record(rec.header, stream, file_offset))
                 continue;
-
-            if (cdf_mutable_variable_record_t<cdf_version_tag_t> cvvr_or_vvr {};
-                load_mut_record(cvvr_or_vvr, stream, vxr.Offset[i]))
+            switch (rec.header.record_type)
             {
-                using vvr_t = typename decltype(cvvr_or_vvr)::vvr_t;
-                using vxr_t = typename decltype(cvvr_or_vvr)::vxr_t;
-                using cvvr_t = typename decltype(cvvr_or_vvr)::cvvr_t;
-
-                cvvr_or_vvr.visit(
-                    [&](const vvr_t& vvr) -> void
+                case cdf_record_type::VVR:
+                case cdf_record_type::CVVR:
+                    blocks.push_back({ { static_cast<std::size_t>(vxr.First[i]),
+                                           static_cast<std::size_t>(vxr.Last[i]) },
+                        file_offset });
+                    break;
+                case cdf_record_type::VXR:
+                    if (cdf_VXR_t<cdf_version_tag_t> sub; load_record(sub, stream, file_offset))
                     {
-                        const auto size = std::min((last - first + 1) * record_size, data_len - offset);
-                        load_vvr_data<cdf_version_tag_t>(stream, vxr.Offset[i], size, vvr, data + offset);
-                        stored.push_back({ first, last });
-                    },
-                    [&](vxr_t sub) -> void
-                    {
-                        load_var_data<cdf_version_tag_t, stream_t>(
-                            stream, data, data_len, sub, record_size, compression_type, stored);
+                        list_blocks<cdf_version_tag_t>(stream, sub, blocks);
                         while (sub.VXRnext)
                         {
                             load_record(sub, stream, sub.VXRnext);
-                            load_var_data<cdf_version_tag_t, stream_t>(
-                                stream, data, data_len, sub, record_size, compression_type, stored);
+                            list_blocks<cdf_version_tag_t>(stream, sub, blocks);
                         }
-                    },
-                    [&](const cvvr_t& cvvr) -> void
-                    {
-                        decompression::inflate(
-                            compression_type, cvvr.data, data + offset, data_len - offset);
-                        stored.push_back({ first, last });
-                    },
-                    [](const std::monostate&) -> void
-                    {
-                        throw std::runtime_error {
-                            "Error loading variable data expecting VVR, CVVR or VXR"
-                        };
-                    });
+                    }
+                    break;
+                default:
+                    throw std::runtime_error {
+                        "Error loading variable data expecting VVR, CVVR or VXR"
+                    };
             }
         }
+    }
+
+    // The block goes at the place of its first record: a file may leave records out (sparse
+    // records), so blocks are not necessarily back to back.
+    template <typename cdf_version_tag_t, typename stream_t>
+    void load_block(stream_t& stream, const values_block& block, char* data, std::size_t data_len,
+        std::size_t record_size, const cdf_compression_type compression_type)
+    {
+        const auto& [first, last] = block.records;
+        const std::size_t offset = first * record_size;
+        // Exactly this block's records: libdeflate may write scratch bytes anywhere in the space
+        // it is given, which would land on a neighbour block decompressed by another thread.
+        const auto size = std::min((last - first + 1) * record_size, data_len - offset);
+        cdf_mutable_variable_record_t<cdf_version_tag_t> cvvr_or_vvr {};
+        if (!load_mut_record(cvvr_or_vvr, stream, block.file_offset))
+            return;
+        using vvr_t = typename decltype(cvvr_or_vvr)::vvr_t;
+        using cvvr_t = typename decltype(cvvr_or_vvr)::cvvr_t;
+        cvvr_or_vvr.visit(
+            [&](const vvr_t& vvr) -> void {
+                load_vvr_data<cdf_version_tag_t>(
+                    stream, block.file_offset, size, vvr, data + offset);
+            },
+            [&](const cvvr_t& cvvr) -> void {
+                decompression::inflate(compression_type, cvvr.data, data + offset, size);
+            },
+            [](const auto&) -> void {
+                throw std::runtime_error { "Error loading variable data expecting VVR or CVVR" };
+            });
+    }
+
+    // Below this size, starting threads costs more than decompressing on one.
+    inline constexpr std::size_t min_bytes_for_parallel_inflate = 1 << 20;
+
+    template <typename cdf_version_tag_t, typename stream_t>
+    void load_blocks(stream_t& stream, std::vector<values_block>& blocks, char* data,
+        std::size_t data_len, std::size_t record_size, const cdf_compression_type compression_type)
+    {
+        std::erase_if(blocks,
+            [&](const values_block& block) { return block.records.first * record_size >= data_len; });
+        // Blocks write to disjoint parts of data, so they can be decompressed in any order.
+        const bool worth_threads = compression_type != cdf_compression_type::no_compression
+            && data_len >= min_bytes_for_parallel_inflate;
+        parallel::for_each_index(std::size(blocks), worth_threads ? parallel::hardware_threads() : 1,
+            [&](std::size_t i) {
+                load_block<cdf_version_tag_t>(
+                    stream, blocks[i], data, data_len, record_size, compression_type);
+            });
     }
 
     // How to fill the records a file doesn't store, as NASA's library does (CDF User's Guide,
@@ -221,22 +260,25 @@ namespace
     {
         const auto data_len
             = static_cast<std::size_t>(record_count) * static_cast<std::size_t>(record_size);
+        using version_t = typename VDR_t::cdf_version_t;
         data_t data = new_data_container(data_len, vdr.DataType);
-        std::vector<stored_records> stored;
-        cdf_VXR_t<typename VDR_t::cdf_version_t> vxr;
+        std::vector<values_block> blocks;
+        cdf_VXR_t<version_t> vxr;
 
         if (vdr.VXRhead != 0 && load_record(vxr, stream, vdr.VXRhead))
         {
-            load_var_data(stream, data.bytes_ptr(), data_len, vxr, record_size, compression_type,
-                stored);
+            list_blocks<version_t>(stream, vxr, blocks);
             while (vxr.VXRnext != 0)
             {
                 if (!load_record(vxr, stream, vxr.VXRnext))
                     throw std::runtime_error { "Failed to read vxr" };
-                load_var_data(stream, data.bytes_ptr(), data_len, vxr, record_size,
-                    compression_type, stored);
+                list_blocks<version_t>(stream, vxr, blocks);
             }
         }
+        load_blocks<version_t>(
+            stream, blocks, data.bytes_ptr(), data_len, record_size, compression_type);
+        std::vector<stored_records> stored(std::size(blocks));
+        std::ranges::transform(blocks, std::begin(stored), &values_block::records);
         fill_missing_records(data.bytes_ptr(), record_count, record_size, stored, missing);
         return data;
     }
