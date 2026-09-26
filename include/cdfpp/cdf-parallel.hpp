@@ -42,6 +42,9 @@ inline constexpr bool threads_supported = false;
 inline constexpr bool threads_supported = true;
 #endif
 
+// Below this much data, starting threads costs more than (de)compressing it on one.
+inline constexpr std::size_t min_bytes_worth_threads = 1 << 20;
+
 inline std::size_t hardware_threads()
 {
     return std::max(1U, std::thread::hardware_concurrency());

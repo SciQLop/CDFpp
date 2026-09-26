@@ -30,6 +30,7 @@
 #include "./records-saving.hpp"
 #include "cdfpp/cdf-enums.hpp"
 #include "cdfpp/cdf-file.hpp"
+#include "cdfpp/cdf-parallel.hpp"
 #include <cpp_utils/containers/no_init_vector.hpp>
 using cpp_utils::containers::no_init_vector;
 #include <algorithm>
@@ -226,6 +227,71 @@ namespace saving
         }
     }
 
+    // Compressed variables are cut in blocks of about this size, so readers can decompress them
+    // on several threads, or only the part they need. On CDAWeb data, the compressed size stays
+    // within 0.1% of one block per variable, for gzip, zstd and blosc2.
+    inline constexpr std::size_t compressed_block_bytes = 256 * 1024;
+    // An arbitrary limit, for uncompressed variables.
+    inline constexpr std::size_t uncompressed_block_bytes = 1 << 30;
+
+    inline std::size_t record_size_of(const Variable& variable)
+    {
+        return std::max(std::size_t { 1 },
+                   flat_size(std::cbegin(variable.shape()) + 1, std::cend(variable.shape())))
+            * cdf_type_size(variable.type());
+    }
+
+    inline std::size_t records_per_block(const Variable& variable, std::size_t record_size)
+    {
+        const auto block_bytes = variable.compression_type() == cdf_compression_type::no_compression
+            ? uncompressed_block_bytes
+            : compressed_block_bytes;
+        return std::max(std::size_t { 1 }, block_bytes / record_size);
+    }
+
+    // NASA's library reports a VXR with more than 10 entries as corrupted; it writes 7 itself
+    // (see NUM_VXR_ENTRIES in cdflib's cdfwrite.py). Longer variables get a chain of VXRs.
+    inline constexpr std::size_t max_vxr_entries = 7;
+
+    inline void create_vxrs(variable_ctx& var_ctx, std::size_t records, std::size_t per_block)
+    {
+        const std::size_t blocks = (records + per_block - 1) / per_block;
+        for (std::size_t block = 0; block < blocks; ++block)
+        {
+            if (block % max_vxr_entries == 0)
+                var_ctx.vxrs.emplace_back(cdf_VXR_t<v3x_tag> { {}, 0, 0, 0, {}, {}, {} });
+            auto& vxr = var_ctx.vxrs.back().record;
+            vxr.First.push_back(static_cast<int32_t>(block * per_block));
+            vxr.Last.push_back(static_cast<int32_t>(std::min(records, (block + 1) * per_block) - 1));
+        }
+        for (auto& vxr : var_ctx.vxrs)
+        {
+            vxr.record.Offset.resize(std::size(vxr.record.First));
+            vxr.record.Nentries = static_cast<int32_t>(std::size(vxr.record.First));
+            vxr.record.NusedEntries = vxr.record.Nentries;
+            update_size(vxr);
+        }
+    }
+
+    inline void create_values_records(const Variable& variable, variable_ctx& var_ctx,
+        std::size_t record_size, std::size_t per_block)
+    {
+        const std::size_t records = variable.len();
+        create_vxrs(var_ctx, records, per_block);
+        const std::size_t blocks = (records + per_block - 1) / per_block;
+        var_ctx.values_records.resize(blocks);
+        const bool worth_threads = variable.compression_type() != cdf_compression_type::no_compression
+            && records * record_size >= parallel::min_bytes_worth_threads;
+        parallel::for_each_index(blocks, worth_threads ? parallel::hardware_threads() : 1,
+            [&](std::size_t block)
+            {
+                const auto first = block * per_block;
+                const auto count = std::min(records, first + per_block) - first;
+                var_ctx.values_records[block]
+                    = make_values_record(variable, count, record_size, first);
+            });
+    }
+
     inline void create_variables_records(const CDF& cdf, saving_context& svg_ctx)
     {
         for (const auto& [name, variable] : cdf.variables)
@@ -260,43 +326,18 @@ namespace saving
                     .cpr = std::nullopt });
 
             populate_variable_geometry(variable, var_ctx.vdr.record);
+            // An empty variable may have no shape at all, hence no record size.
+            const auto record_size = variable.len() ? record_size_of(variable) : 0;
+            const auto per_block = variable.len() ? records_per_block(variable, record_size) : 0;
             if (variable.compression_type() != cdf_compression_type::no_compression)
             {
                 var_ctx.cpr = make_cpr(variable.compression_type());
                 var_ctx.vdr.record.Flags |= 1 << 2;
-                var_ctx.vdr.record.BlockingFactor = 0x40;
+                var_ctx.vdr.record.BlockingFactor = static_cast<int32_t>(per_block);
             }
             update_size(var_ctx.vdr);
             if (variable.len())
-            {
-                auto& vxr
-                    = var_ctx.vxrs.emplace_back(cdf_VXR_t<v3x_tag> { {}, 0, 0, 0, {}, {}, {} });
-                const auto var_record_size
-                    = std::max(std::size_t { 1 },
-                          flat_size(std::cbegin(variable.shape()) + 1, std::cend(variable.shape())))
-                    * cdf_type_size(variable.type());
-                {
-                    auto records = variable.len();
-                    auto first_record = 0;
-                    while (records > 0)
-                    {
-                        // this is an arbitrary decision to limit VVRs to 1GB
-                        auto records_in_vvr
-                            = std::min(static_cast<std::size_t>((1 << 30) / var_record_size),
-                                static_cast<std::size_t>(records));
-                        var_ctx.values_records.emplace_back(make_values_record(
-                            variable, records_in_vvr, var_record_size, first_record));
-                        vxr.record.First.push_back(first_record);
-                        vxr.record.Last.push_back(first_record + records_in_vvr - 1);
-                        first_record += records_in_vvr;
-                        records -= records_in_vvr;
-                    }
-                }
-                vxr.record.Offset.resize(std::size(vxr.record.First));
-                vxr.record.Nentries = std::size(vxr.record.First);
-                vxr.record.NusedEntries = std::size(vxr.record.First);
-                update_size(vxr);
-            }
+                create_values_records(variable, var_ctx, record_size, per_block);
             create_variable_attributes_records(var_ctx, svg_ctx);
         }
     }

@@ -279,6 +279,35 @@ class PycdfExperimentalCodecsTest(unittest.TestCase):
             self.assertTrue(pycdfpp.save(cdf_with_one_variable(EXPERIMENTAL_CODECS[0]), f.name))
 
 
+class PycdfCompressedBlocksTest(unittest.TestCase):
+    """Big compressed variables are written as many blocks, so readers can decompress them on
+    several threads, and read part of a variable without decompressing all of it."""
+
+    def test_big_compressed_variables_are_split_into_blocks(self):
+        import pycdfpp.debug
+        values = np.arange(1_000_000, dtype=np.float64)
+        for codec in [pycdfpp.CompressionType.gzip_compression,
+                      pycdfpp.CompressionType.rle_compression] + EXPERIMENTAL_CODECS:
+            with self.subTest(codec=codec), temporary_file(suffix=".cdf") as f, \
+                    warnings.catch_warnings():
+                warnings.simplefilter("ignore", pycdfpp.ExperimentalCompressionWarning)
+                cdf = pycdfpp.CDF()
+                cdf.add_variable("x", values, compression=codec)
+                self.assertTrue(pycdfpp.save(cdf, f.name))
+
+                records = pycdfpp.debug.for_each_record(f.name)
+                blocking_factor = next(fields["BlockingFactor"] for _, kind, fields in records
+                                       if kind == "zVDR")
+                blocks = sum(kind == "CVVR" for _, kind, _ in records)
+                self.assertLessEqual(blocking_factor * values.itemsize, 256 * 1024)
+                self.assertEqual(blocks, -(-len(values) // blocking_factor))
+                # NASA's library reports files with more than 10 entries in a VXR as corrupted.
+                for _, kind, fields in records:
+                    if kind == "VXR":
+                        self.assertLessEqual(fields["Nentries"], 10)
+                self.assertTrue(np.array_equal(pycdfpp.load(f.name)["x"].values, values))
+
+
 class PycdfStandardCodecsTest(unittest.TestCase):
     def test_saving_with_standard_codecs_does_not_warn(self):
         for codec in (pycdfpp.CompressionType.no_compression, pycdfpp.CompressionType.gzip_compression,

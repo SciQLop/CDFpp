@@ -194,9 +194,6 @@ namespace
             });
     }
 
-    // Below this size, starting threads costs more than decompressing on one.
-    inline constexpr std::size_t min_bytes_for_parallel_inflate = 1 << 20;
-
     template <typename cdf_version_tag_t, typename stream_t>
     void load_blocks(stream_t& stream, std::vector<values_block>& blocks, char* data,
         std::size_t data_len, std::size_t record_size, const cdf_compression_type compression_type)
@@ -205,7 +202,7 @@ namespace
             [&](const values_block& block) { return block.records.first * record_size >= data_len; });
         // Blocks write to disjoint parts of data, so they can be decompressed in any order.
         const bool worth_threads = compression_type != cdf_compression_type::no_compression
-            && data_len >= min_bytes_for_parallel_inflate;
+            && data_len >= parallel::min_bytes_worth_threads;
         parallel::for_each_index(std::size(blocks), worth_threads ? parallel::hardware_threads() : 1,
             [&](std::size_t i) {
                 load_block<cdf_version_tag_t>(
