@@ -26,6 +26,7 @@ warnings.filterwarnings("ignore")  # spacepy warns about its leap-second table o
 
 import cdflib  # noqa: E402
 import pycdfpp  # noqa: E402
+import spacepy.time  # noqa: E402
 from spacepy import pycdf  # noqa: E402
 
 REPEATS = int(os.environ.get("REPEATS", 5))
@@ -44,6 +45,14 @@ PYCDFPP = SimpleNamespace(
     datetime64=lambda cdf, var: pycdfpp.to_datetime64(cdf[var]),
 )
 
+def _spacepy_datetime64(cdf, var):
+    """Ticktock is spacepy's vectorized path, but it only handles CDF_EPOCH, not TT2000."""
+    if cdf[var].type() == pycdf.const.CDF_EPOCH.value:
+        unix_seconds = spacepy.time.Ticktock(cdf.raw_var(var)[...].reshape(-1), "CDF").UNX
+        return (np.asarray(unix_seconds) * 1e9).astype("datetime64[ns]")
+    return np.array(cdf[var][...], dtype="datetime64[ns]")
+
+
 # spacepy converts time variables to Python datetime objects; raw_var skips that for plain reads.
 SPACEPY = SimpleNamespace(
     name="spacepy.pycdf",
@@ -53,7 +62,7 @@ SPACEPY = SimpleNamespace(
     global_attributes=lambda cdf: {name: attr[...] for name, attr in cdf.attrs.items()},
     variable_attributes=lambda cdf, var: dict(cdf[var].attrs),
     values=lambda cdf, var: cdf.raw_var(var)[...],
-    datetime64=lambda cdf, var: np.array(cdf[var][...], dtype="datetime64[ns]"),
+    datetime64=_spacepy_datetime64,
 )
 
 
@@ -161,7 +170,6 @@ def machine():
 
 
 def _spacepy_version():
-    import spacepy
     return spacepy.__version__
 
 

@@ -21,7 +21,7 @@ A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nas
 - **Python bindings (`pycdfpp`)** via pybind11 — zero-copy NumPy integration, GIL-free I/O
 - **SIMD-accelerated time conversions** — AVX512/AVX2/SSE2 runtime dispatch for TT2000, EPOCH, EPOCH16
 - **Lazy loading** — variable data is read on first access, not at file open
-- **Fast** — 2× to several hundred times faster than spacepy and cdflib on everyday tasks ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 14 billion epochs/s
+- **Fast** — 1.4× to several hundred times faster than spacepy and cdflib on everyday tasks ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 14 billion epochs/s
 - **Runs everywhere** — Linux, Windows, macOS (x86_64 + ARM64), and WebAssembly (Pyodide / emscripten-forge)
 - **In-browser app** — [**CDFpp Explorer**](https://sciqlop.github.io/CDFpp/) inspects, plots, and ISTP-validates CDF files entirely client-side, no install
 
@@ -292,23 +292,23 @@ void process(const std::vector<char>& buffer)
 
 ### Compared with spacepy and cdflib
 
-Everyday tasks on real CDAWeb files, with each library used the way its documentation shows. All three return the same values.
+Everyday tasks on real CDAWeb files, with each library used the way its documentation shows, including its fastest time conversion. All three return the same values.
 
 | Task | Data | pycdfpp | spacepy.pycdf | cdflib |
 |---|---|---|---|---|
-| Open a file, list variables, read all attributes | MMS FPI electron distribution, 178 MB | **0.6 ms** | 261 ms (418×) | 9.9 ms (16×) |
-| Read B and its time axis as `datetime64` | MMS FGM survey, 1.2 M points, gzip, TT2000 | **41 ms** | 3.83 s (93×) | 333 ms (8.1×) |
-| Read B and its time axis as `datetime64` | Wind MFI, 0.9 M points, CDF_EPOCH | **3.5 ms** | 2.31 s (653×) | 13.7 s (3865×) |
-| Read every variable of a file | MMS FPI electron distribution, 178 MB, gzip | **466 ms** | 957 ms (2.1×) | 823 ms (1.8×) |
-| Read every variable of a folder | 23 CDAWeb files, 11 missions, 528 MB | **1.13 s** | 2.32 s (2.1×) | 3.38 s (3.0×) |
-| Same folder, 8 threads | 23 CDAWeb files, 11 missions, 528 MB | **479 ms** | not thread-safe | 2.64 s (5.5×) |
+| Open a file, list variables, read all attributes | MMS FPI electron distribution, 178 MB | **0.6 ms** | 266 ms (418×) | 10.2 ms (16×) |
+| Read B and its time axis as `datetime64` | MMS FGM survey, 1.2 M points, gzip, TT2000 | **42 ms** | 3.81 s (91×) | 317 ms (7.5×) |
+| Read B and its time axis as `datetime64` | Wind MFI, 0.9 M points, CDF_EPOCH | **4.7 ms** | 43.5 ms (9.2×) | 14.1 s (2965×) |
+| Read every variable of a file | MMS FPI electron distribution, 178 MB, gzip | **473 ms** | 987 ms (2.1×) | 645 ms (1.4×) |
+| Read every variable of a folder | 23 CDAWeb files, 11 missions, 528 MB | **1.13 s** | 2.31 s (2.0×) | 2.84 s (2.5×) |
+| Same folder, 8 threads | 23 CDAWeb files, 11 missions, 528 MB | **482 ms** | not thread-safe | 2.49 s (5.2×) |
 
 (N×) = N times longer than pycdfpp. Median of 5 runs, files in the page cache. AMD Ryzen 7 5800X, Python 3.13, pycdfpp 0.13.1, spacepy 0.7.0 (NASA CDF 3.9.0), cdflib 1.3.14.
 
 Why is pycdfpp faster?
 
 - **Opening a file** only parses the headers, in C++. NASA's library, used by spacepy, hashes the whole file to check its MD5 checksum on every open. pycdfpp skips that check.
-- **Time conversion** runs in C++ with SIMD, straight to `datetime64[ns]`. spacepy creates one Python `datetime` per value. cdflib converts CDF_EPOCH in a Python loop.
+- **Time conversion** runs in C++ with SIMD, straight to `datetime64[ns]`. For TT2000, spacepy creates one Python `datetime` per value. cdflib converts CDF_EPOCH in a Python loop.
 - **Gzip** is decoded with [libdeflate](https://github.com/ebiggers/libdeflate), 1.5–1.7× faster than zlib on these files.
 - **Threads** work: pycdfpp releases the GIL while reading and decompressing. cdflib is mostly Python, so it holds the GIL. NASA's library keeps global state.
 

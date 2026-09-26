@@ -72,7 +72,7 @@ Why CDFpp?
 ==========
 
 - **Fast.** Files open instantly: data is only read when you ask for it. Reading runs at
-  up to ~4 GB/s, and time conversions use SIMD instructions. On everyday tasks it is 2×
+  up to ~4 GB/s, and time conversions use SIMD instructions. On everyday tasks it is 1.4×
   to several hundred times faster than spacepy and cdflib: see :doc:`performance`.
 - **Complete.** Reads and writes CDF versions 2.2 to 3.x, row and column major files,
   gzip and RLE compressed files and variables, and all CDF data types, including the

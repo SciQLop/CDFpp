@@ -165,7 +165,7 @@ How is it different from NASA's library, cdflib or spacepy?
 NASA's C library is the reference. CDFpp is a separate implementation, written from
 scratch. It is thread-safe, installs with ``pip`` without any compiled dependency, and
 is MIT-licensed. ``cdflib`` is written in pure Python. ``spacepy.pycdf`` wraps NASA's
-library. CDFpp is faster than both on every task we measured, from 2× to several
+library. CDFpp is faster than both on every task we measured, from 1.4× to several
 hundred times: see :doc:`performance`.
 
 Where do I report a bug?

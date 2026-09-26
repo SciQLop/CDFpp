@@ -16,53 +16,53 @@
       "task": "Open a file, list variables, read all attributes",
       "data": "MMS FPI electron distribution, 178 MB",
       "seconds": {
-        "pycdfpp": 0.00062509102281183,
-        "spacepy.pycdf": 0.26107615896034986,
-        "cdflib": 0.009888564003631473
+        "pycdfpp": 0.0006367310415953398,
+        "spacepy.pycdf": 0.2659002130385488,
+        "cdflib": 0.010171047993935645
       }
     },
     {
       "task": "Read B and its time axis as datetime64",
       "data": "MMS FGM survey, 1.2 M points, gzip, TT2000",
       "seconds": {
-        "pycdfpp": 0.04114774300251156,
-        "spacepy.pycdf": 3.831074218964204,
-        "cdflib": 0.3325153540354222
+        "pycdfpp": 0.04203586804214865,
+        "spacepy.pycdf": 3.8145249160006642,
+        "cdflib": 0.31649214099161327
       }
     },
     {
       "task": "Read B and its time axis as datetime64",
       "data": "Wind MFI, 0.9 M points, CDF_EPOCH",
       "seconds": {
-        "pycdfpp": 0.0035379029577597976,
-        "spacepy.pycdf": 2.3097118879668415,
-        "cdflib": 13.675518468022346
+        "pycdfpp": 0.004749233950860798,
+        "spacepy.pycdf": 0.043541054939851165,
+        "cdflib": 14.079481374938041
       }
     },
     {
       "task": "Read every variable of a file",
       "data": "MMS FPI electron distribution, 178 MB, gzip",
       "seconds": {
-        "pycdfpp": 0.4656934359809384,
-        "spacepy.pycdf": 0.9571188830304891,
-        "cdflib": 0.8226254089968279
+        "pycdfpp": 0.4729228400392458,
+        "spacepy.pycdf": 0.986623386037536,
+        "cdflib": 0.645253828028217
       }
     },
     {
       "task": "Read every variable of a folder",
       "data": "23 CDAWeb files, 11 missions, 528 MB",
       "seconds": {
-        "pycdfpp": 1.1292478980030864,
-        "spacepy.pycdf": 2.3236197730293497,
-        "cdflib": 3.3769133869791403
+        "pycdfpp": 1.1308167099487036,
+        "spacepy.pycdf": 2.306107932003215,
+        "cdflib": 2.8399170709308237
       }
     },
     {
       "task": "Same folder, 8 threads",
       "data": "23 CDAWeb files, 11 missions, 528 MB",
       "seconds": {
-        "pycdfpp": 0.47856940201018006,
-        "cdflib": 2.6449865410104394
+        "pycdfpp": 0.4819231880828738,
+        "cdflib": 2.486790716066025
       }
     }
   ]
