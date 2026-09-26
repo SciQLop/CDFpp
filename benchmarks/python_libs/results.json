@@ -1,0 +1,69 @@
+{
+  "machine": {
+    "cpu": "AMD Ryzen 7 5800X 8-Core Processor",
+    "cores": 16,
+    "python": "3.13.15",
+    "versions": {
+      "pycdfpp": "0.13.1",
+      "spacepy": "0.7.0",
+      "NASA CDF (in spacepy)": "3.9.0",
+      "cdflib": "1.3.14",
+      "numpy": "2.5.3"
+    }
+  },
+  "results": [
+    {
+      "task": "Open a file, list variables, read all attributes",
+      "data": "MMS FPI electron distribution, 178 MB",
+      "seconds": {
+        "pycdfpp": 0.00062509102281183,
+        "spacepy.pycdf": 0.26107615896034986,
+        "cdflib": 0.009888564003631473
+      }
+    },
+    {
+      "task": "Read B and its time axis as datetime64",
+      "data": "MMS FGM survey, 1.2 M points, gzip, TT2000",
+      "seconds": {
+        "pycdfpp": 0.04114774300251156,
+        "spacepy.pycdf": 3.831074218964204,
+        "cdflib": 0.3325153540354222
+      }
+    },
+    {
+      "task": "Read B and its time axis as datetime64",
+      "data": "Wind MFI, 0.9 M points, CDF_EPOCH",
+      "seconds": {
+        "pycdfpp": 0.0035379029577597976,
+        "spacepy.pycdf": 2.3097118879668415,
+        "cdflib": 13.675518468022346
+      }
+    },
+    {
+      "task": "Read every variable of a file",
+      "data": "MMS FPI electron distribution, 178 MB, gzip",
+      "seconds": {
+        "pycdfpp": 0.4656934359809384,
+        "spacepy.pycdf": 0.9571188830304891,
+        "cdflib": 0.8226254089968279
+      }
+    },
+    {
+      "task": "Read every variable of a folder",
+      "data": "23 CDAWeb files, 11 missions, 528 MB",
+      "seconds": {
+        "pycdfpp": 1.1292478980030864,
+        "spacepy.pycdf": 2.3236197730293497,
+        "cdflib": 3.3769133869791403
+      }
+    },
+    {
+      "task": "Same folder, 8 threads",
+      "data": "23 CDAWeb files, 11 missions, 528 MB",
+      "seconds": {
+        "pycdfpp": 0.47856940201018006,
+        "cdflib": 2.6449865410104394
+      }
+    }
+  ]
+}
