@@ -62,6 +62,11 @@ namespace _internal
         [[maybe_unused]] static const bool initialized = []()
         {
             blosc2_init();
+            // Shuffling picks its SIMD code on first use, in globals without synchronization:
+            // blocks (de)compressed on several threads would race there. Pick it once, here.
+            const char input[64] = {};
+            char shuffled[sizeof(input)];
+            blosc2_shuffle(8, sizeof(input), input, shuffled);
             return true;
         }();
     }

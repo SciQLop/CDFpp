@@ -27,7 +27,9 @@ configure_file(input : 'blosc/config.h.in', output : 'config.h', format : 'cmake
     configuration : conf)
 
 inc = include_directories('include', 'blosc', '.')
-c_args = ['-DUSING_CMAKE', '-DBUILD_STATIC']
+# BLOSC_STRICT_ALIGN: read unaligned 8-byte words with memcpy instead of a cast, which is
+# undefined behaviour (UBSan stops on it when compressing records of odd sizes).
+c_args = ['-DUSING_CMAKE', '-DBUILD_STATIC', '-DBLOSC_STRICT_ALIGN']
 
 sources = files(
     'blosc/blosc2.c', 'blosc/blosclz.c', 'blosc/fastcopy.c', 'blosc/schunk.c', 'blosc/frame.c',

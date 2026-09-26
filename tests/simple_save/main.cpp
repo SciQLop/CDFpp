@@ -402,3 +402,23 @@ SCENARIO("A variable whose values are loaded no longer depends on its file", "[C
     }
     std::filesystem::remove(copy);
 }
+
+SCENARIO("Big compressed variables round-trip through the parallel paths", "[CDF]")
+{
+    // Above min_bytes_worth_threads, blocks are compressed and decompressed on several threads.
+    const auto codec = GENERATE(from_range(compiled_in_codecs()));
+    constexpr std::size_t records = 4 * cdf::parallel::min_bytes_worth_threads / (3 * sizeof(double));
+    CDF original;
+    original.variables.emplace("cos",
+        Variable { "cos", 0,
+            data_t { cos_gen<double> { 0.01 }(records * 3), CDF_Types::CDF_DOUBLE },
+            { static_cast<uint32_t>(records), 3 } });
+    original.variables["cos"].set_compression_type(codec);
+    std::vector<char> buffer;
+    auto eager = saved_and_reloaded(original, buffer);
+    REQUIRE(eager != std::nullopt);
+    REQUIRE(eager->variables["cos"] == original.variables.at("cos"));
+    auto lazy = cdf::io::load(buffer, true, true);
+    REQUIRE(lazy != std::nullopt);
+    REQUIRE(lazy->variables["cos"] == original.variables.at("cos"));
+}

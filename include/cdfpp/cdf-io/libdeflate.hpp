@@ -36,11 +36,34 @@ namespace cdf::io::libdeflate
 {
 namespace _internal
 {
+    // libdeflate picks its CPU-specific code (inflate, deflate, CRC32) on first use and stores it
+    // in globals without synchronization, so first uses from several threads race (see the fix in
+    // ClickHouse/libdeflate#5). A round trip in a C++ static initializer, which runs once and
+    // before any caller goes on, makes every later use read settled globals.
+    inline void resolve_cpu_dispatch()
+    {
+        [[maybe_unused]] static const bool resolved = []()
+        {
+            const char input[64] = {};
+            char compressed[256];
+            char output[sizeof(input)];
+            auto compressor = libdeflate_alloc_compressor(6);
+            const auto size = libdeflate_gzip_compress(
+                compressor, input, sizeof(input), compressed, sizeof(compressed));
+            libdeflate_free_compressor(compressor);
+            auto decompressor = libdeflate_alloc_decompressor();
+            [[maybe_unused]] const auto result = libdeflate_gzip_decompress(
+                decompressor, compressed, size, output, sizeof(output), nullptr);
+            libdeflate_free_decompressor(decompressor);
+            return true;
+        }();
+    }
+
     template <typename T>
     CDF_WARN_UNUSED_RESULT std::size_t impl_inflate(
         const T& input, char* output, const std::size_t output_size)
     {
-
+        resolve_cpu_dispatch();
         auto decompressor = libdeflate_alloc_decompressor();
         std::size_t length;
         auto result = libdeflate_gzip_decompress(
@@ -59,6 +82,7 @@ namespace _internal
     template <typename T>
     CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(const T& input)
     {
+        resolve_cpu_dispatch();
         auto compressor = libdeflate_alloc_compressor(6);
         if (!compressor)
             return {};
