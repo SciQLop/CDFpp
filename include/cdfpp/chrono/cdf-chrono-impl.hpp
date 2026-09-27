@@ -260,13 +260,15 @@ inline void _optimistic_to_ns_from_1970_after_2017(
     const auto last_leap_sec = leap_seconds::leap_seconds_tt2000_reverse.back().first;
     const auto offset
         = constants::tt2000_offset - leap_seconds::leap_seconds_tt2000_reverse.back().second;
+    // One test on the result: values after 2262 overflow int64 ns since 1970 and wrap to negative
+    // results below it too (unsigned, so no undefined overflow). _unsorted then writes NaT.
+    const int64_t first_ns_after_2017 = last_leap_sec + offset;
     bool all_after_2017 = true;
     for (std::size_t i = 0; i < count; ++i)
     {
         output[i] = static_cast<int64_t>(
             static_cast<uint64_t>(input[i].nseconds) + static_cast<uint64_t>(offset));
-        all_after_2017 &= (input[i].nseconds >= last_leap_sec)
-            && (input[i].nseconds <= last_representable_tt2000);
+        all_after_2017 &= output[i] >= first_ns_after_2017;
     }
     if (!all_after_2017)
     {

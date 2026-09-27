@@ -303,18 +303,18 @@ struct _to_ns_from_1970_tt2000_t
         std::size_t i = 0;
         const auto offset = xsimd::broadcast<int64_t, Arch>(
             constants::tt2000_offset - leap_seconds::leap_seconds_tt2000_reverse.back().second);
-        const auto last_leap_sec = xsimd::broadcast<int64_t, Arch>(
-            leap_seconds::leap_seconds_tt2000_reverse.back().first);
-        const auto last_representable
-            = xsimd::broadcast<int64_t, Arch>(_impl::last_representable_tt2000);
+        // One test on the result: values after 2262 overflow int64 ns since 1970, and wrap to
+        // negative results below this too. The unsorted path then writes NaT for them.
+        const auto first_ns_after_2017 = xsimd::broadcast<int64_t, Arch>(
+            leap_seconds::leap_seconds_tt2000_reverse.back().first + constants::tt2000_offset
+            - leap_seconds::leap_seconds_tt2000_reverse.back().second);
         auto was_after_2017 = xsimd::batch_bool<int64_t, Arch>(true);
         for (; i + simd_size <= count; i += simd_size)
         {
             auto tt2000_batch = batch_type::load(&input[i].nseconds, input_align_mode {});
-            store<Arch, output_align_mode>(tt2000_batch + offset, &output[i]);
-            // After 2262 (out of int64 ns since 1970): the unsorted path writes NaT.
-            was_after_2017 = was_after_2017 & (tt2000_batch >= last_leap_sec)
-                & (tt2000_batch <= last_representable);
+            const auto ns = tt2000_batch + offset;
+            store<Arch, output_align_mode>(ns, &output[i]);
+            was_after_2017 = was_after_2017 & (ns >= first_ns_after_2017);
         }
         // sfence<Arch>();
         if (!xsimd::all(was_after_2017))

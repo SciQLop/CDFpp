@@ -343,11 +343,16 @@ inline utc_time to_utc_time(const epoch& ep)
     // Also NaN and infinities; far beyond year 9999, and int64 conversions would overflow.
     if (!(std::abs(ep.mseconds) < 0x1p62))
         return { time_kind::invalid };
-    // floor((ms - offset) * 1e6), as _impl::epoch_to_ns_from_1970, in two exact parts.
-    const double whole_ms = std::floor(ep.mseconds);
-    const auto ms_since_1970 = static_cast<int64_t>(whole_ms)
-        - static_cast<int64_t>(constants::epoch_offset_miliseconds);
-    const auto fraction_ns = static_cast<int64_t>(std::floor((ep.mseconds - whole_ms) * 1e6));
+    // floor((ms - offset) * 1e6), as _impl::epoch_to_ns_from_1970, in two exact parts. Floor by
+    // truncating then correcting: std::floor is a library call without SSE4.1.
+    auto whole_ms = static_cast<int64_t>(ep.mseconds);
+    if (static_cast<double>(whole_ms) > ep.mseconds)
+        --whole_ms;
+    const auto ms_since_1970
+        = whole_ms - static_cast<int64_t>(constants::epoch_offset_miliseconds);
+    // In [0, 1e6): truncation is floor.
+    const auto fraction_ns
+        = static_cast<int64_t>((ep.mseconds - static_cast<double>(whole_ms)) * 1e6);
     return _impl::utc_from_ns(_impl::floor_div(ms_since_1970, 1000),
         _impl::floor_mod(ms_since_1970, 1000) * 1'000'000 + fraction_ns);
 }
@@ -373,10 +378,12 @@ inline utc_time to_utc_time(const tt2000_t& ep)
         return { time_kind::pad };
     if (ep.nseconds == _impl::tt2000_illegal)
         return { time_kind::invalid };
-    // ns - leap + offset overflows int64 after 2262: add seconds and nanoseconds apart.
     using _impl::floor_div, _impl::floor_mod;
     constexpr int64_t ns_in_s = 1'000'000'000;
     const int64_t leap = _impl::leap_second(ep);
+    if (ep.nseconds <= _impl::last_representable_tt2000)
+        return _impl::utc_from_ns(0, ep.nseconds - leap + constants::tt2000_offset);
+    // ns - leap + offset overflows int64 after 2262: add seconds and nanoseconds apart.
     return _impl::utc_from_ns(floor_div(ep.nseconds, ns_in_s)
             + floor_div(constants::tt2000_offset, ns_in_s) - floor_div(leap, ns_in_s),
         floor_mod(ep.nseconds, ns_in_s) + floor_mod(constants::tt2000_offset, ns_in_s)
@@ -392,7 +399,7 @@ struct civil_date
     unsigned day;
 };
 
-inline constexpr civil_date civil_from_days(int64_t z) noexcept
+inline constexpr civil_date hinnant_civil_from_days(int64_t z) noexcept
 {
     z += 719468;
     const int64_t era = (z >= 0 ? z : z - 146096) / 146097;
@@ -403,6 +410,18 @@ inline constexpr civil_date civil_from_days(int64_t z) noexcept
     const unsigned d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
     const unsigned m = mp < 10 ? mp + 3 : mp - 9; // [1, 12]
     return { static_cast<int64_t>(yoe) + era * 400 + (m <= 2 ? 1 : 0), m, d };
+}
+
+// std::chrono is faster where it applies (libstdc++ uses Neri and Schneider's algorithm), but
+// year_month_day stops at year 32767; absurd CDF_EPOCH values go further.
+inline civil_date civil_from_days(int64_t z) noexcept
+{
+    using namespace std::chrono;
+    if (z < -11'000'000 || z > 11'000'000)
+        return hinnant_civil_from_days(z);
+    const year_month_day date { sys_days { days { z } } };
+    return { static_cast<int>(date.year()), static_cast<unsigned>(date.month()),
+        static_cast<unsigned>(date.day()) };
 }
 
 }
