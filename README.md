@@ -21,7 +21,7 @@ A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nas
 - **Python bindings (`pycdfpp`)** via pybind11 — zero-copy NumPy integration, GIL-free I/O
 - **SIMD-accelerated time conversions** — AVX512/AVX2/SSE2 runtime dispatch for TT2000, EPOCH, EPOCH16
 - **Lazy loading** — variable data is read on first access, not at file open
-- **Fast** — 1.4× to several hundred times faster than spacepy and cdflib on everyday tasks ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 14 billion epochs/s
+- **Fast** — 1.4× to several hundred times faster than spacepy and cdflib on everyday tasks ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 14 billion epochs/s (AVX-512)
 - **Runs everywhere** — Linux, Windows, macOS (x86_64 + ARM64), and WebAssembly (Pyodide / emscripten-forge)
 - **In-browser app** — [**CDFpp Explorer**](https://sciqlop.github.io/CDFpp/) inspects, plots, and ISTP-validates CDF files entirely client-side, no install
 
@@ -303,7 +303,7 @@ Everyday tasks on real CDAWeb files, with each library used the way its document
 | Read every variable of a folder | 23 CDAWeb files, 11 missions, 528 MB | **1.13 s** | 2.31 s (2.0×) | 2.84 s (2.5×) |
 | Same folder, 8 threads | 23 CDAWeb files, 11 missions, 528 MB | **482 ms** | not thread-safe | 2.49 s (5.2×) |
 
-(N×) = N times longer than pycdfpp. Median of 5 runs, files in the page cache. AMD Ryzen 7 5800X, Python 3.13, pycdfpp 0.13.1, spacepy 0.7.0 (NASA CDF 3.9.0), cdflib 1.3.14.
+(N×) = N times longer than pycdfpp. Median of 5 runs, files in the page cache. AMD Ryzen 7 5800X (AVX2, no AVX-512), Python 3.13, pycdfpp 0.13.1, spacepy 0.7.0 (NASA CDF 3.9.0), cdflib 1.3.14.
 
 Why is pycdfpp faster?
 
@@ -316,11 +316,11 @@ Details and caveats in the [performance page](https://pycdfpp.readthedocs.io/en/
 
 ### C++ micro-benchmarks
 
-All benchmarks measured on a 16-core machine (5.1 GHz boost, 16 MB L3), release build (`-O3`). Source code in [`benchmarks/`](benchmarks/).
+Measured on an AMD Ryzen 7 7840U/HS laptop CPU (Zen 4: 8 cores / 16 threads, 5.1 GHz boost, 16 MB L3, AVX-512), release build (`-O3`). This is not the machine of the comparison above. Source code in [`benchmarks/`](benchmarks/).
 
 #### SIMD time conversions
 
-Converting CDF time types to nanoseconds since 1970 (epochs/s, higher is better):
+Converting CDF time types to nanoseconds since 1970 (epochs/s, higher is better). CDFpp picks the best instruction set the CPU has at run time (AVX-512, AVX2 or SSE2): the SIMD rows below are AVX-512.
 
 | Conversion | 64 | 1K | 64K | 1M | 64M |
 |---|---|---|---|---|---|

@@ -60,7 +60,7 @@ Results
 (N×) means N times longer than ``pycdfpp``. Each time is the median of 5 runs, after
 one warm-up run, so the files are in the page cache.
 
-Measured on an AMD Ryzen 7 5800X (8 cores), Linux, Python 3.13, with the packages
+Measured on an AMD Ryzen 7 5800X (8 cores, AVX2, no AVX-512), Linux, Python 3.13, with the packages
 from PyPI: pycdfpp 0.13.1, spacepy 0.7.0 (which bundles NASA's CDF library 3.9.0),
 cdflib 1.3.14 and numpy 2.5.3.
 
@@ -112,7 +112,8 @@ Converting time
 ---------------
 
 1. ``pycdfpp`` converts CDF time values to ``datetime64[ns]`` in C++, using SIMD
-   instructions. It converts one to two billion values per second.
+   instructions. On the test machine (AVX2), it converts one to two billion values per
+   second.
 2. For TT2000, ``spacepy`` creates one Python ``datetime`` object per value. That takes
    seconds for a million points. ``datetime`` also stops at microseconds, so
    nanoseconds are lost. For CDF_EPOCH, ``spacepy.time.Ticktock`` is vectorized, so the
