@@ -41,8 +41,10 @@ array of the same shape:
     time.shape      # (5401, 1): same shape as the variable
     time = time.ravel()
 
-It is fast: about 2 nanoseconds per value. On recent x86 processors it uses SIMD
-instructions to convert several values at once.
+It is fast: about 1 nanosecond per value, less on recent x86 processors, which convert
+several values at once with SIMD instructions. It is exact: ``CDF_EPOCH`` values keep every
+nanosecond they hold, and all input forms (a variable, an array, a list, a single value)
+give the same result.
 
 To Python datetime
 ------------------
@@ -152,3 +154,12 @@ date, the record has no valid time.
 
     pycdfpp.default_fill_value(pycdfpp.DataType.CDF_TIME_TT2000)
     # 9999-12-31T23:59:59.999999999
+
+:func:`pycdfpp.to_datetime64` turns them into ``NaT`` ("not a time"), numpy's missing
+time. So do the pad values, NaN, and dates ``datetime64[ns]`` can't hold (before
+1677-09-21 or after 2262-04-11). Find them with :func:`numpy.isnat`:
+
+.. code-block:: python
+
+    time = pycdfpp.to_datetime64(cdf["Epoch"]).ravel()
+    valid = ~np.isnat(time)

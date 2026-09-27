@@ -5,6 +5,22 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
+Unreleased
+----------
+
+* ``to_datetime64`` is exact for ``CDF_EPOCH``: it used to round to 256 ns (up to 128 ns off).
+* ``to_datetime64`` gives ``NaT`` for fill and pad values, NaN, and dates outside
+  ``datetime64[ns]``, for all three time types. TT2000 fill values gave 1707 dates, EPOCH16
+  pad values 1753. Lists and single values now convert like arrays: they gave clamped dates.
+* ``to_datetime64``, ``to_datetime`` and ``to_time_string`` accept lists of numpy records,
+  such as ``list(variable.values)``.
+* Variables compressed in many blocks, as in most mission archives, are decompressed on
+  several threads. Saving writes compressed variables as 256 KB blocks, compressed on
+  several threads, which other readers can also decompress in parallel or in part.
+* CDF_EPOCH and EPOCH16 conversions use SIMD on AVX2 processors too.
+* ``dir(pycdfpp)`` lists the public API only.
+* CDFpp Explorer shows ``NaT`` times as such, and leaves them out of plots.
+
 0.13.1 (2026-09-26)
 -------------------
 
