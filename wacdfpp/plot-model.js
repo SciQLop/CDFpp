@@ -74,6 +74,15 @@ export function plotSpec(variable, override) {
 // Min/max decimation for line plots: bucket into ~targetCols columns, emitting the
 // per-bucket min and max (in index order) so spikes survive. NaN-only buckets emit
 // a single NaN gap. Returns parallel { x, y } arrays. Pass-through when already small.
+// Records without an x value (NaT times give NaN seconds) can't be placed on the axis:
+// drop them from x and from every series.
+export function dropMissingX(x, series) {
+    const keep = [];
+    for (let i = 0; i < x.length; i++) if (Number.isFinite(x[i])) keep.push(i);
+    if (keep.length === x.length) return { x: Array.from(x), series: series.map((s) => Array.from(s)) };
+    return { x: keep.map((i) => x[i]), series: series.map((s) => keep.map((i) => s[i])) };
+}
+
 export function decimateMinMax(x, y, targetCols) {
     const n = y.length;
     if (targetCols <= 0 || n <= targetCols * 2) return { x: Array.from(x), y: Array.from(y) };

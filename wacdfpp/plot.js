@@ -4,9 +4,9 @@
 // Reuses nsToISO from render.js for faithful time export (render.js has no import
 // side effects, so this stays one-directional: render.js never imports plot.js).
 import uPlot from "./uPlot.esm.js";
-import { plotSpec, applyMask, decimateMinMax, toCSV, toJSON } from "./plot-model.js";
+import { plotSpec, applyMask, decimateMinMax, dropMissingX, toCSV, toJSON } from "./plot-model.js";
 import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "./spectrogram.js";
-import { nsToISO } from "./render.js";
+import { nsToISO, nsToSeconds } from "./render.js";
 
 const LINE_COLORS = ["#6c8aff", "#4ade80", "#fbbf24", "#f87171", "#22d3ee", "#c084fc", "#fb923c", "#a3e635"];
 const MAX_POINTS = 8000;   // line decimation cap
@@ -61,7 +61,7 @@ function resolveXAxis(cdf, meta) {
             const ns = cdf.time_values_as_ns_since_1970(dep0);
             if (ns && ns.length) {
                 const secs = new Array(ns.length);
-                for (let i = 0; i < ns.length; i++) secs[i] = Number(ns[i]) / 1e9;
+                for (let i = 0; i < ns.length; i++) secs[i] = nsToSeconds(ns[i]);
                 return { values: secs, isTime: true, nsValues: ns };
             }
         } catch { /* try DEPEND_TIME / index */ }
@@ -158,19 +158,20 @@ function drawLines(target, cdf, meta, spec, x, values) {
     const data = [];
     if (comps === 1) {
         // Single series: min/max decimation preserves spikes against a shared x.
-        const masked = applyMask(deinterleave(values, comps, recCount, 0), spec);
-        const reduced = decimateMinMax(xs, masked, MAX_POINTS / 2);
+        const kept = dropMissingX(xs, [applyMask(deinterleave(values, comps, recCount, 0), spec)]);
+        const reduced = decimateMinMax(kept.x, kept.series[0], MAX_POINTS / 2);
         data.push(reduced.x, reduced.y);
         series.push({ label: labels[0], stroke: LINE_COLORS[0], width: 1, spanGaps: false });
     } else {
         // Multi series: one uniform stride shared by x and every component.
-        const step = recCount > MAX_POINTS ? Math.ceil(recCount / MAX_POINTS) : 1;
-        data.push(sampleByStep(xs, step));
-        for (let c = 0; c < comps; c++) {
-            const masked = applyMask(deinterleave(values, comps, recCount, c), spec);
+        const kept = dropMissingX(xs, Array.from({ length: comps },
+            (_, c) => applyMask(deinterleave(values, comps, recCount, c), spec)));
+        const step = kept.x.length > MAX_POINTS ? Math.ceil(kept.x.length / MAX_POINTS) : 1;
+        data.push(sampleByStep(kept.x, step));
+        kept.series.forEach((masked, c) => {
             data.push(sampleByStep(masked, step));
             series.push({ label: labels[c], stroke: LINE_COLORS[c % LINE_COLORS.length], width: 1, spanGaps: false });
-        }
+        });
     }
 
     const opts = {

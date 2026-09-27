@@ -404,6 +404,53 @@ class PycdfTT2000Before1972(unittest.TestCase):
         result = pycdfpp.to_datetime64(self._tt2000_array(tt)).astype(np.int64)
         self.assertEqual(result.tolist(), utc)
 
+SPECIAL_VALUES = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'resources',
+                              'time_special_values.cdf')
+
+
+def as_time_objects(values):
+    """The pycdfpp objects a user gets when building values one by one."""
+    if values.dtype.names == ('mseconds',):
+        return [pycdfpp.epoch(float(v['mseconds'])) for v in values]
+    if values.dtype.names == ('seconds', 'picoseconds'):
+        return [pycdfpp.epoch16(float(v['seconds']), float(v['picoseconds'])) for v in values]
+    return [pycdfpp.tt2000_t(int(v['nseconds'])) for v in values]
+
+
+class PycdfTimeSpecialValues(unittest.TestCase):
+    """Every way to call to_datetime64 gives the same result: exact dates, and NaT for fill and
+    pad values, NaN and dates outside datetime64[ns] (1677 to 2262)."""
+
+    def setUp(self):
+        self.cdf = pycdfpp.load(SPECIAL_VALUES)
+
+    def test_fill_pad_and_nan_become_nat(self):
+        expected_nat = {'epoch': [0, 1, 2, 6, 7], 'epoch16': [0, 1, 5], 'tt2000': [0, 1]}
+        for name, indexes in expected_nat.items():
+            with self.subTest(name=name):
+                times = pycdfpp.to_datetime64(self.cdf[name])
+                self.assertEqual(list(np.flatnonzero(np.isnat(times))),
+                                 [i for i in range(len(times)) if i % (8 if name == 'epoch' else 6) in indexes])
+
+    def test_epoch_keeps_every_nanosecond(self):
+        self.assertEqual(pycdfpp.to_datetime64(self.cdf['epoch'])[3],
+                         np.datetime64('2020-01-01T00:00:00.068500000'))
+
+    def test_arrays_lists_and_single_values_agree(self):
+        for name in ('epoch', 'epoch16', 'tt2000'):
+            values = self.cdf[name].values.ravel()
+            reference = pycdfpp.to_datetime64(self.cdf[name]).ravel()
+            objects = as_time_objects(values)
+            with self.subTest(name=name, path='short array'):
+                np.testing.assert_array_equal(pycdfpp.to_datetime64(values[:4]).ravel(), reference[:4])
+            with self.subTest(name=name, path='list of objects'):
+                np.testing.assert_array_equal(pycdfpp.to_datetime64(objects).ravel(), reference)
+            with self.subTest(name=name, path='single objects'):
+                np.testing.assert_array_equal(
+                    np.array([pycdfpp.to_datetime64(o) for o in objects]).ravel(), reference)
+            with self.subTest(name=name, path='list of numpy records'):
+                np.testing.assert_array_equal(pycdfpp.to_datetime64(list(values)).ravel(), reference)
+
 
 if __name__ == '__main__':
     unittest.main()

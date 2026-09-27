@@ -168,59 +168,169 @@ TEST_CASE("To ns from 1970", "")
 }
 
 
+namespace
+{
+constexpr int64_t nat = std::numeric_limits<int64_t>::min();
+constexpr double nan_value = std::numeric_limits<double>::quiet_NaN();
+constexpr double inf = std::numeric_limits<double>::infinity();
+// The range of int64 nanoseconds since 1970 (1677-09-21 to 2262-04-11), as CDF_EPOCH ms.
+constexpr double epoch_min_ms = 52943847163145.2265625;
+constexpr double epoch_max_ms = 71390591236854.765625;
+constexpr int64_t last_representable_tt2000 = std::numeric_limits<int64_t>::max()
+    - (cdf::constants::tt2000_offset
+        - cdf::chrono::leap_seconds::leap_seconds_tt2000_reverse.back().second);
+
+template <typename time_t>
+std::vector<int64_t> converted(const std::vector<time_t>& values)
+{
+    std::vector<int64_t> output(std::size(values));
+    cdf::to_ns_from_1970(std::span<const time_t> { values }, output.data());
+    return output;
+}
+
+// Converts each value alone (scalar path), then all of them at once, 16 copies each (SIMD).
+template <typename time_t>
+void require_nat(const std::vector<time_t>& values)
+{
+    for (const auto& value : values)
+    {
+        REQUIRE(converted(std::vector { value }) == std::vector { nat });
+        const auto many = converted(std::vector<time_t>(16, value));
+        REQUIRE(std::ranges::all_of(many, [](int64_t ns) { return ns == nat; }));
+    }
+}
+
+#ifdef __SIZEOF_INT128__
+// floor((ms - offset) * 1e6) in exact integer arithmetic: ms = mantissa * 2^exponent.
+int64_t exact_epoch_ns(double ms)
+{
+    int exponent = 0;
+    const double fraction = std::frexp(ms, &exponent);
+    const auto mantissa = static_cast<__int128>(std::ldexp(fraction, 53));
+    const int shift = 53 - exponent;
+    REQUIRE(shift > 0);
+    const __int128 offset = static_cast<__int128>(cdf::constants::epoch_offset_miliseconds);
+    const __int128 scaled = (mantissa - (offset << shift)) * 1'000'000;
+    return static_cast<int64_t>(scaled >> shift); // arithmetic shift: floor
+}
+#endif
+}
+
+TEST_CASE("Time values without a representable date become NaT", "")
+{
+    require_nat(std::vector<cdf::epoch> { { -1e31 }, { 0.0 }, { nan_value }, { inf }, { -inf },
+        { std::nextafter(epoch_min_ms, 0.0) }, { std::nextafter(epoch_max_ms, inf) } });
+    require_nat(std::vector<cdf::epoch16> { { -1e31, -1e31 }, { 0.0, 0.0 }, { nan_value, 0.0 },
+        { 63745056000.0, nan_value }, { 63745056000.0, -1.0 }, { 63745056000.0, 1e12 },
+        { inf, 0.0 }, { cdf::constants::epoch_offset_seconds - 9223372037.0, 0.0 },
+        { cdf::constants::epoch_offset_seconds + 9223372036.0, 0.0 } });
+    // ISTP fill and pad values; then dates after 2262-04-11, out of int64 ns since 1970.
+    require_nat(std::vector<cdf::tt2000_t> { { nat }, { nat + 1 },
+        { std::numeric_limits<int64_t>::max() }, { last_representable_tt2000 + 1 } });
+    REQUIRE(converted(std::vector<cdf::tt2000_t> { { last_representable_tt2000 } })
+        == std::vector { std::numeric_limits<int64_t>::max() });
+}
+
+TEST_CASE("CDF_EPOCH conversion is exact", "")
+{
+    // 2020-01-01 00:00:00.0685: exact in a double, it used to become .068499968.
+    REQUIRE(converted(std::vector<cdf::epoch> { { 63745056000068.5 } })
+        == std::vector<int64_t> { 1577836800068500000 });
+    REQUIRE(converted(std::vector<cdf::epoch> { { epoch_min_ms } }).front() != nat);
+    REQUIRE(converted(std::vector<cdf::epoch> { { epoch_max_ms } }).front() != nat);
+#ifdef __SIZEOF_INT128__
+    std::mt19937_64 random { 7 };
+    std::uniform_real_distribution<double> representable { epoch_min_ms, epoch_max_ms };
+    std::vector<cdf::epoch> values { { epoch_min_ms }, { epoch_max_ms },
+        { cdf::constants::epoch_offset_miliseconds }, { 62040988800123.25 } };
+    for (int i = 0; i < 100'000; ++i)
+        values.push_back({ representable(random) });
+    const auto output = converted(values);
+    std::size_t mismatches = 0;
+    for (std::size_t i = 0; i < std::size(values); ++i)
+        mismatches += output[i] != exact_epoch_ns(values[i].mseconds);
+    REQUIRE(mismatches == 0);
+#endif
+}
+
 #ifndef CDFPP_NO_SIMD
 namespace
 {
-// CDF_EPOCH values the SIMD path must convert exactly like the scalar one: sub-millisecond
-// fractions, pre-1970 dates, the int64 limits, fill and pad values (out of range, so NaT) and
-// random values over the whole int64 range and beyond it.
 std::vector<cdf::epoch> epochs_to_compare()
 {
-    constexpr double offset = cdf::constants::epoch_offset_miliseconds;
-    constexpr double int64_limit_ms = 9223372036854.775807;
     std::vector<cdf::epoch> values;
-    for (double ms : { 0.0, -1e31, 1e31, std::nan(""), std::numeric_limits<double>::infinity(),
-             -std::numeric_limits<double>::infinity(), offset, offset + 1e-6, offset - 1e-6,
-             offset - 0.5e-6, offset + 63745056000068.5 - 62167219200000.0, offset - 1.5,
-             std::nextafter(offset + int64_limit_ms, 0.0), std::nextafter(offset - int64_limit_ms, 0.0),
-             offset + int64_limit_ms, offset - int64_limit_ms, offset + int64_limit_ms * 1.0001,
-             offset - int64_limit_ms * 1.0001 })
-        values.push_back(cdf::epoch { ms });
+    for (double ms : { 0.0, -1e31, 1e31, nan_value, inf, -inf, epoch_min_ms, epoch_max_ms,
+             std::nextafter(epoch_min_ms, 0.0), std::nextafter(epoch_max_ms, inf),
+             cdf::constants::epoch_offset_miliseconds, 63745056000068.5, 62040988800123.25 })
+        values.push_back({ ms });
     std::mt19937_64 random { 42 };
-    std::uniform_real_distribution<double> anywhere { offset - 1.1 * int64_limit_ms,
-        offset + 1.1 * int64_limit_ms };
-    std::uniform_real_distribution<double> this_century { offset, offset + 3.2e12 };
+    std::uniform_real_distribution<double> anywhere { 0.5 * epoch_min_ms, 1.5 * epoch_max_ms };
     for (int i = 0; i < 100'000; ++i)
-    {
-        values.push_back(cdf::epoch { anywhere(random) });
-        values.push_back(cdf::epoch { this_century(random) });
-    }
+        values.push_back({ anywhere(random) });
     return values;
 }
+
+std::vector<cdf::epoch16> epoch16s_to_compare()
+{
+    constexpr double offset = cdf::constants::epoch_offset_seconds;
+    std::vector<cdf::epoch16> values { { -1e31, -1e31 }, { 0.0, 0.0 }, { nan_value, 0.0 },
+        { 63745056000.0, nan_value }, { 63745056000.0, -1.0 }, { 63745056000.0, 1e12 },
+        { offset - 9223372036.0, 0.0 }, { offset + 9223372035.0, 999999999999.0 },
+        { offset - 9223372037.0, 999999999999.0 }, { offset + 9223372036.0, 0.0 } };
+    std::mt19937_64 random { 43 };
+    std::uniform_int_distribution<int64_t> seconds { -10'000'000'000, 10'000'000'000 };
+    std::uniform_int_distribution<int64_t> picoseconds { 0, 999'999'999'999 };
+    for (int i = 0; i < 100'000; ++i)
+        values.push_back({ offset + static_cast<double>(seconds(random)),
+            static_cast<double>(picoseconds(random)) });
+    return values;
 }
 
-TEST_CASE("CDF_EPOCH SIMD conversion matches the scalar one bit for bit", "")
+std::vector<cdf::tt2000_t> tt2000s_to_compare()
 {
-    const auto values = epochs_to_compare();
+    // Sorted recent values take a faster SIMD path than mixed ones: test both.
+    std::vector<cdf::tt2000_t> values;
+    std::mt19937_64 random { 44 };
+    std::uniform_int_distribution<int64_t> recent { 631108869184000000,
+        std::numeric_limits<int64_t>::max() };
+    for (int i = 0; i < 1000; ++i)
+        values.push_back({ recent(random) });
+    std::ranges::sort(values, {}, &cdf::tt2000_t::nseconds);
+    for (int64_t ns : { nat, nat + 1, int64_t { 0 }, std::numeric_limits<int64_t>::max() })
+        values.push_back({ ns });
+    std::uniform_int_distribution<int64_t> anywhere { nat, std::numeric_limits<int64_t>::max() };
+    for (int i = 0; i < 100'000; ++i)
+        values.push_back({ anywhere(random) });
+    return values;
+}
+
+// Every start offset (alignment) and short lengths (the scalar tail) too.
+template <typename time_t>
+void require_simd_matches_scalar(const std::vector<time_t>& values)
+{
     std::vector<int64_t> expected(std::size(values));
-    cdf::_impl::scalar_to_ns_from_1970(values, expected.data());
+    cdf::_impl::scalar_to_ns_from_1970(std::span<const time_t> { values }, expected.data());
     for (std::size_t start = 0; start < 8; ++start)
     {
-        const std::span<const cdf::epoch> input { values.data() + start, std::size(values) - start };
+        const std::span<const time_t> input { values.data() + start, std::size(values) - start };
         std::vector<int64_t> output(std::size(input));
         vectorized_to_ns_from_1970(input, output.data());
-        std::size_t mismatches = 0;
-        for (std::size_t i = 0; i < std::size(output); ++i)
-            mismatches += output[i] != expected[start + i];
-        REQUIRE(mismatches == 0);
+        REQUIRE(std::equal(output.begin(), output.end(), expected.begin() + start));
     }
     for (std::size_t length = 0; length < 40; ++length)
     {
         std::vector<int64_t> output(length);
-        vectorized_to_ns_from_1970(std::span<const cdf::epoch> { values.data(), length },
-            output.data());
+        vectorized_to_ns_from_1970(std::span<const time_t> { values.data(), length }, output.data());
         REQUIRE(std::equal(output.begin(), output.end(), expected.begin()));
     }
+}
+}
+
+TEST_CASE("SIMD time conversions match the scalar ones bit for bit", "")
+{
+    require_simd_matches_scalar(epochs_to_compare());
+    require_simd_matches_scalar(epoch16s_to_compare());
+    require_simd_matches_scalar(tt2000s_to_compare());
 }
 #endif
 

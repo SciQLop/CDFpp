@@ -1,6 +1,6 @@
 // Pure Node test for wacdfpp/render.js formatters — no WASM, no DOM.
 //   node test.mjs
-import { nsToISO, stripPadding, chunkRecords, decodeChars, formatAttrValue,
+import { nsToISO, nsToSeconds, NAT_NS, stripPadding, chunkRecords, decodeChars, formatAttrValue,
          previewability, MAX_PREVIEW_DIMENSIONS, MAX_PREVIEW_POINTS } from "../../wacdfpp/render.js";
 
 let failures = 0;
@@ -47,5 +47,10 @@ check("5-D particle dist not previewable", previewability([100, 32, 16, 32, 8]).
 check("high-D reason is a string", typeof previewability([10, 16, 32]).reason === "string");
 check("oversized 2-D not previewable", previewability([MAX_PREVIEW_POINTS, 2]).ok === false);
 check("within rank+size previewable", previewability([1000, 100]).ok === true);
+
+// INT64_MIN ns is NaT, as in numpy: fill and pad values, dates outside datetime64[ns].
+check("nsToISO NaT", nsToISO(NAT_NS) === "NaT");
+check("nsToSeconds NaT is NaN", Number.isNaN(nsToSeconds(NAT_NS)));
+check("nsToSeconds value", nsToSeconds(1700000000500000000n) === 1700000000.5);
 
 process.exit(failures ? 1 : 0);

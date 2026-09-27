@@ -126,6 +126,15 @@ constexpr auto make_odd_indexes()
 }
 
 
+// Integral doubles below 2^51 to int64: adding 1.5 * 2^52 lays the integer in the mantissa bits.
+// x86 has a double to int64 conversion only since AVX-512DQ, and this is cheaper anyway.
+template <class Arch>
+inline xsimd::batch<int64_t, Arch> small_integers_to_int64(const xsimd::batch<double, Arch>& value)
+{
+    const auto magic = xsimd::broadcast<double, Arch>(0x1.8p52);
+    return xsimd::bitwise_cast<int64_t>(value + magic) - xsimd::bitwise_cast<int64_t>(magic);
+}
+
 struct _to_ns_from_1970_epoch16_t
 {
     template <class Arch, typename input_align_mode, typename output_align_mode>
@@ -140,19 +149,28 @@ struct _to_ns_from_1970_epoch16_t
         const auto odd_indexes = make_odd_indexes<Arch>();
 
         const auto offset = xsimd::broadcast<double, Arch>(constants::epoch_offset_seconds);
+        const auto min_s = xsimd::broadcast<double, Arch>(_impl::epoch16_min_s);
+        const auto max_s = xsimd::broadcast<double, Arch>(_impl::epoch16_max_s);
+        const auto zero = xsimd::broadcast<double, Arch>(0.0);
+        const auto ps_in_s = xsimd::broadcast<double, Arch>(1e12);
         const auto ps_in_ns = xsimd::broadcast<double, Arch>(1'000);
         const auto ns_in_s = xsimd::broadcast<int64_t, Arch>(1'000'000'000);
+        const auto nat = xsimd::broadcast<int64_t, Arch>(_impl::nat);
         std::size_t i = 0;
         for (; i + simd_size <= count; i += simd_size)
         {
+            // The steps of _impl::epoch16_to_ns_from_1970.
             auto seconds
                 = batchin_type::gather(reinterpret_cast<const double*>(&input[i]), even_indexes);
             auto picos
                 = batchin_type::gather(reinterpret_cast<const double*>(&input[i]), odd_indexes);
-            // Whole seconds are scaled in int64: ~1e18 ns doesn't fit a double's mantissa.
-            auto whole_seconds = xsimd::batch_cast<int64_t>(seconds - offset);
-            auto sub_second_ns = xsimd::batch_cast<int64_t>(picos / ps_in_ns);
-            (whole_seconds * ns_in_s + sub_second_ns).store(output + i, output_align_mode {});
+            // In range, whole seconds are below 2^34 and sub-second ns below 1e9.
+            auto whole_seconds = small_integers_to_int64<Arch>(xsimd::trunc(seconds - offset));
+            auto sub_second_ns = small_integers_to_int64<Arch>(xsimd::trunc(picos / ps_in_ns));
+            const auto in_range = xsimd::batch_bool_cast<int64_t>((seconds >= min_s)
+                & (seconds <= max_s) & (picos >= zero) & (picos < ps_in_s));
+            xsimd::select(in_range, whole_seconds * ns_in_s + sub_second_ns, nat)
+                .store(output + i, output_align_mode {});
         }
         if (i < count)
         {
@@ -169,7 +187,7 @@ template <class Arch>
 void _to_ns_from_1970_epoch16_t::operator()(
     Arch, const std::span<const epoch16>& input, int64_t* const output)
 {
-    if constexpr (cdf::helpers::is_any_of_v<Arch, xsimd::unavailable, xsimd::sse2, xsimd::avx2>)
+    if constexpr (cdf::helpers::is_any_of_v<Arch, xsimd::unavailable, xsimd::sse2>)
     {
         return vectorized::scalar_to_ns_from_1970(input, output);
     }
@@ -195,40 +213,6 @@ void _to_ns_from_1970_epoch16_t::operator()(
     }
 }
 
-// x86 converts doubles to int64 only since AVX-512DQ. With AVX2, decode the IEEE 754 bits like
-// the hardware does: shift the mantissa by the exponent (right shifts drop the fraction, that is
-// truncation toward zero), then apply the sign. Like cvttsd2si and cvttpd2qq, NaN and values out
-// of the int64 range give INT64_MIN: CDF_EPOCH fill and pad values still become NaT.
-template <class Arch>
-inline xsimd::batch<int64_t, Arch> truncate_to_int64(const xsimd::batch<double, Arch>& value)
-{
-#if defined(__AVX2__)
-    if constexpr (std::is_same_v<Arch, xsimd::avx2>)
-    {
-        const __m256i bits = _mm256_castpd_si256(value);
-        const __m256i exponent
-            = _mm256_and_si256(_mm256_srli_epi64(bits, 52), _mm256_set1_epi64x(0x7FF));
-        const __m256i mantissa
-            = _mm256_or_si256(_mm256_and_si256(bits, _mm256_set1_epi64x(0xFFFFFFFFFFFFF)),
-                _mm256_set1_epi64x(0x10000000000000));
-        // Shift counts above 63, including "negative" ones, give 0: only one shift is non zero.
-        const __m256i bias = _mm256_set1_epi64x(1075);
-        const __m256i magnitude
-            = _mm256_or_si256(_mm256_sllv_epi64(mantissa, _mm256_sub_epi64(exponent, bias)),
-                _mm256_srlv_epi64(mantissa, _mm256_sub_epi64(bias, exponent)));
-        const __m256i negative = _mm256_cmpgt_epi64(_mm256_setzero_si256(), bits);
-        const __m256i result
-            = _mm256_sub_epi64(_mm256_xor_si256(magnitude, negative), negative);
-        // Exponent 1086 is |value| >= 2^63 (INT64_MIN is right for -2^63), 2047 is inf or NaN.
-        const __m256i out_of_range = _mm256_cmpgt_epi64(exponent, _mm256_set1_epi64x(1085));
-        return _mm256_blendv_epi8(
-            result, _mm256_set1_epi64x(std::numeric_limits<int64_t>::min()), out_of_range);
-    }
-    else
-#endif
-        return xsimd::batch_cast<int64_t>(value);
-}
-
 struct _to_ns_from_1970_epoch_t
 {
 
@@ -240,14 +224,31 @@ struct _to_ns_from_1970_epoch_t
         using batchin_type = xsimd::batch<double, Arch>;
         const auto count = std::size(input);
         constexpr std::size_t simd_size = batchout_type::size;
+        const auto min_ms = xsimd::broadcast<double, Arch>(_impl::epoch_min_ms);
+        const auto max_ms = xsimd::broadcast<double, Arch>(_impl::epoch_max_ms);
         const auto offset = xsimd::broadcast<double, Arch>(constants::epoch_offset_miliseconds);
-        const auto ns_in_ms = xsimd::broadcast<double, Arch>(1'000'000);
+        const auto ns_in_ms = xsimd::broadcast<double, Arch>(1e6);
+        const auto block = xsimd::broadcast<double, Arch>(0x1p13);
+        const auto per_block = xsimd::broadcast<double, Arch>(0x1p-13);
+        const auto nat = xsimd::broadcast<int64_t, Arch>(_impl::nat);
         std::size_t i = 0;
         for (; i + simd_size <= count; i += simd_size)
         {
-            auto epoch_batch = batchin_type::load(&input[i].mseconds, input_align_mode {});
-            store<Arch, output_align_mode>(
-                truncate_to_int64<Arch>((epoch_batch - offset) * ns_in_ms), output + i);
+            // floor((ms - offset) * 1e6) like _impl::epoch_to_ns_from_1970, with no int64
+            // multiply or general double to int64 conversion (AVX2 has neither). In range:
+            // - ms - offset is exact (two doubles within a factor 2) and below 2^44 ms;
+            // - high * 2^13 + low splits it exactly, low in [0, 8192) on a 2^-7 grid;
+            // - so high * 1e6 is an integer below 2^31 * 1e6 < 2^51 and low * 1e6 one below 2^33
+            //   plus 0.5 at most: both convert exactly, and the result is
+            //   (high * 1e6) << 13 + floor(low * 1e6).
+            const auto ms = batchin_type::load(&input[i].mseconds, input_align_mode {});
+            const auto since_1970 = ms - offset;
+            const auto high = xsimd::floor(since_1970 * per_block);
+            const auto low = since_1970 - high * block;
+            const auto ns = (small_integers_to_int64<Arch>(high * ns_in_ms) << 13)
+                + small_integers_to_int64<Arch>(xsimd::floor(low * ns_in_ms));
+            const auto in_range = xsimd::batch_bool_cast<int64_t>((ms >= min_ms) & (ms <= max_ms));
+            store<Arch, output_align_mode>(xsimd::select(in_range, ns, nat), output + i);
         }
         if (i < count)
         {
@@ -304,12 +305,16 @@ struct _to_ns_from_1970_tt2000_t
             constants::tt2000_offset - leap_seconds::leap_seconds_tt2000_reverse.back().second);
         const auto last_leap_sec = xsimd::broadcast<int64_t, Arch>(
             leap_seconds::leap_seconds_tt2000_reverse.back().first);
+        const auto last_representable
+            = xsimd::broadcast<int64_t, Arch>(_impl::last_representable_tt2000);
         auto was_after_2017 = xsimd::batch_bool<int64_t, Arch>(true);
         for (; i + simd_size <= count; i += simd_size)
         {
             auto tt2000_batch = batch_type::load(&input[i].nseconds, input_align_mode {});
             store<Arch, output_align_mode>(tt2000_batch + offset, &output[i]);
-            was_after_2017 = was_after_2017 & (tt2000_batch >= last_leap_sec);
+            // After 2262 (out of int64 ns since 1970): the unsorted path writes NaT.
+            was_after_2017 = was_after_2017 & (tt2000_batch >= last_leap_sec)
+                & (tt2000_batch <= last_representable);
         }
         // sfence<Arch>();
         if (!xsimd::all(was_after_2017))
@@ -339,6 +344,9 @@ struct _to_ns_from_1970_tt2000_t
 
         const auto first_leap_sec = xsimd::broadcast<int64_t, Arch>(
             leap_seconds::leap_seconds_tt2000_reverse.front().first);
+        const auto last_representable
+            = xsimd::broadcast<int64_t, Arch>(_impl::last_representable_tt2000);
+        const auto nat = xsimd::broadcast<int64_t, Arch>(_impl::nat);
         for (; i + simd_size <= count; i += simd_size)
         {
             auto tt2000_batch = batch_type::load(&input[i].nseconds, input_align_mode {});
@@ -352,9 +360,12 @@ struct _to_ns_from_1970_tt2000_t
                 = xsimd::broadcast<int64_t, Arch>(constants::tt2000_offset - max_leap_offset);
             int leap_index = std::size(leap_seconds::leap_seconds_tt2000_reverse) - 2;
             auto needs_correction = (tt2000_batch < last_leap_sec);
+            // Fill and pad values are before 1972, so they went through the scalar code above.
+            const auto representable = tt2000_batch <= last_representable;
             if (!xsimd::any(needs_correction))
             {
-                store<Arch, output_align_mode>(tt2000_batch + offset, &output[i]);
+                store<Arch, output_align_mode>(
+                    xsimd::select(representable, tt2000_batch + offset, nat), &output[i]);
                 continue;
             }
             while (xsimd::any(needs_correction) && (leap_index != -1))
@@ -365,7 +376,8 @@ struct _to_ns_from_1970_tt2000_t
                            leap_seconds::leap_seconds_tt2000_reverse[leap_index].first));
                 leap_index--;
             }
-            store<Arch, output_align_mode>(tt2000_batch + offset, &output[i]);
+            store<Arch, output_align_mode>(
+                xsimd::select(representable, tt2000_batch + offset, nat), &output[i]);
         }
         // sfence<Arch>();
         if (i < count)
@@ -384,6 +396,8 @@ struct _to_ns_from_1970_tt2000_t
          * This optimistic still keeps track of the fact that some values may be before
          * the last leap second, in which case we fallback to the unsorted algorithm.
          */
+        if (std::empty(input))
+            return;
         if (input[0].nseconds >= leap_seconds::leap_seconds_tt2000_reverse.back().first)
         {
             return _optimistic_after_2017<Arch, input_align_mode, output_align_mode>(

@@ -28,7 +28,11 @@
 #include "cdf-chrono-constants.hpp"
 #include "cdf-leap-seconds.h"
 #include "cdfpp/cdf-enums.hpp"
+#include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstdint>
+#include <limits>
 
 namespace cdf::chrono::_impl
 {
@@ -159,18 +163,72 @@ inline auto _leap_second(const tt2000_t& ep, std::size_t leap_index_hint)
 }
 
 
+// numpy and pandas read INT64_MIN nanoseconds as NaT ("not a time").
+inline constexpr int64_t nat = std::numeric_limits<int64_t>::min();
+
+// ISTP fill and pad values, which NASA's library prints as 9999-12-31 and 0000-01-01.
+inline constexpr int64_t tt2000_pad = nat + 1;
+// Later TT2000 values are after 2262-04-11: their ns since 1970 don't fit int64.
+inline constexpr int64_t last_representable_tt2000 = std::numeric_limits<int64_t>::max()
+    - (constants::tt2000_offset - leap_seconds::leap_seconds_tt2000_reverse.back().second);
+
+inline bool has_ns_since_1970(const tt2000_t& ep)
+{
+    return ep.nseconds > tt2000_pad && ep.nseconds <= last_representable_tt2000;
+}
+
+// The range of int64 ns since 1970 (1677-09-21 to 2262-04-11) as CDF_EPOCH ms: the smallest
+// double giving at least INT64_MIN ns, the largest giving at most INT64_MAX. Fill (-1e31), pad
+// (0.0), NaN and infinities are outside.
+inline constexpr double epoch_min_ms = 52943847163145.2265625;
+inline constexpr double epoch_max_ms = 71390591236854.765625;
+
+// floor((ms - offset) * 1e6), exactly: a double product would round to 256 ns. In range, ms is
+// positive, so truncation is floor, and above 2^45, so its fraction is a multiple of 2^-7 and
+// fraction * 1e6 is exact.
+inline int64_t epoch_to_ns_from_1970(const epoch& ep)
+{
+    // Branchless, so that loops vectorize: out of range values are swapped for a harmless one
+    // before any conversion (converting NaN or 1e31 to int64 is undefined behaviour).
+    const bool in_range = ep.mseconds >= epoch_min_ms && ep.mseconds <= epoch_max_ms;
+    const double ms = in_range ? ep.mseconds : constants::epoch_offset_miliseconds;
+    constexpr auto offset_ms = static_cast<int64_t>(constants::epoch_offset_miliseconds);
+    const auto whole_ms = static_cast<int64_t>(ms);
+    const auto fraction_ns = static_cast<int64_t>((ms - static_cast<double>(whole_ms)) * 1e6);
+    // Unsigned: near 1677 the whole ms alone are below INT64_MIN ns, the sum is not.
+    const auto ns = static_cast<int64_t>(
+        static_cast<uint64_t>(whole_ms - offset_ms) * 1'000'000U + static_cast<uint64_t>(fraction_ns));
+    return in_range ? ns : nat;
+}
+
+// Whole seconds whose every picosecond fits int64 ns since 1970.
+inline constexpr double epoch16_min_s = constants::epoch_offset_seconds - 9223372036.0;
+inline constexpr double epoch16_max_s = constants::epoch_offset_seconds + 9223372035.0;
+
+inline int64_t epoch16_to_ns_from_1970(const epoch16& ep)
+{
+    if (!(ep.seconds >= epoch16_min_s && ep.seconds <= epoch16_max_s && ep.picoseconds >= 0.0
+            && ep.picoseconds < 1e12))
+        return nat;
+    // Whole seconds are scaled in int64: ~1e18 ns doesn't fit a double's 53-bit mantissa.
+    return static_cast<int64_t>(ep.seconds - constants::epoch_offset_seconds) * 1'000'000'000
+        + static_cast<int64_t>(ep.picoseconds / 1'000);
+}
+
 inline void _unsorted_to_ns_from_1970(
     const tt2000_t* const input, const std::size_t count, int64_t* const output)
 {
-    if (count)
+    std::size_t last_index = 0;
+    for (std::size_t i = 0; i < count; ++i)
     {
-        std::size_t last_index = 0;
-        for (std::size_t i = 0; i < count; ++i)
+        if (!has_ns_since_1970(input[i]))
         {
-            auto [ls, idx] = _leap_second(input[i], last_index);
-            output[i] = input[i].nseconds - ls + constants::tt2000_offset;
-            last_index = idx;
+            output[i] = nat;
+            continue;
         }
+        auto [ls, idx] = _leap_second(input[i], last_index);
+        output[i] = input[i].nseconds - ls + constants::tt2000_offset;
+        last_index = idx;
     }
 }
 
@@ -183,8 +241,10 @@ inline void _optimistic_to_ns_from_1970_after_2017(
     bool all_after_2017 = true;
     for (std::size_t i = 0; i < count; ++i)
     {
-        output[i] = input[i].nseconds + offset;
-        all_after_2017 &= (input[i].nseconds >= last_leap_sec);
+        output[i] = static_cast<int64_t>(
+            static_cast<uint64_t>(input[i].nseconds) + static_cast<uint64_t>(offset));
+        all_after_2017 &= (input[i].nseconds >= last_leap_sec)
+            && (input[i].nseconds <= last_representable_tt2000);
     }
     if (!all_after_2017)
     {
@@ -209,24 +269,13 @@ inline void scalar_to_ns_from_1970(
 inline void scalar_to_ns_from_1970(
     const std::span<const epoch>& input, int64_t* const output)
 {
-    for (std::size_t i = 0; i < input.size(); ++i)
-    {
-        output[i] = (input[i].mseconds - constants::epoch_offset_miliseconds) * 1'000'000;
-    }
+    std::ranges::transform(input, output, epoch_to_ns_from_1970);
 }
 
 inline void scalar_to_ns_from_1970(
     const std::span<const epoch16>& input, int64_t* const output)
 {
-
-    // Whole seconds are scaled in int64: ~1e18 ns doesn't fit a double's 53-bit mantissa.
-    for (std::size_t i = 0; i < input.size(); ++i)
-    {
-        output[i]
-            = static_cast<int64_t>(input[i].seconds - constants::epoch_offset_seconds)
-                * 1'000'000'000
-            + static_cast<int64_t>(input[i].picoseconds / 1'000);
-    }
+    std::ranges::transform(input, output, epoch16_to_ns_from_1970);
 }
 
 }

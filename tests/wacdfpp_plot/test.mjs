@@ -2,7 +2,7 @@
 //   node test.mjs
 import {
     MAX_LINES, MAX_PLOT_DIMENSIONS, MAX_PLOT_POINTS,
-    recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON,
+    recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON, dropMissingX,
 } from "../../wacdfpp/plot-model.js";
 import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "../../wacdfpp/spectrogram.js";
 
@@ -148,5 +148,11 @@ const lg = cellEdges([1, 10, 100], true);
 check("cellEdges log interior is geometric mean",
     Math.abs(lg[1] - Math.sqrt(10)) < 1e-9 && Math.abs(lg[2] - Math.sqrt(1000)) < 1e-9);
 check("cellEdges single center linear", JSON.stringify(cellEdges([5], false)) === JSON.stringify([4.5, 5.5]));
+
+// Records without a time (NaT, so NaN seconds) can't sit on a time axis.
+const kept = dropMissingX([1, NaN, 3], [[10, 20, 30], [4, 5, 6]]);
+check("dropMissingX drops records without x", eq(kept, { x: [1, 3], series: [[10, 30], [4, 6]] }));
+const all = dropMissingX([1, 2], [[5, 6]]);
+check("dropMissingX keeps complete data", eq(all, { x: [1, 2], series: [[5, 6]] }));
 
 process.exit(failures ? 1 : 0);

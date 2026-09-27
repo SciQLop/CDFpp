@@ -10,12 +10,15 @@ export const CDF_CHAR = 51, CDF_UCHAR = 52;
 export const isTimeType = (t) => t === CDF_EPOCH || t === CDF_EPOCH16 || t === CDF_TIME_TT2000;
 export const isCharType = (t) => t === CDF_CHAR || t === CDF_UCHAR;
 
-// NOTE: does not remap CDF fill sentinels — TT2000 INT64_MIN renders as a 1677
-// date and EPOCH -1e31 as a large number / NaN fallback. This mirrors the demo's
-// existing value-preview behavior; canonical sentinel display (9999-12-31) lives
-// in the C++ repr/ISO path, not here.
+// INT64_MIN ns is NaT (not a time), as in numpy: CDF fill and pad values, and dates
+// outside datetime64[ns] (1677 to 2262), come out of the C++ conversion as NaT.
+export const NAT_NS = -9223372036854775808n;
+
+export const nsToSeconds = (ns) => (ns === NAT_NS ? NaN : Number(ns) / 1e9);
+
 // ns-since-1970 (BigInt, leap-second corrected) -> ISO 8601 with ns precision.
 export function nsToISO(ns) {
+    if (ns === NAT_NS) return "NaT";
     const NS_PER_MS = 1000000n;
     let ms = ns / NS_PER_MS;
     let rem = ns - ms * NS_PER_MS;

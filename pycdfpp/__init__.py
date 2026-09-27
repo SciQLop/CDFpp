@@ -688,6 +688,13 @@ def filter_cdf(cdf: CDF,
 
 CDF.filter = filter_cdf
 
+def _records_as_array(values):
+    """A list of numpy records, e.g. list(variable.values), back to the array they came from."""
+    if isinstance(values, (list, tuple)) and len(values) and isinstance(values[0], np.void):
+        return np.array(values)
+    return values
+
+
 def to_datetime64(values):
     """Convert any compatible given collection of time values to a numpy.datetime64 array.
 
@@ -710,7 +717,7 @@ to convert to numpy.datetime64
     -----
     On modern x86_64 systems, it will use the CPU's vectorized instructions to perform the conversion even faster.
     """
-    return _pycdfpp.to_datetime64(values)
+    return _pycdfpp.to_datetime64(_records_as_array(values))
 
 
 def to_datetime(values):
@@ -732,7 +739,7 @@ to convert to datetime.datetime
     TypeError or IndexError
         If the input values are not compatible time types.
     """
-    return _pycdfpp.to_datetime(values)
+    return _pycdfpp.to_datetime(_records_as_array(values))
 
 
 def to_tt2000(values):
@@ -786,7 +793,7 @@ def to_time_string(values, format: str):
     numpy.ndarray
         Array of byte strings (dtype ``S{N}``) with the same shape as input.
     """
-    return _pycdfpp.to_time_string(values, format)
+    return _pycdfpp.to_time_string(_records_as_array(values), format)
 
 
 def to_epoch16(values):

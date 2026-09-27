@@ -215,11 +215,21 @@ template <typename time_t>
     return py::array_t<int64_t>().attr("view")(dtype);
 }
 
+// The conversion arrays use: exact, and NaT for fill and pad values and for dates that
+// datetime64[ns] can't hold. cdf::to_time_point clamps instead, which suits datetime objects.
+[[nodiscard]] inline int64_t ns_since_1970(const cdf_time_t auto& value)
+{
+    using time_t = std::decay_t<decltype(value)>;
+    int64_t ns = 0;
+    cdf::to_ns_from_1970(std::span<const time_t> { &value, 1 }, &ns);
+    return ns;
+}
+
 [[nodiscard]] inline py::object to_datetime64(const cdf_time_t auto& input)
 {
     using time_t = std::decay_t<decltype(input)>;
     constexpr auto dtype = time_t_to_dtype<time_t>();
-    int64_t v = cdf::to_time_point(input).time_since_epoch().count();
+    int64_t v = ns_since_1970(input);
     return py::array(py::dtype(dtype), {}, {}, &v);
 }
 
@@ -252,21 +262,15 @@ template <typename time_t>
                 auto item_type = Py_TYPE(obj);
                 if (item_type == tt2000_type_ptr)
                 {
-                    return cdf::to_time_point(*_details::cast<tt2000_t>(obj))
-                        .time_since_epoch()
-                        .count();
+                    return ns_since_1970(*_details::cast<tt2000_t>(obj));
                 }
                 else if (item_type == epoch_type_ptr)
                 {
-                    return cdf::to_time_point(*_details::cast<epoch>(obj))
-                        .time_since_epoch()
-                        .count();
+                    return ns_since_1970(*_details::cast<epoch>(obj));
                 }
                 else if (item_type == epoch16_type_ptr)
                 {
-                    return cdf::to_time_point(*_details::cast<epoch16>(obj))
-                        .time_since_epoch()
-                        .count();
+                    return ns_since_1970(*_details::cast<epoch16>(obj));
                 }
                 else
                 {
