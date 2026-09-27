@@ -1,3 +1,8 @@
+#include <random>
+#include <cmath>
+#include <limits>
+#include <vector>
+#include <algorithm>
 #include <chrono>
 #include <ctime>
 #include <sstream>
@@ -162,6 +167,62 @@ TEST_CASE("To ns from 1970", "")
     }
 }
 
+
+#ifndef CDFPP_NO_SIMD
+namespace
+{
+// CDF_EPOCH values the SIMD path must convert exactly like the scalar one: sub-millisecond
+// fractions, pre-1970 dates, the int64 limits, fill and pad values (out of range, so NaT) and
+// random values over the whole int64 range and beyond it.
+std::vector<cdf::epoch> epochs_to_compare()
+{
+    constexpr double offset = cdf::constants::epoch_offset_miliseconds;
+    constexpr double int64_limit_ms = 9223372036854.775807;
+    std::vector<cdf::epoch> values;
+    for (double ms : { 0.0, -1e31, 1e31, std::nan(""), std::numeric_limits<double>::infinity(),
+             -std::numeric_limits<double>::infinity(), offset, offset + 1e-6, offset - 1e-6,
+             offset - 0.5e-6, offset + 63745056000068.5 - 62167219200000.0, offset - 1.5,
+             std::nextafter(offset + int64_limit_ms, 0.0), std::nextafter(offset - int64_limit_ms, 0.0),
+             offset + int64_limit_ms, offset - int64_limit_ms, offset + int64_limit_ms * 1.0001,
+             offset - int64_limit_ms * 1.0001 })
+        values.push_back(cdf::epoch { ms });
+    std::mt19937_64 random { 42 };
+    std::uniform_real_distribution<double> anywhere { offset - 1.1 * int64_limit_ms,
+        offset + 1.1 * int64_limit_ms };
+    std::uniform_real_distribution<double> this_century { offset, offset + 3.2e12 };
+    for (int i = 0; i < 100'000; ++i)
+    {
+        values.push_back(cdf::epoch { anywhere(random) });
+        values.push_back(cdf::epoch { this_century(random) });
+    }
+    return values;
+}
+}
+
+TEST_CASE("CDF_EPOCH SIMD conversion matches the scalar one bit for bit", "")
+{
+    const auto values = epochs_to_compare();
+    std::vector<int64_t> expected(std::size(values));
+    cdf::_impl::scalar_to_ns_from_1970(values, expected.data());
+    for (std::size_t start = 0; start < 8; ++start)
+    {
+        const std::span<const cdf::epoch> input { values.data() + start, std::size(values) - start };
+        std::vector<int64_t> output(std::size(input));
+        vectorized_to_ns_from_1970(input, output.data());
+        std::size_t mismatches = 0;
+        for (std::size_t i = 0; i < std::size(output); ++i)
+            mismatches += output[i] != expected[start + i];
+        REQUIRE(mismatches == 0);
+    }
+    for (std::size_t length = 0; length < 40; ++length)
+    {
+        std::vector<int64_t> output(length);
+        vectorized_to_ns_from_1970(std::span<const cdf::epoch> { values.data(), length },
+            output.data());
+        REQUIRE(std::equal(output.begin(), output.end(), expected.begin()));
+    }
+}
+#endif
 
 TEST_CASE("cdf epoch to timepoint", "")
 {

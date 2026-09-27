@@ -24,6 +24,7 @@
 -- Mail : alexis.jeandet@member.fsf.org
 ----------------------------------------------------------------------------*/
 #pragma once
+#include <limits>
 #include "cdfpp/cdf-enums.hpp"
 #include "cdfpp/cdf-helpers.hpp"
 #include "cdfpp/chrono/cdf-chrono-constants.hpp"
@@ -194,6 +195,40 @@ void _to_ns_from_1970_epoch16_t::operator()(
     }
 }
 
+// x86 converts doubles to int64 only since AVX-512DQ. With AVX2, decode the IEEE 754 bits like
+// the hardware does: shift the mantissa by the exponent (right shifts drop the fraction, that is
+// truncation toward zero), then apply the sign. Like cvttsd2si and cvttpd2qq, NaN and values out
+// of the int64 range give INT64_MIN: CDF_EPOCH fill and pad values still become NaT.
+template <class Arch>
+inline xsimd::batch<int64_t, Arch> truncate_to_int64(const xsimd::batch<double, Arch>& value)
+{
+#if defined(__AVX2__)
+    if constexpr (std::is_same_v<Arch, xsimd::avx2>)
+    {
+        const __m256i bits = _mm256_castpd_si256(value);
+        const __m256i exponent
+            = _mm256_and_si256(_mm256_srli_epi64(bits, 52), _mm256_set1_epi64x(0x7FF));
+        const __m256i mantissa
+            = _mm256_or_si256(_mm256_and_si256(bits, _mm256_set1_epi64x(0xFFFFFFFFFFFFF)),
+                _mm256_set1_epi64x(0x10000000000000));
+        // Shift counts above 63, including "negative" ones, give 0: only one shift is non zero.
+        const __m256i bias = _mm256_set1_epi64x(1075);
+        const __m256i magnitude
+            = _mm256_or_si256(_mm256_sllv_epi64(mantissa, _mm256_sub_epi64(exponent, bias)),
+                _mm256_srlv_epi64(mantissa, _mm256_sub_epi64(bias, exponent)));
+        const __m256i negative = _mm256_cmpgt_epi64(_mm256_setzero_si256(), bits);
+        const __m256i result
+            = _mm256_sub_epi64(_mm256_xor_si256(magnitude, negative), negative);
+        // Exponent 1086 is |value| >= 2^63 (INT64_MIN is right for -2^63), 2047 is inf or NaN.
+        const __m256i out_of_range = _mm256_cmpgt_epi64(exponent, _mm256_set1_epi64x(1085));
+        return _mm256_blendv_epi8(
+            result, _mm256_set1_epi64x(std::numeric_limits<int64_t>::min()), out_of_range);
+    }
+    else
+#endif
+        return xsimd::batch_cast<int64_t>(value);
+}
+
 struct _to_ns_from_1970_epoch_t
 {
 
@@ -212,7 +247,7 @@ struct _to_ns_from_1970_epoch_t
         {
             auto epoch_batch = batchin_type::load(&input[i].mseconds, input_align_mode {});
             store<Arch, output_align_mode>(
-                xsimd::batch_cast<int64_t>((epoch_batch - offset) * ns_in_ms), output + i);
+                truncate_to_int64<Arch>((epoch_batch - offset) * ns_in_ms), output + i);
         }
         if (i < count)
         {
@@ -228,7 +263,7 @@ template <class Arch>
 void _to_ns_from_1970_epoch_t::operator()(
     Arch, const std::span<const epoch>& input, int64_t* const output)
 {
-    if constexpr (cdf::helpers::is_any_of_v<Arch, xsimd::unavailable, xsimd::sse2, xsimd::avx2>)
+    if constexpr (cdf::helpers::is_any_of_v<Arch, xsimd::unavailable, xsimd::sse2>)
     {
         return vectorized::scalar_to_ns_from_1970(input, output);
     }
