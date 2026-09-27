@@ -10,9 +10,9 @@ files, then explains where the differences come from.
 The short answer
 ================
 
-``pycdfpp`` is faster on every task we measured. When you read a whole file of
-compressed data, it is 1.4× to 2× faster. When you open a file, or convert time
-variables, it is 7× to about 3000× faster.
+``pycdfpp`` is faster on every task we measured. When you read whole files of
+compressed data, it is 2.8× to 10× faster. When you open a file, or convert time
+variables, it is 13× to about 4000× faster.
 
 Results
 =======
@@ -28,40 +28,40 @@ Results
      - cdflib
    * - Open a file, list variables, read all attributes
      - MMS FPI electron distribution, 178 MB
-     - **0.6 ms**
-     - 266 ms (418×)
-     - 10.2 ms (16×)
+     - **0.7 ms**
+     - 252 ms (378×)
+     - 9.8 ms (15×)
    * - Read B and its time axis as ``datetime64``
      - MMS FGM survey, 1.2 M points, gzip, TT2000
-     - **42 ms**
-     - 3.81 s (91×)
-     - 317 ms (7.5×)
+     - **17.5 ms**
+     - 3.73 s (214×)
+     - 308 ms (18×)
    * - Read B and its time axis as ``datetime64``
      - Wind MFI, 0.9 M points, CDF_EPOCH
-     - **4.7 ms**
-     - 43.5 ms (9.2×)
-     - 14.1 s (2965×)
+     - **3.3 ms**
+     - 40.7 ms (13×)
+     - 13.3 s (4080×)
    * - Read every variable of a file
      - MMS FPI electron distribution, 178 MB, gzip
-     - **473 ms**
-     - 987 ms (2.1×)
-     - 645 ms (1.4×)
+     - **218 ms**
+     - 946 ms (4.3×)
+     - 620 ms (2.8×)
    * - Read every variable of a folder
      - 23 CDAWeb files, 11 missions, 528 MB
-     - **1.13 s**
-     - 2.31 s (2.0×)
-     - 2.84 s (2.5×)
+     - **553 ms**
+     - 2.29 s (4.1×)
+     - 2.83 s (5.1×)
    * - Same folder, 8 threads
      - 23 CDAWeb files, 11 missions, 528 MB
-     - **482 ms**
+     - **234 ms**
      - not thread-safe
-     - 2.49 s (5.2×)
+     - 2.40 s (10×)
 
 (N×) means N times longer than ``pycdfpp``. Each time is the median of 5 runs, after
 one warm-up run, so the files are in the page cache.
 
 Measured on an AMD Ryzen 7 5800X (8 cores, AVX2, no AVX-512), Linux, Python 3.13, with the packages
-from PyPI: pycdfpp 0.13.1, spacepy 0.7.0 (which bundles NASA's CDF library 3.9.0),
+from PyPI: pycdfpp 0.14.0, spacepy 0.7.0 (which bundles NASA's CDF library 3.9.0),
 cdflib 1.3.14 and numpy 2.5.3.
 
 How it was measured
@@ -103,7 +103,7 @@ Opening a file
 2. NASA's library, used by ``spacepy``, checks the file's MD5 checksum every time it
    opens a file that has one. MMS files all have one.
 3. Checking the checksum means reading and hashing the whole file. For 178 MB, that
-   is about 265 ms, before you have read anything.
+   is about 250 ms, before you have read anything.
 4. ``cdflib`` parses the headers in Python, which takes about 10 ms.
 
 ``pycdfpp`` does not check checksums. If you need that check, use NASA's tools.
@@ -112,8 +112,8 @@ Converting time
 ---------------
 
 1. ``pycdfpp`` converts CDF time values to ``datetime64[ns]`` in C++, using SIMD
-   instructions. On the test machine (AVX2), it converts one to two billion values per
-   second.
+   instructions, and exactly. On the test machine (AVX2), it converts about one billion
+   TT2000 values and 2.6 billion CDF_EPOCH values per second.
 2. For TT2000, ``spacepy`` creates one Python ``datetime`` object per value. That takes
    seconds for a million points. ``datetime`` also stops at microseconds, so
    nanoseconds are lost. For CDF_EPOCH, ``spacepy.time.Ticktock`` is vectorized, so the
@@ -132,20 +132,24 @@ leap-second table, which is why a library function matters more there.
 Decompressing
 -------------
 
-Most mission files compress their variables with gzip. ``pycdfpp`` decompresses them
-with `libdeflate <https://github.com/ebiggers/libdeflate>`_. The two other libraries
-use zlib. On these files, libdeflate decompresses 1.5 to 1.7 times faster.
+Most mission files compress their variables with gzip, in many blocks: an MMS FPI
+distribution variable has 640 of them. Two things make ``pycdfpp`` faster there:
 
-Decompressing takes most of the time for big compressed files. That is why the gap
-is only 1.4× to 2× on those rows.
+1. It decompresses the blocks of a variable on all cores at once. The two other libraries
+   decompress them one after another.
+2. It uses `libdeflate <https://github.com/ebiggers/libdeflate>`_, the two others zlib.
+   On these files, libdeflate alone decompresses 1.5 to 1.7 times faster.
+
+Decompressing takes most of the time for big compressed files, so these rows gain the
+most from it: 2.8× to 5× here, up to 10× with threads.
 
 Using threads
 -------------
 
 1. ``pycdfpp`` releases Python's GIL while it reads and decompresses. So several
    threads really run at the same time.
-2. With 8 threads, the folder loads in 0.48 s instead of 1.13 s. It can't go lower:
-   the biggest file alone takes 0.47 s.
+2. With 8 threads, the folder loads in 0.23 s instead of 0.55 s. The biggest file alone
+   takes 0.22 s, even with its own blocks decompressed in parallel.
 3. ``cdflib`` runs mostly Python code, which holds the GIL. Threads barely help it.
 4. NASA's library keeps global state, so ``spacepy`` can't be used from several threads.
 

@@ -21,7 +21,7 @@ A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nas
 - **Python bindings (`pycdfpp`)** via pybind11 — zero-copy NumPy integration, GIL-free I/O
 - **SIMD-accelerated time conversions** — AVX512/AVX2/SSE2 runtime dispatch for TT2000, EPOCH, EPOCH16
 - **Lazy loading** — variable data is read on first access, not at file open
-- **Fast** — 1.4× to several hundred times faster than spacepy and cdflib on everyday tasks ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 8 billion epochs/s (TT2000, AVX-512)
+- **Fast** — 2.8× to several hundred times faster than spacepy and cdflib on everyday tasks ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 8 billion epochs/s (TT2000, AVX-512)
 - **Runs everywhere** — Linux, Windows, macOS (x86_64 + ARM64), and WebAssembly (Pyodide / emscripten-forge)
 - **In-browser app** — [**CDFpp Explorer**](https://sciqlop.github.io/CDFpp/) inspects, plots, and ISTP-validates CDF files entirely client-side, no install
 
@@ -296,20 +296,20 @@ Everyday tasks on real CDAWeb files, with each library used the way its document
 
 | Task | Data | pycdfpp | spacepy.pycdf | cdflib |
 |---|---|---|---|---|
-| Open a file, list variables, read all attributes | MMS FPI electron distribution, 178 MB | **0.6 ms** | 266 ms (418×) | 10.2 ms (16×) |
-| Read B and its time axis as `datetime64` | MMS FGM survey, 1.2 M points, gzip, TT2000 | **42 ms** | 3.81 s (91×) | 317 ms (7.5×) |
-| Read B and its time axis as `datetime64` | Wind MFI, 0.9 M points, CDF_EPOCH | **4.7 ms** | 43.5 ms (9.2×) | 14.1 s (2965×) |
-| Read every variable of a file | MMS FPI electron distribution, 178 MB, gzip | **473 ms** | 987 ms (2.1×) | 645 ms (1.4×) |
-| Read every variable of a folder | 23 CDAWeb files, 11 missions, 528 MB | **1.13 s** | 2.31 s (2.0×) | 2.84 s (2.5×) |
-| Same folder, 8 threads | 23 CDAWeb files, 11 missions, 528 MB | **482 ms** | not thread-safe | 2.49 s (5.2×) |
+| Open a file, list variables, read all attributes | MMS FPI electron distribution, 178 MB | **0.7 ms** | 252 ms (378×) | 9.8 ms (15×) |
+| Read B and its time axis as `datetime64` | MMS FGM survey, 1.2 M points, gzip, TT2000 | **17.5 ms** | 3.73 s (214×) | 308 ms (18×) |
+| Read B and its time axis as `datetime64` | Wind MFI, 0.9 M points, CDF_EPOCH | **3.3 ms** | 40.7 ms (13×) | 13.3 s (4080×) |
+| Read every variable of a file | MMS FPI electron distribution, 178 MB, gzip | **218 ms** | 946 ms (4.3×) | 620 ms (2.8×) |
+| Read every variable of a folder | 23 CDAWeb files, 11 missions, 528 MB | **553 ms** | 2.29 s (4.1×) | 2.83 s (5.1×) |
+| Same folder, 8 threads | 23 CDAWeb files, 11 missions, 528 MB | **234 ms** | not thread-safe | 2.40 s (10×) |
 
-(N×) = N times longer than pycdfpp. Median of 5 runs, files in the page cache. AMD Ryzen 7 5800X (AVX2, no AVX-512), Python 3.13, pycdfpp 0.13.1, spacepy 0.7.0 (NASA CDF 3.9.0), cdflib 1.3.14.
+(N×) = N times longer than pycdfpp. Median of 5 runs, files in the page cache. AMD Ryzen 7 5800X (AVX2, no AVX-512), Python 3.13, pycdfpp 0.14.0, spacepy 0.7.0 (NASA CDF 3.9.0), cdflib 1.3.14.
 
 Why is pycdfpp faster?
 
 - **Opening a file** only parses the headers, in C++. NASA's library, used by spacepy, hashes the whole file to check its MD5 checksum on every open. pycdfpp skips that check.
 - **Time conversion** runs in C++ with SIMD, straight to `datetime64[ns]`. For TT2000, spacepy creates one Python `datetime` per value. cdflib converts CDF_EPOCH in a Python loop.
-- **Gzip** is decoded with [libdeflate](https://github.com/ebiggers/libdeflate), 1.5–1.7× faster than zlib on these files.
+- **Gzip** blocks are decompressed on all cores at once (an MMS FPI distribution variable has 640 of them), with [libdeflate](https://github.com/ebiggers/libdeflate), itself 1.5–1.7× faster than zlib on these files.
 - **Threads** work: pycdfpp releases the GIL while reading and decompressing. cdflib is mostly Python, so it holds the GIL. NASA's library keeps global state.
 
 Details and caveats in the [performance page](https://pycdfpp.readthedocs.io/en/latest/performance.html). Reproduce with [`benchmarks/python_libs/compare.py`](benchmarks/python_libs/compare.py).
@@ -340,7 +340,7 @@ AMD Ryzen 7 5800X desktop CPU (Zen 3, 32 MB L3), **AVX2** (median of 3 runs):
 | EPOCH scalar | 9.6e+08 | 1.0e+09 | 1.0e+09 | 1.0e+09 | 9.3e+08 |
 | EPOCH SIMD | 2.7e+09 | **2.7e+09** | 2.5e+09 | 2.7e+09 | 1.3e+09 |
 
-With AVX-512, TT2000 conversion peaked at ~**8 billion epochs/s** and EPOCH at ~**14 billion epochs/s** for L1/L2-resident data. With AVX2, SIMD runs about 3× faster than scalar code for both. CDF_EPOCH conversions are exact since the version after 0.13.1: they used to round to 256 ns. That made scalar EPOCH conversion about 2× slower (it was 2.3e+09 epochs/s on the 5800X), while the SIMD version, reworked to need no 64-bit integer conversions, is faster than the old scalar one. At 64M values (1 GB of data), every SIMD row drops to 1.2–1.5 billion epochs/s: the data no longer fits in cache.
+With AVX-512, TT2000 conversion peaked at ~**8 billion epochs/s** and EPOCH at ~**14 billion epochs/s** for L1/L2-resident data. With AVX2, SIMD runs about 3× faster than scalar code for both. CDF_EPOCH conversions are exact since 0.14.0: they used to round to 256 ns. That made scalar EPOCH conversion about 2× slower (it was 2.3e+09 epochs/s on the 5800X), while the SIMD version, reworked to need no 64-bit integer conversions, is faster than the old scalar one. At 64M values (1 GB of data), every SIMD row drops to 1.2–1.5 billion epochs/s: the data no longer fits in cache.
 
 The two tables below were measured on the Ryzen 7 7840U/HS.
 
