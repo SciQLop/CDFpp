@@ -21,7 +21,7 @@ A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nas
 - **Python bindings (`pycdfpp`)** via pybind11 — zero-copy NumPy integration, GIL-free I/O
 - **SIMD-accelerated time conversions** — AVX512/AVX2/SSE2 runtime dispatch for TT2000, EPOCH, EPOCH16
 - **Lazy loading** — variable data is read on first access, not at file open
-- **Fast** — 1.4× to several hundred times faster than spacepy and cdflib on everyday tasks ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 14 billion epochs/s (AVX-512)
+- **Fast** — 1.4× to several hundred times faster than spacepy and cdflib on everyday tasks ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 8 billion epochs/s (TT2000, AVX-512)
 - **Runs everywhere** — Linux, Windows, macOS (x86_64 + ARM64), and WebAssembly (Pyodide / emscripten-forge)
 - **In-browser app** — [**CDFpp Explorer**](https://sciqlop.github.io/CDFpp/) inspects, plots, and ISTP-validates CDF files entirely client-side, no install
 
@@ -322,7 +322,7 @@ Release builds (`-O3`). Source code in [`benchmarks/`](benchmarks/).
 
 Converting CDF time types to nanoseconds since 1970 (epochs/s, higher is better, one thread). CDFpp picks the best instruction set the CPU has at run time (AVX-512, AVX2 or SSE2).
 
-AMD Ryzen 7 7840U/HS laptop CPU (Zen 4, 5.1 GHz boost, 16 MB L3), **AVX-512**:
+AMD Ryzen 7 7840U/HS laptop CPU (Zen 4, 5.1 GHz boost, 16 MB L3), **AVX-512**, measured with pycdfpp 0.13, before CDF_EPOCH conversions became exact (see below):
 
 | Conversion | 64 | 1K | 64K | 1M | 64M |
 |---|---|---|---|---|---|
@@ -335,12 +335,12 @@ AMD Ryzen 7 5800X desktop CPU (Zen 3, 32 MB L3), **AVX2** (median of 3 runs):
 
 | Conversion | 64 | 1K | 64K | 1M | 64M |
 |---|---|---|---|---|---|
-| TT2000 scalar | 7.8e+08 | 9.8e+08 | 1.0e+09 | 1.0e+09 | 9.2e+08 |
-| TT2000 SIMD | 1.9e+09 | **3.2e+09** | 3.0e+09 | 3.2e+09 | 1.2e+09 |
-| EPOCH scalar | 2.3e+09 | 2.3e+09 | 2.3e+09 | 2.3e+09 | 1.3e+09 |
-| EPOCH SIMD | 3.2e+09 | **3.4e+09** | 3.2e+09 | 3.4e+09 | 1.3e+09 |
+| TT2000 scalar | 8.5e+08 | 1.0e+09 | 1.1e+09 | 1.1e+09 | 9.6e+08 |
+| TT2000 SIMD | 1.8e+09 | **3.1e+09** | 2.8e+09 | 3.1e+09 | 1.3e+09 |
+| EPOCH scalar | 9.6e+08 | 1.0e+09 | 1.0e+09 | 1.0e+09 | 9.3e+08 |
+| EPOCH SIMD | 2.7e+09 | **2.7e+09** | 2.5e+09 | 2.7e+09 | 1.3e+09 |
 
-With AVX-512, TT2000 conversion peaks at ~**8 billion epochs/s** and EPOCH at ~**14 billion epochs/s** for L1/L2-resident data. With AVX2, SIMD runs about 3× faster than scalar code for TT2000 and 1.5× for EPOCH. EPOCH gains less: x86 only has an instruction to convert doubles to 64-bit integers since AVX-512, so with AVX2 CDFpp decodes the double's bits itself, with the same result bit for bit. At 64M values (1 GB of data), every SIMD row drops to 1.2–1.5 billion epochs/s: the data no longer fits in cache.
+With AVX-512, TT2000 conversion peaked at ~**8 billion epochs/s** and EPOCH at ~**14 billion epochs/s** for L1/L2-resident data. With AVX2, SIMD runs about 3× faster than scalar code for both. CDF_EPOCH conversions are exact since the version after 0.13.1: they used to round to 256 ns. That made scalar EPOCH conversion about 2× slower (it was 2.3e+09 epochs/s on the 5800X), while the SIMD version, reworked to need no 64-bit integer conversions, is faster than the old scalar one. At 64M values (1 GB of data), every SIMD row drops to 1.2–1.5 billion epochs/s: the data no longer fits in cache.
 
 The two tables below were measured on the Ryzen 7 7840U/HS.
 
