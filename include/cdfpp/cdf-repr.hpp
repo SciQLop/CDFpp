@@ -47,112 +47,67 @@ constexpr bool is_char_like_v
 
 namespace _repr_details
 {
-    // Proleptic-Gregorian y/m/d from a day count relative to 1970-01-01 (z may be
-    // negative) - Howard Hinnant's civil_from_days algorithm, pure integer
-    // arithmetic: http://howardhinnant.github.io/date_algorithms.html
-    //
-    // Why not std::gmtime/fmt's chrono formatter: both delegate to the platform's
-    // gmtime_r (glibc, accepts virtually any time_t) or gmtime_s (Windows CRT, only
-    // 1970-01-01..3000-12-31, rejects negative time_t outright). Any pre-1970 CDF
-    // epoch/epoch16/tt2000 value - routine for VALIDMIN/FILLVAL metadata and for
-    // pre-space-age mission data - crashed repr()/str() on Windows
-    // (fmt::format_error("time_t value out of range")) while printing fine on Linux.
-    // This computation never touches libc, so the output is identical on every
-    // platform for any value the surrounding nanosecond-precision time_point can hold.
-    inline void civil_from_days(int64_t z, int64_t& y, unsigned& m, unsigned& d) noexcept
+    // Not std::gmtime or fmt's chrono formatter: they delegate to the platform's gmtime, and the
+    // Windows CRT rejects negative time_t, so pre-1970 values (routine in VALIDMIN/FILLVAL and
+    // old mission data) crashed repr()/str() there. cdf::civil_from_days is pure arithmetic.
+    template <class stream_t>
+    inline stream_t& print_iso(stream_t& os, const cdf::utc_time& time)
     {
-        z += 719468;
-        const int64_t era = (z >= 0 ? z : z - 146096) / 146097;
-        const unsigned doe = static_cast<unsigned>(z - era * 146097); // [0, 146096]
-        const unsigned yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // [0, 399]
-        const unsigned doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
-        const unsigned mp = (5 * doy + 2) / 153; // [0, 11]
-        d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
-        m = mp < 10 ? mp + 3 : mp - 9; // [1, 12]
-        y = static_cast<int64_t>(yoe) + era * 400 + (m <= 2 ? 1 : 0);
+        using cdf::chrono::_impl::floor_div, cdf::chrono::_impl::floor_mod;
+        const int64_t second_of_day = floor_mod(time.seconds, 86400);
+        const auto date = cdf::civil_from_days(floor_div(time.seconds, 86400));
+        os << fmt::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:09}", date.year, date.month,
+            date.day, second_of_day / 3600, (second_of_day / 60) % 60, second_of_day % 60,
+            time.nanoseconds);
+        return os;
     }
 
-    template <class stream_t, class duration_t>
-    inline stream_t& print_iso(
-        stream_t& os, const std::chrono::time_point<std::chrono::system_clock, duration_t>& tp)
+    // NASA's library prints fill values as 9999-12-31 and pad values as 0000-01-01. NaN,
+    // infinities and illegal TT2000 values print like fill values: they hold no date either.
+    template <class stream_t>
+    inline stream_t& print_time(stream_t& os, const cdf::utc_time& time, const char* fill,
+        const char* pad)
     {
-        constexpr int64_t ns_per_day = 86400LL * 1'000'000'000LL;
-        const int64_t total_ns
-            = std::chrono::duration_cast<std::chrono::nanoseconds>(tp.time_since_epoch()).count();
-        int64_t days = total_ns / ns_per_day;
-        int64_t ns_of_day = total_ns % ns_per_day;
-        if (ns_of_day < 0) // floored division: keep the time-of-day non-negative
+        switch (time.kind)
         {
-            ns_of_day += ns_per_day;
-            days -= 1;
+            case cdf::time_kind::date:
+                return print_iso(os, time);
+            case cdf::time_kind::pad:
+                os << pad;
+                return os;
+            default:
+                os << fill;
+                return os;
         }
-        int64_t y;
-        unsigned mo, d;
-        civil_from_days(days, y, mo, d);
-        os << fmt::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:09}", y, mo, d,
-            ns_of_day / 3'600'000'000'000LL, (ns_of_day / 60'000'000'000LL) % 60,
-            (ns_of_day / 1'000'000'000LL) % 60, ns_of_day % 1'000'000'000LL);
-        return os;
     }
 }
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const decltype(cdf::to_time_point(tt2000_t {}))& tp)
 {
-    return _repr_details::print_iso(os, tp);
+    const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(tp.time_since_epoch());
+    return _repr_details::print_iso(os, cdf::chrono::_impl::utc_from_ns(0, ns.count()));
 }
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const epoch& time)
 {
-    if (time.mseconds == -1e31)
-    {
-        os << "9999-12-31T23:59:59.999";
-        return os;
-    }
-    if (time.mseconds == 0)
-    {
-        os << "0000-01-01T00:00:00.000";
-        return os;
-    }
-    return _repr_details::print_iso(os, cdf::to_time_point(time));
+    return _repr_details::print_time(
+        os, cdf::to_utc_time(time), "9999-12-31T23:59:59.999", "0000-01-01T00:00:00.000");
 }
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const epoch16& time)
 {
-    if (time.seconds == -1e31 && time.picoseconds == -1e31)
-    {
-        os << "9999-12-31T23:59:59.999999999";
-        return os;
-    }
-    if (time.seconds == 0 && time.picoseconds == 0)
-    {
-        os << "0000-01-01T00:00:00.000000000000";
-        return os;
-    }
-    return _repr_details::print_iso(os, cdf::to_time_point(time));
+    return _repr_details::print_time(os, cdf::to_utc_time(time),
+        "9999-12-31T23:59:59.999999999", "0000-01-01T00:00:00.000000000000");
 }
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const tt2000_t& time)
 {
-    if (time.nseconds == static_cast<int64_t>(0x8000000000000000))
-    {
-        os << "9999-12-31T23:59:59.999999999";
-        return os;
-    }
-    if (time.nseconds == static_cast<int64_t>(0x8000000000000001))
-    {
-        os << "0000-01-01T00:00:00.000000000";
-        return os;
-    }
-    if (time.nseconds == static_cast<int64_t>(0x8000000000000003))
-    {
-        os << "9999-12-31T23:59:59.999999999";
-        return os;
-    }
-    return _repr_details::print_iso(os, cdf::to_time_point(time));
+    return _repr_details::print_time(os, cdf::to_utc_time(time),
+        "9999-12-31T23:59:59.999999999", "0000-01-01T00:00:00.000000000");
 }
 
 template <class stream_t, class input_t, class item_t>

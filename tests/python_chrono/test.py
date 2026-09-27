@@ -452,5 +452,103 @@ class PycdfTimeSpecialValues(unittest.TestCase):
                 np.testing.assert_array_equal(pycdfpp.to_datetime64(list(values)).ravel(), reference)
 
 
+FILL_DATETIME = datetime(9999, 12, 31, 23, 59, 59, 999999)
+PAD_DATETIME = datetime(1, 1, 1)
+
+
+class PycdfToDatetimeSpecialValues(unittest.TestCase):
+    """to_datetime follows NASA's library (SciQLop/CDFpp#19): fill and illegal values become
+    9999-12-31, pad values year 0, which datetime can't hold, so 0001-01-01. NaN and
+    infinities are no date either: fill date. Every other date is exact."""
+
+    def setUp(self):
+        self.cdf = pycdfpp.load(SPECIAL_VALUES)
+
+    def test_special_values(self):
+        expected = {
+            'epoch': [FILL_DATETIME, PAD_DATETIME, FILL_DATETIME, datetime(2020, 1, 1, 0, 0, 0, 68500),
+                      datetime(1970, 1, 1), datetime(1966, 1, 1, 0, 0, 0, 123250), FILL_DATETIME,
+                      FILL_DATETIME],
+            'epoch16': [FILL_DATETIME, PAD_DATETIME, datetime(2020, 1, 1, 0, 0, 0, 68500),
+                        datetime(1970, 1, 1), datetime(1966, 1, 1, 0, 0, 0, 123456), FILL_DATETIME],
+            'tt2000': [FILL_DATETIME, PAD_DATETIME, datetime(2020, 1, 1), datetime(1970, 1, 1, 0, 0, 0, 1214),
+                       datetime(1967, 1, 2, 0, 0, 3, 736862), datetime(2000, 1, 1, 11, 58, 55, 816000)],
+        }
+        for name, dates in expected.items():
+            with self.subTest(name=name):
+                self.assertEqual(pycdfpp.to_datetime(self.cdf[name])[:len(dates)], dates)
+
+    def test_illegal_tt2000_value(self):
+        self.assertEqual(pycdfpp.to_datetime(pycdfpp.tt2000_t(-9223372036854775805)), FILL_DATETIME)
+
+    def test_dates_outside_datetime64_range(self):
+        # Dates from NASA's library (computeEPOCH, computeTT2000).
+        self.assertEqual(pycdfpp.to_datetime(pycdfpp.epoch(47349750896789.0)),
+                         datetime(1500, 6, 15, 12, 34, 56, 789000))
+        self.assertEqual(pycdfpp.to_datetime(pycdfpp.tt2000_t(8851933299307456789)),
+                         datetime(2280, 7, 4, 10, 20, 30, 123456))
+
+    def test_every_input_form_agrees(self):
+        for name in ('epoch', 'epoch16', 'tt2000'):
+            values = self.cdf[name].values.ravel()
+            reference = pycdfpp.to_datetime(self.cdf[name])
+            objects = as_time_objects(values)
+            with self.subTest(name=name, path='array'):
+                self.assertEqual(pycdfpp.to_datetime(values), reference)
+            with self.subTest(name=name, path='list of objects'):
+                self.assertEqual(pycdfpp.to_datetime(objects), reference)
+            with self.subTest(name=name, path='single objects'):
+                self.assertEqual([pycdfpp.to_datetime(o) for o in objects], reference)
+            with self.subTest(name=name, path='list of numpy records'):
+                self.assertEqual(pycdfpp.to_datetime(list(values)), reference)
+
+
+class PycdfToTimeStringSpecialValues(unittest.TestCase):
+    """to_time_string prints fill, illegal, NaN and infinite values as NASA's library prints
+    fill values, pad values as year 0, and every other date as it is."""
+    FILL = '9999-12-31T23:59:59.999999999'
+    PAD = '0000-01-01T00:00:00.000000000'
+
+    def setUp(self):
+        self.cdf = pycdfpp.load(SPECIAL_VALUES)
+
+    def test_special_values(self):
+        expected = {'epoch': [self.FILL, self.PAD, self.FILL, '2020-01-01T00:00:00.068500000'],
+                    'epoch16': [self.FILL, self.PAD, '2020-01-01T00:00:00.068500000'],
+                    'tt2000': [self.FILL, self.PAD, '2020-01-01T00:00:00.000000000']}
+        for name, strings in expected.items():
+            with self.subTest(name=name):
+                printed = pycdfpp.to_time_string(self.cdf[name], '%Y-%m-%dT%H:%M:%S').ravel().astype(str)
+                self.assertEqual(list(printed[:len(strings)]), strings)
+
+    def test_dates_outside_datetime64_range(self):
+        # Dates from NASA's library (computeEPOCH, computeTT2000).
+        epochs = np.array([(47349750896789.0,)], dtype=self.cdf['epoch'].values.dtype)
+        self.assertEqual(list(pycdfpp.to_time_string(epochs, '%Y-%m-%dT%H:%M:%S (%j)').astype(str)),
+                         ['1500-06-15T12:34:56.789000000 (166)'])
+        tt2000s = np.array([(8851933299307456789,), (-9223372036854775805,)],
+                           dtype=self.cdf['tt2000'].values.dtype)
+        self.assertEqual(list(pycdfpp.to_time_string(tt2000s, '%Y-%m-%dT%H:%M:%S').astype(str)),
+                         ['2280-07-04T10:20:30.123456789', self.FILL])
+
+
+class PycdfToTT2000SpecialValues(unittest.TestCase):
+    """Special values keep their meaning through to_tt2000, as with NASA's
+    CDF_TT2000_from_UTC_EPOCH: fill to fill, pad to pad, NaN and infinities to illegal."""
+
+    def test_epoch_and_epoch16_special_values(self):
+        fill, pad, illegal = -9223372036854775808, -9223372036854775807, -9223372036854775805
+        values = [pycdfpp.epoch(-1e31), pycdfpp.epoch(0.0), pycdfpp.epoch(float('nan')),
+                  pycdfpp.epoch(float('inf')), pycdfpp.epoch16(-1e31, -1e31),
+                  pycdfpp.epoch16(0.0, 0.0), pycdfpp.epoch16(float('nan'), 0.0)]
+        self.assertEqual([t.nseconds for t in pycdfpp.to_tt2000(values)],
+                         [fill, pad, illegal, illegal, fill, pad, illegal])
+
+    def test_dates_convert_exactly(self):
+        # 2020-01-01T00:00:00.0685: NASA's conversion drops the half millisecond, CDFpp keeps it.
+        self.assertEqual(pycdfpp.to_tt2000([pycdfpp.epoch(63745056000068.5)])[0].nseconds,
+                         631108869252500000)
+
+
 if __name__ == '__main__':
     unittest.main()

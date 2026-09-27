@@ -427,6 +427,28 @@ TEST_CASE("TT2000 values print like NASA's library", "")
     REQUIRE(printed(631108869184000000) == "2020-01-01T00:00:00.000000000");
 }
 
+TEST_CASE("Time values print right outside the int64 ns range", "")
+{
+    // Expected dates from NASA's library (computeEPOCH/EPOCH16/TT2000, libcdf 3.9.0). These
+    // used to go through int64 ns since 1970, which stop at 1677 and 2262.
+    const auto printed = [](const auto& value)
+    {
+        std::ostringstream oss;
+        oss << value;
+        return oss.str();
+    };
+    REQUIRE(printed(cdf::epoch { 47349750896789.0 }) == "1500-06-15T12:34:56.789000000");
+    REQUIRE(printed(cdf::epoch { 31622400000.0 }) == "0001-01-01T00:00:00.000000000");
+    REQUIRE(printed(cdf::epoch16 { 94675914123.0, 456789012345.0 })
+        == "3000-02-28T01:02:03.456789012");
+    REQUIRE(printed(cdf::tt2000_t { 8851933299307456789 }) == "2280-07-04T10:20:30.123456789");
+    REQUIRE(printed(cdf::tt2000_t { -9146433567815999999 }) == "1710-03-01T00:00:00.000000001");
+    // Not dates: printed like fill values, as datetime objects get the fill date.
+    REQUIRE(printed(cdf::epoch { nan_value }) == "9999-12-31T23:59:59.999");
+    REQUIRE(printed(cdf::epoch { inf }) == "9999-12-31T23:59:59.999");
+    REQUIRE(printed(cdf::epoch16 { nan_value, 0.0 }) == "9999-12-31T23:59:59.999999999");
+}
+
 TEST_CASE("epoch/epoch16/tt2000_t repr for pre-1970 dates", "")
 {
     // 1958-01-01T00:00:00Z: a pre-1970 date (negative time_t once converted).

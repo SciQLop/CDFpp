@@ -293,4 +293,116 @@ inline auto to_time_point(const tt2000_t& ep)
     return time_point<system_clock> {} + nanoseconds(safe_ns - leap + constants::tt2000_offset);
 }
 
+// What a CDF time value holds. NASA's library prints fill and illegal values as 9999-12-31 and
+// pad values as 0000-01-01; NaN and infinities are no date either.
+enum class time_kind
+{
+    date,
+    fill,
+    pad,
+    invalid
+};
+
+// A CDF time value as UTC seconds and nanoseconds since 1970: unlike int64 ns since 1970, this
+// covers every date the three time types hold (1677 to 2262 would cut EPOCH and TT2000 short).
+struct utc_time
+{
+    time_kind kind = time_kind::date;
+    int64_t seconds = 0;
+    int64_t nanoseconds = 0; // [0, 1e9)
+};
+
+namespace chrono::_impl
+{
+    inline constexpr int64_t floor_div(int64_t value, int64_t divisor)
+    {
+        return value / divisor - (value % divisor < 0 ? 1 : 0);
+    }
+
+    // Not value - floor_div(value, divisor) * divisor: near INT64_MIN that product overflows.
+    inline constexpr int64_t floor_mod(int64_t value, int64_t divisor)
+    {
+        const int64_t remainder = value % divisor;
+        return remainder < 0 ? remainder + divisor : remainder;
+    }
+
+    // Seconds plus any nanoseconds (negative or above a second) as a normalized utc_time.
+    inline constexpr utc_time utc_from_ns(int64_t seconds, int64_t nanoseconds)
+    {
+        return { time_kind::date, seconds + floor_div(nanoseconds, 1'000'000'000),
+            floor_mod(nanoseconds, 1'000'000'000) };
+    }
+}
+
+inline utc_time to_utc_time(const epoch& ep)
+{
+    if (ep.mseconds == -1e31)
+        return { time_kind::fill };
+    if (ep.mseconds == 0.0)
+        return { time_kind::pad };
+    // Also NaN and infinities; far beyond year 9999, and int64 conversions would overflow.
+    if (!(std::abs(ep.mseconds) < 0x1p62))
+        return { time_kind::invalid };
+    // floor((ms - offset) * 1e6), as _impl::epoch_to_ns_from_1970, in two exact parts.
+    const double whole_ms = std::floor(ep.mseconds);
+    const auto ms_since_1970 = static_cast<int64_t>(whole_ms)
+        - static_cast<int64_t>(constants::epoch_offset_miliseconds);
+    const auto fraction_ns = static_cast<int64_t>(std::floor((ep.mseconds - whole_ms) * 1e6));
+    return _impl::utc_from_ns(_impl::floor_div(ms_since_1970, 1000),
+        _impl::floor_mod(ms_since_1970, 1000) * 1'000'000 + fraction_ns);
+}
+
+inline utc_time to_utc_time(const epoch16& ep)
+{
+    if (ep.seconds == -1e31 && ep.picoseconds == -1e31)
+        return { time_kind::fill };
+    if (ep.seconds == 0.0 && ep.picoseconds == 0.0)
+        return { time_kind::pad };
+    if (!(std::abs(ep.seconds) < 0x1p53 && ep.picoseconds >= 0.0 && ep.picoseconds < 1e12))
+        return { time_kind::invalid };
+    return _impl::utc_from_ns(
+        static_cast<int64_t>(ep.seconds - constants::epoch_offset_seconds),
+        static_cast<int64_t>(ep.picoseconds / 1'000));
+}
+
+inline utc_time to_utc_time(const tt2000_t& ep)
+{
+    if (ep.nseconds == _impl::nat)
+        return { time_kind::fill };
+    if (ep.nseconds == _impl::tt2000_pad)
+        return { time_kind::pad };
+    if (ep.nseconds == _impl::tt2000_illegal)
+        return { time_kind::invalid };
+    // ns - leap + offset overflows int64 after 2262: add seconds and nanoseconds apart.
+    using _impl::floor_div, _impl::floor_mod;
+    constexpr int64_t ns_in_s = 1'000'000'000;
+    const int64_t leap = _impl::leap_second(ep);
+    return _impl::utc_from_ns(floor_div(ep.nseconds, ns_in_s)
+            + floor_div(constants::tt2000_offset, ns_in_s) - floor_div(leap, ns_in_s),
+        floor_mod(ep.nseconds, ns_in_s) + floor_mod(constants::tt2000_offset, ns_in_s)
+            - floor_mod(leap, ns_in_s));
+}
+
+// Proleptic Gregorian date of a day count since 1970-01-01, any sign (Howard Hinnant's
+// days_from_civil inverse: https://howardhinnant.github.io/date_algorithms.html#civil_from_days).
+struct civil_date
+{
+    int64_t year;
+    unsigned month;
+    unsigned day;
+};
+
+inline constexpr civil_date civil_from_days(int64_t z) noexcept
+{
+    z += 719468;
+    const int64_t era = (z >= 0 ? z : z - 146096) / 146097;
+    const unsigned doe = static_cast<unsigned>(z - era * 146097); // [0, 146096]
+    const unsigned yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // [0, 399]
+    const unsigned doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    const unsigned mp = (5 * doy + 2) / 153; // [0, 11]
+    const unsigned d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
+    const unsigned m = mp < 10 ? mp + 3 : mp - 9; // [1, 12]
+    return { static_cast<int64_t>(yoe) + era * 400 + (m <= 2 ? 1 : 0), m, d };
+}
+
 }

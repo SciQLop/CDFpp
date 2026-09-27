@@ -159,9 +159,35 @@ template <cdf_time_t time_t>
     return to_datetime(to_tp(ns));
 }
 
+// NASA's convention (SciQLop/CDFpp#19): fill and illegal values are 9999-12-31, pad values year
+// 0, which datetime can't hold (its minimum is year 1). NaN and infinities count as fill.
+[[nodiscard]] inline PyObject* to_datetime(const cdf::utc_time& time)
+{
+    using cdf::chrono::_impl::floor_div, cdf::chrono::_impl::floor_mod;
+    switch (time.kind)
+    {
+        case cdf::time_kind::pad:
+            return PyDateTime_FromDateAndTime(1, 1, 1, 0, 0, 0, 0);
+        case cdf::time_kind::date:
+            break;
+        default:
+            return PyDateTime_FromDateAndTime(9999, 12, 31, 23, 59, 59, 999999);
+    }
+    const auto date = cdf::civil_from_days(floor_div(time.seconds, 86400));
+    if (date.year < 1)
+        return PyDateTime_FromDateAndTime(1, 1, 1, 0, 0, 0, 0);
+    if (date.year > 9999)
+        return PyDateTime_FromDateAndTime(9999, 12, 31, 23, 59, 59, 999999);
+    const auto second_of_day = floor_mod(time.seconds, 86400);
+    return PyDateTime_FromDateAndTime(static_cast<int>(date.year), static_cast<int>(date.month),
+        static_cast<int>(date.day), static_cast<int>(second_of_day / 3600),
+        static_cast<int>((second_of_day / 60) % 60), static_cast<int>(second_of_day % 60),
+        static_cast<int>(time.nanoseconds / 1000));
+}
+
 [[nodiscard]] inline PyObject* to_datetime(const cdf_time_t auto time)
 {
-    return to_datetime(cdf::to_time_point(time));
+    return to_datetime(cdf::to_utc_time(time));
 }
 
 template <typename T>
@@ -216,7 +242,7 @@ template <typename time_t>
 }
 
 // The conversion arrays use: exact, and NaT for fill and pad values and for dates that
-// datetime64[ns] can't hold. cdf::to_time_point clamps instead, which suits datetime objects.
+// datetime64[ns] can't hold. (cdf::to_time_point clamps to int64 ns since 1970 instead.)
 [[nodiscard]] inline int64_t ns_since_1970(const cdf_time_t auto& value)
 {
     using time_t = std::decay_t<decltype(value)>;
@@ -286,7 +312,7 @@ template <typename time_t>
 
 [[nodiscard]] inline py::object to_datetime(const cdf_time_t auto& input)
 {
-    return py::reinterpret_steal<py::object>(_details::to_datetime(cdf::to_time_point(input)));
+    return py::reinterpret_steal<py::object>(_details::to_datetime(input));
 }
 
 
@@ -308,15 +334,15 @@ template <typename time_t>
                 auto item_type = Py_TYPE(item);
                 if (item_type == tt2000_type_ptr)
                 {
-                    return _details::to_datetime(to_time_point(*_details::cast<tt2000_t>(item)));
+                    return _details::to_datetime(*_details::cast<tt2000_t>(item));
                 }
                 else if (item_type == epoch_type_ptr)
                 {
-                    return _details::to_datetime(to_time_point(*_details::cast<epoch>(item)));
+                    return _details::to_datetime(*_details::cast<epoch>(item));
                 }
                 else if (item_type == epoch16_type_ptr)
                 {
-                    return _details::to_datetime(to_time_point(*_details::cast<epoch16>(item)));
+                    return _details::to_datetime(*_details::cast<epoch16>(item));
                 }
             }
             return nullptr;
@@ -402,6 +428,30 @@ template <typename time_t>
         _details::to_tp(reinterpret_cast<const PyDateTime_DateTime*>(dt)));
 }
 
+
+// As NASA's CDF_TT2000_from_UTC_EPOCH(16): special values keep their meaning (fill to fill, pad to
+// pad, NaN and infinities to illegal), and so do dates TT2000 can't hold here.
+[[nodiscard]] inline tt2000_t tt2000_from(const cdf_time_t auto& value)
+{
+    using namespace cdf::chrono::_impl;
+    switch (cdf::to_utc_time(value).kind)
+    {
+        case cdf::time_kind::fill:
+            return { nat };
+        case cdf::time_kind::pad:
+            return { tt2000_pad };
+        case cdf::time_kind::invalid:
+            return { tt2000_illegal };
+        case cdf::time_kind::date:
+            break;
+    }
+    const auto ns = ns_since_1970(value);
+    if (ns == nat)
+        return { tt2000_illegal };
+    return to_cdf_time<tt2000_t>(
+        std::chrono::time_point<std::chrono::system_clock> {} + std::chrono::nanoseconds(ns));
+}
+
 [[nodiscard]] inline py::list to_tt2000(const py_list_or_py_tuple auto& input)
 {
     static auto* tt2000_type_ptr = reinterpret_cast<PyTypeObject*>(py::type::of<tt2000_t>().ptr());
@@ -424,17 +474,11 @@ template <typename time_t>
                 }
                 else if (item_type == epoch_type_ptr)
                 {
-                    return py::cast(
-                        to_cdf_time<tt2000_t>(to_time_point(*_details::cast<epoch>(item))))
-                        .release()
-                        .ptr();
+                    return py::cast(tt2000_from(*_details::cast<epoch>(item))).release().ptr();
                 }
                 else if (item_type == epoch16_type_ptr)
                 {
-                    return py::cast(
-                        to_cdf_time<tt2000_t>(to_time_point(*_details::cast<epoch16>(item))))
-                        .release()
-                        .ptr();
+                    return py::cast(tt2000_from(*_details::cast<epoch16>(item))).release().ptr();
                 }
             }
             return nullptr;
@@ -678,6 +722,38 @@ plan compile(const std::string& fmt)
     return p;
 }
 
+// Calendar fields of a CDF time value. Fill, illegal, NaN and infinite values print as NASA's
+// library prints fill values, 9999-12-31T23:59:59.999999999, and pad values as year 0; so do
+// years a 4-digit field can't hold.
+struct calendar_fields
+{
+    unsigned year, month, day, day_of_year, hour, minute, second;
+    uint64_t nanoseconds;
+};
+
+inline calendar_fields to_calendar_fields(const cdf::utc_time& time)
+{
+    using namespace std::chrono;
+    using cdf::chrono::_impl::floor_div, cdf::chrono::_impl::floor_mod;
+    constexpr calendar_fields fill { 9999, 12, 31, 365, 23, 59, 59, 999'999'999 };
+    constexpr calendar_fields pad { 0, 1, 1, 1, 0, 0, 0, 0 };
+    if (time.kind == cdf::time_kind::pad)
+        return pad;
+    if (time.kind != cdf::time_kind::date)
+        return fill;
+    const int64_t day_count = floor_div(time.seconds, 86400);
+    const auto date = cdf::civil_from_days(day_count);
+    if (date.year < 0 || date.year > 9999)
+        return fill;
+    const auto first_day
+        = sys_days { year { static_cast<int>(date.year) } / January / 1 }.time_since_epoch().count();
+    const auto second_of_day = static_cast<unsigned>(floor_mod(time.seconds, 86400));
+    return { static_cast<unsigned>(date.year), date.month, date.day,
+        static_cast<unsigned>(day_count - first_day + 1), second_of_day / 3600,
+        (second_of_day / 60) % 60, second_of_day % 60,
+        static_cast<uint64_t>(time.nanoseconds) };
+}
+
 template <typename time_t>
 void format_chunk(const time_t* input, std::size_t count, char* output, const plan& p)
 {
@@ -692,17 +768,8 @@ void format_chunk(const time_t* input, std::size_t count, char* output, const pl
         auto* out = output + i * str_len;
         std::memcpy(out, tmpl_data, str_len);
 
-        auto tp = cdf::to_time_point(input[i]);
-        auto dp = floor<days>(tp);
-        year_month_day ymd { dp };
-        hh_mm_ss time { tp - dp };
-
-        const auto y = static_cast<unsigned>(static_cast<int>(ymd.year()));
-        const auto mo = static_cast<unsigned>(ymd.month());
-        const auto d = static_cast<unsigned>(ymd.day());
-        const auto h = static_cast<unsigned>(time.hours().count());
-        const auto mi = static_cast<unsigned>(time.minutes().count());
-        const auto s = static_cast<unsigned>(time.seconds().count());
+        const auto t = to_calendar_fields(cdf::to_utc_time(input[i]));
+        const auto y = t.year, mo = t.month, d = t.day, h = t.hour, mi = t.minute, s = t.second;
 
         for (std::size_t f = 0; f < nfields; ++f)
         {
@@ -728,16 +795,16 @@ void format_chunk(const time_t* input, std::size_t count, char* output, const pl
                     write_2d(dest, s);
                     break;
                 case field_kind::DOY:
-                    write_3d(dest,
-                        static_cast<unsigned>(
-                            (dp - sys_days { ymd.year() / January / day { 1 } }).count() + 1));
+                    write_3d(dest, t.day_of_year);
                     break;
             }
         }
         if (p.subsec_digits > 0)
         {
-            write_nd(out + p.subsec_offset, static_cast<uint64_t>(time.subseconds().count()),
-                p.subsec_digits);
+            uint64_t subseconds = t.nanoseconds;
+            for (auto digits = p.subsec_digits; digits < 9; ++digits)
+                subseconds /= 10;
+            write_nd(out + p.subsec_offset, subseconds, p.subsec_digits);
         }
     }
 }

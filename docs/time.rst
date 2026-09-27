@@ -57,7 +57,7 @@ hold UTC times, whatever your computer's timezone, and have no ``tzinfo``:
     first_times = pycdfpp.to_datetime(cdf["Epoch"].values.ravel()[:3])
 
 It is about 100 times slower than :func:`pycdfpp.to_datetime64`. Use it only for a few
-values, for display for example. For a multi-dimensional variable, like this ``(5401, 1)``
+values, for display for example. It covers years 1 to 9999, like :class:`datetime.datetime`. For a multi-dimensional variable, like this ``(5401, 1)``
 ``Epoch``, it returns nested lists; ``.values.ravel()`` flattens the input first.
 
 To text
@@ -163,3 +163,14 @@ time. So do the pad values, NaN, and dates ``datetime64[ns]`` can't hold (before
 
     time = pycdfpp.to_datetime64(cdf["Epoch"]).ravel()
     valid = ~np.isnat(time)
+
+:class:`datetime.datetime` has no ``NaT``. :func:`pycdfpp.to_datetime` follows NASA's
+library, which shows fill values as 9999-12-31 and pad values as year 0:
+
+- fill values, NaN, infinities and the illegal TT2000 value become
+  ``datetime(9999, 12, 31, 23, 59, 59, 999999)``;
+- pad values become ``datetime(1, 1, 1)``: ``datetime`` has no year 0.
+
+:func:`pycdfpp.to_time_string` prints them as NASA's library does, 9999-12-31 and 0000-01-01.
+:func:`pycdfpp.to_tt2000` turns fill, pad and NaN values into the TT2000 fill, pad and illegal
+values.

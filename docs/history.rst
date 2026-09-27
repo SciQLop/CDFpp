@@ -14,6 +14,12 @@ Unreleased
   ``ILLEGAL_TT2000_VALUE`` (INT64_MIN + 3). TT2000 fill values gave 1707 dates, EPOCH16 pad
   values 1753. Lists and single values now convert like arrays: they gave clamped dates.
 * TT2000 dates between 1707 and 1739 print as NASA's library prints them: they printed as 1739.
+* ``to_datetime``, ``to_time_string`` and printing follow NASA's library for special values:
+  fill, illegal, NaN and infinities are 9999-12-31, pad values year 0 (``datetime(1, 1, 1)``
+  for ``datetime``, which has no year 0). They gave clamped dates, NaN gave 1970. Dates outside
+  1677-2262 (EPOCH, EPOCH16, TT2000 up to 2292) convert and print exactly: they were clamped.
+* ``to_tt2000`` turns EPOCH and EPOCH16 fill, pad and NaN values into the TT2000 fill, pad
+  and illegal values, as NASA's library does: fill and pad gave 2262 dates, NaN gave 1970.
 * ``to_datetime64``, ``to_datetime`` and ``to_time_string`` accept lists of numpy records,
   such as ``list(variable.values)``.
 * Variables compressed in many blocks, as in most mission archives, are decompressed on
