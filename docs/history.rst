@@ -5,8 +5,8 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
-Unreleased
-----------
+0.14.0 (2026-09-27)
+-------------------
 
 * ``to_datetime64`` is exact for ``CDF_EPOCH``: it used to round to 256 ns (up to 128 ns off).
 * ``to_datetime64`` gives ``NaT`` for fill and pad values, NaN, and dates outside
