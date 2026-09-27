@@ -28,6 +28,7 @@
 #include "cdf-chrono-constants.hpp"
 #include "cdf-leap-seconds.h"
 #include "cdfpp/cdf-enums.hpp"
+#include <hedley.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -174,10 +175,19 @@ inline constexpr int64_t tt2000_illegal = nat + 3;
 inline constexpr int64_t last_representable_tt2000 = std::numeric_limits<int64_t>::max()
     - (constants::tt2000_offset - leap_seconds::leap_seconds_tt2000_reverse.back().second);
 
+// The usual values, from after the special ones to the last representable date, in a single
+// unsigned comparison: the conversion loops test it for every value.
+inline bool is_usual(const tt2000_t& ep)
+{
+    constexpr auto first_usual = static_cast<uint64_t>(tt2000_illegal + 1);
+    constexpr auto usual_span = static_cast<uint64_t>(last_representable_tt2000) - first_usual;
+    return static_cast<uint64_t>(ep.nseconds) - first_usual <= usual_span;
+}
+
+// INT64_MIN + 2 sits between the special values but is a date, 1707-09-22.
 inline bool has_ns_since_1970(const tt2000_t& ep)
 {
-    return ep.nseconds > tt2000_pad && ep.nseconds != tt2000_illegal
-        && ep.nseconds <= last_representable_tt2000;
+    return is_usual(ep) || ep.nseconds == nat + 2;
 }
 
 // The range of int64 ns since 1970 (1677-09-21 to 2262-04-11) as CDF_EPOCH ms: the smallest
@@ -218,15 +228,24 @@ inline int64_t epoch16_to_ns_from_1970(const epoch16& ep)
         + static_cast<int64_t>(ep.picoseconds / 1'000);
 }
 
+// Out of line, so the conversion loops keep a single test for the usual values.
+HEDLEY_NEVER_INLINE inline int64_t unusual_to_ns_from_1970(const tt2000_t& ep)
+{
+    if (!has_ns_since_1970(ep))
+        return nat;
+    return ep.nseconds - leap_second_before_1972(ep) + constants::tt2000_offset;
+}
+
 inline void _unsorted_to_ns_from_1970(
     const tt2000_t* const input, const std::size_t count, int64_t* const output)
 {
     std::size_t last_index = 0;
     for (std::size_t i = 0; i < count; ++i)
     {
-        if (!has_ns_since_1970(input[i]))
+        // Not has_ns_since_1970: its second test, in the loop, costs ~8% on the usual values.
+        if (!is_usual(input[i])) [[unlikely]]
         {
-            output[i] = nat;
+            output[i] = unusual_to_ns_from_1970(input[i]);
             continue;
         }
         auto [ls, idx] = _leap_second(input[i], last_index);
