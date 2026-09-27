@@ -166,15 +166,18 @@ inline auto _leap_second(const tt2000_t& ep, std::size_t leap_index_hint)
 // numpy and pandas read INT64_MIN nanoseconds as NaT ("not a time").
 inline constexpr int64_t nat = std::numeric_limits<int64_t>::min();
 
-// ISTP fill and pad values, which NASA's library prints as 9999-12-31 and 0000-01-01.
+// NASA's special TT2000 values: fill (nat itself), pad and illegal. NASA's library prints them as
+// 9999-12-31, 0000-01-01 and 9999-12-31; INT64_MIN + 2 is a real date (1707-09-22).
 inline constexpr int64_t tt2000_pad = nat + 1;
+inline constexpr int64_t tt2000_illegal = nat + 3;
 // Later TT2000 values are after 2262-04-11: their ns since 1970 don't fit int64.
 inline constexpr int64_t last_representable_tt2000 = std::numeric_limits<int64_t>::max()
     - (constants::tt2000_offset - leap_seconds::leap_seconds_tt2000_reverse.back().second);
 
 inline bool has_ns_since_1970(const tt2000_t& ep)
 {
-    return ep.nseconds > tt2000_pad && ep.nseconds <= last_representable_tt2000;
+    return ep.nseconds > tt2000_pad && ep.nseconds != tt2000_illegal
+        && ep.nseconds <= last_representable_tt2000;
 }
 
 // The range of int64 ns since 1970 (1677-09-21 to 2262-04-11) as CDF_EPOCH ms: the smallest

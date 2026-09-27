@@ -224,9 +224,13 @@ TEST_CASE("Time values without a representable date become NaT", "")
         { 63745056000.0, nan_value }, { 63745056000.0, -1.0 }, { 63745056000.0, 1e12 },
         { inf, 0.0 }, { cdf::constants::epoch_offset_seconds - 9223372037.0, 0.0 },
         { cdf::constants::epoch_offset_seconds + 9223372036.0, 0.0 } });
-    // ISTP fill and pad values; then dates after 2262-04-11, out of int64 ns since 1970.
-    require_nat(std::vector<cdf::tt2000_t> { { nat }, { nat + 1 },
+    // NASA's three special values (fill, pad, illegal: see SciQLop/CDFpp#19), then dates after
+    // 2262-04-11, out of int64 ns since 1970.
+    require_nat(std::vector<cdf::tt2000_t> { { nat }, { nat + 1 }, { nat + 3 },
         { std::numeric_limits<int64_t>::max() }, { last_representable_tt2000 + 1 } });
+    // INT64_MIN + 2 is a real date for NASA's library: 1707-09-22T12:12:10.961224194.
+    REQUIRE(converted(std::vector<cdf::tt2000_t> { { nat + 2 } })
+        == std::vector<int64_t> { -8276644069038775806 });
     REQUIRE(converted(std::vector<cdf::tt2000_t> { { last_representable_tt2000 } })
         == std::vector { std::numeric_limits<int64_t>::max() });
 }
@@ -404,6 +408,23 @@ TEST_CASE("timepoint to cdf epoch16 sub-second precision", "")
     double expected_picoseconds = 123'456'789'000.0;
     REQUIRE(ep16.seconds == expected_seconds);
     REQUIRE(ep16.picoseconds == expected_picoseconds);
+}
+
+TEST_CASE("TT2000 values print like NASA's library", "")
+{
+    // NASA's encodeTT2000 output. Real dates between 1707 and 1739 used to print as 1739.
+    const auto printed = [](int64_t ns)
+    {
+        std::ostringstream oss;
+        oss << cdf::tt2000_t { ns };
+        return oss.str();
+    };
+    REQUIRE(printed(nat) == "9999-12-31T23:59:59.999999999");
+    REQUIRE(printed(nat + 1) == "0000-01-01T00:00:00.000000000");
+    REQUIRE(printed(nat + 2) == "1707-09-22T12:12:10.961224194");
+    REQUIRE(printed(nat + 3) == "9999-12-31T23:59:59.999999999");
+    REQUIRE(printed(nat + 4) == "1707-09-22T12:12:10.961224196");
+    REQUIRE(printed(631108869184000000) == "2020-01-01T00:00:00.000000000");
 }
 
 TEST_CASE("epoch/epoch16/tt2000_t repr for pre-1970 dates", "")

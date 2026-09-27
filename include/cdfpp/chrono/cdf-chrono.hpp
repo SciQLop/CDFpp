@@ -257,13 +257,12 @@ namespace chrono::_impl
         return std::clamp(ns, -999'999'999., 999'999'999.);
     }
 
+    // From the first real TT2000 date (1707-09-22, after the fill and pad values) to the last
+    // one whose ns since 1970 fit int64 (2262-04-11): adding the offset can only overflow above.
     inline int64_t clamp_to_safe_tt2000_ns(int64_t nseconds) noexcept
     {
-        // Generous headroom for tt2000_offset (~9.47e17) + any leap_second correction
-        // (at most tens of seconds in ns) added on top afterwards.
-        constexpr int64_t margin = 1'000'000'000'000'000'000LL;
-        return std::clamp(nseconds, std::numeric_limits<int64_t>::min() + margin,
-            std::numeric_limits<int64_t>::max() - margin);
+        return std::clamp(nseconds, chrono::_impl::tt2000_pad + 1,
+            chrono::_impl::last_representable_tt2000);
     }
 }
 
