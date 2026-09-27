@@ -316,11 +316,13 @@ Details and caveats in the [performance page](https://pycdfpp.readthedocs.io/en/
 
 ### C++ micro-benchmarks
 
-Measured on an AMD Ryzen 7 7840U/HS laptop CPU (Zen 4: 8 cores / 16 threads, 5.1 GHz boost, 16 MB L3, AVX-512), release build (`-O3`). This is not the machine of the comparison above. Source code in [`benchmarks/`](benchmarks/).
+Release builds (`-O3`). Source code in [`benchmarks/`](benchmarks/).
 
 #### SIMD time conversions
 
-Converting CDF time types to nanoseconds since 1970 (epochs/s, higher is better). CDFpp picks the best instruction set the CPU has at run time (AVX-512, AVX2 or SSE2): the SIMD rows below are AVX-512.
+Converting CDF time types to nanoseconds since 1970 (epochs/s, higher is better, one thread). CDFpp picks the best instruction set the CPU has at run time (AVX-512, AVX2 or SSE2).
+
+AMD Ryzen 7 7840U/HS laptop CPU (Zen 4, 5.1 GHz boost, 16 MB L3), **AVX-512**:
 
 | Conversion | 64 | 1K | 64K | 1M | 64M |
 |---|---|---|---|---|---|
@@ -329,7 +331,18 @@ Converting CDF time types to nanoseconds since 1970 (epochs/s, higher is better)
 | EPOCH scalar | 2.2e+09 | 2.3e+09 | 2.2e+09 | 2.1e+09 | 1.1e+09 |
 | EPOCH SIMD | 9.6e+09 | **1.4e+10** | 6.7e+09 | 3.8e+09 | 1.5e+09 |
 
-SIMD vectorized TT2000 conversion peaks at ~**8 billion epochs/s** for L1/L2-resident data. EPOCH conversion (simpler, no leap-second table) peaks at ~**14 billion epochs/s**.
+AMD Ryzen 7 5800X desktop CPU (Zen 3, 32 MB L3), **AVX2** (median of 3 runs):
+
+| Conversion | 64 | 1K | 64K | 1M | 64M |
+|---|---|---|---|---|---|
+| TT2000 scalar | 7.7e+08 | 9.7e+08 | 1.0e+09 | 1.0e+09 | 9.1e+08 |
+| TT2000 SIMD | 1.9e+09 | **3.2e+09** | 3.2e+09 | 3.2e+09 | 1.3e+09 |
+| EPOCH scalar | 2.3e+09 | 2.3e+09 | 2.2e+09 | 2.3e+09 | 1.3e+09 |
+| EPOCH SIMD | 2.2e+09 | 2.3e+09 | 2.3e+09 | 2.3e+09 | 1.3e+09 |
+
+With AVX-512, TT2000 conversion peaks at ~**8 billion epochs/s** and EPOCH at ~**14 billion epochs/s** for L1/L2-resident data. With AVX2, TT2000 still runs 3× faster than scalar code, but EPOCH gains nothing: converting doubles to 64-bit integers only got an x86 instruction with AVX-512, so on AVX2 it is emulated. At 64M values (1 GB of data), every SIMD row drops to 1.3–1.5 billion epochs/s: the data no longer fits in cache.
+
+The two tables below were measured on the Ryzen 7 7840U/HS.
 
 #### Leap-second lookup
 
