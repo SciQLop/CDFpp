@@ -335,12 +335,12 @@ AMD Ryzen 7 5800X desktop CPU (Zen 3, 32 MB L3), **AVX2** (median of 3 runs):
 
 | Conversion | 64 | 1K | 64K | 1M | 64M |
 |---|---|---|---|---|---|
-| TT2000 scalar | 7.7e+08 | 9.7e+08 | 1.0e+09 | 1.0e+09 | 9.1e+08 |
-| TT2000 SIMD | 1.9e+09 | **3.2e+09** | 3.2e+09 | 3.2e+09 | 1.3e+09 |
-| EPOCH scalar | 2.3e+09 | 2.3e+09 | 2.2e+09 | 2.3e+09 | 1.3e+09 |
-| EPOCH SIMD | 2.2e+09 | 2.3e+09 | 2.3e+09 | 2.3e+09 | 1.3e+09 |
+| TT2000 scalar | 7.8e+08 | 9.8e+08 | 1.0e+09 | 1.0e+09 | 9.2e+08 |
+| TT2000 SIMD | 1.9e+09 | **3.2e+09** | 3.0e+09 | 3.2e+09 | 1.2e+09 |
+| EPOCH scalar | 2.3e+09 | 2.3e+09 | 2.3e+09 | 2.3e+09 | 1.3e+09 |
+| EPOCH SIMD | 3.2e+09 | **3.4e+09** | 3.2e+09 | 3.4e+09 | 1.3e+09 |
 
-With AVX-512, TT2000 conversion peaks at ~**8 billion epochs/s** and EPOCH at ~**14 billion epochs/s** for L1/L2-resident data. With AVX2, TT2000 still runs 3× faster than scalar code, but EPOCH gains nothing: converting doubles to 64-bit integers only got an x86 instruction with AVX-512, so on AVX2 it is emulated. At 64M values (1 GB of data), every SIMD row drops to 1.3–1.5 billion epochs/s: the data no longer fits in cache.
+With AVX-512, TT2000 conversion peaks at ~**8 billion epochs/s** and EPOCH at ~**14 billion epochs/s** for L1/L2-resident data. With AVX2, SIMD runs about 3× faster than scalar code for TT2000 and 1.5× for EPOCH. EPOCH gains less: x86 only has an instruction to convert doubles to 64-bit integers since AVX-512, so with AVX2 CDFpp decodes the double's bits itself, with the same result bit for bit. At 64M values (1 GB of data), every SIMD row drops to 1.2–1.5 billion epochs/s: the data no longer fits in cache.
 
 The two tables below were measured on the Ryzen 7 7840U/HS.
 
