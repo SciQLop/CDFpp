@@ -31,8 +31,10 @@
 #include <cpp_utils/containers/no_init_vector.hpp>
 using cpp_utils::containers::no_init_vector;
 #include <algorithm>
+#include <cstring>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <stdint.h>
 #include <string>
 #include <variant>
@@ -136,6 +138,40 @@ struct lazy_data
 
 private:
     std::function<data_t(void)> p_loader;
+    CDF_Types p_type;
+};
+
+// Values in memory someone else owns, such as a numpy array: `owner` keeps them alive.
+struct borrowed_data
+{
+    borrowed_data(
+        std::shared_ptr<const void> owner, const char* ptr, std::size_t bytes, CDF_Types type)
+            : p_owner { std::move(owner) }, p_ptr { ptr }, p_bytes { bytes }, p_type { type }
+    {
+    }
+
+    [[nodiscard]] inline const char* bytes_ptr() const noexcept { return p_ptr; }
+    [[nodiscard]] inline std::size_t size() const noexcept
+    {
+        return p_bytes / cdf_type_size(p_type);
+    }
+    [[nodiscard]] inline CDF_Types type() const noexcept { return p_type; }
+
+    [[nodiscard]] inline data_t copy() const
+    {
+        return cdf_type_dispatch(p_type,
+            [this]<CDF_Types T>()
+            {
+                no_init_vector<from_cdf_type_t<T>> values(size());
+                std::memcpy(values.data(), p_ptr, p_bytes);
+                return data_t { std::move(values), T };
+            });
+    }
+
+private:
+    std::shared_ptr<const void> p_owner;
+    const char* p_ptr;
+    std::size_t p_bytes;
     CDF_Types p_type;
 };
 

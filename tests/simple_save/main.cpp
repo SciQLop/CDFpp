@@ -4,6 +4,9 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
+#include <numeric>
+#include <thread>
+#include <utility>
 #include <vector>
 
 
@@ -421,4 +424,63 @@ SCENARIO("Big compressed variables round-trip through the parallel paths", "[CDF
     auto lazy = cdf::io::load(buffer, true, true);
     REQUIRE(lazy != std::nullopt);
     REQUIRE(lazy->variables["cos"] == original.variables.at("cos"));
+}
+
+SCENARIO("A variable saves borrowed values without owning them", "[CDF]")
+{
+    auto values = std::make_shared<no_init_vector<double>>(cos_gen<double> { 0.01 }(300));
+    const std::weak_ptr<no_init_vector<double>> owner = values;
+    const Variable copied { "cos", 0, data_t { *values, CDF_Types::CDF_DOUBLE }, { 100, 3 } };
+    CDF cdf;
+    cdf.variables.emplace("cos", Variable { "cos", 0, data_t {}, {} });
+    auto& variable = cdf.variables["cos"];
+    variable.set_data(borrowed_data { values, reinterpret_cast<const char*>(values->data()),
+                          values->size() * sizeof(double), CDF_Types::CDF_DOUBLE },
+        { 100, 3 });
+    const auto* borrowed_bytes = reinterpret_cast<const char*>(values->data());
+    values.reset();
+    WHEN("it is saved")
+    {
+        std::vector<char> buffer;
+        auto reloaded = saved_and_reloaded(cdf, buffer);
+        THEN("the file holds the borrowed values, which are still borrowed")
+        {
+            REQUIRE(reloaded != std::nullopt);
+            REQUIRE(reloaded->variables["cos"] == copied);
+            REQUIRE(std::as_const(variable).bytes_ptr() == borrowed_bytes);
+            REQUIRE_FALSE(owner.expired());
+        }
+    }
+    WHEN("its values are accessed for writing")
+    {
+        variable.get<double>()[0] = 42.;
+        THEN("they are copied first and the borrowed buffer is released")
+        {
+            REQUIRE(owner.expired());
+            REQUIRE(variable.get<double>()[1] == copied.get<double>()[1]);
+        }
+    }
+    WHEN("several threads read its values at once")
+    {
+        std::vector<double> sums(8);
+        std::vector<std::thread> readers;
+        for (auto& sum : sums)
+            readers.emplace_back(
+                [&sum, &variable]()
+                {
+                    const auto& values = std::as_const(variable).get<double>();
+                    sum = std::accumulate(std::cbegin(values), std::cend(values), 0.);
+                });
+        for (auto& reader : readers)
+            reader.join();
+        THEN("they all read the same copy")
+        {
+            const auto& expected = copied.get<double>();
+            const auto expected_sum
+                = std::accumulate(std::cbegin(expected), std::cend(expected), 0.);
+            REQUIRE(std::all_of(std::cbegin(sums), std::cend(sums),
+                [expected_sum](double sum) { return sum == expected_sum; }));
+            REQUIRE(owner.expired());
+        }
+    }
 }

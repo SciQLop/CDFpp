@@ -240,7 +240,7 @@ def _add_trailing_unit_dims(values, record_shape):
 
 
 def _patch_set_values():
-    def _set_values_wrapper(self, values, data_type=None, force=False):
+    def _set_values_wrapper(self, values, data_type=None, force=False, copy=True):
         """Sets or resets the values of the variable.
 
         Parameters
@@ -254,6 +254,12 @@ def _patch_set_values():
         force : bool, optional
             If True, allows to overwrite existing values even if the shape or data type do not match.
             (Default is False)
+        copy : bool, optional
+            If False, the variable borrows the numpy array instead of copying it, and saving writes
+            straight from it: modify the array only if you want the change saved. Reading or
+            modifying the variable's values copies them first. Raises ValueError if the array
+            can't be borrowed: it must be C-contiguous, in native byte order, and hold numeric
+            values stored as-is (not strings or times). (Default is True)
 
         Returns
         -------
@@ -262,7 +268,8 @@ def _patch_set_values():
         Raises
         ------
         ValueError
-            If the shape or data type do not match and force is False.
+            If the shape or data type do not match and force is False, or if copy is False and
+            the values can't be borrowed.
 
         Examples
         --------
@@ -287,6 +294,10 @@ def _patch_set_values():
             values = _as_single_record(values)
         if self.type != DataType.CDF_NONE and not force:
             values = _add_trailing_unit_dims(values, self.shape[1:])
+        if not copy:
+            if not isinstance(values, np.ndarray):
+                raise ValueError("copy=False needs a numpy array")
+            return self._set_values(values, data_type=data_type, force=force, copy=False)
         return self._set_values(values, data_type=data_type, force=force)
 
     # Removed python injected wrappers, the logic is now implemented in C++
@@ -300,21 +311,22 @@ def _patch_add_variable():
                               values: np.ndarray or None = None, data_type: DataType or None = None,
                               is_nrv: bool = False,
                               compression: CompressionType = CompressionType.no_compression,
-                              attributes: Mapping[str, List[Any]] or None = None) -> Variable:
+                              attributes: Mapping[str, List[Any]] or None = None,
+                              copy: bool = True) -> Variable:
         ...
 
     @overload
     def _add_variable_wrapper(self: CDF, variable: Variable) -> Variable:
         ...
 
-    @_strict_kwargs(['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes'])
+    @_strict_kwargs(['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes', 'copy'])
     def _add_variable_wrapper(self, name=None, values=None, data_type=None,
                               is_nrv=False, compression=CompressionType.no_compression,
-                              attributes=None) -> Variable:
+                              attributes=None, copy=True) -> Variable:
         """Adds a new variable to the CDF.
 
         This method can be called in two ways:
-        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None)
+        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True)
         2. With a Variable object: add_variable(variable)
 
         Parameters
@@ -332,6 +344,9 @@ def _patch_add_variable():
             The compression type to use for the variable. (Default is CompressionType.no_compression)
         attributes : Mapping[str, List[Any]] or None, optional
             The attributes to set for the variable. If None, the variable is created with no attributes. (Default is None)
+        copy : bool, optional
+            If False, the variable borrows the numpy array instead of copying it, see
+            Variable.set_values. Saves the copy of big arrays. (Default is True)
         variable : Variable
             An existing Variable object to add to the CDF (for the second calling method).
 
@@ -372,7 +387,7 @@ def _patch_add_variable():
             return self._add_variable(variable=name)
         var = self._add_variable(name, is_nrv=is_nrv, compression=compression)
         if values is not None:
-            var.set_values(values, data_type)
+            var.set_values(values, data_type, copy=copy)
         elif data_type is not None:
             var.set_values([], data_type)
         if attributes is not None and var is not None:
