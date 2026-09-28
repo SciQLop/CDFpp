@@ -174,84 +174,39 @@ def _holds_datetime(values: list):
     return False
 
 
-def _max_integer_dtype(type1: np.dtype, type2: np.dtype):
-    if not np.issubdtype(type1, np.integer):
-        return type2
-    if not np.issubdtype(type2, np.integer):
-        return type1
-
-    if np.dtype(type1).itemsize > np.dtype(type2).itemsize:
-        return type1
-    else:
-        return type2
-
-    return None
+_INTEGER_TYPES_ = ((np.int8, np.uint8), (np.int16, np.uint16), (np.int32, np.uint32), (np.int64, np.uint64))
 
 
-def _min_integer_dtype(values: list, target_type: np.dtype or None = None):
-    min_v = np.min(values)
-    max_v = np.max(values)
-    if min_v < 0:
-        if min_v >= -128 and max_v <= 127:
-            return _max_integer_dtype(np.int8, target_type)
-        elif min_v >= -32768 and max_v <= 32767:
-            return _max_integer_dtype(np.int16, target_type)
-        elif min_v >= -2147483648 and max_v <= 2147483647:
-            return _max_integer_dtype(np.int32, target_type)
-        else:
-            return _max_integer_dtype(np.int64, target_type)
-    else:
-        if max_v <= 255:
-            return _max_integer_dtype(np.uint8, target_type)
-        elif max_v <= 65535:
-            return _max_integer_dtype(np.uint16, target_type)
-        elif max_v <= 4294967295:
-            return _max_integer_dtype(np.uint32, target_type)
-        else:
-            return _max_integer_dtype(np.uint64, target_type)
-    return None
+def _min_integer_dtype(values: np.ndarray):
+    """The smallest integer type holding every value: unsigned unless one is negative."""
+    min_v, max_v = int(values.min()), int(values.max())
+    for signed, unsigned in _INTEGER_TYPES_:
+        dtype = signed if min_v < 0 else unsigned
+        info = np.iinfo(dtype)
+        if info.min <= min_v and max_v <= info.max:
+            return dtype
+    return np.int64 if min_v < 0 else np.uint64
 
 
-def _values_view_and_type(values: np.ndarray or list, data_type: DataType or None = None,
-                          target_type: DataType or None = None):
-    shrink_int = True
+def _values_view_and_type(values: np.ndarray or list, data_type: DataType or None = None):
+    """The buffer and CDF type of an attribute entry. The C++ side makes it contiguous and
+    copies it."""
     if type(values) is list:
         if _holds_datetime(values):
-            values = np.array(values, dtype="datetime64[ns]")
-        else:
-            if len(values) and type(values[0]) in (np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16,
-                                                   np.uint32, np.uint64):
-                shrink_int = False
-            values = np.array(values)
-
-        if values.dtype.num == 19:
-            values = np.char.encode(values, encoding='utf-8')
-        elif data_type is None and np.issubdtype(values.dtype, np.integer):
-            target_type = _CDF_TYPES_TO_NUMPY_DTYPE_.get(target_type, np.float32)
-            if shrink_int:
-                if not np.issubdtype(target_type, np.integer):
-                    target_type = None
-                values = values.astype(_min_integer_dtype(values, target_type))
-            else:
-                return values, data_type or _NUMPY_TO_CDF_TYPE_[values.dtype.num]
+            return _values_view_and_type(np.array(values, dtype="datetime64[ns]"), data_type)
+        python_integers = not isinstance(_first_item(values), np.generic)
+        values = np.array(values)
+        if data_type is None and python_integers and values.size and values.dtype.kind in "iu":
+            values = values.astype(_min_integer_dtype(values))
         return _values_view_and_type(values, data_type)
-    else:
-        target = _DEFAULT_CDF_TYPE_.get(values.dtype.num) if data_type is None else data_type
-        if target is not None:
-            values = _exactly_as(values, target)
-        if not values.flags['C_CONTIGUOUS']:
-            values = np.ascontiguousarray(values)
-        elif values.base is not None:
-            values = values.copy()
-        if values.dtype.num == 21:
-            if data_type in (None, DataType.CDF_TIME_TT2000, DataType.CDF_EPOCH, DataType.CDF_EPOCH16):
-                return (values.astype(np.dtype('datetime64[ns]'), copy=False).view(np.uint64),
-                        data_type or DataType.CDF_TIME_TT2000)
-        if values.dtype.num == 19:
-            return _values_view_and_type(np.char.encode(values, encoding='utf-8'), data_type)
-        else:
-            return (values, data_type or _NUMPY_TO_CDF_TYPE_[
-                values.dtype.num])
+    target = _DEFAULT_CDF_TYPE_.get(values.dtype.num) if data_type is None else data_type
+    if target is not None:
+        values = _exactly_as(values, target)
+    if values.dtype.kind == "M" and data_type in (None, DataType.CDF_TIME_TT2000, DataType.CDF_EPOCH,
+                                                  DataType.CDF_EPOCH16):
+        return (values.astype(np.dtype('datetime64[ns]'), copy=False).view(np.uint64),
+                data_type or DataType.CDF_TIME_TT2000)
+    return values, data_type or _NUMPY_TO_CDF_TYPE_[values.dtype.num]
 
 
 def _strict_kwargs(arg_names):
@@ -488,7 +443,9 @@ def _as_attribute_entry(values):
     if isinstance(values, str):
         return str(values)
     if isinstance(values, tuple):
-        return list(values)
+        return _as_attribute_entry(list(values))
+    if isinstance(values, list) and values and isinstance(values[0], (str, bytes)):
+        return _as_attribute_entry(np.array(values))
     if isinstance(values, np.generic):
         return np.atleast_1d(values)
     if isinstance(values, (int, float, datetime, tt2000_t, epoch, epoch16)):
@@ -1158,7 +1115,7 @@ def default_pad_value(cdf_type: DataType):
     if cdf_type == DataType.CDF_EPOCH:
         return epoch(0.0)
     if cdf_type == DataType.CDF_EPOCH16:
-        return epoch16(0.0)
+        return epoch16(0.0, 0.0)
     return None
 
 
