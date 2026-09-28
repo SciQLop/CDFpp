@@ -77,7 +77,7 @@ Results
 one warm-up run, so the files are in the page cache.
 
 Measured on an AMD Ryzen 7 5800X (8 cores, AVX2, no AVX-512), Linux, Python 3.13, with the packages
-from PyPI, except pycdfpp built from main after 0.14.0: spacepy 0.7.0 (which bundles NASA's CDF library 3.9.0),
+from PyPI, except pycdfpp 0.15.0, built from source: spacepy 0.7.0 (which bundles NASA's CDF library 3.9.0),
 cdflib 1.3.14 and numpy 2.5.3.
 
 How it was measured

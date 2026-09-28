@@ -5,8 +5,8 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
-Unreleased
-----------
+0.15.0 (2026-09-28)
+-------------------
 
 * ``add_variable`` and ``set_values`` take ``copy=False`` to borrow a numpy array instead of
   copying it: saving writes straight from the array. For big arrays this saves the copy's time

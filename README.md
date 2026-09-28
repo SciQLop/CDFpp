@@ -306,7 +306,7 @@ Everyday tasks on real CDAWeb files, with each library used the way its document
 | Write B and its time axis, uncompressed | MMS FGM survey, 1.2 M points, 29 MB | 15.4 ms | **12.5 ms (0.8×)** | 17.0 ms (1.1×) |
 | Write a particle distribution file, gzip | MMS FPI electron distribution, 210 MB | **357 ms** | 3.90 s (11×) | 1.89 s (5.3×) |
 
-(N×) = N times longer than pycdfpp. Median of 5 runs, files in the page cache. AMD Ryzen 7 5800X (AVX2, no AVX-512), Python 3.13, pycdfpp main (after 0.14.0), spacepy 0.7.0 (NASA CDF 3.9.0), cdflib 1.3.14.
+(N×) = N times longer than pycdfpp. Median of 5 runs, files in the page cache. AMD Ryzen 7 5800X (AVX2, no AVX-512), Python 3.13, pycdfpp 0.15.0 (built from source), spacepy 0.7.0 (NASA CDF 3.9.0), cdflib 1.3.14.
 
 Why is pycdfpp faster?
 
