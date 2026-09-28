@@ -1,5 +1,5 @@
 #include <benchmark/benchmark.h>
-#include <cdfpp/no_init_vector.hpp>
+#include <cpp_utils/containers/no_init_vector.hpp>
 #include <cstring>
 #include <errno.h>
 #include <fcntl.h>
@@ -7,6 +7,8 @@
 #include <fstream>
 #include <iostream>
 #include <sys/mman.h> // madvise
+
+using cpp_utils::containers::no_init_vector;
 
 inline constexpr std::size_t mega(std::size_t n)
 {
@@ -16,9 +18,7 @@ inline constexpr std::size_t mega(std::size_t n)
 
 auto make_test_file(std::size_t count)
 {
-    /*auto path = std::filesystem::temp_directory_path()
-        /= std::filesystem::path { "pycdfpp_benchmark.bin" };*/
-    auto path = std::filesystem::path { "/home/jeandet/pycdfpp_benchmark.bin" };
+    auto path = std::filesystem::temp_directory_path() / "pycdfpp_benchmark.bin";
     if (std::filesystem::exists(path))
     {
         std::filesystem::remove(path);
