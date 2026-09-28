@@ -189,7 +189,8 @@ Writing
    thread.
 3. Without compression, writing is mostly copying memory to the file. ``pycdfpp`` first
    copies the array into the variable; ``spacepy`` writes straight from the array. That
-   copy is why ``spacepy`` is 20% faster there.
+   copy is why ``spacepy`` is 20% faster there. Pass ``copy=False`` to ``add_variable``
+   to skip it: see :doc:`writing`.
 
 Scaling
 =======
