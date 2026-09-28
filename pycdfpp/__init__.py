@@ -398,10 +398,23 @@ def _patch_add_variable():
     CDF.add_variable = _add_variable_wrapper
 
 
+def _single_string(values: np.ndarray):
+    if values.size != 1:
+        raise ValueError(f"An attribute entry holds one string, got an array of {values.size}")
+    return values.reshape(-1)[0]
+
+
 def _as_attribute_entry(values):
     """A single number, datetime or CDF time value becomes a one-element entry; numpy scalars
-    keep their dtype."""
-    if isinstance(values, (np.generic, np.ndarray)) and np.ndim(values) == 0 and not isinstance(values, str):
+    keep their dtype. Numpy strings, as read from CDF_CHAR variables, become string entries:
+    bytes stay numpy bytes so their characters are written as they are, without decoding."""
+    if isinstance(values, np.ndarray) and values.dtype.kind in "SU":
+        values = _single_string(values)
+    if isinstance(values, bytes):
+        return np.bytes_(values)
+    if isinstance(values, str):
+        return str(values)
+    if isinstance(values, (np.generic, np.ndarray)) and np.ndim(values) == 0:
         return np.atleast_1d(values)
     if isinstance(values, (int, float, datetime, tt2000_t, epoch, epoch16)):
         return [values]

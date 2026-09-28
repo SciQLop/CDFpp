@@ -393,6 +393,46 @@ class PycdfScalarAttributeValues(unittest.TestCase):
         self.assertEqual(cdf.attributes["mixed"][1], [1.5])
 
 
+class PycdfNumpyStringAttributeValues(unittest.TestCase):
+    """Strings read from a CDF_CHAR variable are numpy strings: they make string entries, as
+    plain Python strings do. np.bytes_ worked up to 0.12.0."""
+
+    @staticmethod
+    def strings_variable():
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("strtime_1", ["2024-01-01T00:00:00", "2024-01-01T00:00:01"],
+                         data_type=pycdfpp.DataType.CDF_CHAR)
+        return cdf["strtime_1"].values
+
+    def numpy_strings(self):
+        values = self.strings_variable()
+        return {"np.bytes_": values[0], "np.str_": np.str_("2024-01-01T00:00:00"),
+                "S array of one": values[:1], "U array of one": np.array(["2024-01-01T00:00:00"])}
+
+    def test_global_attribute_set_values(self):
+        for label, value in self.numpy_strings().items():
+            with self.subTest(value=label):
+                cdf = pycdfpp.CDF()
+                cdf.add_attribute("DATA_START_TIME", ["x"])
+                cdf.attributes["DATA_START_TIME"].set_values([value])
+                self.assertEqual(cdf.attributes["DATA_START_TIME"][0], "2024-01-01T00:00:00")
+                self.assertEqual(cdf.attributes["DATA_START_TIME"].type(0),
+                                 pycdfpp.DataType.CDF_CHAR)
+
+    def test_variable_attribute(self):
+        for label, value in self.numpy_strings().items():
+            with self.subTest(value=label):
+                cdf = pycdfpp.CDF()
+                var = cdf.add_variable("v", values=np.zeros(3))
+                var.add_attribute("START", value)
+                self.assertEqual(var.attributes["START"].value, "2024-01-01T00:00:00")
+
+    def test_several_strings_in_one_entry_are_rejected(self):
+        cdf = pycdfpp.CDF()
+        with self.assertRaisesRegex(ValueError, "one string"):
+            cdf.add_attribute("TWO", [self.strings_variable()])
+
+
 class PycdfNrvValuesAreOneRecord(unittest.TestCase):
     """Values given to a non-record-varying variable are its single record."""
 

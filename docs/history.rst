@@ -5,6 +5,13 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
+Unreleased
+----------
+
+* Numpy strings, like the values of a ``CDF_CHAR`` variable, are accepted as attribute
+  entries again: ``np.bytes_`` gave "Unsupported CDF type CDF_CHAR for buffer attribute"
+  since 0.13.0. ``np.str_`` and one-element string arrays work too; they never did.
+
 0.15.0 (2026-09-28)
 -------------------
 
