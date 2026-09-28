@@ -101,9 +101,65 @@ class ListsOfIntegers(unittest.TestCase):
         self.assertEqual(entry_type(np.array([2**63 - 1], dtype=np.uint64)), D.CDF_INT8)
 
     def test_empty_arrays_take_the_given_type(self):
+        for dtype, data_type in ((np.int32, D.CDF_FLOAT), (np.int16, D.CDF_INT4), (np.uint8, D.CDF_INT2)):
+            with self.subTest(dtype=dtype, data_type=data_type):
+                cdf = pycdfpp.CDF()
+                cdf.add_variable("v", np.array([], dtype=dtype), data_type=data_type)
+                self.assertEqual(reloaded(cdf)["v"].type, data_type)
+
+    def test_empty_attribute_entries_are_refused(self):
+        """NASA's library refuses them (BAD_NUM_ELEMS), and reads a file holding one as
+        corrupted. They were stored, as CDF_TIME_TT2000 whatever the type asked."""
+        def add_global(values, data_type):
+            pycdfpp.CDF().add_attribute("a", [values], None if data_type is None else [data_type])
+
+        def set_global(values, data_type):
+            cdf = pycdfpp.CDF()
+            cdf.add_attribute("a", [[1]])
+            cdf.attributes["a"].set_values([values], None if data_type is None else [data_type])
+
+        def add_variable_attribute(values, data_type):
+            pycdfpp.CDF().add_variable("v", np.zeros(2)).add_attribute("a", values, data_type)
+
+        def set_variable_attribute(values, data_type):
+            var = pycdfpp.CDF().add_variable("v", np.zeros(2))
+            var.add_attribute("a", [1])
+            var.attributes["a"].set_value(values, data_type)
+
+        for store in (add_global, set_global, add_variable_attribute, set_variable_attribute):
+            for values, data_type in ((np.array([], dtype=np.float32), D.CDF_FLOAT), ([], None),
+                                      (np.array([], dtype=np.int16), None), ([], D.CDF_INT4)):
+                with self.subTest(store=store.__name__, values=values, data_type=data_type):
+                    with self.assertRaisesRegex(ValueError, "at least one value"):
+                        store(values, data_type)
+
+    def test_numbers_are_not_text(self):
+        """Numbers given a text type were written as their raw bytes: int64 [1, 2] became two
+        8-character strings of control bytes. 0.8.7 refused them for an existing text variable;
+        0.9.0 to 0.15.1 accepted them whenever the shapes matched, and always with an explicit
+        data_type."""
+        for values in (np.array([1, 2], dtype=np.int64), np.array([65, 66], dtype=np.uint8), np.array([1.5])):
+            for data_type in (D.CDF_CHAR, D.CDF_UCHAR):
+                with self.subTest(dtype=values.dtype, data_type=data_type):
+                    with self.assertRaisesRegex(ValueError, "strings"):
+                        pycdfpp.CDF().add_variable("v", values, data_type=data_type)
         cdf = pycdfpp.CDF()
-        cdf.add_variable("v", np.array([], dtype=np.int32), data_type=D.CDF_FLOAT)
-        self.assertEqual(reloaded(cdf)["v"].type, D.CDF_FLOAT)
+        cdf.add_variable("s", ["ab", "cd"], data_type=D.CDF_CHAR)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaisesRegex(ValueError, "strings"):
+                cdf["s"].set_values(np.array([[1, 2], [3, 4]], dtype=np.int64))
+        self.assertEqual(cdf["s"].values.tolist(), [b"ab", b"cd"])
+        cdf["s"].set_values(np.array([b"ef", b"gh"]), force=True)
+        self.assertEqual(cdf["s"].values.tolist(), [b"ef", b"gh"])
+
+    def test_numbers_are_not_times(self):
+        """Numbers given a time type are refused, not reinterpreted."""
+        for values, data_type in ((np.array([1, 2], dtype=np.int64), D.CDF_TIME_TT2000),
+                                  (np.array([1.5, 2.5]), D.CDF_EPOCH)):
+            with self.subTest(dtype=values.dtype, data_type=data_type):
+                with self.assertRaises(ValueError):
+                    pycdfpp.CDF().add_variable("v", values, data_type=data_type)
 
 
 class StringEntries(unittest.TestCase):
@@ -147,6 +203,11 @@ class Variables(unittest.TestCase):
         cdf = pycdfpp.CDF()
         cdf.add_variable("v").set_values(np.arange(3, dtype=np.int16), data_type=D.CDF_NONE)
         self.assertEqual(cdf["v"].type, D.CDF_INT2)
+        typed = cdf.add_variable("f", np.array([1.5], dtype=np.float32))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            with self.assertRaises(ValueError):
+                typed.set_values(np.array([3], dtype=np.int32), data_type=D.CDF_NONE)
 
     def test_borrowing_needs_an_array(self):
         with self.assertRaisesRegex(ValueError, "numpy array"):
@@ -177,6 +238,27 @@ class Variables(unittest.TestCase):
 
 class Attributes(unittest.TestCase):
 
+    def test_single_values_are_one_element_entries(self):
+        for value, data_type in ((np.array(5, dtype=np.int16), D.CDF_INT2), (np.float32(1.5), D.CDF_FLOAT),
+                                 (7, D.CDF_UINT1), (2.5, D.CDF_DOUBLE)):
+            with self.subTest(value=value):
+                cdf = pycdfpp.CDF()
+                cdf.add_variable("v", np.zeros(2)).add_attribute("x", value)
+                attribute = reloaded(cdf)["v"].attributes["x"]
+                self.assertEqual(attribute.type(), data_type)
+                self.assertEqual(list(attribute.value), [value])
+
+    def test_lists_of_datetimes(self):
+        from datetime import datetime
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("t", [[datetime(2020, 1, 1), datetime(2020, 1, 2)]])
+        attribute = reloaded(cdf).attributes["t"]
+        self.assertEqual(attribute.type(0), D.CDF_TIME_TT2000)
+        self.assertEqual(pycdfpp.to_datetime64(attribute[0]).tolist(),
+                         np.array(["2020-01-01", "2020-01-02"], dtype="datetime64[ns]").tolist())
+        with self.assertRaisesRegex(ValueError, "1-D"):
+            pycdfpp.CDF().add_attribute("t", [[[datetime(2020, 1, 1)], [datetime(2020, 1, 2)]]])
+
     def test_values_are_copied_from_views(self):
         base = np.arange(6.0)
         cdf = pycdfpp.CDF()
@@ -197,6 +279,9 @@ class Attributes(unittest.TestCase):
         target.add_attribute("h", [[0]])
         target.attributes["h"].set_values(source.attributes["g"])
         self.assertEqual(list(target.attributes["h"]), list(source.attributes["g"]))
+        target["w"].add_attribute("y", [0])
+        target["w"].attributes["y"].set_value(source["v"].attributes["x"])
+        self.assertEqual(target["w"].attributes["y"].value, source["v"].attributes["x"].value)
 
     def test_keyword_arguments(self):
         cdf = pycdfpp.CDF()
@@ -214,7 +299,7 @@ class Attributes(unittest.TestCase):
 
     def test_too_many_positional_arguments(self):
         cdf = pycdfpp.CDF()
-        with self.assertRaisesRegex(TypeError, "at most 7 positional arguments"):
+        with self.assertRaisesRegex(TypeError, r"at most 7 positional arguments \(8 given\)"):
             cdf.add_variable("v", None, None, False, pycdfpp.CompressionType.no_compression, None, True, 1)
         with self.assertRaisesRegex(TypeError, "unexpected keyword"):
             cdf.add_variable("v", colour="blue")
