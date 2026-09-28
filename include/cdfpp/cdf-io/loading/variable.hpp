@@ -203,6 +203,8 @@ namespace
         // Blocks write to disjoint parts of data, so they can be decompressed in any order.
         const bool worth_threads = compression_type != cdf_compression_type::no_compression
             && data_len >= parallel::min_bytes_worth_threads;
+        if (worth_threads)
+            parallel::fault_in(data, data_len);
         parallel::for_each_index(std::size(blocks), worth_threads ? parallel::hardware_threads() : 1,
             [&](std::size_t i) {
                 load_block<cdf_version_tag_t>(
