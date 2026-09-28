@@ -582,7 +582,7 @@ inline void set_values(Variable& var, const py_list_or_py_tuple auto& values,
             {
                 return std::pair { Variable::var_data_t {
                                        no_init_vector<from_cdf_type_t<T>> {}, T },
-                    Variable::shape_t {} };
+                    Variable::shape_t { 0 } };
             }));
     }
 }
