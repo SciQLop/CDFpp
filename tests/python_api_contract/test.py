@@ -325,16 +325,17 @@ class AttributeScopes(unittest.TestCase):
             with open(path, "rb") as f:
                 self.assertEqual(f.read(), b"previous content")
 
-    def test_a_global_attribute_cant_take_a_variable_attribute_name(self):
+    def test_every_order_is_caught_when_saving(self):
         source = pycdfpp.CDF()
         source.add_attribute("same", ["global"])
-        cdf = pycdfpp.CDF()
-        cdf.add_variable("v", np.zeros(2)).add_attribute("same", "variable")
-        with self.assertRaisesRegex(ValueError, "'same'"):
-            cdf.add_attribute("same", ["global"])
-        with self.assertRaisesRegex(ValueError, "'same'"):
-            cdf.add_attribute(source.attributes["same"])
-        self.assertNotIn("same", cdf.attributes)
+        for label, add_global in (("by name", lambda cdf: cdf.add_attribute("same", ["global"])),
+                                  ("copied", lambda cdf: cdf.add_attribute(source.attributes["same"]))):
+            with self.subTest(global_attribute=label):
+                cdf = pycdfpp.CDF()
+                cdf.add_variable("v", np.zeros(2)).add_attribute("same", "variable")
+                add_global(cdf)
+                with self.assertRaisesRegex(ValueError, "'same'"):
+                    pycdfpp.save(cdf)
 
     def test_distinct_names(self):
         cdf = pycdfpp.CDF()

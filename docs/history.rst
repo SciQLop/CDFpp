@@ -15,9 +15,9 @@ Unreleased
 * Empty attribute entries are refused. NASA's CDF library refuses them too, and reads a file
   holding one as corrupted; they were stored as ``CDF_TIME_TT2000`` whatever the type asked.
   Files that already hold one still load.
-* An attribute name can't be both global and variable: ``add_attribute`` and ``save`` refuse
-  it. NASA's library refuses it too (``ATTR_EXISTS``), and doesn't see the variable attribute
-  in a file holding both; pycdfpp wrote such files without a word.
+* ``save`` refuses a CDF where an attribute name is both global and variable, before opening
+  the file. NASA's library refuses such a name too (``ATTR_EXISTS``), and doesn't see the
+  variable attribute in a file holding both; pycdfpp wrote such files without a word.
 * ``default_pad_value(CDF_EPOCH16)`` raised ``TypeError``.
 * A variable created with a ``data_type`` and no values has no record, shape ``(0,)``: its
   shape was ``()``, and reading its values read past its empty buffer.

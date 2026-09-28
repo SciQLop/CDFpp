@@ -338,19 +338,9 @@ Attribute::attr_data_t to_attr_data_entries(
     return attr_values;
 }
 
-inline void check_global_attribute_name(const CDF& cdf, const std::string& name)
-{
-    if (is_variable_attribute_name(cdf, name))
-        throw std::invalid_argument { fmt::format(
-            "'{}' is already a variable attribute: a CDF attribute name is either global or "
-            "variable",
-            name) };
-}
-
 [[nodiscard]] Attribute& add_attribute(CDF& cdf, const std::string& name,
     const std::vector<string_or_buffer_t>& values, const std::vector<CDF_Types>& cdf_types)
 {
-    check_global_attribute_name(cdf, name);
     auto [it, success]
         = cdf.attributes.emplace(name, name, to_attr_data_entries(values, cdf_types));
     if (success)

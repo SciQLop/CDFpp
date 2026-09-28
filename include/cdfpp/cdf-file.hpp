@@ -31,9 +31,10 @@
 #include "chrono/cdf-leap-seconds.h"
 #include "variable.hpp"
 
-#include <algorithm>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <unordered_set>
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const cdf_map<std::string, cdf::Variable>& variables)
@@ -112,20 +113,21 @@ inline void add_variable(CDF& cdf_file, const std::string& name, Variable&& var)
 }
 
 // CDF gives an attribute name one scope, global or variable: NASA's library refuses a name in
-// both, and doesn't see the variable attribute in a file holding both.
-[[nodiscard]] inline bool is_variable_attribute_name(const CDF& cdf_file, const std::string& name)
-{
-    return std::any_of(std::cbegin(cdf_file.variables), std::cend(cdf_file.variables),
-        [&name](const auto& item) { return item.second.attributes.count(name) != 0; });
-}
-
+// both, and doesn't see the variable attribute in a file holding both. Checked once, when
+// saving: checking every add_attribute would scan every variable attribute each time.
 inline void check_attribute_scopes(const CDF& cdf_file)
 {
+    if (std::empty(cdf_file.attributes))
+        return;
+    std::unordered_set<std::string_view> global_names;
     for (const auto& [name, _] : cdf_file.attributes)
-        if (is_variable_attribute_name(cdf_file, name))
-            throw std::invalid_argument { "'" + name
-                + "' is both a global and a variable attribute: a CDF attribute name has one "
-                  "scope, and NASA's library can't read the variable one" };
+        global_names.insert(name);
+    for (const auto& [_, variable] : cdf_file.variables)
+        for (const auto& [name, _] : variable.attributes)
+            if (global_names.count(name) != 0)
+                throw std::invalid_argument { "'" + name
+                    + "' is both a global and a variable attribute: a CDF attribute name has one "
+                      "scope, and NASA's library can't read the variable one" };
 }
 
 } // namespace cdf
