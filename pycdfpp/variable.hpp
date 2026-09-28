@@ -351,6 +351,10 @@ std::pair<data_t, typename Variable::shape_t> _set_var_data_t(const py::array& v
 
     if constexpr (is_cdf_string_type(cdf_type))
     {
+        // Other arrays would be written as their raw bytes (ensure_utf8 made text bytes).
+        if (values.dtype().kind() != 'S')
+            throw std::invalid_argument { fmt::format("{} values must be strings, got dtype '{}'",
+                cdf_type_str(cdf_type), std::string(py::str(values.dtype()))) };
         return _str_to_nd_data_t<cdf_type>(values);
     }
     else

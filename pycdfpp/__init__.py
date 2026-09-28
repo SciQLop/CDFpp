@@ -50,43 +50,11 @@ def __dir__():
 
 # Build dtype.num → CDF type mapping dynamically to handle platform differences.
 # On Windows, np.int64 is NPY_LONGLONG (num=9) while on Linux it's NPY_LONG (num=7).
-_NUMPY_TO_CDF_TYPE_ = [DataType.CDF_NONE] * 23
-_NUMPY_TO_CDF_TYPE_[np.dtype(np.int8).num] = DataType.CDF_INT1
-_NUMPY_TO_CDF_TYPE_[np.dtype(np.uint8).num] = DataType.CDF_UINT1
-_NUMPY_TO_CDF_TYPE_[np.dtype(np.int16).num] = DataType.CDF_INT2
-_NUMPY_TO_CDF_TYPE_[np.dtype(np.uint16).num] = DataType.CDF_UINT2
-_NUMPY_TO_CDF_TYPE_[np.dtype(np.int32).num] = DataType.CDF_INT4
-_NUMPY_TO_CDF_TYPE_[np.dtype(np.uint32).num] = DataType.CDF_UINT4
-_NUMPY_TO_CDF_TYPE_[np.dtype(np.int64).num] = DataType.CDF_INT8
-_NUMPY_TO_CDF_TYPE_[np.dtype(np.float32).num] = DataType.CDF_FLOAT
-_NUMPY_TO_CDF_TYPE_[np.dtype(np.float64).num] = DataType.CDF_DOUBLE
-_NUMPY_TO_CDF_TYPE_[18] = DataType.CDF_CHAR
-_NUMPY_TO_CDF_TYPE_[21] = DataType.CDF_TIME_TT2000
-_NUMPY_TO_CDF_TYPE_ = tuple(_NUMPY_TO_CDF_TYPE_)
-
-_CDF_TYPES_COMPATIBILITY_TABLE_ = {
-    DataType.CDF_NONE: (DataType.CDF_CHAR, DataType.CDF_UCHAR, DataType.CDF_INT1, DataType.CDF_BYTE, DataType.CDF_UINT1,
-                        DataType.CDF_UINT2, DataType.CDF_UINT4, DataType.CDF_INT1, DataType.CDF_INT2, DataType.CDF_INT4,
-                        DataType.CDF_INT8, DataType.CDF_FLOAT, DataType.CDF_REAL4, DataType.CDF_DOUBLE,
-                        DataType.CDF_REAL8, DataType.CDF_TIME_TT2000, DataType.CDF_EPOCH, DataType.CDF_EPOCH16),
-    DataType.CDF_CHAR: (DataType.CDF_CHAR, DataType.CDF_UCHAR),
-    DataType.CDF_UCHAR: (DataType.CDF_CHAR, DataType.CDF_UCHAR),
-    DataType.CDF_BYTE: (DataType.CDF_INT1, DataType.CDF_BYTE),
-    DataType.CDF_INT1: (DataType.CDF_INT1, DataType.CDF_BYTE),
-    DataType.CDF_UINT1: (DataType.CDF_UINT1,),
-    DataType.CDF_INT2: (DataType.CDF_INT2,),
-    DataType.CDF_UINT2: (DataType.CDF_UINT2,),
-    DataType.CDF_INT4: (DataType.CDF_INT4,),
-    DataType.CDF_UINT4: (DataType.CDF_UINT4,),
-    DataType.CDF_INT8: (DataType.CDF_INT8,),
-    DataType.CDF_FLOAT: (DataType.CDF_FLOAT, DataType.CDF_REAL4),
-    DataType.CDF_REAL4: (DataType.CDF_FLOAT, DataType.CDF_REAL4),
-    DataType.CDF_DOUBLE: (DataType.CDF_DOUBLE, DataType.CDF_REAL8),
-    DataType.CDF_REAL8: (DataType.CDF_DOUBLE, DataType.CDF_REAL8),
-    DataType.CDF_TIME_TT2000: (DataType.CDF_TIME_TT2000,),
-    DataType.CDF_EPOCH: (DataType.CDF_EPOCH,),
-    DataType.CDF_EPOCH16: (DataType.CDF_EPOCH16,),
-}
+_NUMPY_TO_CDF_TYPE_ = {np.dtype(dtype).num: data_type for dtype, data_type in (
+    (np.int8, DataType.CDF_INT1), (np.uint8, DataType.CDF_UINT1), (np.int16, DataType.CDF_INT2),
+    (np.uint16, DataType.CDF_UINT2), (np.int32, DataType.CDF_INT4), (np.uint32, DataType.CDF_UINT4),
+    (np.int64, DataType.CDF_INT8), (np.float32, DataType.CDF_FLOAT), (np.float64, DataType.CDF_DOUBLE),
+    (np.bytes_, DataType.CDF_CHAR))}
 
 _CDF_TYPES_TO_NUMPY_DTYPE_ = {
     DataType.CDF_NONE: None,
@@ -166,21 +134,16 @@ def _first_item(values):
 
 
 def _holds_datetime(values: list):
-    if len(values):
-        if type(values[0]) is list:
-            return _holds_datetime(values[0])
-        if type(values[0]) is datetime:
-            return True
-    return False
+    return type(_first_item(values)) is datetime
 
 
-_INTEGER_TYPES_ = ((np.int8, np.uint8), (np.int16, np.uint16), (np.int32, np.uint32), (np.int64, np.uint64))
+_SMALL_INTEGER_TYPES_ = ((np.int8, np.uint8), (np.int16, np.uint16), (np.int32, np.uint32))
 
 
 def _min_integer_dtype(values: np.ndarray):
     """The smallest integer type holding every value: unsigned unless one is negative."""
     min_v, max_v = int(values.min()), int(values.max())
-    for signed, unsigned in _INTEGER_TYPES_:
+    for signed, unsigned in _SMALL_INTEGER_TYPES_:
         dtype = signed if min_v < 0 else unsigned
         info = np.iinfo(dtype)
         if info.min <= min_v and max_v <= info.max:
@@ -206,7 +169,7 @@ def _values_view_and_type(values: np.ndarray or list, data_type: DataType or Non
                                                   DataType.CDF_EPOCH16):
         return (values.astype(np.dtype('datetime64[ns]'), copy=False).view(np.uint64),
                 data_type or DataType.CDF_TIME_TT2000)
-    return values, data_type or _NUMPY_TO_CDF_TYPE_[values.dtype.num]
+    return values, data_type or _NUMPY_TO_CDF_TYPE_.get(values.dtype.num, DataType.CDF_NONE)
 
 
 def _strict_kwargs(arg_names):

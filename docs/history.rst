@@ -5,6 +5,24 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
+Unreleased
+----------
+
+* Numbers given a text type (``CDF_CHAR``, ``CDF_UCHAR``) are refused: their raw bytes were
+  written as characters, ``[1, 2]`` as two 8-character strings of control bytes. 0.8.7
+  refused them for an existing text variable; 0.9.0 to 0.15.1 accepted them whenever the
+  shapes matched, and always with an explicit ``data_type``.
+* Empty attribute entries are refused. NASA's CDF library refuses them too, and reads a file
+  holding one as corrupted; they were stored as ``CDF_TIME_TT2000`` whatever the type asked.
+  Files that already hold one still load.
+* ``default_pad_value(CDF_EPOCH16)`` raised ``TypeError``.
+* A variable created with a ``data_type`` and no values has no record, shape ``(0,)``: its
+  shape was ``()``, and reading its values read past its empty buffer.
+* ``[np.uint64(1)]`` as an attribute entry is stored as ``CDF_INT8``, and ``["abc"]`` as the
+  string ``"abc"``: both raised errors. Several strings in one entry get a clear error.
+* Tests pin every behaviour of the Python API that mutation testing found unchecked, and the
+  coverage report includes the Python layer.
+
 0.15.1 (2026-09-28)
 -------------------
 

@@ -311,13 +311,21 @@ data_t to_attr_data_entry(const py::buffer& input, CDF_Types data_type)
 
 data_t to_attr_data_entry(const string_or_buffer_t& value, CDF_Types data_type)
 {
-    return visit(
+    auto entry = visit(
         value,
         [data_type](const py::buffer& buffer) { return to_attr_data_entry(buffer, data_type); },
         [](const std::vector<tt2000_t>& values) { return time_to_data_t<tt2000_t>(values); },
         [](const std::vector<epoch>& values) { return time_to_data_t<epoch>(values); },
         [](const std::vector<epoch16>& values) { return time_to_data_t<epoch16>(values); },
         [data_type](const std::string& values) { return to_attr_data_entry(values, data_type); });
+    // NASA's CDF library refuses empty entries (BAD_NUM_ELEMS) and reads a file holding one as
+    // corrupted. Empty text entries are left as they were.
+    if (std::size(entry) == 0 and entry.type() != CDF_Types::CDF_CHAR
+        and entry.type() != CDF_Types::CDF_UCHAR)
+        throw std::invalid_argument { "An attribute entry needs at least one value: NASA's CDF "
+                                      "library refuses empty ones, and can't read files holding "
+                                      "them" };
+    return entry;
 }
 
 Attribute::attr_data_t to_attr_data_entries(
