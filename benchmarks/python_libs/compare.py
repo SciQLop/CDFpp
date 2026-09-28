@@ -40,12 +40,14 @@ GZIP_LEVEL = 6  # pycdfpp's level; the two others are set to it
 
 
 def _pycdfpp_write(path, variables):
-    """Times are written from datetime64: pycdfpp takes no raw TT2000 integers."""
+    """Times are written from datetime64: pycdfpp takes no raw TT2000 integers. They are
+    converted, so only the other values can be borrowed (copy=False), like spacepy does."""
     cdf = pycdfpp.CDF()
     for var in variables:
         cdf.add_variable(var.name, values=var.datetime64 if var.is_time else var.values,
                          compression=pycdfpp.CompressionType.gzip_compression if var.compressed
-                         else pycdfpp.CompressionType.no_compression)
+                         else pycdfpp.CompressionType.no_compression,
+                         copy=var.is_time)
     pycdfpp.save(cdf, path)
 
 

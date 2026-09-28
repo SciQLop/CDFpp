@@ -4,7 +4,7 @@
     "cores": 16,
     "python": "3.13.15",
     "versions": {
-      "pycdfpp": "0.14.0",
+      "pycdfpp": "0.15.0",
       "spacepy": "0.7.0",
       "NASA CDF (in spacepy)": "3.9.0",
       "cdflib": "1.3.14",
@@ -16,62 +16,62 @@
       "task": "Open a file, list variables, read all attributes",
       "data": "MMS FPI electron distribution, 178 MB",
       "seconds": {
-        "pycdfpp": 0.0006759919924661517,
-        "spacepy.pycdf": 0.2640369039727375,
-        "cdflib": 0.010050356038846076
+        "pycdfpp": 0.0006476310081779957,
+        "spacepy.pycdf": 0.2635471950052306,
+        "cdflib": 0.009893165086396039
       }
     },
     {
       "task": "Read B and its time axis as datetime64",
       "data": "MMS FGM survey, 1.2 M points, gzip, TT2000",
       "seconds": {
-        "pycdfpp": 0.008726743049919605,
-        "spacepy.pycdf": 3.8273721920559183,
-        "cdflib": 0.3075797479832545
+        "pycdfpp": 0.007819017977453768,
+        "spacepy.pycdf": 3.772824743995443,
+        "cdflib": 0.3055443250341341
       }
     },
     {
       "task": "Read B and its time axis as datetime64",
       "data": "Wind MFI, 0.9 M points, CDF_EPOCH",
       "seconds": {
-        "pycdfpp": 0.004018791019916534,
-        "spacepy.pycdf": 0.04039856907911599,
-        "cdflib": 13.335785220959224
+        "pycdfpp": 0.0035848040133714676,
+        "spacepy.pycdf": 0.04016931797377765,
+        "cdflib": 13.329968341975473
       }
     },
     {
       "task": "Read every variable of a file",
       "data": "MMS FPI electron distribution, 178 MB, gzip",
       "seconds": {
-        "pycdfpp": 0.11071948299650103,
-        "spacepy.pycdf": 0.9581571569433436,
-        "cdflib": 0.6272342689335346
+        "pycdfpp": 0.11033123498782516,
+        "spacepy.pycdf": 0.9597758450545371,
+        "cdflib": 0.6199334760894999
       }
     },
     {
       "task": "Read every variable of a folder",
       "data": "23 CDAWeb files, 11 missions, 528 MB",
       "seconds": {
-        "pycdfpp": 0.39206376101356,
-        "spacepy.pycdf": 2.361681788926944,
-        "cdflib": 2.863002968020737
+        "pycdfpp": 0.3906007739715278,
+        "spacepy.pycdf": 2.3747540829936042,
+        "cdflib": 2.814009275054559
       }
     },
     {
       "task": "Same folder, 8 threads",
       "data": "23 CDAWeb files, 11 missions, 528 MB",
       "seconds": {
-        "pycdfpp": 0.16639974992722273,
-        "cdflib": 2.455193009926006
+        "pycdfpp": 0.16050621797330678,
+        "cdflib": 2.4090513279661536
       }
     },
     {
       "task": "Write B and its time axis, gzip",
       "data": "MMS FGM survey, 1.2 M points, 29 MB",
       "seconds": {
-        "pycdfpp": 0.04941001697443426,
-        "spacepy.pycdf": 0.4614350590854883,
-        "cdflib": 0.17287680297158659
+        "pycdfpp": 0.04598863096907735,
+        "spacepy.pycdf": 0.45819330494850874,
+        "cdflib": 0.17244100908283144
       },
       "bytes": {
         "pycdfpp": 26077200,
@@ -83,9 +83,9 @@
       "task": "Write B and its time axis, uncompressed",
       "data": "MMS FGM survey, 1.2 M points, 29 MB",
       "seconds": {
-        "pycdfpp": 0.01537020003888756,
-        "spacepy.pycdf": 0.012512440094724298,
-        "cdflib": 0.016986537957563996
+        "pycdfpp": 0.014078237931244075,
+        "spacepy.pycdf": 0.012297446955926716,
+        "cdflib": 0.01744623703416437
       },
       "bytes": {
         "pycdfpp": 28592316,
@@ -97,9 +97,9 @@
       "task": "Write a particle distribution file, gzip",
       "data": "MMS FPI electron distribution, 210 MB",
       "seconds": {
-        "pycdfpp": 0.35731409094296396,
-        "spacepy.pycdf": 3.8958845450542867,
-        "cdflib": 1.8879297650419176
+        "pycdfpp": 0.27502139599528164,
+        "spacepy.pycdf": 3.9256160070654005,
+        "cdflib": 1.8732974960003048
       },
       "bytes": {
         "pycdfpp": 196164862,

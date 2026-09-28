@@ -11,9 +11,9 @@ The short answer
 ================
 
 ``pycdfpp`` is faster on every task we measured but one. When you read whole files of
-compressed data, it is 5.7× to 15× faster. When you open a file, or convert time
-variables, it is 10× to about 3300× faster. Writing compressed files is 3.5× to 11×
-faster. Writing without compression, ``spacepy`` is 20% faster.
+compressed data, it is 5.6× to 15× faster. When you open a file, or convert time
+variables, it is 11× to about 3700× faster. Writing compressed files is 3.7× to 14×
+faster. Writing without compression, ``spacepy`` is 13% faster.
 
 Results
 =======
@@ -29,55 +29,55 @@ Results
      - cdflib
    * - Open a file, list variables, read all attributes
      - MMS FPI electron distribution, 178 MB
-     - **0.7 ms**
-     - 264 ms (391×)
-     - 10.1 ms (15×)
+     - **0.6 ms**
+     - 264 ms (407×)
+     - 9.9 ms (15×)
    * - Read B and its time axis as ``datetime64``
      - MMS FGM survey, 1.2 M points, gzip, TT2000
-     - **8.7 ms**
-     - 3.83 s (439×)
-     - 308 ms (35×)
+     - **7.8 ms**
+     - 3.77 s (483×)
+     - 306 ms (39×)
    * - Read B and its time axis as ``datetime64``
      - Wind MFI, 0.9 M points, CDF_EPOCH
-     - **4.0 ms**
-     - 40.4 ms (10×)
-     - 13.3 s (3318×)
+     - **3.6 ms**
+     - 40.2 ms (11×)
+     - 13.3 s (3718×)
    * - Read every variable of a file
      - MMS FPI electron distribution, 178 MB, gzip
-     - **111 ms**
-     - 958 ms (8.7×)
-     - 627 ms (5.7×)
+     - **110 ms**
+     - 960 ms (8.7×)
+     - 620 ms (5.6×)
    * - Read every variable of a folder
      - 23 CDAWeb files, 11 missions, 528 MB
-     - **392 ms**
-     - 2.36 s (6.0×)
-     - 2.86 s (7.3×)
+     - **391 ms**
+     - 2.37 s (6.1×)
+     - 2.81 s (7.2×)
    * - Same folder, 8 threads
      - 23 CDAWeb files, 11 missions, 528 MB
-     - **166 ms**
+     - **161 ms**
      - not thread-safe
-     - 2.46 s (15×)
+     - 2.41 s (15×)
    * - Write B and its time axis, gzip
      - MMS FGM survey, 1.2 M points, 29 MB
-     - **49.4 ms**
-     - 461 ms (9.3×)
-     - 173 ms (3.5×)
+     - **46.0 ms**
+     - 458 ms (10×)
+     - 172 ms (3.7×)
    * - Write B and its time axis, uncompressed
      - MMS FGM survey, 1.2 M points, 29 MB
-     - 15.4 ms
-     - **12.5 ms (0.8×)**
-     - 17.0 ms (1.1×)
+     - 14.1 ms
+     - **12.3 ms (0.9×)**
+     - 17.4 ms (1.2×)
    * - Write a particle distribution file, gzip
      - MMS FPI electron distribution, 210 MB
-     - **357 ms**
-     - 3.90 s (11×)
-     - 1.89 s (5.3×)
+     - **275 ms**
+     - 3.93 s (14×)
+     - 1.87 s (6.8×)
 
 (N×) means N times longer than ``pycdfpp``. Each time is the median of 5 runs, after
 one warm-up run, so the files are in the page cache.
 
 Measured on an AMD Ryzen 7 5800X (8 cores, AVX2, no AVX-512), Linux, Python 3.13, with the packages
-from PyPI, except pycdfpp 0.15.0, built from source: spacepy 0.7.0 (which bundles NASA's CDF library 3.9.0),
+from PyPI: pycdfpp 0.15.0, spacepy 0.7.0 (which bundles NASA's CDF library 3.9.0),
 cdflib 1.3.14 and numpy 2.5.3.
 
 How it was measured
@@ -104,7 +104,8 @@ way to get ``datetime64``:
   ``cdflib.cdfepoch.to_datetime(...)``.
 
 Writing, each library writes the same variables, with gzip level 6 when compressed:
-``pycdfpp.save`` of a ``CDF`` built with ``add_variable``; ``spacepy``'s ``cdf.new`` and
+``pycdfpp.save`` of a ``CDF`` built with ``add_variable``, borrowing the data arrays
+with ``copy=False``; ``spacepy``'s ``cdf.new`` and
 ``raw_var`` with TT2000 integers; ``cdflib``'s ``CDFWriter``. Every written file is read
 back and checked.
 
@@ -166,14 +167,14 @@ distribution variable has 640 of them. Two things make ``pycdfpp`` faster there:
    for each of them.
 
 Decompressing takes most of the time for big compressed files, so these rows gain the
-most from it: 5.7× to 8.7× here, up to 15× with threads.
+most from it: 5.6× to 8.7× here, up to 15× with threads.
 
 Using threads
 -------------
 
 1. ``pycdfpp`` releases Python's GIL while it reads and decompresses. So several
    threads really run at the same time.
-2. With 8 threads, the folder loads in 0.17 s instead of 0.39 s. The biggest file alone
+2. With 8 threads, the folder loads in 0.16 s instead of 0.39 s. The biggest file alone
    takes 0.11 s, even with its own blocks decompressed in parallel.
 3. ``cdflib`` runs mostly Python code, which holds the GIL. Threads barely help it.
 4. NASA's library keeps global state, so ``spacepy`` can't be used from several threads.
@@ -187,10 +188,10 @@ Writing
    cores, with libdeflate.
 2. NASA's library, used by ``spacepy``, and ``cdflib`` both compress with zlib, on one
    thread.
-3. Without compression, writing is mostly copying memory to the file. ``pycdfpp`` first
-   copies the array into the variable; ``spacepy`` writes straight from the array. That
-   copy is why ``spacepy`` is 20% faster there. Pass ``copy=False`` to ``add_variable``
-   to skip it: see :doc:`writing`.
+3. Without compression, writing is mostly copying memory to the file. With
+   ``copy=False`` (see :doc:`writing`), ``pycdfpp`` writes straight from the arrays, like
+   ``spacepy``. The rest of the gap is the time axis: ``pycdfpp`` converts it from
+   ``datetime64``, which takes 1.3 ms here, while ``spacepy`` is given TT2000 integers.
 
 Scaling
 =======
@@ -209,22 +210,22 @@ Reading the 23-file folder with a thread pool (``spacepy`` can't use threads):
      - pycdfpp
      - cdflib
    * - 1
-     - 0.36 s
-     - 2.78 s
+     - 0.35 s
+     - 2.79 s
    * - 2
-     - 0.22 s (1.6×)
+     - 0.21 s (1.6×)
      - 2.31 s (1.2×)
    * - 4
      - 0.16 s (2.2×)
-     - 2.26 s (1.2×)
+     - 2.27 s (1.2×)
    * - 8
-     - 0.16 s (2.2×)
-     - 2.44 s (1.1×)
+     - 0.16 s (2.3×)
+     - 2.53 s (1.1×)
    * - 16
      - 0.16 s (2.2×)
-     - 2.52 s (1.1×)
+     - 2.47 s (1.1×)
 
-(N×) is the speed-up over one thread. ``pycdfpp`` stops at about 2.2× because one file
+(N×) is the speed-up over one thread. ``pycdfpp`` stops at about 2.3× because one file
 of the folder takes 0.11 s on its own.
 
 Writing and reading one ``float32`` variable of 3 components, gzip compressed, in MB/s
@@ -241,33 +242,33 @@ of values (higher is better). Every library reads the file written by NASA's lib
      - spacepy
      - cdflib
    * - 1 MB
-     - 105
-     - 42
-     - 113
-     - 515
-     - 283
-     - 461
+     - 111
+     - 41
+     - 112
+     - 498
+     - 277
+     - 453
    * - 10 MB
-     - 533
+     - 606
      - 42
      - 113
-     - 3754
-     - 279
-     - 452
+     - 4085
+     - 273
+     - 438
    * - 100 MB
-     - 629
-     - 43
-     - 105
-     - 3502
-     - 272
-     - 328
+     - 697
+     - 42
+     - 104
+     - 3450
+     - 270
+     - 317
    * - 1000 MB
-     - 677
-     - 43
-     - 106
-     - 3776
-     - 276
-     - 329
+     - 712
+     - 42
+     - 103
+     - 3550
+     - 264
+     - 326
 
 1. At 1 MB, a variable is too small to be worth several threads, so ``pycdfpp``
    compresses and decompresses on one thread, like the others.
