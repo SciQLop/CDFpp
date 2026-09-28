@@ -122,9 +122,9 @@ inline void check_attribute_scopes(const CDF& cdf_file)
     std::unordered_set<std::string_view> global_names;
     for (const auto& [name, _] : cdf_file.attributes)
         global_names.insert(name);
-    for (const auto& [_, variable] : cdf_file.variables)
-        for (const auto& [name, _] : variable.attributes)
-            if (global_names.count(name) != 0)
+    for (const auto& item : cdf_file.variables)
+        for (const auto& [name, _] : item.second.attributes)
+            if (global_names.contains(name))
                 throw std::invalid_argument { "'" + name
                     + "' is both a global and a variable attribute: a CDF attribute name has one "
                       "scope, and NASA's library can't read the variable one" };

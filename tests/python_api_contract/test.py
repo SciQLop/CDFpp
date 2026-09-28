@@ -142,8 +142,9 @@ class ListsOfIntegers(unittest.TestCase):
         for values in (np.array([1, 2], dtype=np.int64), np.array([65, 66], dtype=np.uint8), np.array([1.5])):
             for data_type in (D.CDF_CHAR, D.CDF_UCHAR):
                 with self.subTest(dtype=values.dtype, data_type=data_type):
+                    cdf = pycdfpp.CDF()
                     with self.assertRaisesRegex(ValueError, "strings"):
-                        pycdfpp.CDF().add_variable("v", values, data_type=data_type)
+                        cdf.add_variable("v", values, data_type=data_type)
         cdf = pycdfpp.CDF()
         cdf.add_variable("s", ["ab", "cd"], data_type=D.CDF_CHAR)
         with warnings.catch_warnings():
@@ -159,8 +160,9 @@ class ListsOfIntegers(unittest.TestCase):
         for values, data_type in ((np.array([1, 2], dtype=np.int64), D.CDF_TIME_TT2000),
                                   (np.array([1.5, 2.5]), D.CDF_EPOCH)):
             with self.subTest(dtype=values.dtype, data_type=data_type):
+                cdf = pycdfpp.CDF()
                 with self.assertRaises(ValueError):
-                    pycdfpp.CDF().add_variable("v", values, data_type=data_type)
+                    cdf.add_variable("v", values, data_type=data_type)
 
 
 class StringEntries(unittest.TestCase):
@@ -171,8 +173,9 @@ class StringEntries(unittest.TestCase):
         self.assertEqual(reloaded(cdf)["v"].attributes["x"].value, "abc")
 
     def test_several_strings_in_one_entry_are_refused(self):
+        var = pycdfpp.CDF().add_variable("v", np.zeros(2))
         with self.assertRaisesRegex(ValueError, "one string"):
-            pycdfpp.CDF().add_variable("v", np.zeros(2)).add_attribute("x", ["a", "b"])
+            var.add_attribute("x", ["a", "b"])
 
     def test_string_types(self):
         self.assertEqual(entry_type("text"), D.CDF_CHAR)
@@ -211,8 +214,9 @@ class Variables(unittest.TestCase):
                 typed.set_values(np.array([3], dtype=np.int32), data_type=D.CDF_NONE)
 
     def test_borrowing_needs_an_array(self):
+        cdf = pycdfpp.CDF()
         with self.assertRaisesRegex(ValueError, "numpy array"):
-            pycdfpp.CDF().add_variable("v", [1.5, 2.5], copy=False)
+            cdf.add_variable("v", [1.5, 2.5], copy=False)
 
     def test_non_record_varying_values_are_one_record(self):
         for values, shape in ((np.array([5.0]), (1,)), (np.array([5.0, 6.0]), (1, 2)), (np.array(5.0), (1,)),
@@ -257,8 +261,10 @@ class Attributes(unittest.TestCase):
         self.assertEqual(attribute.type(0), D.CDF_TIME_TT2000)
         self.assertEqual(pycdfpp.to_datetime64(attribute[0]).tolist(),
                          np.array(["2020-01-01", "2020-01-02"], dtype="datetime64[ns]").tolist())
+        two_dimensional = [[[datetime(2020, 1, 1)], [datetime(2020, 1, 2)]]]
+        target = pycdfpp.CDF()
         with self.assertRaisesRegex(ValueError, "1-D"):
-            pycdfpp.CDF().add_attribute("t", [[[datetime(2020, 1, 1)], [datetime(2020, 1, 2)]]])
+            target.add_attribute("t", two_dimensional)
 
     def test_values_are_copied_from_views(self):
         base = np.arange(6.0)
@@ -368,8 +374,9 @@ class Filter(unittest.TestCase):
         self.assertEqual(sorted(pycdfpp.filter_cdf(self.cdf()).keys()), ["B_GSE", "B_GSM", "Epoch"])
 
     def test_unsupported_criterion(self):
+        cdf = self.cdf()
         with self.assertRaisesRegex(TypeError, "criterion"):
-            pycdfpp.filter_cdf(self.cdf(), variables=42)
+            pycdfpp.filter_cdf(cdf, variables=42)
 
 
 class Saving(unittest.TestCase):
