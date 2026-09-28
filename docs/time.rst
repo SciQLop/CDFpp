@@ -91,6 +91,25 @@ conversion functions accept them:
     print(t0)                              # 2020-01-01T00:00:00.000000000
     pycdfpp.to_datetime64(t0)              # array('2020-01-01T00:00:00.000000000', dtype='datetime64[ns]')
 
+Raw values
+----------
+
+``.values`` of a time variable is the raw CDF time, as a numpy structured array with one
+field per part: ``nseconds`` for ``CDF_TIME_TT2000``, ``mseconds`` for ``CDF_EPOCH``,
+``seconds`` and ``picoseconds`` for ``CDF_EPOCH16``:
+
+.. code-block:: python
+
+    raw = cdf["Epoch"].values
+    raw.dtype.names        # ('mseconds',): this file uses CDF_EPOCH
+    raw["mseconds"][:2]    # milliseconds since year 0
+
+.. note::
+
+   Up to 0.8.7 the field was named ``value``, for TT2000 and CDF_EPOCH. Code that reads
+   ``values['value']`` needs ``values['nseconds']`` or ``values['mseconds']`` since 0.9.0.
+   :func:`pycdfpp.to_datetime64` gives the same result in every version.
+
 From Python to CDF time
 =======================
 

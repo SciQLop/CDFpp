@@ -272,6 +272,36 @@ class PycdfVariableSetValuesForce(unittest.TestCase):
             cdf["data"].set_values(np.ones((2, 5), dtype=np.float64))
 
 
+class PycdfFillMasterFromVariable(unittest.TestCase):
+    """An empty variable of a master CDF is filled from another file's variable, as from an
+    array: records may be added, the shape of each record must match. Worked in 0.8.7, broke in
+    0.9.0 ("Incompatible variable shapes: destination [0], source [4269]")."""
+
+    @staticmethod
+    def master_and_source():
+        master = pycdfpp.CDF()
+        master.add_variable("B", values=np.zeros((0, 3), dtype=np.float32))
+        master.add_variable("t", values=np.zeros(0, dtype="datetime64[ns]"))
+        source = pycdfpp.CDF()
+        source.add_variable("B", values=np.ones((4269, 3), dtype=np.float32))
+        source.add_variable("t", values=np.arange(4269).astype("datetime64[s]").astype("datetime64[ns]"))
+        source.add_variable("B2", values=np.ones((4269, 2), dtype=np.float32))
+        return pycdfpp.load(bytes(pycdfpp.save(master))), source
+
+    def test_records_are_added(self):
+        master, source = self.master_and_source()
+        for name in ("B", "t"):
+            with self.subTest(variable=name):
+                master[name].set_values(source[name])
+                self.assertEqual(master[name].shape, source[name].shape)
+                self.assertEqual(master[name], source[name])
+
+    def test_record_shape_must_match(self):
+        master, source = self.master_and_source()
+        with self.assertRaises(ValueError):
+            master["B"].set_values(source["B2"])
+
+
 class PycdfFilterCDF(unittest.TestCase):
 
     def setUp(self):

@@ -32,6 +32,10 @@ Unreleased
   an exception instead of ending the Python process.
 * Loading from a buffer that isn't contiguous raises instead of reading the wrong bytes.
 * A 0-d array given as variable values says what is wrong: the error was empty.
+* Filling an empty variable, like those of a master CDF, from another file's variable works
+  again: ``set_values(other["Epoch"])`` failed since 0.9.0 with "Incompatible variable
+  shapes: destination [0], source [4269]". Records may be added; the shape of each record
+  must still match.
 * Numpy strings, like the values of a ``CDF_CHAR`` variable, are accepted as attribute
   entries again: ``np.bytes_`` gave "Unsupported CDF type CDF_CHAR for buffer attribute"
   since 0.13.0. ``np.str_`` and one-element string arrays work too; they never did.
@@ -168,6 +172,9 @@ Unreleased
 ------------------
 
 * SIMD-optimized time conversions (AVX512/AVX2/SSE2 runtime dispatch for CDF_EPOCH, EPOCH16, TT2000)
+* **Breaking**, not announced at the time: the raw values of time variables name their field
+  after its unit. ``values['value']`` became ``values['nseconds']`` for TT2000 and
+  ``values['mseconds']`` for CDF_EPOCH. :func:`pycdfpp.to_datetime64` is unchanged.
 * Improved Python exception messages with actionable context
 * Reject unexpected keyword arguments in Python API functions
 * Reject Variables and Attributes with empty names

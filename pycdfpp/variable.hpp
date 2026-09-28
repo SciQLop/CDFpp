@@ -759,7 +759,7 @@ void def_variable_wrapper(T& mod)
                         throw std::invalid_argument { fmt::format(
                             "Incompatible record variance: destination is_nrv={}, source is_nrv={}",
                             var.is_nrv(), source.is_nrv()) };
-                    if (var.shape() != source.shape())
+                    if (not _details::are_compatible_shapes(var, source.shape()))
                         throw std::invalid_argument { fmt::format(
                             "Incompatible variable shapes: destination [{}], source [{}]",
                             fmt::join(var.shape(), ", "), fmt::join(source.shape(), ", ")) };
