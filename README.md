@@ -314,7 +314,7 @@ Why is pycdfpp faster?
 - **Time conversion** runs in C++ with SIMD, straight to `datetime64[ns]`. For TT2000, spacepy creates one Python `datetime` per value. cdflib converts CDF_EPOCH in a Python loop.
 - **Gzip** blocks are decompressed on all cores at once (an MMS FPI distribution variable has 640 of them), with [libdeflate](https://github.com/ebiggers/libdeflate), itself 1.5–1.7× faster than zlib on these files. Big buffers use 2 MB huge pages.
 - **Threads** work: pycdfpp releases the GIL while reading and decompressing. cdflib is mostly Python, so it holds the GIL. NASA's library keeps global state.
-- **Writing** compresses 256 KB blocks on all cores, with libdeflate. The other two compress with zlib, on one thread. Without compression there is little to gain: pycdfpp copies the array into the variable first, spacepy writes straight from it.
+- **Writing** compresses 256 KB blocks on all cores, with libdeflate. The other two compress with zlib, on one thread. Without compression there is little to gain: pycdfpp copies the array into the variable first, spacepy writes straight from it. Pass `copy=False` to `add_variable` to skip that copy.
 
 Reading scales to about 2× with threads, and to 3.5 GB/s on big files; writing reaches 680 MB/s with gzip, where spacepy stays at 43 MB/s. See the [scaling results](https://pycdfpp.readthedocs.io/en/latest/performance.html#scaling).
 
