@@ -375,18 +375,19 @@ class Filter(unittest.TestCase):
 class Saving(unittest.TestCase):
 
     def test_experimental_codecs_warn_the_caller(self):
-        codec = pycdfpp.CompressionType.zstd_compression
+        compiled_in = [getattr(pycdfpp.CompressionType, name) for name in ("zstd_compression", "blosc2_compression")
+                       if hasattr(pycdfpp.CompressionType, name)]
+        if not compiled_in:
+            self.skipTest("no experimental codec compiled in")
+        codec = compiled_in[0]
         cdf = pycdfpp.CDF()
-        try:
-            cdf.add_variable("v", np.zeros(4), compression=codec)
-        except Exception:
-            self.skipTest("zstd not compiled in")
+        cdf.add_variable("v", np.zeros(4), compression=codec)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             pycdfpp.save(cdf)
         experimental = [w for w in caught if issubclass(w.category, pycdfpp.ExperimentalCompressionWarning)]
         self.assertEqual(len(experimental), 1)
-        self.assertIn("zstd_compression", str(experimental[0].message))
+        self.assertIn(str(codec).split(".")[-1], str(experimental[0].message))
         self.assertEqual(experimental[0].filename, __file__)
 
     def test_standard_codecs_dont_warn(self):
