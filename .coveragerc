@@ -1,0 +1,11 @@
+# Python coverage of the pycdfpp package, collected in every process the test suite starts
+# (COVERAGE_PROCESS_START + a .pth calling coverage.process_startup(), see the coverage CI job).
+[run]
+parallel = true
+source = pycdfpp
+omit = */_pycdfpp*
+
+[paths]
+source =
+    pycdfpp/
+    */build/pycdfpp/

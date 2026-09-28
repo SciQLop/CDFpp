@@ -22,3 +22,6 @@ dist/*
 
 # CI-cached copy of tests/full_corpus's remote fixtures (see test.py)
 tests/full_corpus/.cache/
+.coverage
+.coverage.*
+python-coverage.xml

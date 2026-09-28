@@ -30,7 +30,13 @@ jobs:
         with:
           python-version: '3.13'
       - name: Install Python dependencies
-        run: python3.13 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests cyclopts rich
+        run: python3.13 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests cyclopts rich coverage
+      # Python tests run in their own processes: this .pth starts coverage in each of them
+      # when COVERAGE_PROCESS_START is set (see .coveragerc).
+      - name: Collect Python coverage in every test process
+        run: |
+          site=$(python3.13 -c "import site; print(site.getsitepackages()[0])")
+          echo "import coverage; coverage.process_startup()" > "$site/coverage_startup.pth"
       # Atomic counters: blocks are (de)compressed on several threads, and the default racy
       # updates give negative counts that make lcov fail.
       - name: Configure with meson
@@ -40,6 +46,9 @@ jobs:
       - name: Build (meson)
         run: ninja -C build
       - name: Run tests (meson)
+        env:
+          COVERAGE_PROCESS_START: ${{ github.workspace }}/.coveragerc
+          COVERAGE_FILE: ${{ github.workspace }}/.coverage
         run: ninja test -C build
       - name: Generate Coverage report
         run: |
@@ -47,11 +56,14 @@ jobs:
           lcov --remove coverage.info '/usr/*' --ignore-errors=unused --output-file coverage.info
           lcov --remove coverage.info '*/catch*' --ignore-errors=unused --output-file coverage.info
           lcov --list coverage.info
+          python3.13 -m coverage combine
+          python3.13 -m coverage xml -o python-coverage.xml
+          python3.13 -m coverage report --skip-empty
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.info
+          files: ./coverage.info,./python-coverage.xml
           flags: unittests
           name: codecov-cdfpp
           yml: ./codecov.yml
