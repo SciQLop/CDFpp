@@ -31,6 +31,10 @@
 #include <thread>
 #include <vector>
 
+#if __has_include(<sys/mman.h>)
+#include <sys/mman.h>
+#endif
+
 namespace cdf::parallel
 {
 
@@ -48,6 +52,22 @@ inline constexpr std::size_t min_bytes_worth_threads = 1 << 20;
 inline std::size_t hardware_threads()
 {
     return std::max(1U, std::thread::hardware_concurrency());
+}
+
+// Big buffers ask Linux for 2 MB huge pages (see cpp_utils' no_init_vector). When several
+// threads first write to the same fresh huge page, each makes the kernel zero one and all but
+// one are thrown away: a 100 MB read spent 900 ms of CPU zeroing. Touching every page from one
+// thread first zeroes each once, about 10 ms per 100 MB. Without huge pages this isn't needed.
+inline void fault_in(char* data, std::size_t size)
+{
+#ifdef MADV_HUGEPAGE
+    volatile char* pages = data;
+    for (std::size_t offset = 0; offset < size; offset += 4096)
+        pages[offset] = 0;
+#else
+    (void)data;
+    (void)size;
+#endif
 }
 
 // Calls fn(i) for every i in [0, count), on up to max_threads threads including the caller.
