@@ -150,7 +150,8 @@ jobs:
         run: |
           brew cleanup --prune=all && rm -rf "$(brew --cache)"
           brew update
-          brew install pyenv
+          # Homebrew exits 1 on macos-14 (a Tier 3 configuration) even when the install worked
+          brew install pyenv || brew list pyenv > /dev/null
           pyenv install ${{ matrix.python-version }}
       - uses: actions/download-artifact@v8
         with:
