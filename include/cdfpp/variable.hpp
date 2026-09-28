@@ -237,7 +237,7 @@ struct Variable
         check_shape();
     }
 
-    [[nodiscard]] std::size_t bytes() const noexcept
+    [[nodiscard]] std::size_t bytes() const
     {
         if (std::size(p_shape))
             return flat_size(p_shape) * cdf_type_size(this->type());
@@ -254,7 +254,7 @@ struct Variable
         }
         return _data().bytes_ptr();
     }
-    [[nodiscard]] char* bytes_ptr() noexcept { return _data().bytes_ptr(); }
+    [[nodiscard]] char* bytes_ptr() { return _data().bytes_ptr(); }
 
     [[nodiscard]] CDF_Types type() const
     {

@@ -91,8 +91,8 @@ void def_cdf_wrapper(T& mod)
             "__deepcopy__", [](const CDF& cdf, const py::dict&) -> CDF { return CDF(cdf); },
             py::call_guard<py::gil_scoped_release>(),
             py::return_value_policy::move)
-        .def_readonly("attributes", &CDF::attributes, py::return_value_policy::reference,
-            py::keep_alive<0, 1>())
+        .def_readonly(
+            "attributes", &CDF::attributes, py::return_value_policy::reference_internal)
         .def_property_readonly("majority", [](const CDF& cdf) { return cdf.majority; })
         .def_property_readonly(
             "distribution_version", [](const CDF& cdf) { return cdf.distribution_version; })
@@ -265,11 +265,12 @@ void def_cdf_loading_functions(T& mod)
         [](py::buffer& buffer, bool iso_8859_1_to_utf8)
         {
             py::buffer_info info(buffer.request());
-            if (info.ndim != 1)
-                throw std::runtime_error(
-                    fmt::format("lazy_load requires a 1-D buffer, got ndim={}", info.ndim));
+            if (info.ndim != 1 or info.strides[0] != info.itemsize)
+                throw std::invalid_argument(fmt::format(
+                    "Loading from memory needs contiguous 1-D bytes, got ndim={}", info.ndim));
             py::gil_scoped_release release;
-            return io::load(static_cast<char*>(info.ptr), info.shape[0], iso_8859_1_to_utf8, true);
+            return io::load(static_cast<char*>(info.ptr),
+                static_cast<std::size_t>(info.size * info.itemsize), iso_8859_1_to_utf8, true);
         },
         py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false, py::return_value_policy::move,
         py::keep_alive<0, 1>());

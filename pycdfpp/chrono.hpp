@@ -514,8 +514,9 @@ template <cdf_time_t time_t>
 }
 
 template <typename time_t>
-[[nodiscard]] inline bool to_cdf_time_t(const py::array& input, time_t* const output)
+[[nodiscard]] inline bool to_cdf_time_t(const py::array& values, time_t* const output)
 {
+    const auto input = _details::c_contiguous(values);
     const static auto tt2000_dtype = py::dtype::of<tt2000_t>();
     const static auto epoch_dtype = py::dtype::of<epoch>();
     const static auto epoch16_dtype = py::dtype::of<epoch16>();

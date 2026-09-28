@@ -360,10 +360,18 @@ template <py_list_or_py_tuple T>
 }
 
 
-// The conversions below read buffers as flat C-ordered memory. Contiguous inputs are passed
-// through untouched; strided ones (slices, transposes) are copied once.
+// The conversions below read buffers as flat C-ordered memory, in native byte order. Such
+// inputs are passed through untouched; strided (slices, transposes) or byte-swapped ones are
+// copied once. numpy writes native byte order as '=', so '<' or '>' means swapped.
 [[nodiscard]] inline py::array c_contiguous(const py::array& input)
 {
+    if (const auto order = input.dtype().byteorder(); order == '<' or order == '>')
+    {
+        using namespace pybind11::literals;
+        return input.attr("astype")(input.dtype().attr("newbyteorder")("="), "order"_a = "C");
+    }
+    if (input.flags() & py::array::c_style)
+        return input;
     return py::array::ensure(input, py::array::c_style);
 }
 

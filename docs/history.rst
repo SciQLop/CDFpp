@@ -8,6 +8,30 @@ The full notes of each release are on
 Unreleased
 ----------
 
+* Values are stored exactly, or ``pycdfpp`` raises a ``ValueError``; several paths gave
+  different values without a word:
+
+  * Arrays that aren't C-contiguous or in native byte order (slices, transposed or
+    Fortran-ordered arrays, big-endian data) were written from their raw memory, so with
+    wrong values, for variables and for big-endian attributes.
+  * With a ``data_type``, values were reinterpreted: ``int32`` values given as
+    ``CDF_FLOAT`` were stored as their bits, ``-1`` as ``CDF_UINT1`` as 255, and attribute
+    lists were truncated (``[1.5]`` as ``CDF_INT4`` gave 1). They are now converted when no
+    value changes, and refused otherwise.
+  * ``int32`` values set on an existing ``CDF_FLOAT`` variable were stored as their bits:
+    they are refused, as other types already were.
+  * ``uint64`` values above 2^63 turned negative in ``CDF_INT8``: they are refused.
+  * ``copy=False`` borrowed arrays of another kind of the same size.
+
+* Booleans are stored as ``CDF_UINT1``; boolean arrays and attributes raised errors.
+  Lists of numpy scalars (``np.float32``, ``np.int16``, ``np.datetime64``, bytes) are
+  accepted for variables and keep their type. Tuples are accepted as attribute values.
+* ``pycdfpp.load(data).attributes[...]`` read freed memory when the loaded file wasn't kept
+  in a variable: ``KeyError`` on existing attributes, or worse.
+* Reading the values of a variable that doesn't match its shape, in a corrupt file, raises
+  an exception instead of ending the Python process.
+* Loading from a buffer that isn't contiguous raises instead of reading the wrong bytes.
+* A 0-d array given as variable values says what is wrong: the error was empty.
 * Numpy strings, like the values of a ``CDF_CHAR`` variable, are accepted as attribute
   entries again: ``np.bytes_`` gave "Unsupported CDF type CDF_CHAR for buffer attribute"
   since 0.13.0. ``np.str_`` and one-element string arrays work too; they never did.

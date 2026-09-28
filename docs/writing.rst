@@ -134,6 +134,10 @@ The type of the variable comes from the numpy dtype of ``values``:
      - ``CDF_INT1``, ``CDF_INT2``, ``CDF_INT4``, ``CDF_INT8``
    * - ``uint8``, ``uint16``, ``uint32``
      - ``CDF_UINT1``, ``CDF_UINT2``, ``CDF_UINT4``
+   * - ``uint64``
+     - ``CDF_INT8``, when every value fits; CDF has no unsigned 64-bit type
+   * - ``bool``
+     - ``CDF_UINT1``: 0 or 1; CDF has no boolean type
    * - ``datetime64``
      - ``CDF_TIME_TT2000``
    * - strings (``str`` or ``bytes``)
@@ -144,6 +148,12 @@ To get another type, pass ``data_type``:
 .. code-block:: python
 
     cdf.add_variable("Epoch_ms", values=time, data_type=DataType.CDF_EPOCH)
+
+Values are converted to that type only when none of them changes. ``int16`` values stored
+as ``CDF_INT4``, or ``float64`` values that are whole numbers stored as ``CDF_INT4``, are
+fine. ``1.5`` stored as ``CDF_INT4``, or ``-1`` as ``CDF_UINT1``, raise a ``ValueError``:
+convert them yourself with ``values.astype(...)`` if that is what you want. The same rule
+applies to attributes.
 
 .. warning::
 
@@ -276,7 +286,9 @@ Use ``set_values`` with ``force=True``:
 
 ``force=True`` also lets you change the shape or the type of the variable. Without it,
 ``pycdfpp`` warns you: replacing values without ``force`` will become an error in a
-future version.
+future version. New values also keep the variable's type: ``int32`` values for a
+``CDF_FLOAT`` variable raise a ``ValueError``, unless you pass ``data_type`` to convert
+them, or ``force=True`` to change the type.
 
 Copying from another file
 =========================

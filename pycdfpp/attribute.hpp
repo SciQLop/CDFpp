@@ -43,6 +43,7 @@ using cpp_utils::containers::no_init_vector;
 
 #include <cdfpp/cdf-repr.hpp>
 
+#include "collections.hpp"
 #include "repr.hpp"
 
 #include <fmt/core.h>
@@ -264,9 +265,13 @@ data_t to_attr_data_entry(const py::buffer& buffer)
     }
 }
 
-data_t to_attr_data_entry(const py::buffer& buffer, CDF_Types data_type)
+data_t to_attr_data_entry(const py::buffer& input, CDF_Types data_type)
 {
     using enum CDF_Types;
+    const auto array = py::array::ensure(input);
+    if (not array)
+        throw std::invalid_argument { "Attribute values must be array-like" };
+    const py::array buffer = _details::c_contiguous(array);
     switch (data_type)
     {
         case CDF_INT1:

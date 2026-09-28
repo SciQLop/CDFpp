@@ -449,6 +449,9 @@ inline void _analyze_collection_impl(
     }
     switch (arr.dtype().kind())
     {
+        case 'b':
+            // CDF has no boolean type: numpy stores booleans as one byte, 0 or 1
+            return CDF_Types::CDF_UINT1;
         case 'i':
         {
             switch (arr.dtype().itemsize())

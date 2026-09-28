@@ -107,6 +107,64 @@ _CDF_TYPES_TO_NUMPY_DTYPE_ = {
 }
 
 
+_NUMERIC_DTYPES_ = {data_type: np.dtype(dtype) for data_type, dtype in _CDF_TYPES_TO_NUMPY_DTYPE_.items()
+                    if dtype is not None and data_type not in (DataType.CDF_TIME_TT2000, DataType.CDF_EPOCH)}
+
+
+# CDF has no boolean or unsigned 64-bit type: such attribute values are stored as UINT1 and
+# INT8, when they fit (variables do the same in C++). Keyed by dtype.num, looked up on every
+# attribute entry.
+_DEFAULT_CDF_TYPE_ = {np.dtype(np.bool_).num: DataType.CDF_UINT1}
+_DEFAULT_CDF_TYPE_.update({np.dtype(t).num: DataType.CDF_INT8 for t in (np.uint64, np.ulonglong)
+                           if np.dtype(t).itemsize == 8})
+
+
+def _keeps_every_value(values: np.ndarray, converted: np.ndarray) -> bool:
+    if values.size == 0:
+        return True
+    if values.dtype.kind in "iu" and converted.dtype.kind in "iu":
+        info = np.iinfo(converted.dtype)
+        return info.min <= int(values.min()) and int(values.max()) <= info.max
+    with np.errstate(all="ignore"):
+        back = converted.astype(values.dtype)
+    return np.array_equal(back, values, equal_nan=values.dtype.kind == "f")
+
+
+def _exactly_as(values: np.ndarray, data_type) -> np.ndarray:
+    """values in the numpy type of the numeric CDF type data_type. pycdfpp copies values as raw
+    memory, so they are converted first, and only when no value changes: an int32 array given
+    as CDF_FLOAT was stored as its bits."""
+    if data_type is None:
+        return values
+    target = _NUMERIC_DTYPES_.get(data_type)
+    if target is None or values.dtype.kind not in "biuf":
+        return values
+    if values.dtype.kind == target.kind and values.dtype.itemsize == target.itemsize:
+        return values
+    with np.errstate(all="ignore"):  # NaN or infinities cast to integers: checked just below
+        converted = values.astype(target)
+    if not _keeps_every_value(values, converted):
+        raise ValueError(f"{values.dtype} values can't be stored as {data_type.name} without changing "
+                         f"some of them: convert them first (values.astype(...)) if that is intended")
+    return converted
+
+
+def _check_stored_as_is(values: np.ndarray, data_type):
+    """New values of an existing variable keep its type: converting them is asked explicitly."""
+    target = _NUMERIC_DTYPES_.get(data_type)
+    if target is None or values.dtype.kind not in "biuf":
+        return
+    if values.dtype.kind != target.kind or values.dtype.itemsize != target.itemsize:
+        raise ValueError(f"{values.dtype} values don't match the variable's {data_type.name} type: "
+                         f"pass data_type to convert them, or force=True to change the type")
+
+
+def _first_item(values):
+    while isinstance(values, (list, tuple)) and len(values):
+        values = values[0]
+    return values
+
+
 def _holds_datetime(values: list):
     if len(values):
         if type(values[0]) is list:
@@ -164,8 +222,7 @@ def _values_view_and_type(values: np.ndarray or list, data_type: DataType or Non
             if len(values) and type(values[0]) in (np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16,
                                                    np.uint32, np.uint64):
                 shrink_int = False
-            values = np.array(
-                values, dtype=_CDF_TYPES_TO_NUMPY_DTYPE_.get(data_type, None))
+            values = np.array(values)
 
         if values.dtype.num == 19:
             values = np.char.encode(values, encoding='utf-8')
@@ -179,6 +236,9 @@ def _values_view_and_type(values: np.ndarray or list, data_type: DataType or Non
                 return values, data_type or _NUMPY_TO_CDF_TYPE_[values.dtype.num]
         return _values_view_and_type(values, data_type)
     else:
+        target = _DEFAULT_CDF_TYPE_.get(values.dtype.num) if data_type is None else data_type
+        if target is not None:
+            values = _exactly_as(values, target)
         if not values.flags['C_CONTIGUOUS']:
             values = np.ascontiguousarray(values)
         elif values.base is not None:
@@ -290,9 +350,20 @@ def _patch_set_values():
         """
         if isinstance(values, Variable):
             return self._set_values(values, force=force)
+        keeps_its_type = not force and self.type != DataType.CDF_NONE
+        if data_type is not None and data_type == DataType.CDF_NONE:
+            data_type = None
+        if not isinstance(values, np.ndarray):
+            if isinstance(values, (list, tuple)) and isinstance(_first_item(values), (np.generic, bytes)):
+                values = np.array(values)
+        if isinstance(values, np.ndarray):
+            if data_type is None and keeps_its_type:
+                _check_stored_as_is(values, self.type)
+            elif copy and data_type is not None:
+                values = _exactly_as(values, data_type)
         if self.is_nrv:
             values = _as_single_record(values)
-        if self.type != DataType.CDF_NONE and not force:
+        if keeps_its_type:
             values = _add_trailing_unit_dims(values, self.shape[1:])
         if not copy:
             if not isinstance(values, np.ndarray):
@@ -408,13 +479,17 @@ def _as_attribute_entry(values):
     """A single number, datetime or CDF time value becomes a one-element entry; numpy scalars
     keep their dtype. Numpy strings, as read from CDF_CHAR variables, become string entries:
     bytes stay numpy bytes so their characters are written as they are, without decoding."""
-    if isinstance(values, np.ndarray) and values.dtype.kind in "SU":
-        values = _single_string(values)
+    if isinstance(values, np.ndarray):
+        if values.dtype.kind in "SU":
+            return _as_attribute_entry(_single_string(values))
+        return np.atleast_1d(values) if values.ndim == 0 else values
     if isinstance(values, bytes):
         return np.bytes_(values)
     if isinstance(values, str):
         return str(values)
-    if isinstance(values, (np.generic, np.ndarray)) and np.ndim(values) == 0:
+    if isinstance(values, tuple):
+        return list(values)
+    if isinstance(values, np.generic):
         return np.atleast_1d(values)
     if isinstance(values, (int, float, datetime, tt2000_t, epoch, epoch16)):
         return [values]

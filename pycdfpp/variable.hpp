@@ -52,8 +52,9 @@ using namespace cdf;
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
+#include <algorithm>
+#include <limits>
 #include <memory>
-#include <string_view>
 
 namespace docstrings
 {
@@ -311,10 +312,10 @@ borrowed_data _borrowed_data(const py::array& values)
     }
     else
     {
-        const bool stored_as_is = std::string_view { "iuf" }.find(values.dtype().kind())
-                != std::string_view::npos
-            and values.itemsize() == static_cast<ssize_t>(sizeof(from_cdf_type_t<data_type>))
-            and values.dtype().attr("isnative").cast<bool>();
+        const auto stored = py::dtype::of<from_cdf_type_t<data_type>>();
+        const auto order = values.dtype().byteorder();
+        const bool stored_as_is = values.dtype().kind() == stored.kind()
+            and values.itemsize() == stored.itemsize() and order != '<' and order != '>';
         if (not stored_as_is or not(values.flags() & py::array::c_style))
             throw std::invalid_argument { fmt::format(
                 "copy=False needs a C-contiguous, native byte order array holding {} values, got "
@@ -323,6 +324,18 @@ borrowed_data _borrowed_data(const py::array& values)
         return { _keep_alive(values), static_cast<const char*>(values.data()),
             static_cast<std::size_t>(values.nbytes()), data_type };
     }
+}
+
+// CDF has no unsigned 64-bit type: uint64 values are stored as CDF_INT8, when they fit.
+inline void _check_fits_int8(const py::array& values)
+{
+    if (values.dtype().kind() != 'u' or values.itemsize() != 8)
+        return;
+    const auto* first = static_cast<const uint64_t*>(values.data());
+    if (std::any_of(first, first + values.size(),
+            [](uint64_t v) { return v > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()); }))
+        throw std::invalid_argument { "uint64 values above 2^63 - 1 don't fit in CDF_INT8, the widest "
+                                      "CDF integer type" };
 }
 
 inline typename Variable::shape_t _shape_of(const py::array& values)
@@ -588,6 +601,10 @@ inline py::array ensure_utf8(const py::array& values)
 inline void set_values(Variable& var, const py::array& values, std::optional<CDF_Types> data_type,
     bool force = false, bool copy = true)
 {
+    if (values.ndim() == 0)
+        throw std::invalid_argument { "Variable values need at least one dimension, one row per "
+                                      "record: got a 0-d array. np.atleast_1d(values) makes it a "
+                                      "single record" };
     auto spec = analyze_collection(values);
     if (!data_type.has_value() or (*data_type == CDF_Types::CDF_NONE))
     {
@@ -620,10 +637,15 @@ inline void set_values(Variable& var, const py::array& values, std::optional<CDF
         }
     }
     if (copy)
+    {
+        const auto contiguous = _details::c_contiguous(values);
+        if (*data_type == CDF_Types::CDF_INT8)
+            _check_fits_int8(contiguous);
         var.set_data(cdf_type_dispatch(
             *data_type,
             []<CDF_Types T>(const py::array& values) { return _set_var_data_t<T>(values); },
-            values));
+            contiguous));
+    }
     else
         var.set_data(cdf_type_dispatch(*data_type,
                          []<CDF_Types T>(const py::array& values)

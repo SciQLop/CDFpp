@@ -484,3 +484,14 @@ SCENARIO("A variable saves borrowed values without owning them", "[CDF]")
         }
     }
 }
+
+SCENARIO("Values that don't match the variable's shape raise on first access", "[CDF]")
+{
+    // A corrupt file loads lazily: the size check runs on first access, which must throw
+    // rather than end the program (the Python bindings reach it through bytes_ptr()).
+    Variable variable { "v", 0,
+        lazy_data { []() { return data_t { no_init_vector<double>(7), CDF_Types::CDF_DOUBLE }; },
+            CDF_Types::CDF_DOUBLE },
+        { 3, 2 } };
+    REQUIRE_THROWS_AS(variable.bytes_ptr(), std::invalid_argument);
+}
