@@ -5,8 +5,8 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
-Unreleased
-----------
+0.15.1 (2026-09-28)
+-------------------
 
 * Values are stored exactly, or ``pycdfpp`` raises a ``ValueError``; several paths gave
   different values without a word:
