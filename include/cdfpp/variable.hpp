@@ -228,6 +228,15 @@ struct Variable
         check_shape();
     }
 
+    // Saving writes borrowed values as they are; any other access copies them first.
+    void set_data(borrowed_data&& data, shape_t&& shape)
+    {
+        p_data = std::move(data);
+        p_shape = std::move(shape);
+        p_load_guard.loaded = false;
+        check_shape();
+    }
+
     [[nodiscard]] std::size_t bytes() const noexcept
     {
         if (std::size(p_shape))
@@ -236,15 +245,21 @@ struct Variable
             return 0UL;
     }
 
-    [[nodiscard]] const char* bytes_ptr() const noexcept { return _data().bytes_ptr(); }
+    [[nodiscard]] const char* bytes_ptr() const
+    {
+        {
+            auto lock = lock_unless_loaded();
+            if (const auto* borrowed = std::get_if<borrowed_data>(&p_data))
+                return borrowed->bytes_ptr();
+        }
+        return _data().bytes_ptr();
+    }
     [[nodiscard]] char* bytes_ptr() noexcept { return _data().bytes_ptr(); }
 
     [[nodiscard]] CDF_Types type() const
     {
         auto lock = lock_unless_loaded();
-        if (std::holds_alternative<var_data_t>(p_data))
-            return std::get<var_data_t>(p_data).type();
-        return std::get<lazy_data>(p_data).type();
+        return _type();
     }
 
     [[nodiscard]] bool is_nrv() const noexcept { return p_is_nrv; }
@@ -284,7 +299,7 @@ struct Variable
         std::lock_guard lock { p_load_guard.mutex };
         if (holds_values())
         {
-            p_load_guard.loaded.store(true, std::memory_order_release);
+            p_load_guard.loaded.store(owns_values(), std::memory_order_release);
             return;
         }
         p_data = std::get<lazy_data>(p_data).load();
@@ -341,6 +356,40 @@ private:
         return not std::holds_alternative<lazy_data>(p_data);
     }
 
+    [[nodiscard]] bool owns_values() const noexcept
+    {
+        return std::holds_alternative<var_data_t>(p_data);
+    }
+
+    [[nodiscard]] CDF_Types _type() const
+    {
+        return std::visit([](const auto& data) { return data.type(); }, p_data);
+    }
+
+    [[nodiscard]] std::size_t _size() const
+    {
+        if (const auto* borrowed = std::get_if<borrowed_data>(&p_data))
+            return borrowed->size();
+        return _data().size();
+    }
+
+    // The borrowed buffer's owner is released after unlocking: releasing a Python object
+    // takes the GIL, which a thread waiting on this mutex may hold.
+    void own_values() const
+    {
+        load_values();
+        if (p_load_guard.loaded.load(std::memory_order_acquire))
+            return;
+        std::optional<borrowed_data> released;
+        std::lock_guard lock { p_load_guard.mutex };
+        if (auto* borrowed = std::get_if<borrowed_data>(&p_data))
+        {
+            released = std::move(*borrowed);
+            p_data = released->copy();
+        }
+        p_load_guard.loaded.store(true, std::memory_order_release);
+    }
+
     [[nodiscard]] std::unique_lock<std::mutex> lock_unless_loaded() const
     {
         if (p_load_guard.loaded.load(std::memory_order_acquire))
@@ -358,23 +407,22 @@ private:
 
     [[nodiscard]] var_data_t& _data()
     {
-        load_values();
+        own_values();
         return std::get<var_data_t>(p_data);
     }
 
     [[nodiscard]] const var_data_t& _data() const
     {
-        load_values();
+        own_values();
         return std::get<var_data_t>(p_data);
     }
 
     void check_shape() const
     {
 
-        if (flat_size(p_shape) != _data().size()
-            and not(is_nrv() and _data().size() == 0UL
-                and (_data().type() == CDF_Types::CDF_CHAR
-                    or _data().type() == CDF_Types::CDF_UCHAR)))
+        if (flat_size(p_shape) != _size()
+            and not(is_nrv() and _size() == 0UL
+                and (_type() == CDF_Types::CDF_CHAR or _type() == CDF_Types::CDF_UCHAR)))
             throw std::invalid_argument { exception_message(fmt::format(R"(
 Variable: given shape and data size doesn't match:
 Variable name: "{}"
@@ -382,12 +430,12 @@ Variable name: "{}"
 Data:
     size: {}
 )",
-                p_name, p_shape, flat_size(p_shape), _data().size())) };
+                p_name, p_shape, flat_size(p_shape), _size())) };
     }
 
     std::string p_name;
     std::size_t p_number;
-    mutable std::variant<lazy_data, var_data_t> p_data;
+    mutable std::variant<lazy_data, var_data_t, borrowed_data> p_data;
     shape_t p_shape;
     cdf_majority p_majority;
     bool p_is_nrv;

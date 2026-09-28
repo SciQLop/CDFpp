@@ -52,6 +52,9 @@ using namespace cdf;
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
+#include <memory>
+#include <string_view>
+
 namespace docstrings
 {
 constexpr auto _Variable = R"(
@@ -283,6 +286,50 @@ std::pair<data_t, typename Variable::shape_t> _time_to_nd_data_t(
         = _details::ranges::transform<no_init_vector<T>, typename Variable::shape_t>(values,
             [](const PyObject* obj) -> T { return to_cdf_time_t<T>(const_cast<PyObject*>(obj)); });
     return { data_t { std::move(data), data_type }, std::move(shape) };
+}
+
+// The array itself is the owner: holding a reference keeps its buffer alive.
+inline std::shared_ptr<const void> _keep_alive(const py::array& values)
+{
+    auto* array = values.inc_ref().ptr();
+    return { values.data(),
+        [array](const void*)
+        {
+            py::gil_scoped_acquire gil;
+            Py_DECREF(array);
+        } };
+}
+
+template <CDF_Types data_type>
+borrowed_data _borrowed_data(const py::array& values)
+{
+    if constexpr (is_cdf_string_type(data_type) or is_cdf_time_type(data_type))
+    {
+        throw std::invalid_argument { fmt::format(
+            "copy=False can't borrow {} values: they are converted when set",
+            cdf_type_str(data_type)) };
+    }
+    else
+    {
+        const bool stored_as_is = std::string_view { "iuf" }.find(values.dtype().kind())
+                != std::string_view::npos
+            and values.itemsize() == static_cast<ssize_t>(sizeof(from_cdf_type_t<data_type>))
+            and values.dtype().attr("isnative").cast<bool>();
+        if (not stored_as_is or not(values.flags() & py::array::c_style))
+            throw std::invalid_argument { fmt::format(
+                "copy=False needs a C-contiguous, native byte order array holding {} values, got "
+                "dtype '{}'",
+                cdf_type_str(data_type), std::string(py::str(values.dtype()))) };
+        return { _keep_alive(values), static_cast<const char*>(values.data()),
+            static_cast<std::size_t>(values.nbytes()), data_type };
+    }
+}
+
+inline typename Variable::shape_t _shape_of(const py::array& values)
+{
+    typename Variable::shape_t shape(values.ndim());
+    std::copy(values.shape(), values.shape() + values.ndim(), std::begin(shape));
+    return shape;
 }
 
 template <CDF_Types cdf_type>
@@ -538,8 +585,8 @@ inline py::array ensure_utf8(const py::array& values)
     return values;
 }
 
-inline void set_values(
-    Variable& var, const py::array& values, std::optional<CDF_Types> data_type, bool force = false)
+inline void set_values(Variable& var, const py::array& values, std::optional<CDF_Types> data_type,
+    bool force = false, bool copy = true)
 {
     auto spec = analyze_collection(values);
     if (!data_type.has_value() or (*data_type == CDF_Types::CDF_NONE))
@@ -572,9 +619,16 @@ inline void set_values(
             }
         }
     }
-    var.set_data(cdf_type_dispatch(
-        *data_type, []<CDF_Types T>(const py::array& values) { return _set_var_data_t<T>(values); },
-        values));
+    if (copy)
+        var.set_data(cdf_type_dispatch(
+            *data_type,
+            []<CDF_Types T>(const py::array& values) { return _set_var_data_t<T>(values); },
+            values));
+    else
+        var.set_data(cdf_type_dispatch(*data_type,
+                         []<CDF_Types T>(const py::array& values)
+                         { return _borrowed_data<T>(values); }, values),
+            _shape_of(values));
 }
 
 
@@ -615,7 +669,7 @@ void def_variable_wrapper(T& mod)
         .def(
             "_set_values",
             [](Variable& var, const py::array& values, std::optional<CDF_Types> data_type,
-                bool force)
+                bool force, bool copy)
             {
                 // Filling an empty variable (e.g. from a master CDF) overrides nothing.
                 if (not force and var.type() != CDF_Types::CDF_NONE and var.len() > 0)
@@ -627,10 +681,10 @@ void def_variable_wrapper(T& mod)
                 }
                 auto effective_type
                     = data_type ? data_type : (force ? std::nullopt : std::optional { var.type() });
-                set_values(var, ensure_utf8(values), effective_type, force);
+                set_values(var, ensure_utf8(values), effective_type, force, copy);
             },
             py::arg("values").noconvert(), py::arg("data_type") = std::nullopt,
-            py::arg("force") = false)
+            py::arg("force") = false, py::arg("copy") = true)
         .def(
             "_set_values",
             [](Variable& var, const py::list& values, std::optional<CDF_Types> data_type,

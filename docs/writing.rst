@@ -191,6 +191,27 @@ record:
                      is_nrv=True)
     cdf["B_labels2"].shape   # (1, 3, 2): one record of 3 labels of 2 characters
 
+Big arrays without a copy
+-------------------------
+
+A variable copies the values you give it. For big arrays, pass ``copy=False``: the variable
+borrows the array instead, and saving writes straight from it. That saves the time of the
+copy and its memory.
+
+.. code-block:: python
+
+    magnetic_field = np.random.random((1_000_000, 3))
+    cdf.add_variable("B_big", values=magnetic_field, copy=False)
+
+The variable reads the array when you save. Change the array before saving only if you
+want the change saved. Reading or changing the variable's values makes it copy them
+first; from then on it no longer depends on the array.
+
+Only numeric arrays stored as they are can be borrowed. The array must be C-contiguous,
+in native byte order, and its dtype must match the CDF type. Strings and times are
+converted when set, so they are always copied. Otherwise ``copy=False`` raises a
+``ValueError``: pass ``np.ascontiguousarray(values)``, or leave ``copy`` out.
+
 Variable attributes
 ===================
 

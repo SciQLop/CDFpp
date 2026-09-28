@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import sys
 from datetime import datetime, timedelta
 from contextlib import contextmanager
 import types
@@ -277,6 +278,95 @@ class PycdfExperimentalCodecsTest(unittest.TestCase):
     def test_saving_to_a_file_warns_too(self):
         with temporary_file(suffix=".cdf") as f, self.assertWarns(pycdfpp.ExperimentalCompressionWarning):
             self.assertTrue(pycdfpp.save(cdf_with_one_variable(EXPERIMENTAL_CODECS[0]), f.name))
+
+
+class PycdfValuesAreCopiedTest(unittest.TestCase):
+    """A variable owns its values: changing the source array afterwards doesn't change it,
+    whether the source is an array, a view or another variable's values."""
+
+    def test_views_and_variable_values_are_copied(self):
+        base = np.arange(120, dtype=np.float64).reshape(40, 3)
+        other = pycdfpp.CDF()
+        other.add_variable("x", base.copy())
+        for label, source in (("array", base.copy()), ("view", base[10:30]),
+                              ("reshaped view", base.reshape(20, 6)),
+                              ("other variable", other["x"].values)):
+            with self.subTest(source=label):
+                expected = source.copy()
+                cdf = pycdfpp.CDF()
+                cdf.add_variable("y", source)
+                source[...] = -1
+                self.assertTrue(np.array_equal(cdf["y"].values, expected))
+
+
+class PycdfZeroCopyTest(unittest.TestCase):
+    """With copy=False a variable borrows the array's memory until its values are read or
+    changed: saving writes straight from the array."""
+
+    def borrowing_cdf(self, values, compression=pycdfpp.CompressionType.no_compression):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", values, compression=compression, copy=False)
+        return cdf
+
+    def test_saved_file_holds_the_array_values(self):
+        values = np.arange(3000, dtype=np.float64).reshape(1000, 3)
+        for compression in (pycdfpp.CompressionType.no_compression,
+                            pycdfpp.CompressionType.gzip_compression):
+            with self.subTest(compression=compression):
+                saved = pycdfpp.load(pycdfpp.save(self.borrowing_cdf(values, compression)))
+                self.assertTrue(np.array_equal(saved["x"].values, values))
+
+    def test_array_is_borrowed_until_saved(self):
+        values = np.zeros((10, 2), dtype=np.int32)
+        cdf = self.borrowing_cdf(values)
+        values[3] = 7
+        saved = pycdfpp.load(pycdfpp.save(cdf))
+        self.assertEqual(saved["x"].values[3].tolist(), [7, 7])
+
+    def test_variable_keeps_the_array_alive(self):
+        cdf = self.borrowing_cdf(np.arange(100, dtype=np.uint16))
+        saved = pycdfpp.load(pycdfpp.save(cdf))
+        self.assertTrue(np.array_equal(saved["x"].values, np.arange(100, dtype=np.uint16)))
+
+    def test_array_is_released_with_the_variable(self):
+        values = np.arange(100, dtype=np.float32)
+        refs = sys.getrefcount(values)
+        cdf = self.borrowing_cdf(values)
+        self.assertGreater(sys.getrefcount(values), refs)
+        del cdf
+        self.assertEqual(sys.getrefcount(values), refs)
+
+    def test_reading_values_copies_them_and_releases_the_array(self):
+        values = np.arange(100, dtype=np.float32)
+        refs = sys.getrefcount(values)
+        cdf = self.borrowing_cdf(values)
+        cdf["x"].values[0] = 42
+        self.assertEqual(values[0], 0)
+        self.assertEqual(sys.getrefcount(values), refs)
+
+    def test_set_values_can_borrow(self):
+        values = np.zeros(5, dtype=np.float64)
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x").set_values(values, copy=False)
+        values[1] = 3
+        saved = pycdfpp.load(pycdfpp.save(cdf))
+        self.assertEqual(saved["x"].values[1], 3)
+
+    def test_borrowed_and_copied_variables_compare_equal(self):
+        values = np.arange(12, dtype=np.int64).reshape(4, 3)
+        copied = pycdfpp.CDF()
+        copied.add_variable("x", values)
+        self.assertEqual(self.borrowing_cdf(values)["x"], copied["x"])
+
+    def test_arrays_that_need_a_copy_are_rejected(self):
+        base = np.arange(40, dtype=np.float64).reshape(20, 2)
+        for label, values in (("strided view", base[:, 0]),
+                              ("byte-swapped", base.astype(">f8")),
+                              ("datetime64", np.arange(3).astype("datetime64[ns]")),
+                              ("strings", np.array(["a", "b"]))):
+            with self.subTest(values=label):
+                with self.assertRaises(ValueError):
+                    self.borrowing_cdf(values)
 
 
 class PycdfCompressedBlocksTest(unittest.TestCase):
