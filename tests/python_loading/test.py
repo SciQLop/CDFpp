@@ -232,6 +232,50 @@ class PycdfLazyLoadingTest(unittest.TestCase):
             self.assertTrue(all([d is not None for d in data]))
 
 
+RESOURCES = f'{os.path.dirname(os.path.abspath(__file__))}/../resources'
+
+
+class PycdfApiContract(unittest.TestCase):
+    """Behaviours code relies on: changing any of them must fail here, not in users' code."""
+
+    def test_raw_time_values_name_their_unit(self):
+        """0.9.0 renamed the field from 'value' without saying so, and no test noticed."""
+        cdf = pycdfpp.load(f'{RESOURCES}/time_special_values.cdf', lazy_load=False)
+        self.assertEqual(cdf["tt2000"].values.dtype, np.dtype([('nseconds', '<i8')]))
+        self.assertEqual(cdf["epoch"].values.dtype, np.dtype([('mseconds', '<f8')]))
+        self.assertEqual(cdf["epoch16"].values.dtype,
+                         np.dtype([('seconds', '<f8'), ('picoseconds', '<f8')]))
+        self.assertEqual(pycdfpp.to_tt2000(np.array(['2020-01-01'], dtype='datetime64[ns]')).dtype,
+                         cdf["tt2000"].values.dtype)
+        self.assertEqual(pycdfpp.to_epoch(np.array(['2020-01-01'], dtype='datetime64[ns]')).dtype,
+                         cdf["epoch"].values.dtype)
+        self.assertEqual(pycdfpp.to_epoch16(np.array(['2020-01-01'], dtype='datetime64[ns]')).dtype,
+                         cdf["epoch16"].values.dtype)
+
+    def test_lazy_loading_flags(self):
+        lazy = pycdfpp.load(f'{RESOURCES}/a_cdf.cdf')
+        self.assertTrue(lazy.lazy_loaded)
+        self.assertFalse(lazy["var"].values_loaded)
+        lazy["var"].values
+        self.assertTrue(lazy["var"].values_loaded)
+        self.assertFalse(lazy["epoch"].values_loaded)
+        eager = pycdfpp.load(f'{RESOURCES}/a_cdf.cdf', lazy_load=False)
+        self.assertFalse(eager.lazy_loaded)
+        self.assertTrue(all(var.values_loaded for _, var in eager.items()))
+        self.assertFalse(pycdfpp.CDF().lazy_loaded)
+
+    def test_majority(self):
+        self.assertEqual(pycdfpp.CDF().majority, pycdfpp.Majority.row)
+        column = pycdfpp.load(f'{RESOURCES}/a_col_major_cdf.cdf')
+        row = pycdfpp.load(f'{RESOURCES}/a_cdf.cdf')
+        self.assertEqual(column.majority, pycdfpp.Majority.column)
+        self.assertEqual(row.majority, pycdfpp.Majority.row)
+        self.assertEqual(column["var3d"].majority, pycdfpp.Majority.column)
+        self.assertEqual(row["var3d"].majority, pycdfpp.Majority.row)
+        # Values are always given in row-major order, whatever the file's majority
+        self.assertTrue(np.array_equal(column["var3d_counter"].values, row["var3d_counter"].values))
+
+
 class PycdfDatetimeReprTest(unittest.TestCase):
     def test_can_repr_the_exact_expected_value_no_matter_what_TZ(self):
         backup_TZ = os.environ.get("TZ", None)
