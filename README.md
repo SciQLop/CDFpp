@@ -21,7 +21,7 @@ A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nas
 - **Python bindings (`pycdfpp`)** via pybind11 — zero-copy NumPy integration, GIL-free I/O
 - **SIMD-accelerated time conversions** — AVX512/AVX2/SSE2 runtime dispatch for TT2000, EPOCH, EPOCH16
 - **Lazy loading** — variable data is read on first access, not at file open
-- **Fast** — 2.8× to several hundred times faster than spacepy and cdflib on everyday tasks ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 8 billion epochs/s (TT2000, AVX-512)
+- **Fast** — 3× to several hundred times faster than spacepy and cdflib at reading, 3× to 12× at writing compressed files ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 8 billion epochs/s (TT2000, AVX-512)
 - **Runs everywhere** — Linux, Windows, macOS (x86_64 + ARM64), and WebAssembly (Pyodide / emscripten-forge)
 - **In-browser app** — [**CDFpp Explorer**](https://sciqlop.github.io/CDFpp/) inspects, plots, and ISTP-validates CDF files entirely client-side, no install
 
@@ -296,12 +296,15 @@ Everyday tasks on real CDAWeb files, with each library used the way its document
 
 | Task | Data | pycdfpp | spacepy.pycdf | cdflib |
 |---|---|---|---|---|
-| Open a file, list variables, read all attributes | MMS FPI electron distribution, 178 MB | **0.7 ms** | 252 ms (378×) | 9.8 ms (15×) |
-| Read B and its time axis as `datetime64` | MMS FGM survey, 1.2 M points, gzip, TT2000 | **17.5 ms** | 3.73 s (214×) | 308 ms (18×) |
-| Read B and its time axis as `datetime64` | Wind MFI, 0.9 M points, CDF_EPOCH | **3.3 ms** | 40.7 ms (13×) | 13.3 s (4080×) |
-| Read every variable of a file | MMS FPI electron distribution, 178 MB, gzip | **218 ms** | 946 ms (4.3×) | 620 ms (2.8×) |
-| Read every variable of a folder | 23 CDAWeb files, 11 missions, 528 MB | **553 ms** | 2.29 s (4.1×) | 2.83 s (5.1×) |
-| Same folder, 8 threads | 23 CDAWeb files, 11 missions, 528 MB | **234 ms** | not thread-safe | 2.40 s (10×) |
+| Open a file, list variables, read all attributes | MMS FPI electron distribution, 178 MB | **0.8 ms** | 251 ms (305×) | 9.9 ms (12×) |
+| Read B and its time axis as `datetime64` | MMS FGM survey, 1.2 M points, gzip, TT2000 | **18.0 ms** | 3.77 s (210×) | 307 ms (17×) |
+| Read B and its time axis as `datetime64` | Wind MFI, 0.9 M points, CDF_EPOCH | **3.6 ms** | 41.3 ms (12×) | 13.4 s (3773×) |
+| Read every variable of a file | MMS FPI electron distribution, 178 MB, gzip | **218 ms** | 942 ms (4.3×) | 628 ms (2.9×) |
+| Read every variable of a folder | 23 CDAWeb files, 11 missions, 528 MB | **553 ms** | 2.28 s (4.1×) | 2.85 s (5.2×) |
+| Same folder, 8 threads | 23 CDAWeb files, 11 missions, 528 MB | **237 ms** | not thread-safe | 2.39 s (10×) |
+| Write B and its time axis, gzip | MMS FGM survey, 1.2 M points, 29 MB | **53.3 ms** | 454 ms (8.5×) | 171 ms (3.2×) |
+| Write B and its time axis, uncompressed | MMS FGM survey, 1.2 M points, 29 MB | 15.4 ms | **12.6 ms (0.8×)** | 17.0 ms (1.1×) |
+| Write a particle distribution file, gzip | MMS FPI electron distribution, 210 MB | **322 ms** | 3.87 s (12×) | 1.89 s (5.9×) |
 
 (N×) = N times longer than pycdfpp. Median of 5 runs, files in the page cache. AMD Ryzen 7 5800X (AVX2, no AVX-512), Python 3.13, pycdfpp 0.14.0, spacepy 0.7.0 (NASA CDF 3.9.0), cdflib 1.3.14.
 
@@ -311,6 +314,9 @@ Why is pycdfpp faster?
 - **Time conversion** runs in C++ with SIMD, straight to `datetime64[ns]`. For TT2000, spacepy creates one Python `datetime` per value. cdflib converts CDF_EPOCH in a Python loop.
 - **Gzip** blocks are decompressed on all cores at once (an MMS FPI distribution variable has 640 of them), with [libdeflate](https://github.com/ebiggers/libdeflate), itself 1.5–1.7× faster than zlib on these files.
 - **Threads** work: pycdfpp releases the GIL while reading and decompressing. cdflib is mostly Python, so it holds the GIL. NASA's library keeps global state.
+- **Writing** compresses 256 KB blocks on all cores, with libdeflate. The other two compress with zlib, on one thread. Without compression there is little to gain: pycdfpp copies the array into the variable first, spacepy writes straight from it.
+
+Reading scales to about 2× with threads, and to 1.2 GB/s on big files; writing reaches 680 MB/s with gzip, where spacepy stays at 43 MB/s. See the [scaling results](https://pycdfpp.readthedocs.io/en/latest/performance.html#scaling).
 
 Details and caveats in the [performance page](https://pycdfpp.readthedocs.io/en/latest/performance.html). Reproduce with [`benchmarks/python_libs/compare.py`](benchmarks/python_libs/compare.py).
 
