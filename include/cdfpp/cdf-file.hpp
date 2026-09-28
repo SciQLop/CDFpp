@@ -31,6 +31,8 @@
 #include "chrono/cdf-leap-seconds.h"
 #include "variable.hpp"
 
+#include <algorithm>
+#include <stdexcept>
 #include <string>
 
 template <class stream_t>
@@ -107,6 +109,23 @@ inline void add_attribute(CDF& cdf_file, const std::string& name, Attribute::att
 inline void add_variable(CDF& cdf_file, const std::string& name, Variable&& var)
 {
     cdf_file.variables.emplace(name, std::move(var));
+}
+
+// CDF gives an attribute name one scope, global or variable: NASA's library refuses a name in
+// both, and doesn't see the variable attribute in a file holding both.
+[[nodiscard]] inline bool is_variable_attribute_name(const CDF& cdf_file, const std::string& name)
+{
+    return std::any_of(std::cbegin(cdf_file.variables), std::cend(cdf_file.variables),
+        [&name](const auto& item) { return item.second.attributes.count(name) != 0; });
+}
+
+inline void check_attribute_scopes(const CDF& cdf_file)
+{
+    for (const auto& [name, _] : cdf_file.attributes)
+        if (is_variable_attribute_name(cdf_file, name))
+            throw std::invalid_argument { "'" + name
+                + "' is both a global and a variable attribute: a CDF attribute name has one "
+                  "scope, and NASA's library can't read the variable one" };
 }
 
 } // namespace cdf
