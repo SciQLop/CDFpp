@@ -216,6 +216,7 @@ void def_cdf_wrapper(T& mod)
             "_add_attribute",
             [](CDF& cdf, const Attribute& attr)
             {
+                check_global_attribute_name(cdf, attr.name);
                 if (cdf.attributes.count(attr.name) == 0)
                 {
                     cdf.attributes.emplace(attr.name, attr);

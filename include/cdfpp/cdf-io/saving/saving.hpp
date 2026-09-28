@@ -253,6 +253,7 @@ Greenbelt, Maryland 20771 USA
 
     [[nodiscard]] inline saving_context build_records(const CDF& cdf)
     {
+        check_attribute_scopes(cdf);
         saving_context svg_ctx = make_saving_context(cdf);
         create_file_attributes_records(cdf, svg_ctx);
         create_variables_records(cdf, svg_ctx);
@@ -277,7 +278,8 @@ Greenbelt, Maryland 20771 USA
 // Every value is read and every record built before the file is opened: opening truncates it,
 // and a lazily loaded CDF may still be reading its values from that very file. Writing needs
 // all values anyway, so this doesn't raise peak memory.
-// Returns false when the file can't be opened or written.
+// Returns false when the file can't be opened or written; throws std::invalid_argument, before
+// opening it, when an attribute name is both global and variable (see check_attribute_scopes).
 [[nodiscard]] inline bool save(const CDF& cdf, const std::string& path)
 {
     for (const auto& [_, variable] : cdf.variables)

@@ -5,6 +5,7 @@ passed every other test. Each test here fails if the behaviour changes."""
 import json
 import os
 import re
+import tempfile
 import unittest
 import warnings
 
@@ -303,6 +304,46 @@ class Attributes(unittest.TestCase):
             cdf.add_variable("v", None, None, False, pycdfpp.CompressionType.no_compression, None, True, 1)
         with self.assertRaisesRegex(TypeError, "unexpected keyword"):
             cdf.add_variable("v", colour="blue")
+
+
+class AttributeScopes(unittest.TestCase):
+    """CDF gives an attribute name one scope, global or variable. NASA's library refuses a name
+    in both (ATTR_EXISTS) and doesn't see the variable attribute in a file holding both."""
+
+    def test_saving_refuses_a_name_in_both_scopes(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("same", ["global"])
+        cdf.add_variable("v", np.zeros(2)).add_attribute("same", "variable")
+        with self.assertRaisesRegex(ValueError, "'same'"):
+            pycdfpp.save(cdf)
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "kept.cdf")
+            with open(path, "wb") as f:
+                f.write(b"previous content")
+            with self.assertRaisesRegex(ValueError, "'same'"):
+                pycdfpp.save(cdf, path)
+            with open(path, "rb") as f:
+                self.assertEqual(f.read(), b"previous content")
+
+    def test_a_global_attribute_cant_take_a_variable_attribute_name(self):
+        source = pycdfpp.CDF()
+        source.add_attribute("same", ["global"])
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("v", np.zeros(2)).add_attribute("same", "variable")
+        with self.assertRaisesRegex(ValueError, "'same'"):
+            cdf.add_attribute("same", ["global"])
+        with self.assertRaisesRegex(ValueError, "'same'"):
+            cdf.add_attribute(source.attributes["same"])
+        self.assertNotIn("same", cdf.attributes)
+
+    def test_distinct_names(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("g", ["global"])
+        cdf.add_variable("v", np.zeros(2)).add_attribute("x", "variable")
+        cdf.add_variable("w", np.zeros(2)).add_attribute("x", "another variable")
+        saved = reloaded(cdf)
+        self.assertEqual(saved.attributes["g"][0], "global")
+        self.assertEqual(saved["w"].attributes["x"].value, "another variable")
 
 
 class Filter(unittest.TestCase):
