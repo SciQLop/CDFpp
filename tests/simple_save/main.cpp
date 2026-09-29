@@ -73,7 +73,7 @@ struct zeros
 
 SCENARIO("Saving a cdf file", "[CDF]")
 {
-    auto cdf_path = std::tmpnam(nullptr);
+    const auto cdf_path = (std::filesystem::temp_directory_path() / "cdfpp_saving_a_cdf_file.cdf").string();
 
     {
         CDF cdf_obj;
@@ -96,6 +96,7 @@ SCENARIO("Saving a cdf file", "[CDF]")
         REQUIRE(cdf_obj->attributes.count("another global attr"));
         REQUIRE(cdf_obj->variables.count("var1"));
     }
+    std::filesystem::remove(cdf_path);
 }
 
 namespace

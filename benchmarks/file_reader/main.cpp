@@ -16,9 +16,20 @@ inline constexpr std::size_t mega(std::size_t n)
 }
 
 
+std::filesystem::path test_file_path()
+{
+    return std::filesystem::temp_directory_path() / "pycdfpp_benchmark.bin";
+}
+
+// Each benchmark rewrites the test file: the last one is removed at exit, not left in /tmp.
+struct remove_test_file_at_exit
+{
+    ~remove_test_file_at_exit() { std::filesystem::remove(test_file_path()); }
+} test_file_cleanup;
+
 auto make_test_file(std::size_t count)
 {
-    auto path = std::filesystem::temp_directory_path() / "pycdfpp_benchmark.bin";
+    auto path = test_file_path();
     if (std::filesystem::exists(path))
     {
         std::filesystem::remove(path);
