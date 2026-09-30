@@ -19,9 +19,9 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.13'
+          python-version: '3.14'
       - name: Install Python dependencies
-        run: python3.13 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests cyclopts rich
+        run: python3.14 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests cyclopts rich
       - name: Configure with meson
         run: meson setup -Db_sanitize=address,undefined -Dwith_tests=true -Dwith_experimental_zstd=true build
       - name: Build

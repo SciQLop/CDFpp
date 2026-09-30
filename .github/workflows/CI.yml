@@ -58,7 +58,6 @@ jobs:
       CIBW_ARCHS: ${{ matrix.CIBW_ARCHS }}
       CIBW_PLATFORM: ${{ matrix.CIBW_PLATFORM }}
       CIBW_ENVIRONMENT_LINUX: PATH=/usr/local/bin:/usr/lib/ccache:$PATH CCACHE_DIR=/host${{ github.workspace }}/.ccache CCACHE_CONFIGPATH=/host/home/runner/.config/ccache/ccache.conf
-      CIBW_PRERELEASE_PYTHONS: "True"
       # see https://github.com/matplotlib/matplotlib/pull/28687/files#diff-504e739c530d50b780e9a09ae8fd0c3ea8258ea7553be06afb06f03f95b1ee0aR103
       CIBW_CONFIG_SETTINGS_WINDOWS: >-
         setup-args="--vsenv"
@@ -82,8 +81,8 @@ jobs:
     needs: [build_wheels]
     strategy:
       matrix:
-        os: [macos-15-intel, windows-latest, ubuntu-latest, ubuntu-24.04-arm]
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
+        os: [macos-15-intel, macos-14, windows-latest, ubuntu-latest, ubuntu-24.04-arm]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
     runs-on: ${{ matrix.os }}
     steps:
       - name: Setup Python
@@ -136,66 +135,8 @@ jobs:
             echo "::endgroup::"
           done
 
-  test_wheels_macos_14:
-    needs: [build_wheels]
-    strategy:
-      matrix:
-        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
-    runs-on: macos-14
-    steps:
-      - name: add pyenv to path
-        run: |
-          echo "~/.pyenv/shims" >> $GITHUB_PATH
-      - name: install dependencies
-        run: |
-          brew cleanup --prune=all && rm -rf "$(brew --cache)"
-          brew update
-          # Homebrew exits 1 on macos-14 (a Tier 3 configuration) even when the install worked
-          brew install pyenv || brew list pyenv > /dev/null
-          pyenv install ${{ matrix.python-version }}
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: cibw-wheels-*
-          path: dist
-          merge-multiple: true
-      - name: install wheel
-        run: |
-          pyenv local ${{ matrix.python-version }}
-          python3 -m pip install --break-system-packages numpy pyyaml
-          python3 -m pip install --break-system-packages --no-index --find-links $GITHUB_WORKSPACE/dist pycdfpp
-      - uses: actions/checkout@v7
-      # Shared with every other job that runs tests/full_corpus (see test.py's
-      # fetch_cdf): same key everywhere so one populated cache serves them all,
-      # instead of each of this job's matrix instances re-fetching the same
-      # ~33 files from the mirror.
-      - name: Cache full_corpus fixtures
-        uses: actions/cache@v6
-        with:
-          path: tests/full_corpus/.cache
-          key: cdf-corpus-v1-${{ hashFiles('tests/full_corpus/test.py') }}
-          restore-keys: cdf-corpus-v1-
-      - name: run tests
-        run: |
-          pyenv local ${{ matrix.python-version }}
-          python3 -m pip install --break-system-packages ddt requests
-          python3 tests/full_corpus/test.py
-      # Free-threaded Python runs pycdfpp with no GIL at all: run the whole Python suite there,
-      # from tests/ so that `python -m pycdfpp...` doesn't import the source folder.
-      - name: run unit tests (free-threaded Python)
-        if: endsWith(matrix.python-version, 't')
-        shell: bash
-        working-directory: tests
-        run: |
-          python3 -m pip install --break-system-packages cyclopts rich
-          for t in python_loading python_saving python_skeletons python_variable_set_values python_chrono python_windows_crash python_structural_introspection python_debug python_cli_irsdump python_threads; do
-            echo "::group::$t"
-            python3 $t/test.py || exit 1
-            echo "::endgroup::"
-          done
-
-
   upload_pypi:
-    needs: [build_sdist, build_wheels, test_wheels, test_wheels_macos_14]
+    needs: [build_sdist, build_wheels, test_wheels]
     runs-on: ubuntu-latest
     # upload to PyPI only on github releases
     environment:
@@ -216,7 +157,7 @@ jobs:
           skip-existing: true
 
   upload_test_pypi:
-    needs: [build_sdist, build_wheels, test_wheels, test_wheels_macos_14]
+    needs: [build_sdist, build_wheels, test_wheels]
     runs-on: ubuntu-latest
     environment:
       name: pypi

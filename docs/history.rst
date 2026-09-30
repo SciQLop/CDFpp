@@ -8,6 +8,7 @@ The full notes of each release are on
 Unreleased
 ----------
 
+* Python 3.15 wheels, free-threaded ones included, are tested like the others.
 * Numbers given a text type (``CDF_CHAR``, ``CDF_UCHAR``) are refused: their raw bytes were
   written as characters, ``[1, 2]`` as two 8-character strings of control bytes. 0.8.7
   refused them for an existing text variable; 0.9.0 to 0.15.1 accepted them whenever the

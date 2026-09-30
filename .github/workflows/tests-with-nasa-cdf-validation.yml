@@ -19,9 +19,9 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: '3.13'
+          python-version: '3.14'
       - name: Install Python dependencies
-        run: python3.13 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests
+        run: python3.14 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests
 
       - name: Configure and build CDFpp (pycdfpp is built by default)
         run: |
