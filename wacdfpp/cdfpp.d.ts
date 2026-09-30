@@ -121,6 +121,8 @@ export interface CdfModule {
 
     /** Get the byte size of a CDF data type */
     type_size(type: DataType): number;
+    /** The CDFpp version this module was built from, e.g. "0.15.1" */
+    version(): string;
 
     DataType: {
         CDF_NONE: DataType;

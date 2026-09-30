@@ -29,7 +29,7 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
         install: false,
         build_by_default: true,
         extra_files: ['wasm.txt', 'wasm64.txt', 'wacdfpp.html', 'app.js', 'cdf-model.js', 'render.js',
-                      'plot-model.js', 'plot-gestures.js', 'spectrogram.js', 'plot.js', 'astralint.js',
+                      'plot-model.js', 'plot-gestures.js', 'presets.js', 'spectrogram.js', 'plot.js', 'astralint.js',
                       'wasm.js', 'cdf-diff.js', 'compare.js', 'cdf-yaml.js', 'jsdiff.js',
                       'convert.js', 'convert-model.js', 'convert-worker.js',
                       'uPlot.esm.js', 'uPlot.min.css']
@@ -41,6 +41,7 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
     fs.copyfile('render.js', 'render.js')
     fs.copyfile('plot-model.js', 'plot-model.js')
     fs.copyfile('plot-gestures.js', 'plot-gestures.js')
+    fs.copyfile('presets.js', 'presets.js')
     fs.copyfile('spectrogram.js', 'spectrogram.js')
     fs.copyfile('plot.js', 'plot.js')
     fs.copyfile('astralint.js', 'astralint.js')
@@ -94,6 +95,15 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
             args: [
                 files('../tests/wasm_convert/test.mjs'),
                 meson.current_build_dir() / wasm_name + '.js',
+            ],
+            depends: wasm_exe,
+            timeout: 120,
+        )
+        test('wasm_version', node,
+            args: [
+                files('../tests/wasm_version/test.mjs'),
+                meson.current_build_dir() / wasm_name + '.js',
+                meson.project_version(),
             ],
             depends: wasm_exe,
             timeout: 120,

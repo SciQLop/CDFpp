@@ -413,6 +413,15 @@
         .convert-table tr.best td { background: var(--accent-dim); }
         .convert-table tr.best td.codec::after { content: " · smallest"; color: var(--accent);
             font-weight: 500; font-size: 0.75rem; }
+        .version { font-family: var(--mono); font-size: 0.8rem; color: var(--text-dim); }
+        .preset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 0.75rem; margin-top: 0.75rem; }
+        .preset-card { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.75rem 0.9rem;
+            border: 1px solid var(--border); border-radius: 6px; color: inherit; text-decoration: none; }
+        .preset-card:hover { border-color: var(--accent); background: var(--accent-dim); }
+        .preset-card span { font-size: 0.85rem; color: var(--text-dim); }
+        .preset-card small { font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim);
+            overflow-wrap: anywhere; }
         .diff-note { padding: 0.75rem; color: var(--text-dim); font-family: var(--mono);
             font-size: 0.8rem; }
     </style>
@@ -422,8 +431,10 @@
     <header>
         <h1>CDFpp Explorer</h1>
         <span class="badge">WebAssembly</span>
+        <span id="cdfppVersion" class="version" title="CDFpp version"></span>
         <span class="tagline">inspect · plot · validate · compare CDF files in your browser</span>
-        <button id="modeToggle" class="header-btn" style="margin-left:auto">Compare ↔</button>
+        <button id="examplesBtn" class="header-btn" style="margin-left:auto">Examples</button>
+        <button id="modeToggle" class="header-btn">Compare ↔</button>
     </header>
 
     <div class="input-section">

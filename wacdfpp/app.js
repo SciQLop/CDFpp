@@ -8,6 +8,7 @@ import { openValidation, openValidationBytes } from "./astralint.js";
 import { runCompare, setView, setFilter } from "./compare.js";
 import { toYaml, buildSkeleton } from "./cdf-yaml.js";
 import { renderConverter } from "./convert.js";
+import { renderPresets } from "./presets.js";
 
 const els = {
     fileInput: document.getElementById("fileInput"),
@@ -28,6 +29,8 @@ const els = {
     exportYamlBtn: document.getElementById("exportYamlBtn"),
     convertBtn: document.getElementById("convertBtn"),
     modeToggle: document.getElementById("modeToggle"),
+    examplesBtn: document.getElementById("examplesBtn"),
+    version: document.getElementById("cdfppVersion"),
     compareInputs: document.getElementById("compareInputs"),
     compareBar: document.getElementById("compareBar"),
     compareResult: document.getElementById("compareResult"),
@@ -81,6 +84,21 @@ function selectVariable(name) {
     const mount = els.detail.querySelector(".plot-panel");
     if (mount && currentCdf) renderPlot(mount, currentCdf, name);
     setSelected(els.varlist, name);   // highlight in place; don't rebuild (keeps groups' open state)
+    if (currentUrl) syncUrl(new URLSearchParams({ url: currentUrl, var: name }));
+}
+
+function hasVariable(name) {
+    return VAR_GROUPS.some((g) => currentModel.groups[g].some((v) => v.name === name));
+}
+
+function showPresets() {
+    if (compareMode) setCompareMode(false);
+    selectedName = null;
+    setSelected(els.varlist, null);
+    renderPresets(els.detail, (preset) => {
+        els.urlInput.value = preset.url;
+        fetchUrl(preset.url, preset.variable);
+    });
 }
 
 function inspect(data, name, sourceUrl) {
@@ -142,7 +160,8 @@ function loadFile(file) {
     reader.readAsArrayBuffer(file);
 }
 
-async function fetchUrl(url) {
+// variable: opened once the file is loaded, when the file has it.
+async function fetchUrl(url, variable) {
     if (!url || !Module || busy) return;
     busy = true;
     setStatus("loading", "Fetching...");
@@ -153,6 +172,7 @@ async function fetchUrl(url) {
         const name = url.split("/").pop().split("?")[0].split("#")[0] || "remote.cdf";
         inspect(data, name, url);
         syncUrl(new URLSearchParams({ url }));
+        if (variable && currentCdf && hasVariable(variable)) selectVariable(variable);
     } catch (err) {
         setStatus("error", `Fetch error: ${err.message}`);
     } finally {
@@ -250,6 +270,7 @@ function runCompareFromInputs() {
 let cmpView = "inline", cmpFilter = "changes";
 
 els.modeToggle.addEventListener("click", () => setCompareMode(!compareMode));
+els.examplesBtn.addEventListener("click", showPresets);
 els.compareBtn.addEventListener("click", runCompareFromInputs);
 els.viewToggle.addEventListener("click", () => {
     cmpView = cmpView === "split" ? "inline" : "split";
@@ -265,6 +286,7 @@ els.filterToggle.addEventListener("click", () => {
 async function init() {
     try {
         Module = await loadModule();
+        els.version.textContent = `v${Module.version()}`;
         setStatus("ready", "Ready");
         els.loadBtn.disabled = false;
         els.fetchBtn.disabled = false;
@@ -280,7 +302,8 @@ async function init() {
             if (a && b) runCompareFromInputs();
         } else {
             const url = params.get("url") || params.get("cdf");
-            if (url) { els.urlInput.value = url; fetchUrl(url); }
+            if (url) { els.urlInput.value = url; fetchUrl(url, params.get("var")); }
+            else showPresets();
         }
     } catch (err) {
         setStatus("error", `Init failed: ${err.message}`);

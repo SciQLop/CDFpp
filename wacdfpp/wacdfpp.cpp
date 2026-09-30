@@ -27,6 +27,7 @@
 #include <cdfpp/cdf-io/saving/saving.hpp>
 #include <cdfpp/cdf-repr.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
+#include <cdfpp_config.h>
 
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
@@ -591,6 +592,7 @@ EMSCRIPTEN_BINDINGS(cdfpp)
         .function("decoded_nbytes", &CdfFile::decoded_nbytes)
         .function("same_values", &CdfFile::same_values);
 
+    em::function("version", +[]() { return std::string { CDFPP_VERSION }; });
     em::function("load", +[](em::val data) { return load_cdf(data, true); });
     // Decodes every value up front, so timing it measures decompression too. Unlike load, errors
     // (e.g. out of memory) are thrown as JS Errors instead of returning an invalid CdfFile.

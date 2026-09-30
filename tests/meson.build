@@ -96,6 +96,10 @@ if node.found()
         args: [files('wacdfpp_plot/test.mjs')],
         timeout: 60,
     )
+    test('wacdfpp_presets', node,
+        args: [files('wacdfpp_presets/test.mjs')],
+        timeout: 60,
+    )
     test('wacdfpp_astralint', node,
         args: [files('wacdfpp_astralint/test.mjs')],
         timeout: 60,
