@@ -27,10 +27,10 @@ A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nas
 
 ## Packages & CI
 
-| | Linux x86_64 | Linux aarch64 | Windows x86_64 | macOS x86_64 | macOS ARM64 | WASM (Pyodide) |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Wheels** | [![][1]][2] | [![][1]][2] | [![][1]][2] | [![][1]][2] | [![][1]][2] | [![][1]][2] |
-| **Tests**  | [![][3]][2] | [![][3]][2] | [![][3]][2] | [![][3]][2] | [![][3]][2] | |
+| | Linux x86_64 | Linux aarch64 | Windows x86_64 | Windows ARM64 | macOS x86_64 | macOS ARM64 | WASM (Pyodide) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **Wheels** | [![][1]][2] | [![][1]][2] | [![][1]][2] | [![][1]][2] | [![][1]][2] | [![][1]][2] | [![][1]][2] |
+| **Tests**  | [![][3]][2] | [![][3]][2] | [![][3]][2] | [![][3]][2] | [![][3]][2] | [![][3]][2] | |
 
 [1]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml/badge.svg?event=release
 [2]: https://github.com/SciQLop/CDFpp/actions/workflows/CI.yml
