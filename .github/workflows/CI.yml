@@ -42,6 +42,10 @@ jobs:
             CIBW_ENVIRONMENT: ''
             CIBW_ARCHS: "AMD64"
             CIBW_PLATFORM: "auto"
+          - os: windows-11-arm
+            CIBW_ENVIRONMENT: ''
+            CIBW_ARCHS: "ARM64"
+            CIBW_PLATFORM: "auto"
           - os: macos-15-intel
             CIBW_ENVIRONMENT: >
               MACOSX_DEPLOYMENT_TARGET='13.0'
@@ -54,7 +58,8 @@ jobs:
             CIBW_PLATFORM: "auto"
     env:
       CIBW_ENVIRONMENT: ${{ matrix.CIBW_ENVIRONMENT }}
-      CIBW_SKIP: "*-win32 *i686"
+      # Windows on ARM has native CPython builds from 3.11 only
+      CIBW_SKIP: "*-win32 *i686 cp39-win_arm64 cp310-win_arm64"
       CIBW_ARCHS: ${{ matrix.CIBW_ARCHS }}
       CIBW_PLATFORM: ${{ matrix.CIBW_PLATFORM }}
       CIBW_ENVIRONMENT_LINUX: PATH=/usr/local/bin:/usr/lib/ccache:$PATH CCACHE_DIR=/host${{ github.workspace }}/.ccache CCACHE_CONFIGPATH=/host/home/runner/.config/ccache/ccache.conf
@@ -81,8 +86,13 @@ jobs:
     needs: [build_wheels]
     strategy:
       matrix:
-        os: [macos-15-intel, macos-14, windows-latest, ubuntu-latest, ubuntu-24.04-arm]
+        os: [macos-15-intel, macos-14, windows-latest, windows-11-arm, ubuntu-latest, ubuntu-24.04-arm]
         python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
+        exclude:
+          - os: windows-11-arm
+            python-version: '3.9'
+          - os: windows-11-arm
+            python-version: '3.10'
     runs-on: ${{ matrix.os }}
     steps:
       - name: Setup Python

@@ -8,6 +8,7 @@ The full notes of each release are on
 Unreleased
 ----------
 
+* Windows ARM64 wheels, for Python 3.11 and later.
 * Python 3.15 wheels, free-threaded ones included, are tested like the others.
 * Numbers given a text type (``CDF_CHAR``, ``CDF_UCHAR``) are refused: their raw bytes were
   written as characters, ``[1, 2]`` as two 8-character strings of control bytes. 0.8.7
