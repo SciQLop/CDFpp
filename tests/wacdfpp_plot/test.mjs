@@ -2,8 +2,10 @@
 //   node test.mjs
 import {
     MAX_LINES, MAX_PLOT_DIMENSIONS, MAX_PLOT_POINTS,
-    recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON, dropMissingX, lineView, gapThreshold,
+    recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON, dropMissingX, lineView, gapThreshold, spectroView, columnSpans,
 } from "../../wacdfpp/plot-model.js";
+import { normalizeWheelDelta, wheelIntent, zoomToward, panRange, pinchRange, yRangeFromPixels }
+    from "../../wacdfpp/plot-gestures.js";
 import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "../../wacdfpp/spectrogram.js";
 
 let failures = 0;
@@ -180,5 +182,62 @@ const multi = { x: ramp.x, series: [ramp.series[0], ramp.series[0].map((v) => -v
 const mv = lineView(multi, -Infinity, Infinity, 1000, Infinity);
 check("lineView multi-series shares x", mv.length === 3 && mv[1].length === mv[0].length && mv[2].length === mv[0].length);
 check("lineView multi-series reduces", mv[0].length <= 1000 + 2);
+
+// Zooming a spectrogram shows every visible column again; thinning keeps the brightest cell.
+const specCols = 10000, specRows = 2;
+const specGrid = new Float64Array(specCols * specRows).map((_, i) => Math.floor(i / specRows));
+specGrid[5000 * specRows + 1] = 1e6;
+const spec10k = { centers: Array.from({ length: specCols }, (_, i) => i), grid: specGrid, rows: specRows };
+const specZoom = spectroView(spec10k, 100, 200, 4000);
+check("spectroView zoom shows every visible column", specZoom.centers.length === 103 && specZoom.grid.length === 103 * specRows);
+check("spectroView zoom keeps the column values", specZoom.grid[0] === 99 && specZoom.centers[0] === 99);
+const specWide = spectroView(spec10k, -Infinity, Infinity, 4000);
+check("spectroView thins the full view", specWide.centers.length <= 4000 && specWide.grid.length === specWide.centers.length * specRows);
+check("spectroView thinning keeps the brightest cell", Math.max(...specWide.grid) === 1e6);
+
+const gapCenters = [...Array.from({ length: 1001 }, (_, i) => i), ...Array.from({ length: 1000 }, (_, i) => 5000 + i)];
+const gapSpec = { centers: gapCenters, grid: new Float64Array(gapCenters.length), rows: 1 };
+const thinnedGap = spectroView(gapSpec, -Infinity, Infinity, 7);
+check("spectroView thins each side of a gap on its own",
+    thinnedGap.centers.every((c) => c <= 1000 || c >= 5000));
+
+// Spectrogram columns reach halfway to their neighbours, but not across a gap.
+const spans = columnSpans([0, 1, 2, 3, 100, 101, 102]);
+check("columnSpans halfway to neighbours", eq(spans[1], [0.5, 1.5]));
+check("columnSpans stop at a gap", eq(spans[3], [2.5, 3.5]) && eq(spans[4], [99.5, 100.5]));
+check("columnSpans outer columns mirror their inner half", eq(spans[0], [-0.5, 0.5]) && eq(spans[6], [101.5, 102.5]));
+check("columnSpans single column", eq(columnSpans([5]), [[4.5, 5.5]]));
+
+// Gesture math, ported with speasy-proxy's tests (tests/js/plot-core.test.js there).
+const near = (a, b) => Math.abs(a - b) < 1e-6;
+const wheel = (o) => ({ deltaX: 0, deltaY: 0, deltaMode: 0, shiftKey: false, ctrlKey: false, ...o });
+check("wheel delta clamps big notches", normalizeWheelDelta(5000, 0) === 120 && normalizeWheelDelta(-5000, 0) === -120);
+check("vertical wheel zooms", eq(wheelIntent(wheel({ deltaY: 40 })), { kind: "zoom", px: 40 }));
+check("horizontal swipe pans", eq(wheelIntent(wheel({ deltaX: 30, deltaY: 4 })), { kind: "pan", px: 30 }));
+check("mostly-vertical swipe zooms", eq(wheelIntent(wheel({ deltaX: 4, deltaY: -30 })), { kind: "zoom", px: -30 }));
+check("Shift+wheel pans on Y (Firefox) or X (Chrome)",
+    eq(wheelIntent(wheel({ deltaY: 3, deltaMode: 1, shiftKey: true })), { kind: "pan", px: 48 })
+    && eq(wheelIntent(wheel({ deltaX: 3, deltaMode: 1, shiftKey: true })), { kind: "pan", px: 48 }));
+check("Ctrl+wheel is a pinch", eq(wheelIntent(wheel({ deltaY: -5, ctrlKey: true })), { kind: "pinch", px: -5 }));
+check("zoomToward zooms at the cursor", eq(zoomToward(0, 100, 0.5, -0.5, 1), { start: 25, end: 75 }));
+const edgeZoom = zoomToward(0, 100, 0, -0.3, 1);
+check("zoomToward keeps the value under the cursor", near(edgeZoom.start, 0) && near(edgeZoom.end, 70));
+check("zoomToward refuses to go below the min span", zoomToward(0, 1, 0.5, -0.5, 1) === null);
+check("zoomToward always zooms out", eq(zoomToward(0, 0.5, 0.5, 1, 1), { start: -0.25, end: 0.75 }));
+check("panRange shifts by a fraction of the width",
+    eq(panRange(0, 100, 0.25), { start: 25, end: 125 }) && eq(panRange(100, 200, -0.5), { start: 50, end: 150 }));
+check("pinch spread zooms in", eq(pinchRange({ start: 0, end: 100 }, [0.25, 0.75], [0, 1], 1), { start: 25, end: 75 }));
+const pinchPan = pinchRange({ start: 0, end: 100 }, [0.2, 0.6], [0.3, 0.7], 1);
+check("pinch moving together pans", near(pinchPan.start, -10) && near(pinchPan.end, 90));
+check("pinch crossing, meeting or too narrow is null",
+    pinchRange({ start: 0, end: 100 }, [0.2, 0.6], [0.5, 0.5], 1) === null
+    && pinchRange({ start: 0, end: 100 }, [0.2, 0.6], [0.6, 0.2], 1) === null
+    && pinchRange({ start: 0, end: 2 }, [0.4, 0.6], [0, 1], 1) === null);
+const lin = { min: 0, max: 100, log: false, heightPx: 200 };
+check("yRangeFromPixels linear",
+    eq(yRangeFromPixels(lin, 200, 0), { min: 0, max: 100 }) && eq(yRangeFromPixels(lin, 150, 50), { min: 25, max: 75 }));
+const logPan = yRangeFromPixels({ min: 1, max: 1000, log: true, heightPx: 300 }, 200, -100);
+check("yRangeFromPixels pans a log axis by decades", near(logPan.min, 10) && Math.abs(logPan.max - 10000) < 1e-3);
+check("yRangeFromPixels degenerate is null", yRangeFromPixels(lin, 50, 50) === null && yRangeFromPixels(lin, 0, 200) === null);
 
 process.exit(failures ? 1 : 0);

@@ -113,14 +113,34 @@ const GAP_SAMPLE_STEPS = 10_000;
 // simplify: the median is taken over ~GAP_SAMPLE_STEPS evenly spaced steps, not all of them; a
 // variable where gaps outnumber regular steps would get a gap-sized median. Use every step then.
 export function gapThreshold(x) {
+    const median = medianStep(x);
+    return median > 0 ? GAP_FACTOR * median : Infinity;
+}
+
+function medianStep(x) {
     const n = x.length - 1;
-    if (n < 1) return Infinity;
+    if (n < 1) return NaN;
     const stride = Math.max(1, Math.floor(n / GAP_SAMPLE_STEPS));
     const steps = [];
     for (let i = 0; i < n; i += stride) steps.push(x[i + 1] - x[i]);
     steps.sort((a, b) => a - b);
-    const median = steps[steps.length >> 1];
-    return median > 0 ? GAP_FACTOR * median : Infinity;
+    return steps[steps.length >> 1];
+}
+
+// Each spectrogram column's [left, right] x edges: halfway to its neighbours, except across
+// a gap (see gapThreshold), where it keeps half a typical step so the gap stays empty.
+export function columnSpans(centers) {
+    const n = centers.length;
+    const typicalHalf = (medianStep(centers) || 1) / 2;
+    const gap = GAP_FACTOR * typicalHalf * 2;
+    const halfStep = (i) => {
+        const d = centers[i + 1] - centers[i];
+        return d > gap ? typicalHalf : d / 2;
+    };
+    return Array.from(centers, (c, i) => {
+        if (n === 1) return [c - typicalHalf, c + typicalHalf];
+        return [c - halfStep(i > 0 ? i - 1 : 0), c + halfStep(i < n - 1 ? i : n - 2)];
+    });
 }
 
 // First index whose x is > v (or >= v when `inclusive`), by binary search on sorted x.
@@ -235,4 +255,57 @@ export function applyMask(values, { fill, validMin, validMax } = {}) {
         }
     }
     return out;
+}
+
+// Block-max decimate a column-major grid (grid[col*rows+row]) down to `outCols`
+// columns, taking the per-bin max over each block so bright features survive.
+function decimateGridCols(grid, fullCols, rows, step, outCols) {
+    const out = new Float64Array(outCols * rows).fill(NaN);
+    for (let oc = 0; oc < outCols; oc++) {
+        for (let sc = oc * step; sc < Math.min(fullCols, (oc + 1) * step); sc++) {
+            for (let r = 0; r < rows; r++) {
+                const v = grid[sc * rows + r];
+                if (Number.isNaN(v)) continue;
+                const cur = out[oc * rows + r];
+                if (Number.isNaN(cur) || v > cur) out[oc * rows + r] = v;
+            }
+        }
+    }
+    return out;
+}
+
+// Decimated x-centers: midpoint of each block's time/index range.
+function decimateCenters(centers, fullCols, step, cols) {
+    const out = new Array(cols);
+    for (let oc = 0; oc < cols; oc++) {
+        const a = oc * step, b = Math.min(fullCols - 1, (oc + 1) * step - 1);
+        out[oc] = (centers[a] + centers[b]) / 2;
+    }
+    return out;
+}
+
+// Columns of a spectrogram (grid: Float64Array, grid[col*rows+row]; one center per column) in [lo, hi],
+// block-max thinned to at most ~maxCols, each side of a gap on its own so no block spans one.
+// Recomputed on zoom, so zooming in shows every column.
+export function spectroView({ centers, grid, rows }, lo, hi, maxCols) {
+    const [start, end] = visibleRange(centers, lo, hi);
+    const total = Math.max(1, end - start);
+    const parts = splitAtGaps(centers, start, end, gapThreshold(centers)).map(([s, e]) =>
+        thinColumns(centers.slice(s, e), grid.subarray(s * rows, e * rows), rows,
+            Math.max(1, Math.floor(maxCols * (e - s) / total))));
+    return {
+        centers: parts.flatMap((p) => p.centers),
+        grid: Float64Array.from(parts.flatMap((p) => Array.from(p.grid))),
+    };
+}
+
+function thinColumns(centers, grid, rows, maxCols) {
+    const cols = centers.length;
+    const step = Math.max(1, Math.ceil(cols / maxCols));
+    if (step === 1) return { centers, grid };
+    const outCols = Math.ceil(cols / step);
+    return {
+        centers: decimateCenters(centers, cols, step, outCols),
+        grid: decimateGridCols(grid, cols, rows, step, outCols),
+    };
 }

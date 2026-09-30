@@ -4,7 +4,8 @@
 // Reuses nsToISO from render.js for faithful time export (render.js has no import
 // side effects, so this stays one-directional: render.js never imports plot.js).
 import uPlot from "./uPlot.esm.js";
-import { plotSpec, applyMask, dropMissingX, lineView, gapThreshold, toCSV, toJSON } from "./plot-model.js";
+import { plotSpec, applyMask, dropMissingX, lineView, gapThreshold, spectroView, columnSpans, toCSV, toJSON } from "./plot-model.js";
+import { bindGestures } from "./plot-gestures.js";
 import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "./spectrogram.js";
 import { nsToISO, nsToSeconds } from "./render.js";
 
@@ -12,6 +13,10 @@ const LINE_COLORS = ["#6c8aff", "#4ade80", "#fbbf24", "#f87171", "#22d3ee", "#c0
 const MAX_POINTS = 8000;   // line decimation cap
 const MAX_COLS = 4000;     // spectrogram column cap
 const PLOT_HEIGHT = 320;
+// simplify: uPlot's time axis has no ticks under 1 ms; speasy-proxy goes to 10 µs by wrapping
+// the resolved axis incrs in an init hook. Do the same if sub-ms windows are needed here.
+const MIN_TIME_SPAN_S = 1e-3;
+const MIN_INDEX_SPAN = 1;
 
 // uPlot draws axis text/ticks/grid on the canvas (not via CSS), defaulting to
 // black — invisible on the app's dark theme. Theme them to match.
@@ -150,18 +155,6 @@ function drawLines(target, cdf, meta, spec, x, values) {
     const kept = dropMissingX(xs, Array.from({ length: comps },
         (_, c) => applyMask(deinterleave(values, comps, recCount, c), spec)));
     const gap = gapThreshold(kept.x);
-    const view = (lo, hi) => lineView(kept, lo, hi, MAX_POINTS, gap);
-    // uPlot picks the visible indices before firing setScale, so the zoomed view is swapped in
-    // afterwards with a full setData, holding x (auto off) so the zoom range survives.
-    let shown = [kept.x[0], kept.x.at(-1)], holdX = false;
-    const refreshView = (u) => {
-        const { min, max } = u.scales.x;
-        if (shown[0] === min && shown[1] === max) return;
-        shown = [min, max];
-        holdX = true;
-        u.setData(view(min, max));
-        holdX = false;
-    };
     const series = [{ label: x.isTime ? "time" : "record" },
         ...Array.from({ length: comps }, (_, c) =>
             ({ label: labels[c], stroke: LINE_COLORS[c % LINE_COLORS.length], width: 1, spanGaps: false }))];
@@ -169,41 +162,51 @@ function drawLines(target, cdf, meta, spec, x, values) {
     const opts = {
         width: target.clientWidth || 800,
         height: PLOT_HEIGHT,
-        scales: { x: { time: x.isTime, auto: () => !holdX } },
+        scales: { x: { time: x.isTime } },
         axes: [themeAxis(), themeAxis()],
         series,
         legend: { show: comps > 1 },
-        cursor: { drag: { x: true, y: false } },
-        hooks: { setScale: [(u, key) => { if (key === "x") queueMicrotask(() => refreshView(u)); }] },
     };
-    new uPlot(opts, view(-Infinity, Infinity), target);
+    zoomableChart(opts, target, x.isTime, {
+        viewFor: (lo, hi) => lineView(kept, lo, hi, MAX_POINTS, gap),
+        autoY: (u, dmin, dmax) => uPlot.rangeNum(dmin, dmax, 0.1, true),
+    });
 }
 
-// Block-max decimate a column-major grid (grid[col*rows+row]) down to `outCols`
-// columns, taking the per-bin max over each block so bright features survive.
-function decimateGridCols(grid, fullCols, rows, step, outCols) {
-    const out = new Float64Array(outCols * rows).fill(NaN);
-    for (let oc = 0; oc < outCols; oc++) {
-        for (let sc = oc * step; sc < Math.min(fullCols, (oc + 1) * step); sc++) {
-            for (let r = 0; r < rows; r++) {
-                const v = grid[sc * rows + r];
-                if (Number.isNaN(v)) continue;
-                const cur = out[oc * rows + r];
-                if (Number.isNaN(cur) || v > cur) out[oc * rows + r] = v;
-            }
-        }
-    }
-    return out;
-}
-
-// Decimated x-centers: midpoint of each block's time/index range.
-function decimateCenters(centers, fullCols, step, cols) {
-    const out = new Array(cols);
-    for (let oc = 0; oc < cols; oc++) {
-        const a = oc * step, b = Math.min(fullCols - 1, (oc + 1) * step - 1);
-        out[oc] = (centers[a] + centers[b]) / 2;
-    }
-    return out;
+// A uPlot chart with speasy-proxy's gestures (plot-gestures.js). viewFor(lo, hi) gives the
+// chart data for an x range and is rebuilt after every x change, so zooming shows full
+// resolution. autoY(u, dmin, dmax) is the Y range until the user sets one on the Y gutter.
+// The data must keep the variable's first and last x: double-click resets x to the data.
+function zoomableChart(opts, el, isTime, { viewFor, autoY }) {
+    let shown = null, holdX = false, userY = null;
+    // uPlot picks the visible indices before firing setScale, so the new view is swapped in
+    // afterwards with a full setData, holding x (auto off) so the zoom range survives.
+    const refresh = (u, force) => {
+        const { min, max } = u.scales.x;
+        if (!force && shown && shown[0] === min && shown[1] === max) return;
+        shown = [min, max];
+        holdX = true;
+        u.setData(viewFor(min, max));
+        holdX = false;
+    };
+    const u = new uPlot({
+        ...opts,
+        scales: {
+            ...opts.scales,
+            x: { ...opts.scales.x, auto: () => !holdX },
+            y: { ...opts.scales.y, range: (self, dmin, dmax) => userY ? [userY.min, userY.max] : autoY(self, dmin, dmax) },
+        },
+        cursor: { drag: { x: false, y: false } },
+        hooks: { ...opts.hooks, setScale: [(self, key) => { if (key === "x") queueMicrotask(() => refresh(self)); }] },
+    }, viewFor(-Infinity, Infinity), el);
+    bindGestures(u, {
+        minSpan: isTime ? MIN_TIME_SPAN_S : MIN_INDEX_SPAN,
+        getView: () => ({ start: u.scales.x.min, end: u.scales.x.max }),
+        setView: ({ start, end }) => u.setScale("x", { min: start, max: end }),
+        setY: (min, max) => { userY = { min, max }; u.setScale("y", userY); },
+        resetY: () => { userY = null; refresh(u, true); },
+    });
+    return u;
 }
 
 // Resolve the y (bin) axis from DEPEND_1: its values, log/linear (SCALETYP), units.
@@ -252,15 +255,13 @@ function colorbar(min, max, scale, units) {
 }
 
 function drawSpectro(target, cdf, meta, spec, x, values, scale) {
-    const fullCols = x.values.length;
     const rows = Math.max(1, spec.components);
     const masked = applyMask(values, spec);
 
-    // Block-max time decimation to bound the painted cell count on huge files.
-    const step = fullCols > MAX_COLS ? Math.ceil(fullCols / MAX_COLS) : 1;
-    const cols = step === 1 ? fullCols : Math.ceil(fullCols / step);
-    const grid = step === 1 ? masked : decimateGridCols(masked, fullCols, rows, step, cols);
-    const xc = step === 1 ? x.values : decimateCenters(x.values, fullCols, step, cols);
+    const full = { centers: x.values, grid: masked, rows };
+    const fullEdges = cellEdges(x.values, false);
+    let shown = spectroView(full, -Infinity, Infinity, MAX_COLS);
+    const grid = shown.grid;   // colour range from the full view, as the colour bar shows it
 
     let min = Infinity, max = -Infinity;
     for (let i = 0; i < grid.length; i++) {
@@ -276,7 +277,6 @@ function drawSpectro(target, cdf, meta, spec, x, values, scale) {
     }
 
     const bins = resolveBins(cdf, spec, rows);
-    const xEdges = cellEdges(xc, false);
     const yEdges = cellEdges(bins.centers, bins.log);
     const yLo = Math.min(yEdges[0], yEdges[rows]);
     const yHi = Math.max(yEdges[0], yEdges[rows]);
@@ -289,19 +289,20 @@ function drawSpectro(target, cdf, meta, spec, x, values, scale) {
     wrap.append(plotEl, colorbar(min, max, scale, units));
     target.appendChild(wrap);
 
-    // Paint one filled rect per (time-cell x bin-cell) over the uPlot draw area.
+    // Paint one filled rect per (time-cell x bin-cell) of the shown view over the uPlot draw area.
     const paint = (u) => {
         const { ctx } = u;
+        const spans = columnSpans(shown.centers);
         ctx.save();
         ctx.beginPath();
         ctx.rect(u.bbox.left, u.bbox.top, u.bbox.width, u.bbox.height);
         ctx.clip();
-        for (let c = 0; c < cols; c++) {
-            const xl = u.valToPos(xEdges[c], "x", true);
-            const xr = u.valToPos(xEdges[c + 1], "x", true);
+        for (let c = 0; c < spans.length; c++) {
+            const xl = u.valToPos(spans[c][0], "x", true);
+            const xr = u.valToPos(spans[c][1], "x", true);
             const left = Math.min(xl, xr), w = Math.abs(xr - xl) + 1;
             for (let r = 0; r < rows; r++) {
-                const t = normalizeLevel(grid[c * rows + r], min, max, scale);
+                const t = normalizeLevel(shown.grid[c * rows + r], min, max, scale);
                 if (Number.isNaN(t)) continue;
                 const yb = u.valToPos(yEdges[r], "y", true);
                 const yt = u.valToPos(yEdges[r + 1], "y", true);
@@ -313,26 +314,24 @@ function drawSpectro(target, cdf, meta, spec, x, values, scale) {
         ctx.restore();
     };
 
-    // Pad the auto-range by the outer half-cells so edge columns render fully. Using
-    // a range *function* (not a static [min,max]) keeps drag-zoom working: a static
-    // array pins the x scale and uPlot snaps back to it on every redraw.
-    const xLoPad = xc[0] - xEdges[0];
-    const xHiPad = xEdges[cols] - xc[cols - 1];
+    // The variable's outer cell edges stay in the x data (with no y) so the edge columns
+    // render fully and double-click resets to the whole variable.
+    const viewFor = (lo, hi) => {
+        shown = spectroView(full, lo, hi, MAX_COLS);
+        const xs = [fullEdges[0], ...shown.centers, fullEdges[fullEdges.length - 1]];
+        return [xs, new Array(xs.length).fill(null)];
+    };
 
     const opts = {
         width: (plotEl.clientWidth || 700),
         height: PLOT_HEIGHT,
-        scales: {
-            x: { time: x.isTime, range: (u, dmin, dmax) => [dmin - xLoPad, dmax + xHiPad] },
-            y: { distr: bins.log ? 3 : 1, range: [yLo, yHi] },
-        },
+        scales: { x: { time: x.isTime }, y: { distr: bins.log ? 3 : 1 } },
         axes: [themeAxis(), themeAxis(bins.units ? { label: bins.units } : undefined)],
         series: [{}, { paths: () => null, points: { show: false } }],
         legend: { show: false },
-        cursor: { drag: { x: true, y: false } },
         hooks: { draw: [paint] },
     };
-    new uPlot(opts, [xc, new Array(cols).fill(null)], plotEl);
+    zoomableChart(opts, plotEl, x.isTime, { viewFor, autoY: () => [yLo, yHi] });
 }
 
 // --- export ------------------------------------------------------------------
