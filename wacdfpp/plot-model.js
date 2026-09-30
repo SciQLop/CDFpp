@@ -106,6 +106,101 @@ export function decimateMinMax(x, y, targetCols) {
     return { x: rx, y: ry };
 }
 
+const GAP_FACTOR = 10;
+const GAP_SAMPLE_STEPS = 10_000;
+
+// A step longer than GAP_FACTOR typical (median) steps is a data gap, e.g. between burst segments.
+// simplify: the median is taken over ~GAP_SAMPLE_STEPS evenly spaced steps, not all of them; a
+// variable where gaps outnumber regular steps would get a gap-sized median. Use every step then.
+export function gapThreshold(x) {
+    const n = x.length - 1;
+    if (n < 1) return Infinity;
+    const stride = Math.max(1, Math.floor(n / GAP_SAMPLE_STEPS));
+    const steps = [];
+    for (let i = 0; i < n; i += stride) steps.push(x[i + 1] - x[i]);
+    steps.sort((a, b) => a - b);
+    const median = steps[steps.length >> 1];
+    return median > 0 ? GAP_FACTOR * median : Infinity;
+}
+
+// First index whose x is > v (or >= v when `inclusive`), by binary search on sorted x.
+function bound(x, v, inclusive) {
+    let lo = 0, hi = x.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (inclusive ? x[mid] < v : x[mid] <= v) lo = mid + 1;
+        else hi = mid;
+    }
+    return lo;
+}
+
+// Indices [start, end) covering [lo, hi], plus one neighbour on each side so lines reach the edges.
+function visibleRange(x, lo, hi) {
+    return [Math.max(0, bound(x, lo, true) - 1), Math.min(x.length, bound(x, hi, false) + 1)];
+}
+
+function splitAtGaps(x, start, end, gap) {
+    const segments = [];
+    let s = start;
+    for (let i = start + 1; i < end; i++) {
+        if (x[i] - x[i - 1] > gap) { segments.push([s, i]); s = i; }
+    }
+    if (s < end) segments.push([s, end]);
+    return segments;
+}
+
+function sampleByStep(arr, step) {
+    const out = [];
+    for (let i = 0; i < arr.length; i += step) out.push(arr[i]);
+    return out;
+}
+
+// One segment as uPlot columns [x, ...series]: min/max for a single series (keeps spikes),
+// a shared stride for several (they must share x).
+function reduceSegment(full, s, e, budget) {
+    const x = full.x.slice(s, e);
+    const ys = full.series.map((y) => y.slice(s, e));
+    if (ys.length === 1) {
+        const r = decimateMinMax(x, ys[0], Math.max(1, Math.floor(budget / 2)));
+        return [r.x, r.y];
+    }
+    const step = Math.max(1, Math.ceil(x.length / budget));
+    return [sampleByStep(x, step), ...ys.map((y) => sampleByStep(y, step))];
+}
+
+// Concatenate segments with a null point between them, which uPlot draws as a break.
+function joinWithBreaks(parts, width) {
+    const out = Array.from({ length: width }, () => []);
+    parts.forEach((cols, p) => {
+        if (p > 0) {
+            out[0].push((out[0].at(-1) + cols[0][0]) / 2);
+            for (let c = 1; c < width; c++) out[c].push(null);
+        }
+        cols.forEach((col, c) => { for (const v of col) out[c].push(v); });
+    });
+    return out;
+}
+
+// uPlot's zoom reset autoscales x to the data it holds: keep the variable's first and last x
+// (with no y) so a zoomed view still resets to the whole variable.
+function withFullExtent(cols, full, start, end) {
+    const n = full.x.length;
+    if (start > 0) cols.forEach((col, c) => col.unshift(c === 0 ? full.x[0] : null));
+    if (end < n) cols.forEach((col, c) => col.push(c === 0 ? full.x[n - 1] : null));
+    return cols;
+}
+
+// uPlot data for the x range [lo, hi] of full = { x, series }: at most ~maxPoints points
+// spread over the visible range, broken at gaps. Recomputed on zoom, so zooming in shows
+// every sample again.
+export function lineView(full, lo, hi, maxPoints, gap) {
+    const [start, end] = visibleRange(full.x, lo, hi);
+    const total = Math.max(1, end - start);
+    const parts = splitAtGaps(full.x, start, end, gap).map(([s, e]) =>
+        reduceSegment(full, s, e, Math.max(2, Math.floor(maxPoints * (e - s) / total))));
+    return withFullExtent(joinWithBreaks(parts, full.series.length + 1), full, start, end);
+}
+
 // columns: [{ name, values: any[] }, ...] with equal-length value arrays.
 function csvCell(v) {
     const s = v == null ? "" : String(v);

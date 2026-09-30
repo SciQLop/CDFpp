@@ -4,7 +4,7 @@
 // Reuses nsToISO from render.js for faithful time export (render.js has no import
 // side effects, so this stays one-directional: render.js never imports plot.js).
 import uPlot from "./uPlot.esm.js";
-import { plotSpec, applyMask, decimateMinMax, dropMissingX, toCSV, toJSON } from "./plot-model.js";
+import { plotSpec, applyMask, dropMissingX, lineView, gapThreshold, toCSV, toJSON } from "./plot-model.js";
 import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "./spectrogram.js";
 import { nsToISO, nsToSeconds } from "./render.js";
 
@@ -37,13 +37,6 @@ function deinterleave(values, comps, recCount, c) {
 }
 
 // Keep every step-th element. step <= 1 returns a plain copy.
-function sampleByStep(arr, step) {
-    if (step <= 1) return Array.from(arr);
-    const out = [];
-    for (let i = 0; i < arr.length; i += step) out.push(arr[i]);
-    return out;
-}
-
 // Resolve the x-axis (uPlot's time axis works in Unix seconds). Priority:
 //   1. DEPEND_0 epoch (CDF_EPOCH/EPOCH16/TT2000) -> ns since 1970.
 //   2. THEMIS DEPEND_TIME -> a CDF_DOUBLE of Unix SECONDS since 1970. THEMIS files
@@ -154,36 +147,36 @@ function drawLines(target, cdf, meta, spec, x, values) {
     const labels = lineLabels(cdf, spec);
     const xs = x.values;
 
-    const series = [{ label: x.isTime ? "time" : "record" }];
-    const data = [];
-    if (comps === 1) {
-        // Single series: min/max decimation preserves spikes against a shared x.
-        const kept = dropMissingX(xs, [applyMask(deinterleave(values, comps, recCount, 0), spec)]);
-        const reduced = decimateMinMax(kept.x, kept.series[0], MAX_POINTS / 2);
-        data.push(reduced.x, reduced.y);
-        series.push({ label: labels[0], stroke: LINE_COLORS[0], width: 1, spanGaps: false });
-    } else {
-        // Multi series: one uniform stride shared by x and every component.
-        const kept = dropMissingX(xs, Array.from({ length: comps },
-            (_, c) => applyMask(deinterleave(values, comps, recCount, c), spec)));
-        const step = kept.x.length > MAX_POINTS ? Math.ceil(kept.x.length / MAX_POINTS) : 1;
-        data.push(sampleByStep(kept.x, step));
-        kept.series.forEach((masked, c) => {
-            data.push(sampleByStep(masked, step));
-            series.push({ label: labels[c], stroke: LINE_COLORS[c % LINE_COLORS.length], width: 1, spanGaps: false });
-        });
-    }
+    const kept = dropMissingX(xs, Array.from({ length: comps },
+        (_, c) => applyMask(deinterleave(values, comps, recCount, c), spec)));
+    const gap = gapThreshold(kept.x);
+    const view = (lo, hi) => lineView(kept, lo, hi, MAX_POINTS, gap);
+    // uPlot picks the visible indices before firing setScale, so the zoomed view is swapped in
+    // afterwards with a full setData, holding x (auto off) so the zoom range survives.
+    let shown = [kept.x[0], kept.x.at(-1)], holdX = false;
+    const refreshView = (u) => {
+        const { min, max } = u.scales.x;
+        if (shown[0] === min && shown[1] === max) return;
+        shown = [min, max];
+        holdX = true;
+        u.setData(view(min, max));
+        holdX = false;
+    };
+    const series = [{ label: x.isTime ? "time" : "record" },
+        ...Array.from({ length: comps }, (_, c) =>
+            ({ label: labels[c], stroke: LINE_COLORS[c % LINE_COLORS.length], width: 1, spanGaps: false }))];
 
     const opts = {
         width: target.clientWidth || 800,
         height: PLOT_HEIGHT,
-        scales: { x: { time: x.isTime } },
+        scales: { x: { time: x.isTime, auto: () => !holdX } },
         axes: [themeAxis(), themeAxis()],
         series,
         legend: { show: comps > 1 },
         cursor: { drag: { x: true, y: false } },
+        hooks: { setScale: [(u, key) => { if (key === "x") queueMicrotask(() => refreshView(u)); }] },
     };
-    new uPlot(opts, data, target);
+    new uPlot(opts, view(-Infinity, Infinity), target);
 }
 
 // Block-max decimate a column-major grid (grid[col*rows+row]) down to `outCols`

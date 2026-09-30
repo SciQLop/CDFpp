@@ -2,7 +2,7 @@
 //   node test.mjs
 import {
     MAX_LINES, MAX_PLOT_DIMENSIONS, MAX_PLOT_POINTS,
-    recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON, dropMissingX,
+    recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON, dropMissingX, lineView, gapThreshold,
 } from "../../wacdfpp/plot-model.js";
 import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "../../wacdfpp/spectrogram.js";
 
@@ -154,5 +154,31 @@ const kept = dropMissingX([1, NaN, 3], [[10, 20, 30], [4, 5, 6]]);
 check("dropMissingX drops records without x", eq(kept, { x: [1, 3], series: [[10, 30], [4, 6]] }));
 const all = dropMissingX([1, 2], [[5, 6]]);
 check("dropMissingX keeps complete data", eq(all, { x: [1, 2], series: [[5, 6]] }));
+
+// Zooming must show full resolution again: the view is reduced from the visible range only.
+const ramp = { x: Array.from({ length: 10000 }, (_, i) => i), series: [Array.from({ length: 10000 }, (_, i) => i)] };
+const zoomed = lineView(ramp, 100, 200, 1000, Infinity);
+const inside = zoomed[0].filter((x) => x >= 100 && x <= 200);
+check("lineView zoom shows every visible sample", inside.length === 101);
+check("lineView keeps the full x extent for zoom reset",
+    zoomed[0][0] === 0 && zoomed[0].at(-1) === 9999 && zoomed[1][0] === null && zoomed[1].at(-1) === null);
+check("lineView x stays sorted", zoomed[0].every((x, i, a) => i === 0 || a[i - 1] <= x));
+const wide = lineView(ramp, -Infinity, Infinity, 1000, Infinity);
+check("lineView reduces the full view", wide[0].length <= 1000 + 2 && wide[1].length === wide[0].length);
+check("lineView full view keeps the ends", wide[1].includes(0) && wide[1].includes(9999));
+
+// A time gap breaks the line instead of drawing a straight segment over it.
+const gappy = { x: [0, 1, 2, 3, 100, 101, 102], series: [[5, 6, 7, 8, 9, 10, 11]] };
+check("gapThreshold is a multiple of the median step", gapThreshold(gappy.x) === 10);
+check("gapThreshold without steps", gapThreshold([1]) === Infinity);
+const broken = lineView(gappy, -Infinity, Infinity, 1000, gapThreshold(gappy.x));
+const at = (x) => broken[0].indexOf(x);
+check("lineView breaks the line at a gap", broken[1].slice(at(3) + 1, at(100)).includes(null));
+check("lineView does not break inside a segment", !broken[1].slice(at(0), at(3) + 1).includes(null));
+
+const multi = { x: ramp.x, series: [ramp.series[0], ramp.series[0].map((v) => -v)] };
+const mv = lineView(multi, -Infinity, Infinity, 1000, Infinity);
+check("lineView multi-series shares x", mv.length === 3 && mv[1].length === mv[0].length && mv[2].length === mv[0].length);
+check("lineView multi-series reduces", mv[0].length <= 1000 + 2);
 
 process.exit(failures ? 1 : 0);
