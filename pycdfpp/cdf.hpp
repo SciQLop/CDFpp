@@ -56,8 +56,11 @@ attributes: dict
     file attributes
 variables: dict
     file variables
-majority: cdf_majority
-    file majority
+majority: Majority
+    file majority: values are always given in row major order, saving converts them
+encoding: Encoding
+    byte order of the values in the file (IBMPC is little endian, network big endian); new
+    files use the host's, loaded files keep theirs, saving converts the values
 distribution_version: int
     file distribution version
 lazy_loaded: bool
@@ -95,7 +98,19 @@ void def_cdf_wrapper(T& mod)
             py::return_value_policy::move)
         .def_readonly(
             "attributes", &CDF::attributes, py::return_value_policy::reference_internal)
-        .def_property_readonly("majority", [](const CDF& cdf) { return cdf.majority; })
+        .def_property(
+            "majority", [](const CDF& cdf) { return cdf.majority; },
+            [](CDF& cdf, cdf_majority majority) { cdf.majority = majority; })
+        .def_property(
+            "encoding", [](const CDF& cdf) { return cdf.encoding; },
+            [](CDF& cdf, cdf_encoding encoding)
+            {
+                if (!has_ieee_floats(encoding))
+                    throw std::invalid_argument { fmt::format(
+                        "CDFpp can't write floats in {} encoding: its floats aren't IEEE 754",
+                        cdf_encoding_str(encoding)) };
+                cdf.encoding = encoding;
+            })
         .def_property_readonly(
             "distribution_version", [](const CDF& cdf) { return cdf.distribution_version; })
         .def_property_readonly("lazy_loaded", [](const CDF& cdf) { return cdf.lazy_loaded; })

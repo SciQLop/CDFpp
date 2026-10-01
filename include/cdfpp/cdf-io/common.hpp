@@ -128,6 +128,7 @@ struct cdf_repr
     cdf_majority majority;
     cdf_compression_type compression_type;
     int32_t compression_level = default_gzip_level;
+    cdf_encoding encoding;
     bool lazy;
     cdf_repr(std::size_t var_count) : var_attributes(var_count) { }
     cdf_repr(cdf_repr&&) = default;

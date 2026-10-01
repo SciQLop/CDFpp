@@ -3,6 +3,8 @@
 
 #include "cdfpp/cdf-io/majority-swap.hpp"
 #include "vector"
+#include <array>
+#include <numeric>
 
 
 SCENARIO("Generating flat indexes")
@@ -115,6 +117,29 @@ SCENARIO("Swapping from col to row major", "[CDF]")
                         0., 0., 0., 0. });
                 // clang-format on
             }
+        }
+    }
+}
+
+SCENARIO("Swapping from row to column major undoes the opposite swap", "[CDF]")
+{
+    GIVEN("an array of 2 records of 3x4x5 values")
+    {
+        std::vector<double> input(2 * 3 * 4 * 5);
+        std::iota(std::begin(input), std::end(input), 0.);
+        const auto original = input;
+        WHEN("swapping it to column major and back to row major")
+        {
+            cdf::majority::swap<false, std::array<int, 4>, std::vector<double>, true>(
+                input, std::array { 2, 3, 4, 5 });
+            THEN("the first record is in column major order")
+            {
+                REQUIRE(input[1] == 20.);
+                REQUIRE(input[2] == 40.);
+                REQUIRE(input[3] == 5.);
+            }
+            cdf::majority::swap<false>(input, std::array { 2, 3, 4, 5 });
+            THEN("the array is back") { REQUIRE(input == original); }
         }
     }
 }

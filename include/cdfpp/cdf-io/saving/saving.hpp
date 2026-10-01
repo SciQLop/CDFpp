@@ -30,6 +30,7 @@
 #include "../desc-records.hpp"
 #include "./buffers.hpp"
 #include "./create_records.hpp"
+#include "./file-layout.hpp"
 #include "./layout_records.hpp"
 #include "./link_records.hpp"
 #include "./records-saving.hpp"
@@ -195,6 +196,12 @@ namespace saving
         }
     }
 
+    // CDF Internal Format Description, CDR Flags: bit 0 row majority, bit 1 single file.
+    [[nodiscard]] constexpr int32_t cdr_flags(const CDF& cdf) noexcept
+    {
+        return (cdf.majority == cdf_majority::row ? 1 : 0) | 2;
+    }
+
     [[nodiscard]] inline saving_context make_saving_context(const CDF& cdf)
     {
         saving_context svg_ctx;
@@ -211,7 +218,7 @@ namespace saving
             svg_ctx.cpr = make_cpr(cdf.compression, cdf.compression_level);
         }
         svg_ctx.body.cdr.record
-            = cdf_CDR_t<v3x_tag> { {}, 0, 3, 8, CDFpp_ENCODING, 3, 0, 0, 0, 2, -1, { R"(
+            = cdf_CDR_t<v3x_tag> { {}, 0, 3, 8, cdf.encoding, cdr_flags(cdf), 0, 0, 0, 2, -1, { R"(
 Common Data Format (CDF)\nhttps://cdf.gsfc.nasa.gov
 Space Physics Data Facility
 NASA/Goddard Space Flight Center
@@ -273,6 +280,16 @@ Greenbelt, Maryland 20771 USA
         return true;
     }
 
+    // The records point into the CDF they were built from, so f gets the converted copy, which
+    // lives as long as f runs.
+    template <typename F>
+    decltype(auto) with_file_layout(const CDF& cdf, F&& f)
+    {
+        if (matches_memory_layout(cdf))
+            return f(cdf);
+        return f(in_file_layout(cdf));
+    }
+
 } // namespace
 
 
@@ -285,13 +302,17 @@ Greenbelt, Maryland 20771 USA
 {
     for (const auto& [_, variable] : cdf.variables)
         variable.load_values();
-    auto svg_ctx = saving::build_records(cdf);
-    buffers::file_writer writer { path };
-    if (!writer.is_open())
-        return false;
-    saving::write_records(svg_ctx, writer);
-    writer.os.flush();
-    return !writer.os.fail();
+    return saving::with_file_layout(cdf,
+        [&path](const CDF& file_cdf)
+        {
+            auto svg_ctx = saving::build_records(file_cdf);
+            buffers::file_writer writer { path };
+            if (!writer.is_open())
+                return false;
+            saving::write_records(svg_ctx, writer);
+            writer.os.flush();
+            return !writer.os.fail();
+        });
 }
 
 [[nodiscard]] inline no_init_vector<char> save(const CDF& cdf)
@@ -299,7 +320,8 @@ Greenbelt, Maryland 20771 USA
     no_init_vector<char> data;
     data.reserve(saving::estimate_size(cdf));
     buffers::vector_writer writer { data };
-    if (saving::impl_save(cdf, writer))
+    if (saving::with_file_layout(
+            cdf, [&writer](const CDF& file_cdf) { return saving::impl_save(file_cdf, writer); }))
         return data;
     return {};
 }

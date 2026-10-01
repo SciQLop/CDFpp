@@ -84,6 +84,10 @@ Enumerations
     :members:
     :undoc-members:
 
+.. autoclass:: Encoding
+    :members:
+    :undoc-members:
+
 Warnings
 ========
 

@@ -413,6 +413,138 @@ class PycdfPadValueTest(unittest.TestCase):
                 self.assertEqual(reloaded[name].pad_value, original[name].pad_value)
 
 
+def resaved(cdf):
+    return pycdfpp.load(bytes(pycdfpp.save(cdf)))
+
+
+def same_values(values, other):
+    # Fill values are often NaN, which never equals itself
+    if values.dtype.kind in "fc":
+        return np.array_equal(values, other, equal_nan=True)
+    return np.array_equal(values, other)
+
+
+def assert_same_attributes(test, attributes, other):
+    test.assertEqual(sorted(attributes), sorted(other))
+    for name in attributes:
+        test.assertEqual(str(attributes[name]), str(other[name]))
+
+
+def assert_same_content(test, cdf, other):
+    test.assertEqual(sorted(cdf), sorted(other))
+    for name in cdf:
+        with test.subTest(variable=name):
+            test.assertEqual(cdf[name].type, other[name].type)
+            test.assertEqual(cdf[name].shape, other[name].shape)
+            test.assertTrue(same_values(cdf[name].values, other[name].values))
+            assert_same_attributes(test, cdf[name].attributes, other[name].attributes)
+            for attr in cdf[name].attributes:
+                test.assertEqual(cdf[name].attributes[attr].type(), other[name].attributes[attr].type())
+            test.assertEqual(str(cdf[name].pad_value), str(other[name].pad_value))
+    assert_same_attributes(test, cdf.attributes, other.attributes)
+
+
+class PycdfMajorityTest(unittest.TestCase):
+    # The same variables and values, written by NASA's library in both majorities
+    ROW = os.path.join(RESOURCES, "a_cdf.cdf")
+    COLUMN = os.path.join(RESOURCES, "a_col_major_cdf.cdf")
+
+    def test_the_majority_can_be_set(self):
+        cdf = pycdfpp.CDF()
+        cdf.majority = pycdfpp.Majority.column
+        self.assertEqual(cdf.majority, pycdfpp.Majority.column)
+        self.assertEqual(resaved(cdf).majority, pycdfpp.Majority.column)
+
+    def test_column_major_files_round_trip(self):
+        column = pycdfpp.load(self.COLUMN)
+        reloaded = resaved(column)
+        self.assertEqual(reloaded.majority, pycdfpp.Majority.column)
+        assert_same_content(self, column, reloaded)
+
+    def test_a_row_major_file_saved_as_column_major_matches_nasa_s_column_major_file(self):
+        cdf = pycdfpp.load(self.ROW)
+        cdf.majority = pycdfpp.Majority.column
+        reloaded = resaved(cdf)
+        self.assertEqual(reloaded.majority, pycdfpp.Majority.column)
+        assert_same_content(self, pycdfpp.load(self.COLUMN), reloaded)
+
+    def test_records_are_stored_in_column_major_order(self):
+        values = np.arange(2 * 3 * 4 * 5, dtype=np.float64).reshape(2, 3, 4, 5)
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", values)
+        cdf.majority = pycdfpp.Majority.column
+        column_records = np.stack([np.asfortranarray(record).ravel(order="K") for record in values])
+        self.assertIn(column_records.tobytes(), bytes(pycdfpp.save(cdf)))
+        self.assertTrue(np.array_equal(resaved(cdf)["x"].values, values))
+
+    def test_converting_leaves_the_cdf_and_borrowed_arrays_unchanged(self):
+        values = np.arange(24, dtype=np.int32).reshape(2, 3, 4)
+        borrowed = values.copy()
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", values)
+        cdf.add_variable("borrowed", borrowed, copy=False)
+        cdf.majority = pycdfpp.Majority.column
+        cdf.encoding = pycdfpp.Encoding.network
+        reloaded = resaved(cdf)
+        for c in (cdf, reloaded):
+            for name in ("x", "borrowed"):
+                self.assertTrue(np.array_equal(c[name].values, values))
+        self.assertTrue(np.array_equal(borrowed, values))
+
+    def test_column_major_and_network_together(self):
+        cdf = pycdfpp.load(self.ROW)
+        cdf.majority = pycdfpp.Majority.column
+        cdf.encoding = pycdfpp.Encoding.network
+        reloaded = resaved(cdf)
+        self.assertEqual((reloaded.majority, reloaded.encoding),
+                         (pycdfpp.Majority.column, pycdfpp.Encoding.network))
+        assert_same_content(self, pycdfpp.load(self.COLUMN), reloaded)
+
+
+class PycdfEncodingTest(unittest.TestCase):
+    HOST = pycdfpp.Encoding.IBMPC if sys.byteorder == "little" else pycdfpp.Encoding.network
+    # Written by NASA's library in network encoding
+    NETWORK_FILES = ["ac_h2_sis_20101105_v06.cdf", "ac_h0_mfi_00000000_v01.cdf",
+                     "thg_l2_mag_mek_00000000_v01.cdf"]
+
+    def test_a_new_cdf_uses_the_host_encoding(self):
+        self.assertEqual(pycdfpp.CDF().encoding, self.HOST)
+
+    def test_files_keep_their_encoding(self):
+        for name in self.NETWORK_FILES:
+            with self.subTest(file=name):
+                original = pycdfpp.load(os.path.join(RESOURCES, name))
+                self.assertEqual(original.encoding, pycdfpp.Encoding.network)
+                reloaded = resaved(original)
+                self.assertEqual(reloaded.encoding, pycdfpp.Encoding.network)
+                assert_same_content(self, original, reloaded)
+
+    def test_any_file_can_be_saved_in_another_byte_order(self):
+        for encoding in (pycdfpp.Encoding.network, pycdfpp.Encoding.IBMPC):
+            for name in ["a_cdf.cdf", "sparse_records.cdf", "a_compressed_cdf.cdf",
+                         "a_cdf_with_compressed_vars.cdf"] + self.NETWORK_FILES:
+                with self.subTest(file=name, encoding=encoding):
+                    original = pycdfpp.load(os.path.join(RESOURCES, name))
+                    original.encoding = encoding
+                    reloaded = resaved(original)
+                    self.assertEqual(reloaded.encoding, encoding)
+                    assert_same_content(self, original, reloaded)
+
+    def test_values_are_stored_in_the_file_byte_order(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(100, dtype=np.float64))
+        cdf.encoding = pycdfpp.Encoding.network
+        saved = bytes(pycdfpp.save(cdf))
+        self.assertIn(np.arange(100, dtype=">f8").tobytes(), saved)
+        self.assertTrue(np.array_equal(cdf["x"].values, np.arange(100, dtype=np.float64)))
+
+    def test_encodings_without_ieee_floats_are_refused(self):
+        cdf = pycdfpp.CDF()
+        for name in ("VAX", "ALPHAVMSd", "ALPHAVMSg", "IA64VMSd", "IA64VMSg"):
+            with self.subTest(encoding=name), self.assertRaises(ValueError):
+                cdf.encoding = getattr(pycdfpp.Encoding, name)
+
+
 EXPERIMENTAL_CODECS = [getattr(pycdfpp.CompressionType, name)
                        for name in ("zstd_compression", "blosc2_compression")
                        if hasattr(pycdfpp.CompressionType, name)]

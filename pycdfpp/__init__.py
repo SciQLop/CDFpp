@@ -25,8 +25,8 @@ import warnings
 
 import numpy as np
 
-from ._pycdfpp import DataType, CompressionType, Majority, SparseRecords, Variable, VariableAttribute, \
-    Attribute, CDF, tt2000_t, epoch, epoch16
+from ._pycdfpp import DataType, CompressionType, Majority, SparseRecords, Encoding, Variable, \
+    VariableAttribute, Attribute, CDF, tt2000_t, epoch, epoch16
 from . import _pycdfpp
 
 # ByteString is deprecated in Python 3.9+ and removed in Python 3.14
@@ -41,7 +41,8 @@ if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] 
 __all__ = ['load', 'save', 'CDF', 'Variable', 'Attribute', 'VariableAttribute', 'filter_cdf',
            'to_datetime64', 'to_datetime', 'to_time_string', 'to_tt2000', 'to_epoch', 'to_epoch16',
            'tt2000_t', 'epoch', 'epoch16', 'default_fill_value', 'default_pad_value', 'to_dict_skeleton',
-           'DataType', 'CompressionType', 'Majority', 'SparseRecords', 'ExperimentalCompressionWarning']
+           'DataType', 'CompressionType', 'Majority', 'SparseRecords', 'Encoding',
+           'ExperimentalCompressionWarning']
 
 
 def __dir__():

@@ -78,6 +78,7 @@ namespace
         cdf.lazy_loaded = repr.lazy;
         cdf.compression = repr.compression_type;
         cdf.compression_level = repr.compression_level;
+        cdf.encoding = repr.encoding;
         // cdf.leap_second_last_updated = repr.leap_second_last_updated;
         return cdf;
     }
@@ -92,6 +93,7 @@ namespace
         repr.distribution_version = parsing_context.distribution_version();
         repr.compression_type = parsing_context.compression_type;
         repr.compression_level = parsing_context.compression_level;
+        repr.encoding = parsing_context.encoding();
         repr.lazy = lazy_load;
         if (!attribute::load_all<typename parsing_context_t::version_tag, iso_8859_1_to_utf8>(
                 parsing_context, repr))
