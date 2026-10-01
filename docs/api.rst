@@ -88,6 +88,10 @@ Enumerations
     :members:
     :undoc-members:
 
+.. autoclass:: Checksum
+    :members:
+    :undoc-members:
+
 Warnings
 ========
 

@@ -59,6 +59,13 @@ enum class cdf_majority
 }
 
 
+// The digest a file ends with, over every byte before it (CDR Flags bits 2 and 3).
+enum class cdf_checksum : int32_t
+{
+    no_checksum = 0,
+    md5_checksum = 1
+};
+
 // The VDR SRecords values: how readers fill the records a file doesn't store.
 enum class cdf_sparse_records : int32_t
 {

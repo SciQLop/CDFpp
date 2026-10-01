@@ -30,6 +30,7 @@
 #include "../desc-records.hpp"
 #include "./buffers.hpp"
 #include "./create_records.hpp"
+#include "../md5.hpp"
 #include "./layout_records.hpp"
 #include "./link_records.hpp"
 #include "./records-saving.hpp"
@@ -215,8 +216,33 @@ namespace saving
         write_variables_attributes(body.variable_attributes, body.layout, writer, virtual_offset);
     }
 
+    // Hashes the bytes on their way to the writer, so the digest costs no extra pass.
     template <typename T>
-    void write_records(saving_context& svg_ctx, T& writer)
+    struct md5_writer
+    {
+        T& writer;
+        md5 hash {};
+
+        std::size_t write(const char* data, std::size_t count)
+        {
+            hash.update(data, count);
+            return writer.write(data, count);
+        }
+
+        std::size_t fill(const char value, std::size_t count)
+        {
+            std::array<char, 4096> values;
+            values.fill(value);
+            for (auto left = count; left > 0; left -= std::min(left, std::size(values)))
+                hash.update(values.data(), std::min(left, std::size(values)));
+            return writer.fill(value, count);
+        }
+
+        [[nodiscard]] std::size_t offset() const noexcept { return writer.offset(); }
+    };
+
+    template <typename T>
+    void write_file(saving_context& svg_ctx, T& writer)
     {
         save_record(svg_ctx.magic, writer);
         if (svg_ctx.compression == cdf_compression_type::no_compression)
@@ -230,10 +256,23 @@ namespace saving
         }
     }
 
-    // CDF Internal Format Description, CDR Flags: bit 0 row majority, bit 1 single file.
+    template <typename T>
+    void write_records(saving_context& svg_ctx, T& writer)
+    {
+        if (svg_ctx.checksum == cdf_checksum::no_checksum)
+            return write_file(svg_ctx, writer);
+        md5_writer<T> hashing { writer };
+        write_file(svg_ctx, hashing);
+        const auto digest = hashing.hash.digest();
+        writer.write(digest.data(), std::size(digest));
+    }
+
+    // CDF Internal Format Description, CDR Flags: bit 0 row majority, bit 1 single file, bit 2
+    // checksum, bit 3 MD5 checksum.
     [[nodiscard]] constexpr int32_t cdr_flags(const CDF& cdf) noexcept
     {
-        return (cdf.majority == cdf_majority::row ? 1 : 0) | 2;
+        const int32_t checksum = cdf.checksum == cdf_checksum::md5_checksum ? 4 | 8 : 0;
+        return (cdf.majority == cdf_majority::row ? 1 : 0) | 2 | checksum;
     }
 
     [[nodiscard]] inline saving_context make_saving_context(const CDF& cdf)
@@ -242,6 +281,7 @@ namespace saving
         svg_ctx.compression = cdf.compression;
         svg_ctx.compression_level = cdf.compression_level;
         svg_ctx.body.layout = { cdf.majority, cdf.encoding };
+        svg_ctx.checksum = cdf.checksum;
         if (cdf.compression == cdf_compression_type::no_compression)
         {
             svg_ctx.magic = { 0xCDF30001, 0x0000FFFF };

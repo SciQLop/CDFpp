@@ -143,6 +143,7 @@ struct saving_context
 {
     cdf_compression_type compression = cdf_compression_type::no_compression;
     int32_t compression_level = default_gzip_level;
+    cdf_checksum checksum = cdf_checksum::no_checksum;
     common::magic_numbers_t magic;
     std::optional<record_wrapper<cdf_CCR_t<v3x_tag>>> ccr;
     std::optional<record_wrapper<cdf_CPR_t<v3x_tag>>> cpr;

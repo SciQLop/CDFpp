@@ -109,6 +109,7 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-io/desc-records.hpp',
     'include/cdfpp/cdf-io/endianness.hpp',
     'include/cdfpp/cdf-io/majority-swap.hpp',
+    'include/cdfpp/cdf-io/md5.hpp',
     'include/cdfpp/cdf-io/decompression.hpp',
     'include/cdfpp/cdf-io/compression.hpp',
     'include/cdfpp/cdf-io/zlib.hpp',
