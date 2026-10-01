@@ -137,6 +137,14 @@ class PycdfCreateCDFTest(unittest.TestCase):
         cdf = pycdfpp.CDF()
         cdf.add_attribute("test_attribute", [[1, 2, 3], [datetime(2018, 1, 1), datetime(2018, 1, 2)], "hello\nworld"])
 
+    def test_can_create_a_CDF_attribute_with_no_entry(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("EMPTY", [])
+        cdf.add_attribute("EMPTY_TOO", [], [])
+        for reloaded in (cdf, pycdfpp.load(pycdfpp.save(cdf))):
+            for name in ("EMPTY", "EMPTY_TOO"):
+                self.assertEqual(len(reloaded.attributes[name]), 0)
+
     def test_can_create_CDF_attributes_with_given_type(self):
         cdf = pycdfpp.CDF()
         cdf.add_attribute("ints", [[1, 2, 3], [128, 256, 512]],
