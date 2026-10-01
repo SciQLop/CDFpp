@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 
+import numpy as np
 import pycdfpp
 
 FIXTURES = [
@@ -44,6 +45,10 @@ def _built_fixtures():
     empty_attribute = pycdfpp.CDF()
     empty_attribute.add_attribute("EMPTY", [])
     yield "built_empty_attribute.cdf", empty_attribute
+    sparse_records = pycdfpp.CDF()
+    for flag in pycdfpp.SparseRecords:
+        sparse_records.add_variable(flag.name, np.arange(10.), sparse_records=flag)
+    yield "built_sparse_records.cdf", sparse_records
 
 
 def _corpus_fixtures():

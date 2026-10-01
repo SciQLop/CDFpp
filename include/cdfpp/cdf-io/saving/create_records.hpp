@@ -308,7 +308,7 @@ namespace saving
                         .VXRhead = 0,
                         .VXRtail = 0,
                         .Flags = !variable.is_nrv(),
-                        .SRecords = 0,
+                        .SRecords = static_cast<int32_t>(variable.sparse_records()),
                         .rfuB = { 0 },
                         .rfuC = { -1 },
                         .rfuF = { -1 },

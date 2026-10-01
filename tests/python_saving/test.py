@@ -320,6 +320,42 @@ class PycdfGzipLevelTest(unittest.TestCase):
                     cdf["x"].compression_level = level
 
 
+RESOURCES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "resources")
+
+
+class PycdfSparseRecordsTest(unittest.TestCase):
+    # Flags set by tests/resources/make_sparse_records.c
+    NASA_FLAGS = {"prev": "prev_sparse_records", "prev_with_fillval": "prev_sparse_records",
+                  "no_sparse_gap": "no_sparse_records"}
+
+    def test_the_default_is_no_sparse_records(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(10.))
+        self.assertEqual(cdf["x"].sparse_records, pycdfpp.SparseRecords.no_sparse_records)
+
+    def test_sparse_records_round_trip(self):
+        for flag in pycdfpp.SparseRecords:
+            with self.subTest(flag=flag):
+                cdf = pycdfpp.CDF()
+                cdf.add_variable("x", np.arange(10.), sparse_records=flag)
+                cdf.add_variable("y", np.arange(10.))
+                cdf["y"].sparse_records = flag
+                reloaded = pycdfpp.load(pycdfpp.save(cdf))
+                for name in ("x", "y"):
+                    self.assertEqual(reloaded[name].sparse_records, flag)
+                    self.assertTrue(np.array_equal(reloaded[name].values, np.arange(10.)))
+
+    def test_flags_written_by_the_nasa_library_survive_a_round_trip(self):
+        original = pycdfpp.load(os.path.join(RESOURCES, "sparse_records.cdf"))
+        reloaded = pycdfpp.load(pycdfpp.save(original))
+        for cdf in (original, reloaded):
+            for name in cdf:
+                with self.subTest(name=name):
+                    expected = getattr(pycdfpp.SparseRecords, self.NASA_FLAGS.get(name, "pad_sparse_records"))
+                    self.assertEqual(cdf[name].sparse_records, expected)
+                    self.assertTrue(np.array_equal(reloaded[name].values, original[name].values))
+
+
 EXPERIMENTAL_CODECS = [getattr(pycdfpp.CompressionType, name)
                        for name in ("zstd_compression", "blosc2_compression")
                        if hasattr(pycdfpp.CompressionType, name)]

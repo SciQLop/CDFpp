@@ -171,7 +171,7 @@ inline void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::strin
     }
 }
 
-inline void add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
+inline Variable& add_variable(cdf_repr& repr, const std::string& name, std::size_t number,
     Variable::var_data_t&& data, Variable::shape_t&& shape, bool is_nrv,
     cdf_compression_type compression_type, int32_t compression_level, bool is_zvariable = true,
     std::function<std::size_t()>&& block_counter = {})
@@ -182,9 +182,10 @@ inline void add_variable(cdf_repr& repr, const std::string& name, std::size_t nu
     repr.variables[name].set_compression_level(compression_level);
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
     { return std::move(repr.var_attributes[number]); }();
+    return repr.variables[name];
 }
 
-inline void add_lazy_variable(cdf_repr& repr, const std::string& name, std::size_t number,
+inline Variable& add_lazy_variable(cdf_repr& repr, const std::string& name, std::size_t number,
     lazy_data&& data, Variable::shape_t&& shape, bool is_nrv,
     cdf_compression_type compression_type, int32_t compression_level, bool is_zvariable = true,
     std::function<std::size_t()>&& block_counter = {})
@@ -195,6 +196,7 @@ inline void add_lazy_variable(cdf_repr& repr, const std::string& name, std::size
     repr.variables[name].set_compression_level(compression_level);
     repr.variables[name].attributes = [&]() -> decltype(Variable::attributes)
     { return std::move(repr.var_attributes[number]); }();
+    return repr.variables[name];
 }
 
 }

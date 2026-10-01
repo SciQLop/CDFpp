@@ -210,6 +210,10 @@ fills those records the way NASA's CDF library does: with the previous record wh
 variable asks for it, otherwise with ``FILLVAL``, otherwise with the variable's **pad
 value**. So a missing record reads like a fill value, and you can mask both at once.
 
+``var.sparse_records`` tells which way a variable asks for (a :class:`pycdfpp.SparseRecords`),
+and ``pycdfpp`` writes it back when it saves the file. It always writes every record, so the
+setting only matters to the tools that add records to the file later, as masters are used.
+
 The ``FILLVAL`` attribute tells you which value that is. ``VALIDMIN`` and ``VALIDMAX``
 give the range of physically meaningful values. Always mask values outside it before
 you compute anything. The :doc:`cookbook` shows how.
