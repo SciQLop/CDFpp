@@ -7,7 +7,8 @@ own reader cannot catch this (both sides would agree with each other while
 still disagreeing with the spec).
 
 By default validates the same 4 local fixtures tests/simple_save's round-trip
-SCENARIO uses. Pass --with-corpus to additionally fetch and validate the full
+SCENARIO uses, plus a few files built from scratch for writer features those
+fixtures don't use. Pass --with-corpus to additionally fetch and validate the full
 remote corpus tests/full_corpus/test.py already round-trips through CDFpp's
 own reader (33 real files from many different missions/instruments) -- reuses
 that file directly rather than duplicating its file list, so the corpus stays
@@ -36,6 +37,13 @@ FIXTURES = [
 def _local_fixtures(data_path):
     for name in FIXTURES:
         yield name, pycdfpp.load(os.path.join(data_path, name))
+
+
+def _built_fixtures():
+    """Files built from scratch, for the writer features the fixtures above don't use."""
+    empty_attribute = pycdfpp.CDF()
+    empty_attribute.add_attribute("EMPTY", [])
+    yield "built_empty_attribute.cdf", empty_attribute
 
 
 def _corpus_fixtures():
@@ -69,7 +77,7 @@ def main():
     failures = []
     checked = 0
     with tempfile.TemporaryDirectory() as out_dir:
-        for name, cdf in _local_fixtures(data_path):
+        for name, cdf in [*_local_fixtures(data_path), *_built_fixtures()]:
             _validate_one(name, cdf, cdfvalidate, out_dir, failures)
             checked += 1
         if include_corpus:

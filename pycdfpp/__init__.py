@@ -561,9 +561,10 @@ def _patch_add_cdf_attribute():
         if isinstance(name, Attribute):
             return self._add_attribute(attribute=name)
         entries_types = entries_types or [None] * len(entries_values)
-        v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
-                                       for values, data_type in zip(entries_values, entries_types)])]
-        return self._add_attribute(name=name, entries_values=v, entries_types=t)
+        entries = [_attribute_values_view_and_type(values, data_type)
+                   for values, data_type in zip(entries_values, entries_types)]
+        return self._add_attribute(name=name, entries_values=[v for v, _ in entries],
+                                   entries_types=[t for _, t in entries])
 
     CDF.add_attribute = _add_attribute_wrapper
 
