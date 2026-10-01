@@ -25,8 +25,8 @@ import warnings
 
 import numpy as np
 
-from ._pycdfpp import DataType, CompressionType, Majority, Variable, VariableAttribute, Attribute, CDF, tt2000_t, epoch, \
-    epoch16
+from ._pycdfpp import DataType, CompressionType, Majority, SparseRecords, Variable, VariableAttribute, \
+    Attribute, CDF, tt2000_t, epoch, epoch16
 from . import _pycdfpp
 
 # ByteString is deprecated in Python 3.9+ and removed in Python 3.14
@@ -41,7 +41,7 @@ if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] 
 __all__ = ['load', 'save', 'CDF', 'Variable', 'Attribute', 'VariableAttribute', 'filter_cdf',
            'to_datetime64', 'to_datetime', 'to_time_string', 'to_tt2000', 'to_epoch', 'to_epoch16',
            'tt2000_t', 'epoch', 'epoch16', 'default_fill_value', 'default_pad_value', 'to_dict_skeleton',
-           'DataType', 'CompressionType', 'Majority', 'ExperimentalCompressionWarning']
+           'DataType', 'CompressionType', 'Majority', 'SparseRecords', 'ExperimentalCompressionWarning']
 
 
 def __dir__():
@@ -303,7 +303,8 @@ def _patch_add_variable():
                               is_nrv: bool = False,
                               compression: CompressionType = CompressionType.no_compression,
                               attributes: Mapping[str, List[Any]] or None = None,
-                              copy: bool = True, *, compression_level: int = 6) -> Variable:
+                              copy: bool = True, *, compression_level: int = 6,
+                              sparse_records: SparseRecords = SparseRecords.no_sparse_records) -> Variable:
         ...
 
     @overload
@@ -311,14 +312,15 @@ def _patch_add_variable():
         ...
 
     @_strict_kwargs(['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes', 'copy'],
-                    keyword_only=['compression_level'])
+                    keyword_only=['compression_level', 'sparse_records'])
     def _add_variable_wrapper(self, name=None, values=None, data_type=None,
                               is_nrv=False, compression=CompressionType.no_compression,
-                              attributes=None, copy=True, *, compression_level=6) -> Variable:
+                              attributes=None, copy=True, *, compression_level=6,
+                              sparse_records=SparseRecords.no_sparse_records) -> Variable:
         """Adds a new variable to the CDF.
 
         This method can be called in two ways:
-        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True, *, compression_level=6)
+        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True, *, compression_level=6, sparse_records=SparseRecords.no_sparse_records)
         2. With a Variable object: add_variable(variable)
 
         Parameters
@@ -341,6 +343,9 @@ def _patch_add_variable():
             Variable.set_values. Saves the copy of big arrays. (Default is True)
         compression_level : int, optional, keyword-only
             The GZIP compression level, from 1 to 9, ignored by other compression types. (Default is 6)
+        sparse_records : SparseRecords, optional, keyword-only
+            How readers fill the records the file doesn't store, see Variable.sparse_records.
+            (Default is SparseRecords.no_sparse_records)
         variable : Variable
             An existing Variable object to add to the CDF (for the second calling method).
 
@@ -381,6 +386,7 @@ def _patch_add_variable():
             return self._add_variable(variable=name)
         var = self._add_variable(name, is_nrv=is_nrv, compression=compression,
                                  compression_level=compression_level)
+        var.sparse_records = sparse_records
         if values is not None:
             var.set_values(values, data_type, copy=copy)
         elif data_type is not None:

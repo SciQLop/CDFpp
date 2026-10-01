@@ -57,6 +57,13 @@ void def_enums_wrappers(T& mod)
         .export_values()
         .finalize();
 
+    py::native_enum<cdf_sparse_records>(mod, "SparseRecords", "enum.Enum")
+        .value("no_sparse_records", cdf_sparse_records::no_sparse_records)
+        .value("pad_sparse_records", cdf_sparse_records::pad_sparse_records)
+        .value("prev_sparse_records", cdf_sparse_records::prev_sparse_records)
+        .export_values()
+        .finalize();
+
     py::native_enum<CDF_Types>(mod, "DataType", "enum.Enum")
         .value("CDF_BYTE", CDF_Types::CDF_BYTE)
         .value("CDF_CHAR", CDF_Types::CDF_CHAR)

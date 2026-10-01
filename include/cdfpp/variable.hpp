@@ -158,7 +158,8 @@ struct Variable
     {
         return other.p_name == p_name && other.p_is_nrv == p_is_nrv
             && other.p_compression == p_compression
-            && other.p_compression_level == p_compression_level && other.p_shape == p_shape
+            && other.p_compression_level == p_compression_level
+            && other.p_sparse_records == p_sparse_records && other.p_shape == p_shape
             && other.attributes == attributes && other._data() == _data();
     }
 
@@ -204,6 +205,7 @@ struct Variable
         p_majority = source.p_majority;
         p_compression = source.p_compression;
         p_compression_level = source.p_compression_level;
+        p_sparse_records = source.p_sparse_records;
         check_shape();
     }
 
@@ -291,6 +293,8 @@ struct Variable
     void set_compression_level(int32_t level) { p_compression_level = checked_gzip_level(level); }
     // Unchecked, so RAII guards can restore a level read from compression_level() in a destructor.
     void restore_compression_level(int32_t level) noexcept { p_compression_level = level; }
+    [[nodiscard]] cdf_sparse_records sparse_records() const noexcept { return p_sparse_records; }
+    void set_sparse_records(cdf_sparse_records sparse) noexcept { p_sparse_records = sparse; }
 
     [[nodiscard]] inline bool values_loaded() const
     {
@@ -447,6 +451,7 @@ Data:
     bool p_is_nrv;
     cdf_compression_type p_compression;
     int32_t p_compression_level = default_gzip_level;
+    cdf_sparse_records p_sparse_records = cdf_sparse_records::no_sparse_records;
     bool p_is_zvariable = true;
     mutable std::function<std::size_t()> p_block_counter;
     mutable std::optional<bool> p_contiguous;

@@ -79,6 +79,9 @@ compression: CompressionType
     variable compression type (supported values are no_compression, rle_compression, gzip_compression)
 compression_level: int
     GZIP compression level, from 1 to 9 (default 6), ignored by other compression types
+sparse_records: SparseRecords
+    how readers fill the records the file doesn't store: with the pad value (pad_sparse_records),
+    with the previous record (prev_sparse_records), or no sparse records (default)
 values: numpy.array
     returns variable values as a numpy.array of the corresponding dtype and shape, note that no copies are involved, the returned array is just a view on variable data.
 values_encoded: numpy.array
@@ -693,6 +696,7 @@ void def_variable_wrapper(T& mod)
         .def_property("compression", &Variable::compression_type, &Variable::set_compression_type)
         .def_property(
             "compression_level", &Variable::compression_level, &Variable::set_compression_level)
+        .def_property("sparse_records", &Variable::sparse_records, &Variable::set_sparse_records)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
         .def_property_readonly("values", make_values_view<false>, py::keep_alive<0, 1>())
         .def_property_readonly("values_encoded", make_values_view<true>, py::keep_alive<0, 1>())

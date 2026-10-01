@@ -80,6 +80,10 @@ Enumerations
     :members:
     :undoc-members:
 
+.. autoclass:: SparseRecords
+    :members:
+    :undoc-members:
+
 Warnings
 ========
 

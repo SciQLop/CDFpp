@@ -59,6 +59,14 @@ enum class cdf_majority
 }
 
 
+// The VDR SRecords values: how readers fill the records a file doesn't store.
+enum class cdf_sparse_records : int32_t
+{
+    no_sparse_records = 0,
+    pad_sparse_records = 1,
+    prev_sparse_records = 2
+};
+
 enum class cdf_record_type : int32_t
 {
     CDR = 1,

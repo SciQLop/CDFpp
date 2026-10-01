@@ -466,6 +466,15 @@ namespace
         missing_records_t p_missing;
     };
 
+    // Read an unknown value as no sparse records rather than casting it to an out of range enum.
+    template <typename VDR_t>
+    [[nodiscard]] cdf_sparse_records sparse_records_of(const VDR_t& vdr) noexcept
+    {
+        if (vdr.SRecords == 1 || vdr.SRecords == 2)
+            return static_cast<cdf_sparse_records>(vdr.SRecords);
+        return cdf_sparse_records::no_sparse_records;
+    }
+
     template <cdf_r_z type, typename cdf_version_tag_t, bool iso_8859_1_to_utf8, typename context_t>
     bool load_all_Vars(context_t& context, common::cdf_repr& cdf, bool lazy_load = false)
     {
@@ -512,29 +521,27 @@ namespace
                     { return count_var_blocks<cdf_version_tag_t>(buffer, vxr_head); };
                     auto missing = missing_records_for(
                         vdr, cdf.var_attributes[vdr.Num], context.encoding());
-                    if (lazy_load)
+                    auto& variable = [&]() -> Variable&
                     {
-                        common::add_lazy_variable(cdf, vdr.Name.value, vdr.Num,
-                            lazy_data { defered_variable_loader<iso_8859_1_to_utf8,
-                                            decltype(context.buffer), decltype(vdr)> {
-                                            context.buffer, context.encoding(), vdr, record_count,
-                                            record_size, compression_type, std::move(missing) },
-                                vdr.DataType },
-                            std::move(shape), is_nrv, compression_type, compression_level,
-                            is_zvariable,
-                            std::move(block_counter));
-                    }
-                    else
-                    {
-                        common::add_variable(cdf, vdr.Name.value, vdr.Num,
+                        if (lazy_load)
+                            return common::add_lazy_variable(cdf, vdr.Name.value, vdr.Num,
+                                lazy_data { defered_variable_loader<iso_8859_1_to_utf8,
+                                                decltype(context.buffer), decltype(vdr)> {
+                                                context.buffer, context.encoding(), vdr,
+                                                record_count, record_size, compression_type,
+                                                std::move(missing) },
+                                    vdr.DataType },
+                                std::move(shape), is_nrv, compression_type, compression_level,
+                                is_zvariable, std::move(block_counter));
+                        return common::add_variable(cdf, vdr.Name.value, vdr.Num,
                             load_values<iso_8859_1_to_utf8>(
                                 load_var_data(context.buffer, vdr, record_size, record_count,
                                     compression_type, missing),
                                 context.encoding()),
                             std::move(shape), is_nrv, compression_type, compression_level,
-                            is_zvariable,
-                            std::move(block_counter));
-                    }
+                            is_zvariable, std::move(block_counter));
+                    }();
+                    variable.set_sparse_records(sparse_records_of(vdr));
                 }
             });
         return true;
