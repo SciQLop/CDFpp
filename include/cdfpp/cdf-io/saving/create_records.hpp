@@ -202,6 +202,24 @@ namespace saving
         vdr.MaxRec = variable.len() - 1;
     }
 
+    // Needs the geometry: the pad value is one element, NumElems values of the variable's type.
+    inline void populate_pad_value(const Variable& variable, cdf_zVDR_t<v3x_tag>& vdr)
+    {
+        const auto& pad = variable.pad_value();
+        if (!pad)
+            return;
+        const auto element_size
+            = cdf_type_size(vdr.DataType) * static_cast<std::size_t>(vdr.NumElems);
+        if (pad->type() != vdr.DataType or pad->bytes() != element_size)
+            throw std::invalid_argument { fmt::format(
+                "The pad value of '{}' ({}, {} bytes) doesn't fit the variable ({}, {} bytes)",
+                variable.name(), cdf_type_str(pad->type()), pad->bytes(),
+                cdf_type_str(vdr.DataType), element_size) };
+        vdr.Flags |= 2;
+        vdr.PadValues.resize(element_size);
+        std::memcpy(vdr.PadValues.data(), pad->bytes_ptr(), element_size);
+    }
+
     inline typename variable_ctx::values_records_t make_values_record(const Variable& v,
         const std::size_t records_in_vvr, const std::size_t record_size,
         const std::size_t first_record)
@@ -326,6 +344,7 @@ namespace saving
                     .cpr = std::nullopt });
 
             populate_variable_geometry(variable, var_ctx.vdr.record);
+            populate_pad_value(variable, var_ctx.vdr.record);
             // An empty variable may have no shape at all, hence no record size.
             const auto record_size = variable.len() ? record_size_of(variable) : 0;
             const auto per_block = variable.len() ? records_per_block(variable, record_size) : 0;

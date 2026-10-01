@@ -214,6 +214,18 @@ value**. So a missing record reads like a fill value, and you can mask both at o
 and ``pycdfpp`` writes it back when it saves the file. It always writes every record, so the
 setting only matters to the tools that add records to the file later, as masters are used.
 
+``var.pad_value`` is the pad value the file declares, or ``None``. It reads and is set like
+the value of an attribute of the variable's type, so a ``CDF_REAL4`` variable takes
+``np.float32(-1e-30)``: a Python float that a float32 can't hold exactly is refused.
+
+.. code-block:: python
+
+    cdf = pycdfpp.CDF()
+    cdf.add_variable("EDC_SRF", np.empty((0, 3), dtype=np.float32),
+                     pad_value=np.float32(-1e-30),
+                     sparse_records=pycdfpp.SparseRecords.pad_sparse_records)
+    cdf["EDC_SRF"].pad_value    # [-1.0000000031710769e-30], the float32 nearest to -1e-30
+
 The ``FILLVAL`` attribute tells you which value that is. ``VALIDMIN`` and ``VALIDMAX``
 give the range of physically meaningful values. Always mask values outside it before
 you compute anything. The :doc:`cookbook` shows how.

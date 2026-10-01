@@ -79,6 +79,9 @@ compression: CompressionType
     variable compression type (supported values are no_compression, rle_compression, gzip_compression)
 compression_level: int
     GZIP compression level, from 1 to 9 (default 6), ignored by other compression types
+pad_value: list or str or None
+    the value readers give the records the file doesn't store, read and set like the value of
+    an attribute of the variable's type (FILLVAL for instance); None when the file declares none
 sparse_records: SparseRecords
     how readers fill the records the file doesn't store: with the pad value (pad_sparse_records),
     with the previous record (prev_sparse_records), or no sparse records (default)
@@ -697,6 +700,19 @@ void def_variable_wrapper(T& mod)
         .def_property(
             "compression_level", &Variable::compression_level, &Variable::set_compression_level)
         .def_property("sparse_records", &Variable::sparse_records, &Variable::set_sparse_records)
+        .def_property_readonly("_pad_value",
+            [](const Variable& var) -> std::optional<py_cdf_attr_data_t>
+            {
+                if (const auto& pad = var.pad_value())
+                    return to_py_cdf_data(*pad);
+                return std::nullopt;
+            })
+        .def(
+            "_set_pad_value",
+            [](Variable& var, const string_or_buffer_t& value, CDF_Types data_type)
+            { var.set_pad_value(to_attr_data_entry(value, data_type)); },
+            py::arg("value").noconvert(), py::arg("data_type"))
+        .def("_clear_pad_value", [](Variable& var) { var.set_pad_value(std::nullopt); })
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
         .def_property_readonly("values", make_values_view<false>, py::keep_alive<0, 1>())
         .def_property_readonly("values_encoded", make_values_view<true>, py::keep_alive<0, 1>())
