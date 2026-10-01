@@ -57,7 +57,7 @@ repair-wheel-command = "python -m delvewheel repair -v --add-path C:/Windows/Sys
 
 
 [tool.bumpversion]
-current_version = "0.15.1"
+current_version = "0.16.0"
 commit = true
 tag = true
 tag_name = "v{new_version}"

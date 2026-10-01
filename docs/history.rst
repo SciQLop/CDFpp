@@ -5,8 +5,8 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
-Unreleased
-----------
+0.16.0 (2026-10-01)
+-------------------
 
 * Windows ARM64 wheels, for Python 3.11 and later.
 * Python 3.15 wheels, free-threaded ones included, are tested like the others.
@@ -25,6 +25,10 @@ Unreleased
   shape was ``()``, and reading its values read past its empty buffer.
 * ``[np.uint64(1)]`` as an attribute entry is stored as ``CDF_INT8``, and ``["abc"]`` as the
   string ``"abc"``: both raised errors. Several strings in one entry get a clear error.
+* CDFpp Explorer: zooming redraws plots from the visible range, so every sample shows again;
+  lines break at data gaps and spectrogram columns no longer stretch across them. Zoom and pan
+  work as in speasy-proxy's plots (wheel, drag, pinch, Y axis on its own). Example files to
+  start from, ``?url=…&var=…`` links that open a variable, and the CDFpp version in the header.
 * Tests pin every behaviour of the Python API that mutation testing found unchecked, and the
   coverage report includes the Python layer.
 
