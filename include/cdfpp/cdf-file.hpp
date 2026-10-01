@@ -61,6 +61,7 @@ struct CDF
     cdf_compression_type compression = cdf_compression_type::no_compression;
     int32_t compression_level = default_gzip_level;
     cdf_encoding encoding = CDFpp_ENCODING;
+    cdf_checksum checksum = cdf_checksum::no_checksum;
     std::tuple<int32_t, int32_t, int32_t> distribution_version = { 3, 9, 0 };
     cdf_map<std::string, Variable> variables;
     cdf_map<std::string, Attribute> attributes;

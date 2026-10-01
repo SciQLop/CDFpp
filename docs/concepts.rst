@@ -263,6 +263,17 @@ their floats aren't IEEE 754, and CDFpp doesn't convert them.
     cdf.majority = pycdfpp.Majority.column
     cdf.encoding = pycdfpp.Encoding.network
 
+Checksum
+========
+
+A file can end with the MD5 digest of the rest of it, so readers can check that it isn't
+corrupted. ``cdf.checksum`` tells whether it does, and you can change it. A loaded file keeps
+its checksum. ``pycdfpp`` writes the digest, but doesn't check it when it loads a file.
+
+.. code-block:: python
+
+    cdf.checksum = pycdfpp.Checksum.md5_checksum
+
 Compression
 ===========
 

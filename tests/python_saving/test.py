@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from contextlib import contextmanager
 import types
 import tempfile
+import hashlib
 import shutil
 import numpy as np
 import math
@@ -571,6 +572,65 @@ class PycdfEncodingTest(unittest.TestCase):
         for name in ("VAX", "ALPHAVMSd", "ALPHAVMSg", "IA64VMSd", "IA64VMSg"):
             with self.subTest(encoding=name), self.assertRaises(ValueError):
                 cdf.encoding = getattr(pycdfpp.Encoding, name)
+
+
+def has_valid_md5(data: bytes):
+    return hashlib.md5(data[:-16]).digest() == data[-16:]
+
+
+class PycdfChecksumTest(unittest.TestCase):
+    MD5 = pycdfpp.Checksum.md5_checksum
+
+    def md5_cdf(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("values", np.arange(10, dtype=np.float64))
+        cdf.checksum = self.MD5
+        return cdf
+
+    def test_there_is_no_checksum_by_default(self):
+        cdf = pycdfpp.CDF()
+        self.assertEqual(cdf.checksum, pycdfpp.Checksum.no_checksum)
+        self.assertFalse(has_valid_md5(bytes(pycdfpp.save(cdf))))
+
+    def test_files_written_by_the_nasa_library_keep_their_checksum(self):
+        # Made by tests/resources/make_checksum_cdf.py
+        original = pycdfpp.load(os.path.join(RESOURCES, "checksum.cdf"))
+        self.assertEqual(original.checksum, self.MD5)
+        saved = bytes(pycdfpp.save(original))
+        self.assertTrue(has_valid_md5(saved))
+        reloaded = pycdfpp.load(saved)
+        self.assertEqual(reloaded.checksum, self.MD5)
+        assert_same_content(self, original, reloaded)
+
+    def test_the_file_ends_with_the_md5_of_the_rest(self):
+        with open(os.path.join(RESOURCES, "checksum.cdf"), "rb") as nasa_file:
+            self.assertTrue(has_valid_md5(nasa_file.read()))
+        for compression in (pycdfpp.CompressionType.no_compression, GZIP):
+            for encoding in (pycdfpp.Encoding.IBMPC, pycdfpp.Encoding.network):
+                with self.subTest(compression=compression, encoding=encoding):
+                    cdf = self.md5_cdf()
+                    cdf.compression = compression
+                    cdf.encoding = encoding
+                    saved = bytes(pycdfpp.save(cdf))
+                    self.assertTrue(has_valid_md5(saved))
+                    self.assertTrue(np.array_equal(pycdfpp.load(saved)["values"].values,
+                                                   np.arange(10, dtype=np.float64)))
+
+    def test_files_saved_to_disk_have_the_checksum_too(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "md5.cdf")
+            self.assertTrue(pycdfpp.save(self.md5_cdf(), path))
+            with open(path, "rb") as f:
+                saved = f.read()
+        self.assertTrue(has_valid_md5(saved))
+        self.assertEqual(saved, bytes(pycdfpp.save(self.md5_cdf())))
+
+    def test_the_checksum_can_be_removed(self):
+        cdf = pycdfpp.load(os.path.join(RESOURCES, "checksum.cdf"))
+        cdf.checksum = pycdfpp.Checksum.no_checksum
+        saved = bytes(pycdfpp.save(cdf))
+        self.assertFalse(has_valid_md5(saved))
+        self.assertEqual(pycdfpp.load(saved).checksum, pycdfpp.Checksum.no_checksum)
 
 
 EXPERIMENTAL_CODECS = [getattr(pycdfpp.CompressionType, name)

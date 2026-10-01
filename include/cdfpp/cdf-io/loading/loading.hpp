@@ -79,8 +79,18 @@ namespace
         cdf.compression = repr.compression_type;
         cdf.compression_level = repr.compression_level;
         cdf.encoding = repr.encoding;
+        cdf.checksum = repr.checksum;
         // cdf.leap_second_last_updated = repr.leap_second_last_updated;
         return cdf;
+    }
+
+    // Other checksum methods than MD5 are reserved, none is defined (CDR Flags bit 4).
+    template <typename CDR_t>
+    [[nodiscard]] cdf_checksum checksum_of(const CDR_t& cdr) noexcept
+    {
+        constexpr int32_t checksum_md5 = 4 | 8;
+        return (cdr.Flags & checksum_md5) == checksum_md5 ? cdf_checksum::md5_checksum
+                                                          : cdf_checksum::no_checksum;
     }
 
     template <bool iso_8859_1_to_utf8, typename parsing_context_t>
@@ -94,6 +104,7 @@ namespace
         repr.compression_type = parsing_context.compression_type;
         repr.compression_level = parsing_context.compression_level;
         repr.encoding = parsing_context.encoding();
+        repr.checksum = checksum_of(parsing_context.cdr);
         repr.lazy = lazy_load;
         if (!attribute::load_all<typename parsing_context_t::version_tag, iso_8859_1_to_utf8>(
                 parsing_context, repr))

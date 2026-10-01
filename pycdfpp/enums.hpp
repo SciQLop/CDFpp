@@ -83,6 +83,12 @@ void def_enums_wrappers(T& mod)
             .finalize();
     }
 
+    py::native_enum<cdf_checksum>(mod, "Checksum", "enum.Enum")
+        .value("no_checksum", cdf_checksum::no_checksum)
+        .value("md5_checksum", cdf_checksum::md5_checksum)
+        .export_values()
+        .finalize();
+
     py::native_enum<cdf_sparse_records>(mod, "SparseRecords", "enum.Enum")
         .value("no_sparse_records", cdf_sparse_records::no_sparse_records)
         .value("pad_sparse_records", cdf_sparse_records::pad_sparse_records)

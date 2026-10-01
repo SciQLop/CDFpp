@@ -58,6 +58,9 @@ variables: dict
     file variables
 majority: Majority
     file majority: values are always given in row major order, saving converts them
+checksum: Checksum
+    whether the file ends with the MD5 digest of the rest of it (md5_checksum); loaded files
+    keep theirs, the digest is not checked when loading
 encoding: Encoding
     byte order of the values in the file (IBMPC is little endian, network big endian); new
     files use the host's, loaded files keep theirs, saving converts the values
@@ -101,6 +104,9 @@ void def_cdf_wrapper(T& mod)
         .def_property(
             "majority", [](const CDF& cdf) { return cdf.majority; },
             [](CDF& cdf, cdf_majority majority) { cdf.majority = majority; })
+        .def_property(
+            "checksum", [](const CDF& cdf) { return cdf.checksum; },
+            [](CDF& cdf, cdf_checksum checksum) { cdf.checksum = checksum; })
         .def_property(
             "encoding", [](const CDF& cdf) { return cdf.encoding; },
             [](CDF& cdf, cdf_encoding encoding)
