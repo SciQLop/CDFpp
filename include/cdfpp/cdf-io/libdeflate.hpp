@@ -28,6 +28,7 @@
 #include <cpp_utils/containers/no_init_vector.hpp>
 using cpp_utils::containers::no_init_vector;
 
+#include "../cdf-enums.hpp"
 #include <cstddef>
 #include <libdeflate.h>
 #include <vector>
@@ -80,10 +81,10 @@ namespace _internal
     }
 
     template <typename T>
-    CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(const T& input)
+    CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(const T& input, int level)
     {
         resolve_cpu_dispatch();
-        auto compressor = libdeflate_alloc_compressor(6);
+        auto compressor = libdeflate_alloc_compressor(level);
         if (!compressor)
             return {};
         no_init_vector<char> result(libdeflate_gzip_compress_bound(compressor, std::size(input)));
@@ -111,10 +112,10 @@ std::size_t gzinflate(const T& input, char* output, const std::size_t output_siz
 }
 
 template <typename T>
-no_init_vector<char> gzdeflate(const T& input)
+no_init_vector<char> gzdeflate(const T& input, int level = default_gzip_level)
 {
     using namespace _internal;
-    return impl_deflate(input);
+    return impl_deflate(input, level);
 }
 
 }

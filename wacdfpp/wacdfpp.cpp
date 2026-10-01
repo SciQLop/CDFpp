@@ -276,14 +276,14 @@ auto with_js_errors(F&& f)
     }
 }
 
-// Sets every variable to one codec (and drops file-level compression) for its lifetime, then
-// restores the original codecs, even if saving throws. Lets save_as avoid copying the CDF,
-// whose decoded values can take GiBs.
+// Sets every variable to one codec at its default level (and drops file-level compression) for
+// its lifetime, then restores the original codecs and levels, even if saving throws. Lets save_as
+// avoid copying the CDF, whose decoded values can take GiBs.
 class codec_override
 {
     cdf::CDF& cdf;
     cdf::cdf_compression_type file_codec;
-    std::vector<cdf::cdf_compression_type> variable_codecs;
+    std::vector<std::pair<cdf::cdf_compression_type, int32_t>> variable_codecs;
 
 public:
     codec_override(cdf::CDF& cdf, cdf::cdf_compression_type codec)
@@ -292,8 +292,9 @@ public:
         cdf.compression = cdf::cdf_compression_type::no_compression;
         for (auto& [_, variable] : cdf.variables)
         {
-            variable_codecs.push_back(variable.compression_type());
+            variable_codecs.emplace_back(variable.compression_type(), variable.compression_level());
             variable.set_compression_type(codec);
+            variable.set_compression_level(cdf::default_gzip_level);
         }
     }
     ~codec_override()
@@ -301,7 +302,11 @@ public:
         cdf.compression = file_codec;
         auto codec = std::cbegin(variable_codecs);
         for (auto& [_, variable] : cdf.variables)
-            variable.set_compression_type(*codec++);
+        {
+            variable.set_compression_type(codec->first);
+            variable.set_compression_level(codec->second);
+            ++codec;
+        }
     }
     codec_override(const codec_override&) = delete;
     codec_override& operator=(const codec_override&) = delete;

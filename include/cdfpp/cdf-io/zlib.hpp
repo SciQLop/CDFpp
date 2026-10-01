@@ -27,6 +27,7 @@
 #include "../cdf-debug.hpp"
 #include <cpp_utils/containers/no_init_vector.hpp>
 using cpp_utils::containers::no_init_vector;
+#include "../cdf-enums.hpp"
 #include <cstddef>
 #include <vector>
 #define ZLIB_CONST
@@ -67,7 +68,7 @@ namespace _internal
     }
 
     template <typename T>
-    CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(const T& input)
+    CDF_WARN_UNUSED_RESULT no_init_vector<char> impl_deflate(const T& input, int level)
     {
         no_init_vector<char> result(std::max(std::size(input), 16 * 1024UL));
         z_stream fstream;
@@ -78,9 +79,7 @@ namespace _internal
         fstream.next_in = reinterpret_cast<const Bytef*>(input.data());
         fstream.avail_out = std::size(result);
         fstream.next_out = reinterpret_cast<Bytef*>(result.data());
-        if (Z_OK
-            != deflateInit2(
-                &fstream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 | 16, 6, Z_DEFAULT_STRATEGY))
+        if (Z_OK != deflateInit2(&fstream, level, Z_DEFLATED, 15 | 16, 6, Z_DEFAULT_STRATEGY))
             return {};
         auto ret = deflate(&fstream, Z_FINISH);
         deflateEnd(&fstream);
@@ -103,9 +102,9 @@ std::size_t gzinflate(const T& input, char* output, const std::size_t output_siz
 }
 
 template <typename T>
-no_init_vector<char> gzdeflate(const T& input)
+no_init_vector<char> gzdeflate(const T& input, int level = default_gzip_level)
 {
     using namespace _internal;
-    return impl_deflate(input);
+    return impl_deflate(input, level);
 }
 }

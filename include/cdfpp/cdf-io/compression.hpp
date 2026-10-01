@@ -51,12 +51,12 @@ inline no_init_vector<char> rledeflate(const T& input)
 }
 
 template <typename T>
-no_init_vector<char> gzdeflate(const T& input)
+no_init_vector<char> gzdeflate(const T& input, int32_t level = default_gzip_level)
 {
 #ifdef CDFpp_USE_LIBDEFLATE
-    return libdeflate::gzdeflate(input);
+    return libdeflate::gzdeflate(input, level);
 #else
-    return zlib::gzdeflate(input);
+    return zlib::gzdeflate(input, level);
 #endif
 }
 
@@ -72,11 +72,11 @@ no_init_vector<char> deflate(const T& input)
 // element_size and record_size are shape hints for byte-shuffling codecs (blosc2); pass 1 for
 // untyped data such as a whole-file CCR payload.
 template <typename T>
-no_init_vector<char> deflate(cdf_compression_type type, const T& input,
+no_init_vector<char> deflate(cdf_compression_type type, int32_t gzip_level, const T& input,
     [[maybe_unused]] std::size_t element_size, [[maybe_unused]] std::size_t record_size)
 {
     if (type == cdf_compression_type::gzip_compression)
-        return gzdeflate(input);
+        return gzdeflate(input, gzip_level);
     if (type == cdf_compression_type::rle_compression)
         return rledeflate(input);
 #ifdef CDFPP_USE_ZSTD

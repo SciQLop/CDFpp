@@ -172,15 +172,17 @@ def _values_view_and_type(values: np.ndarray or list, data_type: DataType or Non
     return values, data_type or _NUMPY_TO_CDF_TYPE_.get(values.dtype.num, DataType.CDF_NONE)
 
 
-def _strict_kwargs(arg_names):
+def _strict_kwargs(arg_names, keyword_only=()):
     """Decorator that maps positional args to named kwargs and rejects unknown kwargs.
 
     Parameters
     ----------
     arg_names : list of str
         Allowed keyword argument names, in positional order (excluding 'self').
+    keyword_only : list of str
+        Allowed keyword argument names that can't be passed positionally.
     """
-    allowed = set(arg_names)
+    allowed = set(arg_names) | set(keyword_only)
     def decorator(fn):
         @wraps(fn)
         def wrapper(self, *args, **kwargs):
@@ -301,21 +303,22 @@ def _patch_add_variable():
                               is_nrv: bool = False,
                               compression: CompressionType = CompressionType.no_compression,
                               attributes: Mapping[str, List[Any]] or None = None,
-                              copy: bool = True) -> Variable:
+                              copy: bool = True, *, compression_level: int = 6) -> Variable:
         ...
 
     @overload
     def _add_variable_wrapper(self: CDF, variable: Variable) -> Variable:
         ...
 
-    @_strict_kwargs(['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes', 'copy'])
+    @_strict_kwargs(['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes', 'copy'],
+                    keyword_only=['compression_level'])
     def _add_variable_wrapper(self, name=None, values=None, data_type=None,
                               is_nrv=False, compression=CompressionType.no_compression,
-                              attributes=None, copy=True) -> Variable:
+                              attributes=None, copy=True, *, compression_level=6) -> Variable:
         """Adds a new variable to the CDF.
 
         This method can be called in two ways:
-        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True)
+        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True, *, compression_level=6)
         2. With a Variable object: add_variable(variable)
 
         Parameters
@@ -336,6 +339,8 @@ def _patch_add_variable():
         copy : bool, optional
             If False, the variable borrows the numpy array instead of copying it, see
             Variable.set_values. Saves the copy of big arrays. (Default is True)
+        compression_level : int, optional, keyword-only
+            The GZIP compression level, from 1 to 9, ignored by other compression types. (Default is 6)
         variable : Variable
             An existing Variable object to add to the CDF (for the second calling method).
 
@@ -374,7 +379,8 @@ def _patch_add_variable():
         """
         if isinstance(name, Variable):
             return self._add_variable(variable=name)
-        var = self._add_variable(name, is_nrv=is_nrv, compression=compression)
+        var = self._add_variable(name, is_nrv=is_nrv, compression=compression,
+                                 compression_level=compression_level)
         if values is not None:
             var.set_values(values, data_type, copy=copy)
         elif data_type is not None:

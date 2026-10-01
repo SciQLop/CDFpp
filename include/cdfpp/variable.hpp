@@ -157,7 +157,8 @@ struct Variable
     inline bool operator==(const Variable& other) const
     {
         return other.p_name == p_name && other.p_is_nrv == p_is_nrv
-            && other.p_compression == p_compression && other.p_shape == p_shape
+            && other.p_compression == p_compression
+            && other.p_compression_level == p_compression_level && other.p_shape == p_shape
             && other.attributes == attributes && other._data() == _data();
     }
 
@@ -202,6 +203,7 @@ struct Variable
         p_is_nrv = source.p_is_nrv;
         p_majority = source.p_majority;
         p_compression = source.p_compression;
+        p_compression_level = source.p_compression_level;
         check_shape();
     }
 
@@ -285,6 +287,8 @@ struct Variable
     [[nodiscard]] cdf_majority majority() const noexcept { return p_majority; }
     [[nodiscard]] cdf_compression_type compression_type() const noexcept { return p_compression; }
     void set_compression_type(cdf_compression_type ct) noexcept { p_compression = ct; }
+    [[nodiscard]] int32_t compression_level() const noexcept { return p_compression_level; }
+    void set_compression_level(int32_t level) { p_compression_level = checked_gzip_level(level); }
 
     [[nodiscard]] inline bool values_loaded() const
     {
@@ -440,6 +444,7 @@ Data:
     cdf_majority p_majority;
     bool p_is_nrv;
     cdf_compression_type p_compression;
+    int32_t p_compression_level = default_gzip_level;
     bool p_is_zvariable = true;
     mutable std::function<std::size_t()> p_block_counter;
     mutable std::optional<bool> p_contiguous;

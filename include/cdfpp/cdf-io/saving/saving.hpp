@@ -199,6 +199,7 @@ namespace saving
     {
         saving_context svg_ctx;
         svg_ctx.compression = cdf.compression;
+        svg_ctx.compression_level = cdf.compression_level;
         if (cdf.compression == cdf_compression_type::no_compression)
         {
             svg_ctx.magic = { 0xCDF30001, 0x0000FFFF };
@@ -207,7 +208,7 @@ namespace saving
         {
             svg_ctx.magic = { 0xCDF30001, 0xCCCC0001 };
             svg_ctx.ccr = record_wrapper<cdf_CCR_t<v3x_tag>> { { {}, 0, 0, 0, {} } };
-            svg_ctx.cpr = make_cpr(cdf.compression);
+            svg_ctx.cpr = make_cpr(cdf.compression, cdf.compression_level);
         }
         svg_ctx.body.cdr.record
             = cdf_CDR_t<v3x_tag> { {}, 0, 3, 8, CDFpp_ENCODING, 3, 0, 0, 0, 2, -1, { R"(
@@ -240,7 +241,7 @@ Greenbelt, Maryland 20771 USA
             buffers::vector_writer writer { svg_ctx.ccr->record.data };
             write_body(svg_ctx.body, writer, 8);
             svg_ctx.ccr->record.uSize = std::size(writer.data);
-            auto compressed = compression::deflate(svg_ctx.compression,
+            auto compressed = compression::deflate(svg_ctx.compression, svg_ctx.compression_level,
                 std::string_view { writer.data.data(), std::size(writer.data) }, 1, 1);
             svg_ctx.ccr->record.data.resize(std::size(compressed));
             std::memcpy(svg_ctx.ccr->record.data.data(), compressed.data(), std::size(compressed));

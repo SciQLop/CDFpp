@@ -36,6 +36,16 @@
 namespace cdf::io
 {
 
+// Readers don't need the level to decompress, so an out of range one is replaced, not an error.
+template <typename cpr_t>
+[[nodiscard]] int32_t gzip_level(const cpr_t& cpr)
+{
+    if (cpr.cType == cdf_compression_type::gzip_compression && std::size(cpr.cParms) >= 1
+        && cpr.cParms[0] >= 1 && cpr.cParms[0] <= 9)
+        return cpr.cParms[0];
+    return default_gzip_level;
+}
+
 template <typename buffer_t, typename version_t>
 struct parsing_context_t
 {
@@ -46,6 +56,7 @@ struct parsing_context_t
     cdf_GDR_t<version_t> gdr;
     cdf_majority majority;
     cdf_compression_type compression_type;
+    int32_t compression_level = default_gzip_level;
 
     parsing_context_t(buffer_t&& buff, cdf_compression_type compression_type)
             : buffer { std::move(buff) }, cdr {}, gdr {}, compression_type { compression_type }
