@@ -243,6 +243,29 @@ Multi-dimensional arrays can be stored in **row-major** order (C, Python) or
 You don't need to care. ``pycdfpp`` always gives you normal row-major numpy arrays,
 whatever the file uses.
 
+``cdf.majority`` tells which order the file uses, and you can change it. When it saves the
+file, ``pycdfpp`` stores the values in that order. A loaded file keeps its majority.
+
+Byte order
+==========
+
+A file also stores its numbers in one byte order, its **encoding**: ``IBMPC`` is little
+endian, ``network`` big endian. Again, ``pycdfpp`` gives you numbers in your computer's
+order.
+
+``cdf.encoding`` tells which one the file uses, and you can change it. A new file uses your
+computer's order, and a loaded file keeps its own. The VAX and VMS encodings can't be chosen:
+their floats aren't IEEE 754, and CDFpp doesn't convert them.
+
+.. code-block:: python
+
+    cdf = pycdfpp.CDF()
+    cdf.majority = pycdfpp.Majority.column
+    cdf.encoding = pycdfpp.Encoding.network
+
+Saving a file whose majority or encoding isn't your computer's converts a copy of its values,
+so it needs twice their memory.
+
 Compression
 ===========
 

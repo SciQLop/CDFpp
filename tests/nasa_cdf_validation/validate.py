@@ -54,6 +54,14 @@ def _built_fixtures():
     pad_values.add_variable("int", np.arange(10, dtype=np.int16), pad_value=-7)
     pad_values.add_variable("text", ["abc", "def"], pad_value="xyz")
     yield "built_pad_values.cdf", pad_values
+    for majority in pycdfpp.Majority:
+        for encoding in (pycdfpp.Encoding.network, pycdfpp.Encoding.IBMPC):
+            layout = pycdfpp.CDF()
+            layout.majority, layout.encoding = majority, encoding
+            layout.add_attribute("numbers", [[1, 2, 3], [1.5]])
+            layout.add_variable("cube", np.arange(60, dtype=np.float32).reshape(3, 4, 5),
+                                attributes={"VALIDMIN": [np.float32(0)]}, pad_value=np.float32(-1))
+            yield f"built_{majority.name}_{encoding.name}.cdf", layout
 
 
 def _corpus_fixtures():

@@ -133,7 +133,8 @@ namespace _private
 
 }
 
-template <bool is_string, typename shape_t, typename data_t>
+// From column to row major by default, from row to column major with to_column.
+template <bool is_string, typename shape_t, typename data_t, bool to_column = false>
 void swap(data_t& data, const shape_t& shape)
 {
     const auto dimensions = std::size(shape);
@@ -155,16 +156,18 @@ void swap(data_t& data, const shape_t& shape)
         auto offset = 0UL;
         for (auto record = 0UL; record < records_count; record++)
         {
-            for (const auto& swap_pair : access_patern)
+            for (const auto& [row, column] : access_patern)
             {
+                const auto [to, from]
+                    = to_column ? std::pair { column, row } : std::pair { row, column };
                 if constexpr (is_string)
                 {
-                    std::memcpy(temporary_record.data() + (swap_pair.src * shape.back()),
-                        data.data() + offset + (swap_pair.dest * shape.back()), shape.back());
+                    std::memcpy(temporary_record.data() + (to * shape.back()),
+                        data.data() + offset + (from * shape.back()), shape.back());
                 }
                 else
                 {
-                    temporary_record[swap_pair.src] = data[offset + swap_pair.dest];
+                    temporary_record[to] = data[offset + from];
                 }
             }
             std::memcpy(data.data() + offset, temporary_record.data(), bytes_per_record);
@@ -173,6 +176,7 @@ void swap(data_t& data, const shape_t& shape)
     }
 }
 
+template <bool to_column = false>
 inline void swap(data_t& data, const no_init_vector<uint32_t>& shape)
 {
     if (data.type() == CDF_Types::CDF_NONE)
@@ -181,7 +185,14 @@ inline void swap(data_t& data, const no_init_vector<uint32_t>& shape)
         [&]<CDF_Types t>()
         {
             constexpr bool is_str = is_cdf_string_type(t);
-            swap<is_str>(data.get<t>(), shape);
+            auto& values = data.get<t>();
+            swap<is_str, no_init_vector<uint32_t>, std::decay_t<decltype(values)>, to_column>(
+                values, shape);
         });
+}
+
+inline void to_column_major(data_t& data, const no_init_vector<uint32_t>& shape)
+{
+    swap<true>(data, shape);
 }
 }

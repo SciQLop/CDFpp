@@ -123,6 +123,7 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-io/saving/records-saving.hpp',
     'include/cdfpp/cdf-io/saving/buffers.hpp',
     'include/cdfpp/cdf-io/saving/create_records.hpp',
+    'include/cdfpp/cdf-io/saving/file-layout.hpp',
     'include/cdfpp/cdf-io/saving/layout_records.hpp',
     'include/cdfpp/cdf-io/saving/link_records.hpp'
 )

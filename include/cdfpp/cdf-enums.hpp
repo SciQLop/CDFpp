@@ -194,6 +194,15 @@ enum class cdf_encoding : int32_t
     IA64VMSg = 21
 };
 
+// The VAX and VMS D/G floating point formats aren't IEEE 754: CDFpp reads their bytes as they
+// are, and can't convert floats to them.
+[[nodiscard]] constexpr bool has_ieee_floats(cdf_encoding encoding) noexcept
+{
+    using enum cdf_encoding;
+    return encoding != VAX and encoding != ALPHAVMSd and encoding != ALPHAVMSg
+        and encoding != IA64VMSd and encoding != IA64VMSg;
+}
+
 [[nodiscard]] inline std::string cdf_encoding_str(cdf_encoding encoding) noexcept
 {
     auto name = cpp_utils::reflexion::enum_name(encoding);
