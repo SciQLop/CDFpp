@@ -44,7 +44,7 @@ using cpp_utils::endianness::decode_v;
     return encoding == cdf_encoding::network || encoding == cdf_encoding::SUN
         || encoding == cdf_encoding::NeXT || encoding == cdf_encoding::PPC
         || encoding == cdf_encoding::SGi || encoding == cdf_encoding::IBMRS
-        || encoding == cdf_encoding::ARM_BIG;
+        || encoding == cdf_encoding::HP || encoding == cdf_encoding::ARM_BIG;
 }
 
 [[nodiscard]] inline bool is_little_endian_encoding(cdf_encoding encoding)
