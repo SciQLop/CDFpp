@@ -477,16 +477,18 @@ namespace
                     auto shape = get_variable_dimensions<type>(vdr, context);
                     const std::size_t record_size = var_record_size(shape, vdr.DataType);
                     const auto is_nrv = common::is_nrv(vdr);
-                    const auto compression_type = [&, &stream = context, &vdr = vdr]()
+                    const auto [compression_type, compression_level]
+                        = [&, &stream = context, &vdr = vdr]()
                     {
                         if (common::is_compressed(vdr))
                         {
                             if (cdf_CPR_t<cdf_version_tag_t> CPR;
                                 vdr.CPRorSPRoffset != static_cast<decltype(vdr.CPRorSPRoffset)>(-1)
                                 && load_record(CPR, stream, vdr.CPRorSPRoffset))
-                                return CPR.cType;
+                                return std::pair { CPR.cType, gzip_level(CPR) };
                         }
-                        return cdf_compression_type::no_compression;
+                        return std::pair { cdf_compression_type::no_compression,
+                            default_gzip_level };
                     }();
                     const uint32_t record_count = [is_nrv, MaxRec = vdr.MaxRec]() -> uint32_t
                     {
@@ -518,7 +520,8 @@ namespace
                                             context.buffer, context.encoding(), vdr, record_count,
                                             record_size, compression_type, std::move(missing) },
                                 vdr.DataType },
-                            std::move(shape), is_nrv, compression_type, is_zvariable,
+                            std::move(shape), is_nrv, compression_type, compression_level,
+                            is_zvariable,
                             std::move(block_counter));
                     }
                     else
@@ -528,7 +531,8 @@ namespace
                                 load_var_data(context.buffer, vdr, record_size, record_count,
                                     compression_type, missing),
                                 context.encoding()),
-                            std::move(shape), is_nrv, compression_type, is_zvariable,
+                            std::move(shape), is_nrv, compression_type, compression_level,
+                            is_zvariable,
                             std::move(block_counter));
                     }
                 }

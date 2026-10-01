@@ -6,6 +6,7 @@
 #include "cdfpp/cdf-io/zlib.hpp"
 #endif
 #include <cstdint>
+#include <numeric>
 
 
 #ifndef CDFpp_USE_LIBDEFLATE

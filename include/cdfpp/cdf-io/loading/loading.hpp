@@ -77,6 +77,7 @@ namespace
         cdf.variables = std::move(repr.variables);
         cdf.lazy_loaded = repr.lazy;
         cdf.compression = repr.compression_type;
+        cdf.compression_level = repr.compression_level;
         // cdf.leap_second_last_updated = repr.leap_second_last_updated;
         return cdf;
     }
@@ -90,6 +91,7 @@ namespace
         repr.majority = parsing_context.majority;
         repr.distribution_version = parsing_context.distribution_version();
         repr.compression_type = parsing_context.compression_type;
+        repr.compression_level = parsing_context.compression_level;
         repr.lazy = lazy_load;
         if (!attribute::load_all<typename parsing_context_t::version_tag, iso_8859_1_to_utf8>(
                 parsing_context, repr))
@@ -116,6 +118,7 @@ namespace
                     CPR.cType, CCR.data, data.data() + 8UL, std::size(data) - 8UL);
                 auto parsing_ctx = make_parsing_context(cdf_version_tag_t {},
                     buffers::make_shared_array_adapter(std::move(data)), CPR.cType);
+                parsing_ctx.compression_level = gzip_level(CPR);
                 return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
                     parsing_ctx, lazy_load);
             }

@@ -77,6 +77,8 @@ values_loaded: bool
     True if values are availbale in memory, this is usefull with lazy loading to know if values are already loaded.
 compression: CompressionType
     variable compression type (supported values are no_compression, rle_compression, gzip_compression)
+compression_level: int
+    GZIP compression level, from 1 to 9 (default 6), ignored by other compression types
 values: numpy.array
     returns variable values as a numpy.array of the corresponding dtype and shape, note that no copies are involved, the returned array is just a view on variable data.
 values_encoded: numpy.array
@@ -689,6 +691,8 @@ void def_variable_wrapper(T& mod)
             "variable's index records on first call, then caches the result.")
         .def_property_readonly("values_loaded", &Variable::values_loaded)
         .def_property("compression", &Variable::compression_type, &Variable::set_compression_type)
+        .def_property(
+            "compression_level", &Variable::compression_level, &Variable::set_compression_level)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
         .def_property_readonly("values", make_values_view<false>, py::keep_alive<0, 1>())
         .def_property_readonly("values_encoded", make_values_view<true>, py::keep_alive<0, 1>())

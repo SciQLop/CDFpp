@@ -64,6 +64,8 @@ lazy_loaded: bool
     file lazy loading state
 compression: CompressionType
     file compression type
+compression_level: int
+    GZIP compression level, from 1 to 9 (default 6), ignored by other compression types
 
 Methods
 -------
@@ -100,6 +102,9 @@ void def_cdf_wrapper(T& mod)
         .def_property(
             "compression", [](const CDF& cdf) { return cdf.compression; },
             [](CDF& cdf, cdf_compression_type ct) { cdf.compression = ct; })
+        .def_property(
+            "compression_level", [](const CDF& cdf) { return cdf.compression_level; },
+            [](CDF& cdf, int32_t level) { cdf.compression_level = checked_gzip_level(level); })
         .def("__repr__", __repr__<CDF>)
         .def(
             "__getitem__",
@@ -132,14 +137,16 @@ void def_cdf_wrapper(T& mod)
         .def("__len__", [](const CDF& cd) { return std::size(cd.variables); })
         .def(
             "_add_variable",
-            [](CDF& cdf, const std::string& name, bool is_nrv,
-                cdf_compression_type compression) -> Variable&
+            [](CDF& cdf, const std::string& name, bool is_nrv, cdf_compression_type compression,
+                int32_t compression_level) -> Variable&
             {
                 if (cdf.variables.count(name) == 0)
                 {
+                    const auto level = checked_gzip_level(compression_level);
                     cdf.variables.emplace(name, name, std::size(cdf.variables), data_t {},
                         typename Variable::shape_t {}, cdf_majority::row, is_nrv, compression);
                     auto& var = cdf[name];
+                    var.set_compression_level(level);
                     return var;
                 }
                 else
@@ -150,6 +157,7 @@ void def_cdf_wrapper(T& mod)
             },
             py::arg("name"), py::arg("is_nrv") = false,
             py::arg("compression") = cdf_compression_type::no_compression,
+            py::arg("compression_level") = default_gzip_level,
             py::return_value_policy::reference_internal)
         .def(
             "_add_variable",

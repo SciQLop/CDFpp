@@ -94,6 +94,29 @@ which holds 398 kB of data:
 
 Results depend a lot on the data. Measure on your own files before you choose.
 
+Gzip level
+==========
+
+Gzip takes a level from 1 (fastest) to 9 (smallest). The default is 6. The file stores
+the level, and ``pycdfpp`` keeps it when you load and save a file.
+
+.. code-block:: python
+
+    cdf = pycdfpp.CDF()
+    cdf.add_variable("B", values=np.zeros((10_000, 3), dtype=np.float32),
+                     compression=pycdfpp.CompressionType.gzip_compression,
+                     compression_level=9)                             # one variable
+    cdf["B"].compression_level = 1                                    # change it later
+    cdf.compression = pycdfpp.CompressionType.gzip_compression
+    cdf.compression_level = 4                                         # the whole file
+
+Other codecs ignore the level. A level outside 1 to 9 raises a ``ValueError``.
+
+CDFpp compresses with libdeflate by default, not with zlib like NASA's library. Both
+read the level the same way: a higher level is slower and smaller. But the same level
+doesn't give the same bytes, so a file saved by CDFpp can differ in size from the same
+file saved by NASA's library.
+
 Converting an existing file
 ===========================
 

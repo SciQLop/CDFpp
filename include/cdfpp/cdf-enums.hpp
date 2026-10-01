@@ -150,6 +150,18 @@ enum class cdf_compression_type : int32_t
     return "Unknown";
 }
 
+// The CDF format stores GZIP.1 to GZIP.9; the level is passed as is to zlib or libdeflate, whose
+// scales mean the same speed/ratio trade-off without giving the same bytes.
+inline constexpr int32_t default_gzip_level = 6;
+
+[[nodiscard]] inline int32_t checked_gzip_level(int32_t level)
+{
+    if (level < 1 || level > 9)
+        throw std::invalid_argument { "GZIP compression level must be between 1 and 9, got "
+            + std::to_string(level) };
+    return level;
+}
+
 enum class cdf_encoding : int32_t
 {
     network = 1,

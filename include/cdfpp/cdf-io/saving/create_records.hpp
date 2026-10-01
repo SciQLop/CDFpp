@@ -47,7 +47,7 @@ namespace cdf::io
 namespace saving
 {
 
-    inline record_wrapper<cdf_CPR_t<v3x_tag>> make_cpr(cdf_compression_type ct)
+    inline record_wrapper<cdf_CPR_t<v3x_tag>> make_cpr(cdf_compression_type ct, int32_t gzip_level)
     {
         record_wrapper<cdf_CPR_t<v3x_tag>> cpr { { {}, ct, 0, 0, {} } };
         switch (ct)
@@ -58,7 +58,7 @@ namespace saving
                 break;
             case cdf_compression_type::gzip_compression:
                 cpr.record.pCount = 1;
-                cpr.record.cParms.push_back(9);
+                cpr.record.cParms.push_back(checked_gzip_level(gzip_level));
                 break;
 #ifdef CDFPP_USE_ZSTD
             case cdf_compression_type::zstd_compression:
@@ -215,7 +215,7 @@ namespace saving
         else
         {
             auto cvvr = record_wrapper<cdf_CVVR_t<v3x_tag>> {};
-            auto compressed = compression::deflate(v.compression_type(),
+            auto compressed = compression::deflate(v.compression_type(), v.compression_level(),
                 std::string_view {
                     v.bytes_ptr() + first_record * record_size, records_in_vvr * record_size },
                 cdf_type_size(v.type()), record_size);
@@ -331,7 +331,7 @@ namespace saving
             const auto per_block = variable.len() ? records_per_block(variable, record_size) : 0;
             if (variable.compression_type() != cdf_compression_type::no_compression)
             {
-                var_ctx.cpr = make_cpr(variable.compression_type());
+                var_ctx.cpr = make_cpr(variable.compression_type(), variable.compression_level());
                 var_ctx.vdr.record.Flags |= 1 << 2;
                 var_ctx.vdr.record.BlockingFactor = static_cast<int32_t>(per_block);
             }

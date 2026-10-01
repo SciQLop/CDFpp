@@ -242,6 +242,76 @@ class PycdfCreateCDFTest(unittest.TestCase):
         self.assertEqual(reloaded_cdf["test"].compression, pycdfpp.CompressionType.gzip_compression)
 
 
+GZIP = pycdfpp.CompressionType.gzip_compression
+
+
+def compressible_values():
+    return np.random.default_rng(0).integers(0, 50, 200_000).astype(np.int32)
+
+
+def gzip_cdf(file_level=None, variable_level=None):
+    cdf = pycdfpp.CDF()
+    cdf.add_variable("x", compressible_values(), compression=GZIP)
+    if file_level is not None:
+        cdf.compression = GZIP
+        cdf.compression_level = file_level
+    if variable_level is not None:
+        cdf["x"].compression_level = variable_level
+    return cdf
+
+
+class PycdfGzipLevelTest(unittest.TestCase):
+    def test_the_default_level_is_6(self):
+        cdf = gzip_cdf()
+        self.assertEqual(cdf.compression_level, 6)
+        self.assertEqual(cdf["x"].compression_level, 6)
+        self.assertEqual(pycdfpp.load(pycdfpp.save(cdf))["x"].compression_level, 6)
+
+    def test_variable_levels_round_trip(self):
+        for level in range(1, 10):
+            with self.subTest(level=level):
+                reloaded = pycdfpp.load(pycdfpp.save(gzip_cdf(variable_level=level)))
+                self.assertEqual(reloaded["x"].compression_level, level)
+                self.assertTrue(np.array_equal(reloaded["x"].values, compressible_values()))
+
+    def test_file_levels_round_trip(self):
+        for level in range(1, 10):
+            with self.subTest(level=level):
+                reloaded = pycdfpp.load(pycdfpp.save(gzip_cdf(file_level=level)))
+                self.assertEqual(reloaded.compression_level, level)
+                self.assertTrue(np.array_equal(reloaded["x"].values, compressible_values()))
+
+    def test_add_variable_takes_a_level(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", compressible_values(), compression=GZIP, compression_level=2)
+        self.assertEqual(pycdfpp.load(pycdfpp.save(cdf))["x"].compression_level, 2)
+
+    def test_the_level_drives_the_compressor(self):
+        for scope in ("variable_level", "file_level"):
+            with self.subTest(scope=scope):
+                sizes = [len(bytes(pycdfpp.save(gzip_cdf(**{scope: level})))) for level in (1, 9)]
+                self.assertGreater(sizes[0], sizes[1])
+
+    def test_levels_written_by_the_nasa_library_survive_a_round_trip(self):
+        resources = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "resources")
+        file_level = pycdfpp.load(os.path.join(resources, "a_compressed_cdf.cdf"))
+        variables_level = pycdfpp.load(os.path.join(resources, "a_cdf_with_compressed_vars.cdf"))
+        for cdf in (file_level, pycdfpp.load(pycdfpp.save(file_level))):
+            self.assertEqual(cdf.compression_level, 5)
+        for cdf in (variables_level, pycdfpp.load(pycdfpp.save(variables_level))):
+            self.assertEqual({cdf[name].compression_level for name in cdf
+                              if cdf[name].compression == GZIP}, {9})
+
+    def test_levels_outside_1_to_9_are_rejected(self):
+        cdf = gzip_cdf()
+        for level in (0, 10, -1):
+            with self.subTest(level=level):
+                with self.assertRaises(ValueError):
+                    cdf.compression_level = level
+                with self.assertRaises(ValueError):
+                    cdf["x"].compression_level = level
+
+
 EXPERIMENTAL_CODECS = [getattr(pycdfpp.CompressionType, name)
                        for name in ("zstd_compression", "blosc2_compression")
                        if hasattr(pycdfpp.CompressionType, name)]
