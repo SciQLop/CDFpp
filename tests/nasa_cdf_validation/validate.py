@@ -49,6 +49,11 @@ def _built_fixtures():
     for flag in pycdfpp.SparseRecords:
         sparse_records.add_variable(flag.name, np.arange(10.), sparse_records=flag)
     yield "built_sparse_records.cdf", sparse_records
+    pad_values = pycdfpp.CDF()
+    pad_values.add_variable("float", np.empty((0, 3), dtype=np.float32), pad_value=np.float32(-1e-30))
+    pad_values.add_variable("int", np.arange(10, dtype=np.int16), pad_value=-7)
+    pad_values.add_variable("text", ["abc", "def"], pad_value="xyz")
+    yield "built_pad_values.cdf", pad_values
 
 
 def _corpus_fixtures():

@@ -304,7 +304,8 @@ def _patch_add_variable():
                               compression: CompressionType = CompressionType.no_compression,
                               attributes: Mapping[str, List[Any]] or None = None,
                               copy: bool = True, *, compression_level: int = 6,
-                              sparse_records: SparseRecords = SparseRecords.no_sparse_records) -> Variable:
+                              sparse_records: SparseRecords = SparseRecords.no_sparse_records,
+                              pad_value=None) -> Variable:
         ...
 
     @overload
@@ -312,15 +313,15 @@ def _patch_add_variable():
         ...
 
     @_strict_kwargs(['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes', 'copy'],
-                    keyword_only=['compression_level', 'sparse_records'])
+                    keyword_only=['compression_level', 'sparse_records', 'pad_value'])
     def _add_variable_wrapper(self, name=None, values=None, data_type=None,
                               is_nrv=False, compression=CompressionType.no_compression,
                               attributes=None, copy=True, *, compression_level=6,
-                              sparse_records=SparseRecords.no_sparse_records) -> Variable:
+                              sparse_records=SparseRecords.no_sparse_records, pad_value=None) -> Variable:
         """Adds a new variable to the CDF.
 
         This method can be called in two ways:
-        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True, *, compression_level=6, sparse_records=SparseRecords.no_sparse_records)
+        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True, *, compression_level=6, sparse_records=SparseRecords.no_sparse_records, pad_value=None)
         2. With a Variable object: add_variable(variable)
 
         Parameters
@@ -346,6 +347,9 @@ def _patch_add_variable():
         sparse_records : SparseRecords, optional, keyword-only
             How readers fill the records the file doesn't store, see Variable.sparse_records.
             (Default is SparseRecords.no_sparse_records)
+        pad_value : optional, keyword-only
+            The value readers give the records the file doesn't store, see Variable.pad_value.
+            (Default is None: the file declares no pad value)
         variable : Variable
             An existing Variable object to add to the CDF (for the second calling method).
 
@@ -391,6 +395,8 @@ def _patch_add_variable():
             var.set_values(values, data_type, copy=copy)
         elif data_type is not None:
             var.set_values([], data_type)
+        if pad_value is not None:
+            var.pad_value = pad_value
         if attributes is not None and var is not None:
             for attr_name, attr_values in attributes.items():
                 var.add_attribute(attr_name, attr_values)
@@ -668,6 +674,25 @@ _patch_set_values()
 _patch_add_variable()
 _patch_attribute_set_values()
 _patch_var_attribute_set_value()
+
+
+def _patch_pad_value():
+    def _get_pad_value(self: Variable):
+        return self._pad_value
+
+    def _set_pad_value(self: Variable, value):
+        if value is None:
+            self._clear_pad_value()
+        else:
+            self._set_pad_value(*_attribute_values_view_and_type(value, self.type))
+
+    Variable.pad_value = property(_get_pad_value, _set_pad_value, doc="""The value readers give
+        the records the file doesn't store (see sparse_records), or None when the file declares
+        none. It reads and is set like the value of an attribute of the variable's type, FILLVAL
+        for instance. Set it to None to remove it.""")
+
+
+_patch_pad_value()
 
 
 def filter_cdf(cdf: CDF,

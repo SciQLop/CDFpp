@@ -356,6 +356,63 @@ class PycdfSparseRecordsTest(unittest.TestCase):
                     self.assertTrue(np.array_equal(reloaded[name].values, original[name].values))
 
 
+class PycdfPadValueTest(unittest.TestCase):
+    D = pycdfpp.DataType
+    # (values of an empty variable, data type, pad value)
+    CASES = [
+        (np.empty((0, 3), dtype=np.float32), D.CDF_REAL4, np.float32(-1e-30)),
+        (np.empty((0,), dtype=np.float64), D.CDF_DOUBLE, -1.5),
+        (np.empty((0,), dtype=np.int32), D.CDF_INT4, 7),
+        (np.empty((0,), dtype=np.uint8), D.CDF_UINT1, 12),
+        (np.empty((0,), dtype="datetime64[ns]"), D.CDF_TIME_TT2000, datetime(2020, 1, 1)),
+        (np.array(["abc"]), D.CDF_CHAR, "xyz"),
+    ]
+
+    def test_there_is_no_pad_value_by_default(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(10.))
+        for c in (cdf, pycdfpp.load(pycdfpp.save(cdf))):
+            self.assertIsNone(c["x"].pad_value)
+
+    def test_pad_values_round_trip_like_attributes(self):
+        for values, data_type, pad in self.CASES:
+            with self.subTest(data_type=data_type):
+                cdf = pycdfpp.CDF()
+                var = cdf.add_variable("x", values, data_type, pad_value=pad)
+                var.add_attribute("SAME_AS_PAD", pad, data_type)
+                for c in (cdf, pycdfpp.load(pycdfpp.save(cdf))):
+                    self.assertEqual(c["x"].pad_value, c["x"].attributes["SAME_AS_PAD"].value)
+
+    def test_the_pad_value_can_be_changed_and_removed(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(10.))
+        cdf["x"].pad_value = 3.
+        self.assertEqual(pycdfpp.load(pycdfpp.save(cdf))["x"].pad_value, [3.])
+        cdf["x"].pad_value = None
+        self.assertIsNone(pycdfpp.load(pycdfpp.save(cdf))["x"].pad_value)
+
+    def test_a_pad_value_that_no_longer_fits_the_variable_is_refused_at_save(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(10, dtype=np.int16), pad_value=7)
+        cdf["x"].set_values(np.arange(10.), force=True)
+        with self.assertRaises(ValueError):
+            pycdfpp.save(cdf)
+
+    def test_pad_values_written_by_the_nasa_library_survive_a_round_trip(self):
+        # Set by tests/resources/make_sparse_records.c; NASA's library writes the default pad
+        # value of the type for the other variables.
+        explicit = {"pad_explicit": [1.5], "pad_with_fillval": [1.5], "prev": [7],
+                    "compressed_pad": [2.5]}
+        original = pycdfpp.load(os.path.join(RESOURCES, "sparse_records.cdf"))
+        reloaded = pycdfpp.load(pycdfpp.save(original))
+        for name in original:
+            with self.subTest(name=name):
+                self.assertIsNotNone(original[name].pad_value)
+                self.assertEqual(original[name].pad_value,
+                                 explicit.get(name, original[name].pad_value))
+                self.assertEqual(reloaded[name].pad_value, original[name].pad_value)
+
+
 EXPERIMENTAL_CODECS = [getattr(pycdfpp.CompressionType, name)
                        for name in ("zstd_compression", "blosc2_compression")
                        if hasattr(pycdfpp.CompressionType, name)]

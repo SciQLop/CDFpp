@@ -159,7 +159,8 @@ struct Variable
         return other.p_name == p_name && other.p_is_nrv == p_is_nrv
             && other.p_compression == p_compression
             && other.p_compression_level == p_compression_level
-            && other.p_sparse_records == p_sparse_records && other.p_shape == p_shape
+            && other.p_sparse_records == p_sparse_records && other.p_pad_value == p_pad_value
+            && other.p_shape == p_shape
             && other.attributes == attributes && other._data() == _data();
     }
 
@@ -206,6 +207,7 @@ struct Variable
         p_compression = source.p_compression;
         p_compression_level = source.p_compression_level;
         p_sparse_records = source.p_sparse_records;
+        p_pad_value = source.p_pad_value;
         check_shape();
     }
 
@@ -295,6 +297,9 @@ struct Variable
     void restore_compression_level(int32_t level) noexcept { p_compression_level = level; }
     [[nodiscard]] cdf_sparse_records sparse_records() const noexcept { return p_sparse_records; }
     void set_sparse_records(cdf_sparse_records sparse) noexcept { p_sparse_records = sparse; }
+    // The value readers give the records the file doesn't store, when the file declares one.
+    [[nodiscard]] const std::optional<data_t>& pad_value() const noexcept { return p_pad_value; }
+    void set_pad_value(std::optional<data_t> pad) noexcept { p_pad_value = std::move(pad); }
 
     [[nodiscard]] inline bool values_loaded() const
     {
@@ -452,6 +457,7 @@ Data:
     cdf_compression_type p_compression;
     int32_t p_compression_level = default_gzip_level;
     cdf_sparse_records p_sparse_records = cdf_sparse_records::no_sparse_records;
+    std::optional<data_t> p_pad_value;
     bool p_is_zvariable = true;
     mutable std::function<std::size_t()> p_block_counter;
     mutable std::optional<bool> p_contiguous;

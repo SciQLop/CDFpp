@@ -344,14 +344,35 @@ namespace
         return value;
     }
 
+    template <typename VDR_t>
+    [[nodiscard]] std::size_t element_size_of(const VDR_t& vdr)
+    {
+        return cdf_type_size(vdr.DataType) * static_cast<std::size_t>(std::max(vdr.NumElems, 1));
+    }
+
+    template <typename VDR_t>
+    [[nodiscard]] bool declares_pad_value(const VDR_t& vdr)
+    {
+        return vdr.Flags & 2 and std::size(vdr.PadValues) == element_size_of(vdr);
+    }
+
+    template <typename VDR_t>
+    [[nodiscard]] std::optional<data_t> pad_value_of(const VDR_t& vdr, cdf_encoding encoding)
+    {
+        if (!declares_pad_value(vdr))
+            return std::nullopt;
+        data_t pad = new_data_container(std::size(vdr.PadValues), vdr.DataType);
+        std::memcpy(pad.bytes_ptr(), vdr.PadValues.data(), std::size(vdr.PadValues));
+        return load_values<false>(std::move(pad), encoding);
+    }
+
     // FILLVAL when the variable has one of its own type (NASA's library since 3.8), else the pad
     // value the file declares, else the default pad value of the type.
     template <typename VDR_t>
     missing_records_t missing_records_for(const VDR_t& vdr,
         const cdf_map<std::string, VariableAttribute>& attributes, cdf_encoding encoding)
     {
-        const auto element_size
-            = cdf_type_size(vdr.DataType) * static_cast<std::size_t>(std::max(vdr.NumElems, 1));
+        const auto element_size = element_size_of(vdr);
         missing_records_t missing { .repeat_previous = vdr.SRecords == 2, .value = {} };
         if (const auto fillval = attributes.find("FILLVAL"); fillval != std::cend(attributes)
             and cdf_type_size((*fillval->second).type()) == cdf_type_size(vdr.DataType)
@@ -361,7 +382,7 @@ namespace
             missing.value = to_file_byte_order(
                 { value.bytes_ptr(), value.bytes_ptr() + value.bytes() }, vdr.DataType, encoding);
         }
-        else if (vdr.Flags & 2 and std::size(vdr.PadValues) == element_size)
+        else if (declares_pad_value(vdr))
         {
             missing.value.assign(std::cbegin(vdr.PadValues), std::cend(vdr.PadValues));
         }
@@ -543,6 +564,7 @@ namespace
                     variable.set_compression_level(compression_level);
                     variable.set_block_counter(std::move(block_counter));
                     variable.set_sparse_records(sparse_records_of(vdr));
+                    variable.set_pad_value(pad_value_of(vdr, context.encoding()));
                 }
             });
         return true;
