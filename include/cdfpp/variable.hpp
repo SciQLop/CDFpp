@@ -289,6 +289,8 @@ struct Variable
     void set_compression_type(cdf_compression_type ct) noexcept { p_compression = ct; }
     [[nodiscard]] int32_t compression_level() const noexcept { return p_compression_level; }
     void set_compression_level(int32_t level) { p_compression_level = checked_gzip_level(level); }
+    // Unchecked, so RAII guards can restore a level read from compression_level() in a destructor.
+    void restore_compression_level(int32_t level) noexcept { p_compression_level = level; }
 
     [[nodiscard]] inline bool values_loaded() const
     {

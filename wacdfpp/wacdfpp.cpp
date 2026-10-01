@@ -304,7 +304,7 @@ public:
         for (auto& [_, variable] : cdf.variables)
         {
             variable.set_compression_type(codec->first);
-            variable.set_compression_level(codec->second);
+            variable.restore_compression_level(codec->second);
             ++codec;
         }
     }

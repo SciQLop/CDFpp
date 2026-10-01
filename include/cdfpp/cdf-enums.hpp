@@ -32,6 +32,7 @@
 #include <type_traits>
 
 #include <cpp_utils/reflexion/enum_name.hpp>
+#include <fmt/core.h>
 
 #include <cdfpp_config.h>
 #include "cdf-helpers.hpp"
@@ -157,8 +158,8 @@ inline constexpr int32_t default_gzip_level = 6;
 [[nodiscard]] inline int32_t checked_gzip_level(int32_t level)
 {
     if (level < 1 || level > 9)
-        throw std::invalid_argument { "GZIP compression level must be between 1 and 9, got "
-            + std::to_string(level) };
+        throw std::invalid_argument { fmt::format(
+            "GZIP compression level must be between 1 and 9, got {}", level) };
     return level;
 }
 
