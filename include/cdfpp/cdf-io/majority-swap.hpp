@@ -99,67 +99,158 @@ template <typename T, typename U>
 
 namespace _private
 {
-
-    struct index_swap_pair
+    // How to walk a record so its values come out in the other majority: `extents` from the
+    // fastest varying dimension of the output, `strides` how far each one steps in the input.
+    struct gather_pattern
     {
-        std::size_t src;
-        std::size_t dest;
+        std::vector<std::size_t> extents;
+        std::vector<std::size_t> strides;
     };
-    inline void next_index(std::vector<std::size_t>& nd_index, const std::vector<std::size_t>& shape)
+
+    // A string element, shape.back() characters, stays together as the fastest dimension.
+    template <bool is_string, bool to_column, typename shape_t>
+    [[nodiscard]] gather_pattern make_gather_pattern(const shape_t& shape)
     {
-        for (auto dim = 0UL; dim < std::size(shape); dim++)
+        const std::size_t element = is_string ? shape.back() : 1;
+        const std::vector<std::size_t> dims(
+            std::cbegin(shape) + 1, std::cend(shape) - (is_string ? 1 : 0));
+        std::vector<std::size_t> row_strides(std::size(dims)), column_strides(std::size(dims));
+        for (std::size_t d = std::size(dims), stride = element; d-- > 0; stride *= dims[d])
+            row_strides[d] = stride;
+        for (std::size_t d = 0, stride = element; d < std::size(dims); stride *= dims[d++])
+            column_strides[d] = stride;
+        gather_pattern pattern;
+        if (is_string)
+            pattern = { { element }, { 1 } };
+        for (std::size_t i = 0; i < std::size(dims); i++)
         {
-            nd_index[dim]++;
-            if (nd_index[dim] < shape[dim])
+            const auto d = to_column ? i : std::size(dims) - 1 - i;
+            pattern.extents.push_back(dims[d]);
+            pattern.strides.push_back(to_column ? row_strides[d] : column_strides[d]);
+        }
+        return pattern;
+    }
+
+    // Walks the levels of `pattern` other than `skipped_a` and `skipped_b`, calling
+    // `f(from_offset, to_offset)` for each position; `to` is written in order.
+    template <typename F>
+    void for_each_outer(const gather_pattern& pattern, const std::vector<std::size_t>& to_strides,
+        std::size_t skipped_a, std::size_t skipped_b, F&& f)
+    {
+        struct level
+        {
+            std::size_t extent, from_stride, to_stride;
+        };
+        std::vector<level> levels;
+        for (std::size_t l = 0; l < std::size(pattern.extents); l++)
+            if (l != skipped_a && l != skipped_b)
+                levels.push_back({ pattern.extents[l], pattern.strides[l], to_strides[l] });
+        std::vector<std::size_t> index(std::size(levels));
+        std::size_t from_offset = 0, to_offset = 0;
+        while (true)
+        {
+            f(from_offset, to_offset);
+            std::size_t l = 0;
+            for (; l < std::size(levels); l++)
+            {
+                from_offset += levels[l].from_stride;
+                to_offset += levels[l].to_stride;
+                if (++index[l] < levels[l].extent)
+                    break;
+                from_offset -= levels[l].extent * levels[l].from_stride;
+                to_offset -= levels[l].extent * levels[l].to_stride;
+                index[l] = 0;
+            }
+            if (l == std::size(levels))
                 return;
-            nd_index[dim] = 0;
         }
     }
 
-    inline auto generate_access_pattern(const std::vector<std::size_t>& record_shape)
+    // A fixed size lets the compiler transpose in registers: 4 loads, 8 shuffles and 4 stores
+    // for 4x4 floats, even with SSE2 only.
+    template <std::size_t N, typename T>
+    void transpose_block(const T* from, std::size_t from_stride, T* to, std::size_t to_stride)
     {
-        const auto record_size = std::accumulate(std::cbegin(record_shape), std::cend(record_shape),
-            1UL, std::multiplies<std::size_t>());
-        std::vector<index_swap_pair> access_patern(record_size);
-        std::vector<std::size_t> nd_index(std::size(record_shape));
-        for (auto index = 0UL; index < record_size; index++)
-        {
-            auto reversed_flat_index = inverted_flat_index(nd_index, record_shape);
-            access_patern[index] = { index, reversed_flat_index };
-            next_index(nd_index, record_shape);
-        }
-        return access_patern;
+        T block[N][N];
+        for (std::size_t r = 0; r < N; r++)
+            for (std::size_t c = 0; c < N; c++)
+                block[c][r] = from[r * from_stride + c];
+        for (std::size_t c = 0; c < N; c++)
+            for (std::size_t r = 0; r < N; r++)
+                to[c * to_stride + r] = block[c][r];
     }
 
+    // Moves tiles between the fastest output level and the level contiguous in the input, so
+    // both sides stay within a few cache lines: a strided store per value filled the store
+    // queue. Narrow tiles (32 bytes) keep the fewest lines waiting for stores.
+    template <typename T>
+    void gather(const T* from, T* to, const gather_pattern& pattern)
+    {
+        const auto& [extents, strides] = pattern;
+        std::vector<std::size_t> to_strides(std::size(extents));
+        for (std::size_t l = 0, stride = 1; l < std::size(extents); stride *= extents[l++])
+            to_strides[l] = stride;
+        const auto contiguous
+            = static_cast<std::size_t>(std::find(std::cbegin(strides) + 1, std::cend(strides), 1)
+                - std::cbegin(strides));
+        if (contiguous == std::size(strides)) // a string: its characters are already together
+        {
+            for_each_outer(pattern, to_strides, 0, 0,
+                [&](std::size_t from_offset, std::size_t to_offset)
+                { std::copy_n(from + from_offset, extents[0], to + to_offset); });
+            return;
+        }
+        constexpr std::size_t block = std::max(std::size_t { 1 }, 16 / sizeof(T));
+        constexpr std::size_t tile = std::max(block, 32 / sizeof(T));
+        const std::size_t fast_extent = extents[0], fast_stride = strides[0];
+        const std::size_t slow_extent = extents[contiguous], slow_stride = to_strides[contiguous];
+        const bool in_blocks = fast_extent % block == 0 && slow_extent % block == 0;
+        for_each_outer(pattern, to_strides, 0, contiguous,
+            [&](std::size_t from_offset, std::size_t to_offset)
+            {
+                for (std::size_t first = 0; first < slow_extent; first += tile)
+                {
+                    const auto last = std::min(first + tile, slow_extent);
+                    if (in_blocks)
+                        for (std::size_t i = 0; i < fast_extent; i += block)
+                            for (std::size_t k = first; k < last; k += block)
+                                transpose_block<block>(from + from_offset + i * fast_stride + k,
+                                    fast_stride, to + to_offset + i + k * slow_stride,
+                                    slow_stride);
+                    else
+                        for (std::size_t i = 0; i < fast_extent; i++)
+                            for (std::size_t k = first; k < last; k++)
+                                to[to_offset + i + k * slow_stride]
+                                    = from[from_offset + i * fast_stride + k];
+                }
+            });
+    }
+}
+
+// Records with less than 2 dimensions read the same in both majorities. A string is an
+// element of shape.back() characters.
+template <bool is_string, typename shape_t>
+[[nodiscard]] bool majorities_differ(const shape_t& shape)
+{
+    return std::size(shape) > (is_string ? 3UL : 2UL);
 }
 
 // From column to row major by default, from row to column major with to_column.
 template <bool is_string, typename shape_t, typename data_t, bool to_column = false>
 void swap(data_t& data, const shape_t& shape)
 {
-    const auto dimensions = std::size(shape);
-    // Records with less than 2 dimensions read the same in both majorities. A string is an
-    // element of shape.back() characters.
-    if ((dimensions > 2 && !is_string) or (is_string and dimensions > 3))
+    if (majorities_differ<is_string>(shape))
     {
         const std::size_t records_count = shape[0];
-        const std::size_t element_size = is_string ? shape.back() : 1;
-        const std::vector<std::size_t> record_shape(
-            std::rbegin(shape) + (is_string ? 1 : 0), std::crend(shape) - 1);
-        const auto access_patern = _private::generate_access_pattern(record_shape);
-        const auto values_per_record = std::size(access_patern) * element_size;
-        std::vector<typename data_t::value_type> temporary_record(values_per_record);
+        const auto pattern = _private::make_gather_pattern<is_string, to_column>(shape);
+        const auto values_per_record = std::accumulate(std::cbegin(pattern.extents),
+            std::cend(pattern.extents), std::size_t { 1 }, std::multiplies<std::size_t>());
+        no_init_vector<typename data_t::value_type> record(values_per_record);
         for (std::size_t offset = 0; offset < records_count * values_per_record;
              offset += values_per_record)
         {
-            for (const auto& [row, column] : access_patern)
-            {
-                const auto [to, from]
-                    = to_column ? std::pair { column, row } : std::pair { row, column };
-                std::copy_n(data.data() + offset + from * element_size, element_size,
-                    temporary_record.data() + to * element_size);
-            }
-            std::ranges::copy(temporary_record, data.data() + offset);
+            std::copy_n(data.data() + offset, values_per_record, record.data());
+            _private::gather(record.data(), data.data() + offset, pattern);
         }
     }
 }
@@ -182,5 +273,30 @@ inline void swap(data_t& data, const no_init_vector<uint32_t>& shape)
 inline void to_column_major(data_t& data, const no_init_vector<uint32_t>& shape)
 {
     swap<true>(data, shape);
+}
+
+// The records of `shape`, row major at `from`, copied to `to` in column major order: no
+// temporary record, unlike swapping in place.
+inline void copy_to_column_major(
+    const char* from, data_t& to, const no_init_vector<uint32_t>& shape)
+{
+    if (to.type() == CDF_Types::CDF_NONE)
+        return;
+    cdf_type_dispatch(to.type(),
+        [&]<CDF_Types t>()
+        {
+            constexpr bool is_str = is_cdf_string_type(t);
+            using value_t = from_cdf_type_t<t>;
+            const auto* values = reinterpret_cast<const value_t*>(from);
+            auto* out = reinterpret_cast<value_t*>(to.bytes_ptr());
+            const std::size_t count = std::accumulate(std::cbegin(shape), std::cend(shape),
+                std::size_t { 1 }, std::multiplies<std::size_t>());
+            if (!majorities_differ<is_str>(shape))
+                return void(std::copy_n(values, count, out));
+            const auto pattern = _private::make_gather_pattern<is_str, true>(shape);
+            const auto per_record = count / shape[0];
+            for (std::size_t offset = 0; offset < count; offset += per_record)
+                _private::gather(values + offset, out + offset, pattern);
+        });
 }
 }

@@ -4,7 +4,9 @@
 #include "cdfpp/cdf-io/majority-swap.hpp"
 #include "vector"
 #include <array>
+#include <cstdint>
 #include <numeric>
+#include <random>
 
 
 SCENARIO("Generating flat indexes")
@@ -142,4 +144,85 @@ SCENARIO("Swapping from row to column major undoes the opposite swap", "[CDF]")
             THEN("the array is back") { REQUIRE(input == original); }
         }
     }
+}
+
+namespace
+{
+// Element `index` of a record of `dims` in row major order lands at the returned position in
+// column major order: the oracle the swaps are checked against.
+std::size_t column_major_position(std::size_t index, const std::vector<uint32_t>& dims)
+{
+    std::size_t position = 0, column_stride = 1;
+    std::vector<std::size_t> nd(std::size(dims));
+    for (auto d = std::size(dims); d-- > 0;)
+    {
+        nd[d] = index % dims[d];
+        index /= dims[d];
+    }
+    for (auto d = 0UL; d < std::size(dims); d++)
+    {
+        position += nd[d] * column_stride;
+        column_stride *= dims[d];
+    }
+    return position;
+}
+
+// `shape` is records first; strings keep their last dimension, the characters, together.
+template <typename T>
+std::vector<T> to_column_major_reference(
+    const std::vector<T>& row, const std::vector<uint32_t>& shape, bool is_string)
+{
+    const std::vector<uint32_t> dims(
+        std::cbegin(shape) + 1, std::cend(shape) - (is_string ? 1 : 0));
+    const std::size_t element = is_string ? shape.back() : 1;
+    const std::size_t per_record = std::accumulate(
+        std::cbegin(dims), std::cend(dims), std::size_t { 1 }, std::multiplies<>());
+    std::vector<T> column(std::size(row));
+    for (std::size_t r = 0; r < shape[0]; r++)
+        for (std::size_t i = 0; i < per_record; i++)
+            std::copy_n(row.data() + (r * per_record + i) * element, element,
+                column.data() + (r * per_record + column_major_position(i, dims)) * element);
+    return column;
+}
+
+// Sizes that divide into the SIMD blocks, and some that don't.
+constexpr std::array<uint32_t, 7> dimension_sizes { 1, 2, 3, 4, 5, 8, 16 };
+
+template <typename T, bool is_string, cdf::CDF_Types type>
+void check_random_shapes()
+{
+    std::mt19937 rng { 7 };
+    for (int trial = 0; trial < 300; trial++)
+    {
+        std::vector<uint32_t> shape { 1 + rng() % 3 };
+        const auto record_dims = 2 + rng() % 3;
+        for (auto d = 0U; d < record_dims; d++)
+            shape.push_back(dimension_sizes[rng() % std::size(dimension_sizes)]);
+        if (is_string)
+            shape.push_back(1 + rng() % 4);
+        const std::size_t size = std::accumulate(
+            std::cbegin(shape), std::cend(shape), std::size_t { 1 }, std::multiplies<>());
+        std::vector<T> row(size);
+        std::iota(std::begin(row), std::end(row), T {});
+        const auto expected = to_column_major_reference(row, shape, is_string);
+        cdf::data_t copied { no_init_vector<T>(size), type };
+        cdf::majority::copy_to_column_major(reinterpret_cast<const char*>(row.data()), copied,
+            no_init_vector<uint32_t>(std::cbegin(shape), std::cend(shape)));
+        REQUIRE(std::equal(std::cbegin(expected), std::cend(expected),
+            reinterpret_cast<const T*>(copied.bytes_ptr())));
+        auto values = row;
+        cdf::majority::swap<is_string, std::vector<uint32_t>, std::vector<T>, true>(values, shape);
+        REQUIRE(values == expected);
+        cdf::majority::swap<is_string>(values, shape);
+        REQUIRE(values == row);
+    }
+}
+}
+
+SCENARIO("Majority swaps match a plain transposition on random shapes", "[CDF]")
+{
+    check_random_shapes<float, false, cdf::CDF_Types::CDF_FLOAT>();
+    check_random_shapes<double, false, cdf::CDF_Types::CDF_DOUBLE>();
+    check_random_shapes<uint16_t, false, cdf::CDF_Types::CDF_UINT2>();
+    check_random_shapes<char, true, cdf::CDF_Types::CDF_CHAR>();
 }
