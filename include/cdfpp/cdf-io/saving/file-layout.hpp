@@ -27,11 +27,14 @@
 #include "../endianness.hpp"
 #include "../majority-swap.hpp"
 #include "cdfpp/cdf-data.hpp"
-#include "cdfpp/cdf-file.hpp"
+#include "cdfpp/variable.hpp"
+#include <cpp_utils/containers/no_init_vector.hpp>
+#include <cstring>
 #include <span>
 
 // Values live in memory in row major order and in the host byte order; a file may store them
-// otherwise (CDF Internal Format Description, "Majority" and "Data Encoding").
+// otherwise (CDF Internal Format Description, "Majority" and "Data Encoding"). Saving passes the
+// values through file_layout on their way to the file, a block at a time.
 namespace cdf::io::saving
 {
 
@@ -39,17 +42,6 @@ namespace cdf::io::saving
 {
     return endianness::is_big_endian_encoding(encoding)
         == endianness::is_big_endian_v<endianness::host_endianness_t>;
-}
-
-[[nodiscard]] inline bool matches_memory_layout(const CDF& cdf)
-{
-    return cdf.majority == cdf_majority::row and has_host_byte_order(cdf.encoding);
-}
-
-// A byte swap undoes itself, so decoding from the file's byte order also encodes to it.
-[[nodiscard]] inline data_t in_byte_order(data_t data, cdf_encoding encoding)
-{
-    return load_values<false>(std::move(data), encoding);
 }
 
 template <CDF_Types type>
@@ -64,43 +56,46 @@ void to_byte_order(std::span<from_cdf_type_t<type>> values, cdf_encoding encodin
     }
 }
 
-inline void values_to_file_layout(Variable& variable, const CDF& cdf)
+struct file_layout
 {
-    if (variable.type() == CDF_Types::CDF_NONE or variable.bytes() == 0)
-        return;
-    cdf_type_dispatch(variable.type(),
-        [&]<CDF_Types type>()
-        {
-            using value_t = from_cdf_type_t<type>;
-            std::span<value_t> values { reinterpret_cast<value_t*>(variable.bytes_ptr()),
-                variable.bytes() / sizeof(value_t) };
-            if (cdf.majority == cdf_majority::column)
-                majority::swap<is_cdf_string_type(type), Variable::shape_t, decltype(values), true>(
-                    values, variable.shape());
-            to_byte_order<type>(values, cdf.encoding);
-        });
-}
+    cdf_majority majority = cdf_majority::row;
+    cdf_encoding encoding = CDFpp_ENCODING;
 
-inline void to_file_layout(Variable& variable, const CDF& cdf)
-{
-    values_to_file_layout(variable, cdf);
-    if (const auto& pad = variable.pad_value())
-        variable.set_pad_value(in_byte_order(*pad, cdf.encoding));
-    for (auto& [_, attribute] : variable.attributes)
-        *attribute = in_byte_order(*attribute, cdf.encoding);
-}
+    [[nodiscard]] bool matches_memory() const
+    {
+        return majority == cdf_majority::row and has_host_byte_order(encoding);
+    }
 
-// simplify: converts a copy of the whole CDF, so saving it takes twice its memory; converting
-// each block as it is written would avoid that, for files that don't match the memory layout.
-[[nodiscard]] inline CDF in_file_layout(const CDF& cdf)
-{
-    CDF converted = cdf;
-    for (auto& [_, attribute] : converted.attributes)
-        for (auto& entry : attribute)
-            entry = in_byte_order(std::move(entry), cdf.encoding);
-    for (auto& [_, variable] : converted.variables)
-        to_file_layout(variable, cdf);
-    return converted;
-}
+    // `count` records of `variable` from `first`, as the file stores them.
+    [[nodiscard]] no_init_vector<char> records(const Variable& variable, std::size_t first,
+        std::size_t count, std::size_t record_size) const
+    {
+        no_init_vector<char> bytes(count * record_size);
+        std::memcpy(bytes.data(), variable.bytes_ptr() + first * record_size, std::size(bytes));
+        cdf_type_dispatch(variable.type(),
+            [&]<CDF_Types type>()
+            {
+                using value_t = from_cdf_type_t<type>;
+                std::span<value_t> values { reinterpret_cast<value_t*>(bytes.data()),
+                    std::size(bytes) / sizeof(value_t) };
+                if (majority == cdf_majority::column)
+                {
+                    auto shape = variable.shape();
+                    shape[0] = static_cast<uint32_t>(count);
+                    majority::swap<is_cdf_string_type(type), Variable::shape_t, decltype(values),
+                        true>(values, shape);
+                }
+                to_byte_order<type>(values, encoding);
+            });
+        return bytes;
+    }
+
+    // Attribute entries and pad values: majority doesn't apply to them.
+    // A byte swap undoes itself, so decoding from the file's byte order also encodes to it.
+    [[nodiscard]] data_t value(const data_t& value) const
+    {
+        return load_values<false>(data_t { value }, encoding);
+    }
+};
 
 } // namespace cdf::io::saving

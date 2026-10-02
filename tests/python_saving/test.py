@@ -468,6 +468,19 @@ class PycdfMajorityTest(unittest.TestCase):
         self.assertEqual(reloaded.majority, pycdfpp.Majority.column)
         assert_same_content(self, pycdfpp.load(self.COLUMN), reloaded)
 
+    def test_record_varying_string_arrays_match_nasa_s_column_major_file(self):
+        nasa = pycdfpp.load(os.path.join(RESOURCES, "col_major_strings.cdf"))
+        cdf = pycdfpp.CDF()
+        cdf.majority = pycdfpp.Majority.column
+        cdf.add_variable("strings", nasa["strings"].values, nasa["strings"].type)
+        cdf.add_variable("numbers", nasa["numbers"].values)
+        saved = bytes(pycdfpp.save(cdf))
+        self.assertIn(b"".join(np.asfortranarray(r).tobytes(order="F")
+                               for r in nasa["numbers"].values), saved)
+        self.assertIn(b"r0[00]r0[10]r0[01]r0[11]r0[02]r0[12]r1[00]", saved)
+        for name in ("strings", "numbers"):
+            self.assertEqual(pycdfpp.load(saved)[name].values.tolist(), nasa[name].values.tolist())
+
     def test_records_are_stored_in_column_major_order(self):
         values = np.arange(2 * 3 * 4 * 5, dtype=np.float64).reshape(2, 3, 4, 5)
         cdf = pycdfpp.CDF()
@@ -476,6 +489,21 @@ class PycdfMajorityTest(unittest.TestCase):
         column_records = np.stack([np.asfortranarray(record).ravel(order="K") for record in values])
         self.assertIn(column_records.tobytes(), bytes(pycdfpp.save(cdf)))
         self.assertTrue(np.array_equal(resaved(cdf)["x"].values, values))
+
+    def test_variables_bigger_than_a_conversion_chunk(self):
+        # Several 1 MiB chunks uncompressed, several 256 KiB blocks compressed
+        values = np.random.default_rng(0).random((20_000, 3, 5))
+        for compression in (pycdfpp.CompressionType.no_compression, GZIP):
+            with self.subTest(compression=compression):
+                cdf = pycdfpp.CDF()
+                cdf.add_variable("x", values, compression=compression)
+                cdf.majority = pycdfpp.Majority.column
+                cdf.encoding = pycdfpp.Encoding.network
+                saved = bytes(pycdfpp.save(cdf))
+                if compression == pycdfpp.CompressionType.no_compression:
+                    self.assertIn(np.stack([r.ravel(order="F") for r in values]).astype(">f8").tobytes(),
+                                  saved)
+                self.assertTrue(np.array_equal(pycdfpp.load(saved)["x"].values, values))
 
     def test_converting_leaves_the_cdf_and_borrowed_arrays_unchanged(self):
         values = np.arange(24, dtype=np.int32).reshape(2, 3, 4)
