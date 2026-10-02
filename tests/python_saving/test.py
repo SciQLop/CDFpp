@@ -906,5 +906,44 @@ class PycdfSaveOverSourceTest(unittest.TestCase):
                 pycdfpp.save(pycdfpp.CDF(), os.path.join(tmp, "missing_dir", "out.cdf"))
 
 
+
+class PycdfDatetime64WritingTest(unittest.TestCase):
+    """datetime64 values written as each CDF time type read back as the same dates."""
+    TYPES = (pycdfpp.DataType.CDF_TIME_TT2000, pycdfpp.DataType.CDF_EPOCH,
+             pycdfpp.DataType.CDF_EPOCH16)
+
+    def written(self, values, data_type):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("t", values=values, data_type=data_type)
+        return pycdfpp.to_datetime64(pycdfpp.load(bytes(pycdfpp.save(cdf)))["t"])
+
+    def test_nat_reads_back_as_nat(self):
+        values = np.array(["2020-01-01", "NaT", "1965-06-01"], dtype="datetime64[ns]")
+        for data_type in self.TYPES:
+            with self.subTest(data_type=data_type):
+                self.assertTrue(np.isnat(self.written(values, data_type)[1]))
+
+    def test_dates_before_1970_read_back(self):
+        values = np.array(["1969-12-31T23:59:59.999999999", "1965-06-01T12:00:00.000000123"],
+                          dtype="datetime64[ns]")
+        self.assertTrue(np.array_equal(
+            self.written(values, pycdfpp.DataType.CDF_EPOCH16), values))
+        self.assertTrue(np.array_equal(
+            self.written(values, pycdfpp.DataType.CDF_TIME_TT2000), values))
+        # CDF_EPOCH keeps whole milliseconds: rounded down.
+        self.assertTrue(np.array_equal(self.written(values, pycdfpp.DataType.CDF_EPOCH),
+                                       values.astype("datetime64[ms]").astype("datetime64[ns]")))
+
+    def test_millions_of_values_read_back(self):
+        # Enough values for threads and SIMD, with leap seconds inside.
+        values = np.arange("2008-06-01", "2017-06-01", np.timedelta64(97, "s"),
+                           dtype="datetime64[ns]")
+        values = values + np.arange(len(values)).astype("timedelta64[ns]")
+        self.assertGreater(len(values), 2_500_000)
+        for data_type in (pycdfpp.DataType.CDF_TIME_TT2000, pycdfpp.DataType.CDF_EPOCH16):
+            with self.subTest(data_type=data_type):
+                self.assertTrue(np.array_equal(self.written(values, data_type), values))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -44,6 +44,7 @@ using namespace cdf::chrono;
 void scalar_to_ns_from_1970(const std::span<const tt2000_t>& input, int64_t* const output);
 void scalar_to_ns_from_1970(const std::span<const epoch>& input, int64_t* const output);
 void scalar_to_ns_from_1970(const std::span<const epoch16>& input, int64_t* const output);
+void scalar_from_ns_from_1970(const std::span<const int64_t>& input, tt2000_t* const output);
 
 template <class Arch, typename align_mode>
 void stream_store(const auto& batch_data, auto* const output)
@@ -459,6 +460,89 @@ void _to_ns_from_1970_tt2000_t::operator()(
     }
 }
 
+// ns since 1970 to TT2000: the same leap second walk as above, from the UTC side of the table.
+struct _from_ns_from_1970_tt2000_t
+{
+    template <class Arch>
+    static inline void _optimistic_after_2017(
+        Arch, const std::span<const int64_t>& input, tt2000_t* const output)
+    {
+        using batch_type = xsimd::batch<int64_t, Arch>;
+        constexpr std::size_t simd_size = batch_type::size;
+        const auto count = std::size(input);
+        const auto last_leap
+            = xsimd::broadcast<int64_t, Arch>(leap_seconds::leap_seconds_tt2000.back().first);
+        const auto offset = xsimd::broadcast<int64_t, Arch>(
+            leap_seconds::leap_seconds_tt2000.back().second - constants::tt2000_offset);
+        // NaT and every date before 2017 fail this one test: then the general path redoes all.
+        auto all_after_2017 = xsimd::batch_bool<int64_t, Arch>(true);
+        std::size_t i = 0;
+        for (; i + simd_size <= count; i += simd_size)
+        {
+            const auto ns = batch_type::load_unaligned(&input[i]);
+            (ns + offset).store_unaligned(&output[i].nseconds);
+            all_after_2017 = all_after_2017 & (ns >= last_leap);
+        }
+        if (!xsimd::all(all_after_2017))
+            return _unsorted(Arch {}, input, output);
+        if (i < count)
+            vectorized::scalar_from_ns_from_1970(input.subspan(i), output + i);
+    }
+
+    template <class Arch>
+    static inline void _unsorted(Arch, const std::span<const int64_t>& input, tt2000_t* const output)
+    {
+        using batch_type = xsimd::batch<int64_t, Arch>;
+        constexpr std::size_t simd_size = batch_type::size;
+        const auto& table = leap_seconds::leap_seconds_tt2000;
+        const auto count = std::size(input);
+        const auto first_leap = xsimd::broadcast<int64_t, Arch>(table.front().first);
+        const auto last_leap = xsimd::broadcast<int64_t, Arch>(table.back().first);
+        const auto one_second = xsimd::broadcast<int64_t, Arch>(1'000'000'000);
+        const auto offset = xsimd::broadcast<int64_t, Arch>(constants::tt2000_offset);
+        std::size_t i = 0;
+        for (; i + simd_size <= count; i += simd_size)
+        {
+            const auto ns = batch_type::load_unaligned(&input[i]);
+            // Before 1972 (NaT included), TAI-UTC isn't whole seconds: the scalar code does it.
+            if (xsimd::any(ns < first_leap))
+            {
+                vectorized::scalar_from_ns_from_1970(input.subspan(i, simd_size), output + i);
+                continue;
+            }
+            // Every step after 1972 adds one second: walk back from the newest, for all lanes.
+            auto leap = xsimd::broadcast<int64_t, Arch>(table.back().second);
+            auto earlier = ns < last_leap;
+            for (int index = static_cast<int>(std::size(table)) - 2;
+                 xsimd::any(earlier) && index >= 0; --index)
+            {
+                leap = xsimd::select(earlier, leap - one_second, leap);
+                earlier = ns < xsimd::broadcast<int64_t, Arch>(table[index].first);
+            }
+            (ns - offset + leap).store_unaligned(&output[i].nseconds);
+        }
+        if (i < count)
+            vectorized::scalar_from_ns_from_1970(input.subspan(i), output + i);
+    }
+
+    template <class Arch>
+    void operator()(Arch, const std::span<const int64_t>& input, tt2000_t* const output);
+};
+
+template <class Arch>
+void _from_ns_from_1970_tt2000_t::operator()(
+    Arch, const std::span<const int64_t>& input, tt2000_t* const output)
+{
+    // Two 64-bit lanes don't pay for walking the table: as for the other direction.
+    if constexpr (cdf::helpers::is_any_of_v<Arch, xsimd::unavailable, xsimd::sse2>)
+        return vectorized::scalar_from_ns_from_1970(input, output);
+    if (std::empty(input))
+        return;
+    if (input[0] >= leap_seconds::leap_seconds_tt2000.back().first)
+        return _optimistic_after_2017(Arch {}, input, output);
+    _unsorted(Arch {}, input, output);
+}
+
 #ifdef CDFPP_ENABLE_SSE2_ARCH
 extern template void _to_ns_from_1970_tt2000_t::operator()<xsimd::sse2>(
     xsimd::sse2, const std::span<const tt2000_t>& input, int64_t* const output);
@@ -466,6 +550,8 @@ extern template void _to_ns_from_1970_epoch_t::operator()<xsimd::sse2>(
     xsimd::sse2, const std::span<const epoch>& input, int64_t* const output);
 extern template void _to_ns_from_1970_epoch16_t::operator()<xsimd::sse2>(
     xsimd::sse2, const std::span<const epoch16>& input, int64_t* const output);
+extern template void _from_ns_from_1970_tt2000_t::operator()<xsimd::sse2>(
+    xsimd::sse2, const std::span<const int64_t>& input, tt2000_t* const output);
 #endif
 #ifdef CDFPP_ENABLE_AVX2_ARCH
 extern template void _to_ns_from_1970_tt2000_t::operator()<xsimd::avx2>(
@@ -474,6 +560,8 @@ extern template void _to_ns_from_1970_epoch_t::operator()<xsimd::avx2>(
     xsimd::avx2, const std::span<const epoch>& input, int64_t* const output);
 extern template void _to_ns_from_1970_epoch16_t::operator()<xsimd::avx2>(
     xsimd::avx2, const std::span<const epoch16>& input, int64_t* const output);
+extern template void _from_ns_from_1970_tt2000_t::operator()<xsimd::avx2>(
+    xsimd::avx2, const std::span<const int64_t>& input, tt2000_t* const output);
 #endif
 #ifdef CDFPP_ENABLE_AVX512BW_ARCH
 extern template void _to_ns_from_1970_tt2000_t::operator()<xsimd::avx512bw>(
@@ -482,5 +570,7 @@ extern template void _to_ns_from_1970_epoch_t::operator()<xsimd::avx512bw>(
     xsimd::avx512bw, const std::span<const epoch>& input, int64_t* const output);
 extern template void _to_ns_from_1970_epoch16_t::operator()<xsimd::avx512bw>(
     xsimd::avx512bw, const std::span<const epoch16>& input, int64_t* const output);
+extern template void _from_ns_from_1970_tt2000_t::operator()<xsimd::avx512bw>(
+    xsimd::avx512bw, const std::span<const int64_t>& input, tt2000_t* const output);
 #endif
 }

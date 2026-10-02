@@ -134,8 +134,7 @@ static inline void to_ns_from_1970(const cdf_time_t_span_t auto& input, int64_t*
 epoch to_epoch(const time_point_t auto& tp)
 {
     using namespace std::chrono;
-    return epoch { duration_cast<milliseconds>(tp.time_since_epoch()).count()
-        + constants::epoch_offset_miliseconds };
+    return _impl::ns_from_1970_to_epoch(duration_cast<nanoseconds>(tp.time_since_epoch()).count());
 }
 
 no_init_vector<epoch> to_epoch(const auto& tps)
@@ -148,11 +147,8 @@ no_init_vector<epoch> to_epoch(const auto& tps)
 
 epoch16 to_epoch16(const time_point_t auto& tp)
 {
-    auto total_ns = duration_cast<nanoseconds>(tp.time_since_epoch()).count();
-    auto se = duration_cast<seconds>(tp.time_since_epoch()).count();
-    auto s = static_cast<double>(se) + constants::epoch_offset_seconds;
-    auto ps = static_cast<double>(total_ns - se * 1'000'000'000LL) * 1000.;
-    return epoch16 { s, ps };
+    return _impl::ns_from_1970_to_epoch16(
+        duration_cast<nanoseconds>(tp.time_since_epoch()).count());
 }
 
 
@@ -167,8 +163,7 @@ no_init_vector<epoch16> to_epoch16(const time_point_collection_t auto& tps)
 tt2000_t to_tt2000(const time_point_t auto& tp)
 {
     using namespace std::chrono;
-    auto nsec = duration_cast<nanoseconds>(tp.time_since_epoch()).count();
-    return tt2000_t { nsec - constants::tt2000_offset + _impl::leap_second(nsec) };
+    return _impl::ns_from_1970_to_tt2000(duration_cast<nanoseconds>(tp.time_since_epoch()).count());
 }
 
 no_init_vector<tt2000_t> to_tt2000(const time_point_collection_t auto& tps)
@@ -203,13 +198,21 @@ T to_cdf_time(const cdf_time_t auto& in)
         return to_cdf_time<T>(to_time_point(in));
 }
 
+// TT2000 needs the leap second table: it has a SIMD version. EPOCH and EPOCH16 need exact 64-bit
+// divisions, which AVX2 lacks, and are rarely written: they stay scalar, on threads.
 static inline void from_ns_from_1970(const std::span<const int64_t>& input, cdf_time_t auto* output)
 {
-    std::transform(std::cbegin(input), std::cend(input), output,
-        [](const int64_t ns)
+    chrono::_impl::_thread_if_needed<1 * 1024 * 1024>(input, output,
+        [](const std::span<const int64_t>& input, auto* output)
         {
-            return to_cdf_time<std::decay_t<decltype(output[0])>>(
-                std::chrono::system_clock::time_point {} + std::chrono::nanoseconds(ns));
+#ifndef CDFPP_NO_SIMD
+            if constexpr (std::is_same_v<std::decay_t<decltype(*output)>, tt2000_t>)
+            {
+                if (input.size() >= 8)
+                    return vectorized_from_ns_from_1970(input, output);
+            }
+#endif
+            _impl::scalar_from_ns_from_1970(input, output);
         });
 }
 
@@ -314,18 +317,6 @@ struct utc_time
 
 namespace chrono::_impl
 {
-    inline constexpr int64_t floor_div(int64_t value, int64_t divisor)
-    {
-        return value / divisor - (value % divisor < 0 ? 1 : 0);
-    }
-
-    // Not value - floor_div(value, divisor) * divisor: near INT64_MIN that product overflows.
-    inline constexpr int64_t floor_mod(int64_t value, int64_t divisor)
-    {
-        const int64_t remainder = value % divisor;
-        return remainder < 0 ? remainder + divisor : remainder;
-    }
-
     // Seconds plus any nanoseconds (negative or above a second) as a normalized utc_time.
     inline constexpr utc_time utc_from_ns(int64_t seconds, int64_t nanoseconds)
     {

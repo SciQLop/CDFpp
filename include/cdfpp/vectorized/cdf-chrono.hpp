@@ -34,3 +34,6 @@ extern void vectorized_to_ns_from_1970(
 
 extern void vectorized_to_ns_from_1970(
     const std::span<const cdf::epoch16>& input, int64_t* const output);
+
+extern void vectorized_from_ns_from_1970(
+    const std::span<const int64_t>& input, cdf::tt2000_t* const output);

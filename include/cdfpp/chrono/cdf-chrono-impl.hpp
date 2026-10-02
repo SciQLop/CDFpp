@@ -34,6 +34,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <span>
 
 namespace cdf::chrono::_impl
 {
@@ -300,6 +301,68 @@ inline void scalar_to_ns_from_1970(
     const std::span<const epoch16>& input, int64_t* const output)
 {
     std::ranges::transform(input, output, epoch16_to_ns_from_1970);
+}
+
+inline constexpr int64_t floor_div(int64_t value, int64_t divisor)
+{
+    return value / divisor - (value % divisor < 0 ? 1 : 0);
+}
+
+// Not value - floor_div(value, divisor) * divisor: near INT64_MIN that product overflows.
+inline constexpr int64_t floor_mod(int64_t value, int64_t divisor)
+{
+    const int64_t remainder = value % divisor;
+    return remainder < 0 ? remainder + divisor : remainder;
+}
+
+// From ns since 1970 (numpy's datetime64[ns]) to CDF time. NaT becomes the fill value, which
+// reads back as NaT, and dates TT2000 can't hold become its illegal value, like NASA's
+// CDF_TT2000_from_UTC_EPOCH.
+inline tt2000_t ns_from_1970_to_tt2000(int64_t ns)
+{
+    if (ns == nat)
+        return { nat };
+    const int64_t leap = leap_second(ns);
+    // Before 1707-09-22, ns - offset + leap is below INT64_MIN.
+    if (ns < nat + (constants::tt2000_offset - leap))
+        return { tt2000_illegal };
+    const int64_t tt2000 = ns - constants::tt2000_offset + leap;
+    // The first dates TT2000 holds collide with its fill, pad and illegal values.
+    if (tt2000 <= tt2000_illegal && tt2000 != nat + 2)
+        return { tt2000_illegal };
+    return { tt2000 };
+}
+
+// Whole milliseconds, as NASA's library computes CDF_EPOCH; rounded down, also before 1970.
+inline epoch ns_from_1970_to_epoch(int64_t ns)
+{
+    if (ns == nat)
+        return { -1e31 };
+    return { static_cast<double>(floor_div(ns, 1'000'000)) + constants::epoch_offset_miliseconds };
+}
+
+// Picoseconds in [0, 1e12), also before 1970: a negative fraction would read back as NaT.
+inline epoch16 ns_from_1970_to_epoch16(int64_t ns)
+{
+    if (ns == nat)
+        return { -1e31, -1e31 };
+    return { static_cast<double>(floor_div(ns, 1'000'000'000)) + constants::epoch_offset_seconds,
+        static_cast<double>(floor_mod(ns, 1'000'000'000)) * 1000. };
+}
+
+inline void scalar_from_ns_from_1970(const std::span<const int64_t>& input, tt2000_t* const output)
+{
+    std::ranges::transform(input, output, ns_from_1970_to_tt2000);
+}
+
+inline void scalar_from_ns_from_1970(const std::span<const int64_t>& input, epoch* const output)
+{
+    std::ranges::transform(input, output, ns_from_1970_to_epoch);
+}
+
+inline void scalar_from_ns_from_1970(const std::span<const int64_t>& input, epoch16* const output)
+{
+    std::ranges::transform(input, output, ns_from_1970_to_epoch16);
 }
 
 }

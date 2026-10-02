@@ -18,10 +18,17 @@ void scalar_to_ns_from_1970(const std::span<const epoch16>& input, int64_t* cons
     _impl::scalar_to_ns_from_1970(input, output);
 }
 
+void scalar_from_ns_from_1970(const std::span<const int64_t>& input, tt2000_t* const output)
+{
+    _impl::scalar_from_ns_from_1970(input, output);
+}
+
 auto _disp_to_ns_from_1970_tt2000
     = xsimd::dispatch<CDFPP_XSIMD_ARCH_LIST>(_to_ns_from_1970_tt2000_t {});
 auto _disp_to_ns_from_1970_epoch = xsimd::dispatch<CDFPP_XSIMD_ARCH_LIST>(_to_ns_from_1970_epoch_t {});
 auto _disp_to_ns_from_1970_epoch16 = xsimd::dispatch<CDFPP_XSIMD_ARCH_LIST>(_to_ns_from_1970_epoch16_t {});
+auto _disp_from_ns_from_1970_tt2000
+    = xsimd::dispatch<CDFPP_XSIMD_ARCH_LIST>(_from_ns_from_1970_tt2000_t {});
 
 } // namespace cdf::chrono::vectorized
 
@@ -41,4 +48,10 @@ void vectorized_to_ns_from_1970(
     const std::span<const cdf::epoch16>& input, int64_t* const output)
 {
     cdf::chrono::vectorized::_disp_to_ns_from_1970_epoch16(input, output);
+}
+
+void vectorized_from_ns_from_1970(
+    const std::span<const int64_t>& input, cdf::tt2000_t* const output)
+{
+    cdf::chrono::vectorized::_disp_from_ns_from_1970_tt2000(input, output);
 }

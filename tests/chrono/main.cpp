@@ -1,5 +1,6 @@
 #include <random>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <vector>
 #include <algorithm>
@@ -496,3 +497,187 @@ TEST_CASE("timepoint to cdf tt2000", "")
         }
     }
 }
+
+namespace
+{
+constexpr int64_t ns_in_s = 1'000'000'000;
+constexpr int64_t tt2000_illegal = nat + 3;
+// The first ns since 1970 whose TT2000 fits int64: TAI-UTC is 0 that early.
+constexpr int64_t first_tt2000_ns = nat + cdf::constants::tt2000_offset;
+
+template <typename time_t>
+std::vector<time_t> from_datetimes(const std::vector<int64_t>& ns)
+{
+    std::vector<time_t> output(std::size(ns));
+    cdf::from_ns_from_1970(std::span<const int64_t> { ns }, output.data());
+    return output;
+}
+
+template <typename time_t>
+time_t from_datetime(int64_t ns)
+{
+    return from_datetimes<time_t>({ ns }).front();
+}
+
+// memcmp with a null pointer is undefined, even for 0 bytes: an empty vector may give one.
+template <typename time_t>
+bool same_bits(const time_t* a, const time_t* b, std::size_t count)
+{
+    return count == 0 || std::memcmp(a, b, count * sizeof(time_t)) == 0;
+}
+
+template <typename time_t>
+bool same_bits(const std::vector<time_t>& a, const std::vector<time_t>& b)
+{
+    return std::size(a) == std::size(b) && same_bits(a.data(), b.data(), std::size(a));
+}
+
+// Leap seconds and their neighbours, 1972, both ends of TT2000 and int64, then random dates:
+// sorted recent ones (the fast SIMD path) and any order anywhere.
+std::vector<int64_t> datetimes_to_compare()
+{
+    std::vector<int64_t> values;
+    std::mt19937_64 random { 45 };
+    const int64_t last_leap = cdf::chrono::leap_seconds::leap_seconds_tt2000.back().first;
+    std::uniform_int_distribution<int64_t> recent { last_leap, std::numeric_limits<int64_t>::max() };
+    for (int i = 0; i < 1000; ++i)
+        values.push_back(recent(random));
+    std::ranges::sort(values);
+    for (const auto& [threshold, _] : cdf::chrono::leap_seconds::leap_seconds_tt2000)
+        for (int64_t delta : { -ns_in_s, int64_t { -1 }, int64_t { 0 }, int64_t { 1 } })
+            values.push_back(threshold + delta);
+    for (int64_t ns : { nat, nat + 1, first_tt2000_ns - 1, first_tt2000_ns, first_tt2000_ns + 2,
+             first_tt2000_ns + 4, int64_t { -1 }, int64_t { 0 },
+             std::numeric_limits<int64_t>::max() })
+        values.push_back(ns);
+    std::uniform_int_distribution<int64_t> anywhere { nat, std::numeric_limits<int64_t>::max() };
+    for (int i = 0; i < 100'000; ++i)
+        values.push_back(anywhere(random));
+    return values;
+}
+
+template <typename time_t>
+std::vector<time_t> scalar_from(const std::vector<int64_t>& ns)
+{
+    std::vector<time_t> output(std::size(ns));
+    cdf::_impl::scalar_from_ns_from_1970(std::span<const int64_t> { ns }, output.data());
+    return output;
+}
+}
+
+TEST_CASE("datetime64 values become the CDF time of the same date", "")
+{
+    for (const auto& item : test_values)
+    {
+        const int64_t ns = item.unix_epoch * ns_in_s;
+        REQUIRE(from_datetime<cdf::epoch>(ns) == item.epoch_epoch);
+        REQUIRE(from_datetime<cdf::epoch16>(ns) == item.epoch16_epoch);
+        if (item.unix_epoch >= 68688000)
+            REQUIRE(from_datetime<cdf::tt2000_t>(ns).nseconds == item.tt2000_epoch.nseconds);
+    }
+}
+
+TEST_CASE("NaT becomes the fill value of each CDF time type", "")
+{
+    REQUIRE(from_datetime<cdf::tt2000_t>(nat).nseconds == nat);
+    REQUIRE(from_datetime<cdf::epoch>(nat).mseconds == -1e31);
+    REQUIRE(from_datetime<cdf::epoch16>(nat) == cdf::epoch16 { -1e31, -1e31 });
+    // And reads back as NaT, many at once too (the SIMD path).
+    REQUIRE(converted(from_datetimes<cdf::tt2000_t>(std::vector<int64_t>(16, nat)))
+        == std::vector<int64_t>(16, nat));
+}
+
+TEST_CASE("Dates TT2000 can't hold become its illegal value", "")
+{
+    // Before 1707-09-22 the TT2000 value is below INT64_MIN; the first ones collide with the
+    // fill and pad values. INT64_MIN + 2 is a real date for NASA's library.
+    for (int64_t ns : { nat + 1, int64_t { -8'500'000'000'000'000'000 }, first_tt2000_ns - 1,
+             first_tt2000_ns, first_tt2000_ns + 1, first_tt2000_ns + 3 })
+        REQUIRE(from_datetime<cdf::tt2000_t>(ns).nseconds == tt2000_illegal);
+    REQUIRE(from_datetime<cdf::tt2000_t>(first_tt2000_ns + 2).nseconds == nat + 2);
+    REQUIRE(from_datetime<cdf::tt2000_t>(first_tt2000_ns + 4).nseconds == nat + 4);
+}
+
+TEST_CASE("Dates before 1970 round down to EPOCH's millisecond and EPOCH16's second", "")
+{
+    // 1969-12-31T23:59:59.999999999
+    REQUIRE(from_datetime<cdf::epoch>(-1).mseconds
+        == cdf::constants::epoch_offset_miliseconds - 1.0);
+    REQUIRE(from_datetime<cdf::epoch16>(-1)
+        == cdf::epoch16 { cdf::constants::epoch_offset_seconds - 1.0, 999'999'999'000.0 });
+    // 1965-06-01T12:00:00.000000123
+    REQUIRE(from_datetime<cdf::epoch>(-144'417'599'999'999'877).mseconds
+        == cdf::constants::epoch_offset_miliseconds - 144'417'600'000.0);
+}
+
+TEST_CASE("datetime64 values read back as the same date", "")
+{
+    std::mt19937_64 random { 46 };
+    // TT2000 from 1972 on, where TAI-UTC is whole seconds: exact both ways.
+    std::uniform_int_distribution<int64_t> since_1972 { 63'072'000 * ns_in_s,
+        std::numeric_limits<int64_t>::max() };
+    // EPOCH16 holds picoseconds: any date whose seconds it can convert back.
+    std::uniform_int_distribution<int64_t> anywhere { -9'223'372'036 * ns_in_s,
+        std::numeric_limits<int64_t>::max() };
+    std::vector<int64_t> tt2000_dates, epoch16_dates;
+    for (int i = 0; i < 100'000; ++i)
+    {
+        tt2000_dates.push_back(since_1972(random));
+        epoch16_dates.push_back(anywhere(random));
+    }
+    REQUIRE(converted(from_datetimes<cdf::tt2000_t>(tt2000_dates)) == tt2000_dates);
+    REQUIRE(converted(from_datetimes<cdf::epoch16>(epoch16_dates)) == epoch16_dates);
+    // EPOCH keeps whole milliseconds: dates read back rounded down to one.
+    std::vector<int64_t> to_millisecond;
+    for (auto ns : epoch16_dates)
+        to_millisecond.push_back(cdf::chrono::_impl::floor_div(ns, 1'000'000) * 1'000'000);
+    REQUIRE(converted(from_datetimes<cdf::epoch>(epoch16_dates)) == to_millisecond);
+}
+
+TEST_CASE("Conversions from datetime64 on several threads match the scalar ones", "")
+{
+    // More values than the threading threshold, sorted recent ones then any.
+    auto values = datetimes_to_compare();
+    std::mt19937_64 random { 47 };
+    std::uniform_int_distribution<int64_t> anywhere { nat, std::numeric_limits<int64_t>::max() };
+    while (std::size(values) < 2'500'000)
+        values.push_back(anywhere(random));
+    REQUIRE(same_bits(from_datetimes<cdf::tt2000_t>(values), scalar_from<cdf::tt2000_t>(values)));
+    REQUIRE(same_bits(from_datetimes<cdf::epoch>(values), scalar_from<cdf::epoch>(values)));
+    REQUIRE(same_bits(from_datetimes<cdf::epoch16>(values), scalar_from<cdf::epoch16>(values)));
+}
+
+#ifndef CDFPP_NO_SIMD
+TEST_CASE("SIMD conversions from datetime64 match the scalar ones bit for bit", "")
+{
+    const auto values = datetimes_to_compare();
+    const auto expected = scalar_from<cdf::tt2000_t>(values);
+    // Every start offset (alignment) and short lengths (the scalar tail) too.
+    for (std::size_t start = 0; start < 8; ++start)
+    {
+        const std::span<const int64_t> input { values.data() + start, std::size(values) - start };
+        std::vector<cdf::tt2000_t> output(std::size(input));
+        vectorized_from_ns_from_1970(input, output.data());
+        REQUIRE(same_bits(output.data(), expected.data() + start, std::size(output)));
+    }
+    for (std::size_t length = 0; length < 40; ++length)
+    {
+        std::vector<cdf::tt2000_t> output(length);
+        vectorized_from_ns_from_1970(
+            std::span<const int64_t> { values.data(), length }, output.data());
+        REQUIRE(same_bits(output.data(), expected.data(), length));
+    }
+    // Recent values but one, just before the last leap second: the fast path must give up.
+    const int64_t last_leap = cdf::chrono::leap_seconds::leap_seconds_tt2000.back().first;
+    for (int64_t early : { last_leap - 1, last_leap - ns_in_s / 2, last_leap - ns_in_s })
+    {
+        std::vector<int64_t> almost_recent;
+        for (int64_t i = 0; i < 32; ++i)
+            almost_recent.push_back(last_leap + i * ns_in_s);
+        almost_recent[19] = early;
+        std::vector<cdf::tt2000_t> output(std::size(almost_recent));
+        vectorized_from_ns_from_1970(almost_recent, output.data());
+        REQUIRE(same_bits(output, scalar_from<cdf::tt2000_t>(almost_recent)));
+    }
+}
+#endif
