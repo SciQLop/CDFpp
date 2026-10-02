@@ -30,6 +30,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 
 // The checksum CDF files can end with. RFC 1321: https://www.rfc-editor.org/rfc/rfc1321
 namespace cdf::io
@@ -103,40 +104,60 @@ private:
     std::size_t p_buffered = 0;
     uint64_t p_length = 0;
 
-    void transform(const unsigned char* block)
+    // The four round functions, in the forms with fewer operations (equivalent to the RFC's).
+    template <std::size_t step>
+    [[nodiscard]] static constexpr uint32_t mix(uint32_t b, uint32_t c, uint32_t d) noexcept
     {
-        std::array<uint32_t, 16> words;
-        for (std::size_t i = 0; i < 16; ++i)
-            words[i] = uint32_t { block[4 * i] } | uint32_t { block[4 * i + 1] } << 8
-                | uint32_t { block[4 * i + 2] } << 16 | uint32_t { block[4 * i + 3] } << 24;
+        if constexpr (step < 16)
+            return d ^ (b & (c ^ d));
+        else if constexpr (step < 32)
+            return c ^ (d & (b ^ c));
+        else if constexpr (step < 48)
+            return b ^ c ^ d;
+        else
+            return c ^ (b | ~d);
+    }
+
+    template <std::size_t step>
+    static constexpr std::size_t word_of = step < 16 ? step
+        : step < 32                                  ? (5 * step + 1) % 16
+        : step < 48                                  ? (3 * step + 5) % 16
+                                                     : (7 * step) % 16;
+
+    template <std::size_t step>
+    static void do_step(uint32_t& a, uint32_t& b, uint32_t& c, uint32_t& d,
+        const std::array<uint32_t, 16>& words) noexcept
+    {
+        const auto rotated = std::rotl(a + mix<step>(b, c, d) + sines[step] + words[word_of<step>],
+            shifts[(step / 16) * 4 + step % 4]);
+        a = d;
+        d = c;
+        c = b;
+        b += rotated;
+    }
+
+    // The 64 steps unrolled at compile time, so their constants are immediates.
+    template <std::size_t... steps>
+    void do_steps(const std::array<uint32_t, 16>& words, std::index_sequence<steps...>) noexcept
+    {
         auto [a, b, c, d] = p_state;
-        for (std::size_t i = 0; i < 64; ++i)
-        {
-            const auto [mixed, word] = [&]() -> std::pair<uint32_t, std::size_t>
-            {
-                switch (i / 16)
-                {
-                    case 0:
-                        return { (b & c) | (~b & d), i };
-                    case 1:
-                        return { (d & b) | (~d & c), (5 * i + 1) % 16 };
-                    case 2:
-                        return { b ^ c ^ d, (3 * i + 5) % 16 };
-                    default:
-                        return { c ^ (b | ~d), (7 * i) % 16 };
-                }
-            }();
-            const auto rotated
-                = std::rotl(a + mixed + sines[i] + words[word], shifts[(i / 16) * 4 + i % 4]);
-            a = d;
-            d = c;
-            c = b;
-            b += rotated;
-        }
+        (do_step<steps>(a, b, c, d, words), ...);
         p_state[0] += a;
         p_state[1] += b;
         p_state[2] += c;
         p_state[3] += d;
+    }
+
+    void transform(const unsigned char* block)
+    {
+        std::array<uint32_t, 16> words;
+        if constexpr (std::endian::native == std::endian::little)
+            std::memcpy(words.data(), block, sizeof(words));
+        else
+            for (std::size_t i = 0; i < 16; ++i)
+                words[i] = uint32_t { block[4 * i] } | uint32_t { block[4 * i + 1] } << 8
+                    | uint32_t { block[4 * i + 2] } << 16 | uint32_t { block[4 * i + 3] } << 24;
+        do_steps(words, std::make_index_sequence<64> {});
     }
 
     // A 1 bit, zeros up to 8 bytes before the end of a block, then the length in bits.
