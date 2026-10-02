@@ -636,6 +636,26 @@ class PycdfChecksumTest(unittest.TestCase):
         self.assertTrue(has_valid_md5(saved))
         self.assertEqual(saved, bytes(pycdfpp.save(self.md5_cdf())))
 
+    def test_big_variables_get_the_checksum_of_their_values(self):
+        # Megabytes of values are hashed while they are written: every layout writes them its own way.
+        values = np.arange(400_000 * 2 * 3, dtype=np.float32).reshape(400_000, 2, 3)
+        for majority in (pycdfpp.Majority.row, pycdfpp.Majority.column):
+            for encoding in (pycdfpp.Encoding.IBMPC, pycdfpp.Encoding.network):
+                with self.subTest(majority=majority, encoding=encoding):
+                    cdf = pycdfpp.CDF()
+                    cdf.majority = majority
+                    cdf.encoding = encoding
+                    cdf.checksum = self.MD5
+                    cdf.add_variable("values", values)
+                    saved = bytes(pycdfpp.save(cdf))
+                    self.assertTrue(has_valid_md5(saved))
+                    with tempfile.TemporaryDirectory() as folder:
+                        path = os.path.join(folder, "big_md5.cdf")
+                        self.assertTrue(pycdfpp.save(cdf, path))
+                        with open(path, "rb") as f:
+                            self.assertEqual(f.read(), saved)
+                    self.assertTrue(np.array_equal(pycdfpp.load(saved)["values"].values, values))
+
     def test_the_checksum_can_be_removed(self):
         cdf = pycdfpp.load(os.path.join(RESOURCES, "checksum.cdf"))
         cdf.checksum = pycdfpp.Checksum.no_checksum

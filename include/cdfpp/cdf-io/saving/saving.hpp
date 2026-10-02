@@ -31,6 +31,7 @@
 #include "./buffers.hpp"
 #include "./create_records.hpp"
 #include "../md5.hpp"
+#include "cdfpp/cdf-parallel.hpp"
 #include "./layout_records.hpp"
 #include "./link_records.hpp"
 #include "./records-saving.hpp"
@@ -217,7 +218,9 @@ namespace saving
         write_variables_attributes(body.variable_attributes, body.layout, writer, virtual_offset);
     }
 
-    // Hashes the bytes on their way to the writer, so the digest costs no extra pass.
+    // Hashes the bytes on their way to the writer, so the digest costs no extra pass. A big
+    // block is hashed on another thread while it is written: MD5 can't be split, but the write
+    // then costs nothing. Both finish before returning, so `data` stays valid.
     template <typename T>
     struct md5_writer
     {
@@ -226,8 +229,21 @@ namespace saving
 
         std::size_t write(const char* data, std::size_t count)
         {
-            hash.update(data, count);
-            return writer.write(data, count);
+            if (count < parallel::min_bytes_worth_threads)
+            {
+                hash.update(data, count);
+                return writer.write(data, count);
+            }
+            std::size_t offset = 0;
+            parallel::for_each_index(2, 2,
+                [&](std::size_t task)
+                {
+                    if (task == 0)
+                        hash.update(data, count);
+                    else
+                        offset = writer.write(data, count);
+                });
+            return offset;
         }
 
         std::size_t fill(const char value, std::size_t count)
