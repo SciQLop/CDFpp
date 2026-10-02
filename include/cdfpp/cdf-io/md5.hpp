@@ -104,20 +104,30 @@ private:
     std::size_t p_buffered = 0;
     uint64_t p_length = 0;
 
-    // The four round functions, in the forms with fewer operations (equivalent to the RFC's).
+    // The four round functions, in forms equivalent to the RFC's that keep `b`, the value just
+    // computed, as late as possible: it is the critical path. G is a bit select, so its two
+    // halves have no bit in common and add up; the half without `b` is added early. See
+    // https://github.com/animetosho/md5-optimisation
+    template <std::size_t step>
+    [[nodiscard]] static constexpr uint32_t mix_early(uint32_t c, uint32_t d) noexcept
+    {
+        if constexpr (step >= 16 && step < 32)
+            return c & ~d;
+        else
+            return 0;
+    }
     template <std::size_t step>
     [[nodiscard]] static constexpr uint32_t mix(uint32_t b, uint32_t c, uint32_t d) noexcept
     {
         if constexpr (step < 16)
             return d ^ (b & (c ^ d));
         else if constexpr (step < 32)
-            return c ^ (d & (b ^ c));
+            return b & d;
         else if constexpr (step < 48)
-            return b ^ c ^ d;
+            return b ^ (c ^ d);
         else
             return c ^ (b | ~d);
     }
-
     template <std::size_t step>
     static constexpr std::size_t word_of = step < 16 ? step
         : step < 32                                  ? (5 * step + 1) % 16
@@ -128,8 +138,8 @@ private:
     static void do_step(uint32_t& a, uint32_t& b, uint32_t& c, uint32_t& d,
         const std::array<uint32_t, 16>& words) noexcept
     {
-        const auto rotated = std::rotl(a + mix<step>(b, c, d) + sines[step] + words[word_of<step>],
-            shifts[(step / 16) * 4 + step % 4]);
+        const auto early = a + sines[step] + words[word_of<step>] + mix_early<step>(c, d);
+        const auto rotated = std::rotl(early + mix<step>(b, c, d), shifts[(step / 16) * 4 + step % 4]);
         a = d;
         d = c;
         c = b;
