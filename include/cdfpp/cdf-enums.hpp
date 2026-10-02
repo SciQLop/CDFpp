@@ -199,8 +199,8 @@ enum class cdf_encoding : int32_t
 [[nodiscard]] constexpr bool has_ieee_floats(cdf_encoding encoding) noexcept
 {
     using enum cdf_encoding;
-    return encoding != VAX and encoding != ALPHAVMSd and encoding != ALPHAVMSg
-        and encoding != IA64VMSd and encoding != IA64VMSg;
+    return encoding != VAX && encoding != ALPHAVMSd && encoding != ALPHAVMSg
+        && encoding != IA64VMSd && encoding != IA64VMSg;
 }
 
 [[nodiscard]] inline std::string cdf_encoding_str(cdf_encoding encoding) noexcept

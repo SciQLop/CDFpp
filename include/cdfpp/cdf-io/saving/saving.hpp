@@ -130,7 +130,7 @@ namespace saving
         {
             const auto in_chunk = std::min(per_chunk, first + count - chunk);
             const auto records = layout.records(variable, chunk, in_chunk, record_size);
-            writer.write(records.data(), std::size(records));
+            writer.write(records.bytes_ptr(), records.bytes());
         }
     }
 

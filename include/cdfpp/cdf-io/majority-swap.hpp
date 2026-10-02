@@ -159,8 +159,7 @@ void swap(data_t& data, const shape_t& shape)
                 std::copy_n(data.data() + offset + from * element_size, element_size,
                     temporary_record.data() + to * element_size);
             }
-            std::copy(std::cbegin(temporary_record), std::cend(temporary_record),
-                data.data() + offset);
+            std::ranges::copy(temporary_record, data.data() + offset);
         }
     }
 }
