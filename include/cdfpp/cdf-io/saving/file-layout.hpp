@@ -28,6 +28,7 @@
 #include "../majority-swap.hpp"
 #include "cdfpp/cdf-data.hpp"
 #include "cdfpp/variable.hpp"
+#include <cassert>
 #include <cstring>
 
 // Values live in memory in row major order and in the host byte order; a file may store them
@@ -47,6 +48,15 @@ struct file_layout
     cdf_majority majority = cdf_majority::row;
     cdf_encoding encoding = CDFpp_ENCODING;
 
+    // Records with less than 2 dimensions read the same in both majorities (see majority::swap).
+    [[nodiscard]] bool transposes(const Variable& variable) const
+    {
+        const bool is_string = variable.type() == CDF_Types::CDF_CHAR
+            || variable.type() == CDF_Types::CDF_UCHAR;
+        return majority == cdf_majority::column
+            && std::size(variable.shape()) > (is_string ? 3UL : 2UL);
+    }
+
     [[nodiscard]] bool matches_memory(const Variable& variable) const
     {
         return has_host_byte_order(encoding) && !transposes(variable);
@@ -59,6 +69,15 @@ struct file_layout
         data_t records = new_data_container(count * record_size, variable.type());
         records_into(records, variable, first, count, record_size);
         return records;
+    }
+
+    // Records that only change byte order, straight to `out`, which needs no alignment.
+    void swapped_records_into(char* out, const Variable& variable, std::size_t first,
+        std::size_t count, std::size_t record_size) const
+    {
+        assert(!transposes(variable));
+        copy_in_byte_order(variable.bytes_ptr() + first * record_size, out, count * record_size,
+            cdf_type_size(variable.type()));
     }
 
     // Same, into `out`, which holds at least `count` records: saving reuses one buffer.
@@ -91,14 +110,6 @@ struct file_layout
     }
 
 private:
-    // Records with less than 2 dimensions read the same in both majorities (see majority::swap).
-    [[nodiscard]] bool transposes(const Variable& variable) const
-    {
-        const bool is_string = variable.type() == CDF_Types::CDF_CHAR
-            || variable.type() == CDF_Types::CDF_UCHAR;
-        return majority == cdf_majority::column
-            && std::size(variable.shape()) > (is_string ? 3UL : 2UL);
-    }
 
     void copy_in_byte_order(
         const char* from, char* to, std::size_t bytes, std::size_t value_size) const

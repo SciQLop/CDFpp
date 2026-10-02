@@ -37,6 +37,16 @@ namespace cdf::io::buffers
 
 using cpp_utils::io::vector_writer;
 
+// Room for `count` more bytes at the end of a buffer, to fill in place.
+template <typename Container>
+[[nodiscard]] char* append(vector_writer<Container>& writer, std::size_t count)
+{
+    writer.data.resize(writer.global_offset + count);
+    auto* room = reinterpret_cast<char*>(writer.data.data()) + writer.global_offset;
+    writer.global_offset += count;
+    return room;
+}
+
 // Writes over an existing file, then cuts what is left past the new end, rather than
 // truncating it first: btrfs and ext4 flush a file truncated to zero when it is closed, which
 // made saving over a file 2.5x slower (https://lkml.iu.edu/hypermail/linux/kernel/1409.0/02294.html).

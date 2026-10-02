@@ -120,6 +120,12 @@ namespace saving
         const file_layout& layout, U&& writer)
     {
         const auto record_size = record_size_of(variable);
+        if constexpr (requires { buffers::append(writer, 0); })
+        {
+            if (!layout.transposes(variable))
+                return layout.swapped_records_into(
+                    buffers::append(writer, count * record_size), variable, first, count, record_size);
+        }
         const auto per_chunk = std::max(std::size_t { 1 }, layout_chunk_bytes / record_size);
         auto records = new_data_container(std::min(per_chunk, count) * record_size, variable.type());
         for (auto chunk = first; chunk < first + count; chunk += per_chunk)
