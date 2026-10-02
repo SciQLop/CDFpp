@@ -58,6 +58,10 @@ variables: dict
     file variables
 majority: Majority
     file majority: values are always given in row major order, saving converts them
+declared_variable_attributes: list of str
+    the variable attributes the file declares, in their order, also those no variable uses;
+    saving declares them first, then the other ones in the order the variables use them; it is
+    a copy: assign a new list to change it
 checksum: Checksum
     whether the file ends with the MD5 digest of the rest of it (md5_checksum); loaded files
     keep theirs, the digest is not checked when loading
@@ -104,6 +108,7 @@ void def_cdf_wrapper(T& mod)
         .def_property(
             "majority", [](const CDF& cdf) { return cdf.majority; },
             [](CDF& cdf, cdf_majority majority) { cdf.majority = majority; })
+        .def_readwrite("declared_variable_attributes", &CDF::declared_variable_attributes)
         .def_property(
             "checksum", [](const CDF& cdf) { return cdf.checksum; },
             [](CDF& cdf, cdf_checksum checksum) { cdf.checksum = checksum; })

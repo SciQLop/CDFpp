@@ -339,6 +339,7 @@ Greenbelt, Maryland 20771 USA
         check_attribute_scopes(cdf);
         saving_context svg_ctx = make_saving_context(cdf);
         create_file_attributes_records(cdf, svg_ctx);
+        declare_variable_attributes(cdf, svg_ctx);
         create_variables_records(cdf, svg_ctx);
         auto eof = map_records(svg_ctx);
         link_records(svg_ctx);

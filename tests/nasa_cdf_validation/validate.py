@@ -44,6 +44,8 @@ def _built_fixtures():
     """Files built from scratch, for the writer features the fixtures above don't use."""
     empty_attribute = pycdfpp.CDF()
     empty_attribute.add_attribute("EMPTY", [])
+    empty_attribute.declared_variable_attributes = ["UNUSED", "UNITS"]
+    empty_attribute.add_variable("x", np.arange(3.), attributes={"UNITS": "nT"})
     yield "built_empty_attribute.cdf", empty_attribute
     sparse_records = pycdfpp.CDF()
     for flag in pycdfpp.SparseRecords:

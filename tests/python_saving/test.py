@@ -633,6 +633,60 @@ class PycdfChecksumTest(unittest.TestCase):
         self.assertEqual(pycdfpp.load(saved).checksum, pycdfpp.Checksum.no_checksum)
 
 
+def declared_variable_attributes(data: bytes):
+    """Variable attribute names in their number order, as NASA's tools list them."""
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "file.cdf")
+        with open(path, "wb") as f:
+            f.write(data)
+        adrs = [fields for _, kind, fields in pycdfpp.debug.for_each_record(path)
+                if kind == "ADR" and fields["scope"].startswith("variable")]
+    return [adr["Name"] for adr in sorted(adrs, key=lambda adr: adr["num"])]
+
+
+class PycdfVariableAttributeOrderTest(unittest.TestCase):
+    # Their variable attributes came back in another order, and some declared ones were lost
+    FILES = ["a_cdf.cdf", "a_col_major_cdf.cdf", "a_compressed_cdf.cdf", "a_rle_compressed_cdf.cdf",
+             "a_cdf_with_compressed_vars.cdf", "ac_h0_mfi_00000000_v01.cdf", "ac_h2_sis_20101105_v06.cdf",
+             "ge_k0_cpi_19921231_v02.cdf", "ia_k0_epi_19970102_v01.cdf", "thg_l2_mag_mek_00000000_v01.cdf",
+             "solo_l2_rpw-lfr-surv-swf-e_00000000_v01.cdf", "uy_proton-distributions_swoops_00000000_v01.cdf",
+             "wi_l2-30min_sms-stics-afm-magnetosphere_00000000_v01.cdf"]
+
+    def test_files_keep_their_variable_attributes_and_their_order(self):
+        for name in self.FILES:
+            with self.subTest(file=name):
+                with open(os.path.join(RESOURCES, name), "rb") as f:
+                    original = f.read()
+                cdf = pycdfpp.load(original)
+                self.assertEqual(cdf.declared_variable_attributes, declared_variable_attributes(original))
+                self.assertEqual(declared_variable_attributes(bytes(pycdfpp.save(cdf))),
+                                 declared_variable_attributes(original))
+
+    def test_attributes_no_variable_uses_are_declared(self):
+        cdf = pycdfpp.load(os.path.join(RESOURCES, "ac_h0_mfi_00000000_v01.cdf"))
+        for name in ("LABL_PTR_2", "SCAL_PTR"):
+            self.assertIn(name, cdf.declared_variable_attributes)
+            self.assertFalse(any(name in cdf[variable].attributes for variable in cdf))
+
+    def test_new_attributes_come_after_the_declared_ones(self):
+        cdf = pycdfpp.CDF()
+        self.assertEqual(cdf.declared_variable_attributes, [])
+        cdf.declared_variable_attributes = ["UNUSED", "UNITS"]
+        cdf.add_variable("x", np.arange(3.), attributes={"FIELDNAM": "x", "UNITS": "nT"})
+        saved = bytes(pycdfpp.save(cdf))
+        self.assertEqual(declared_variable_attributes(saved), ["UNUSED", "UNITS", "FIELDNAM"])
+        reloaded = pycdfpp.load(saved)
+        self.assertEqual(reloaded.declared_variable_attributes, ["UNUSED", "UNITS", "FIELDNAM"])
+        self.assertEqual(list(reloaded["x"].attributes), ["UNITS", "FIELDNAM"])
+
+    def test_a_declared_name_can_t_be_a_global_attribute_too(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("TITLE", ["a title"])
+        cdf.declared_variable_attributes = ["TITLE"]
+        with self.assertRaises(ValueError):
+            pycdfpp.save(cdf)
+
+
 EXPERIMENTAL_CODECS = [getattr(pycdfpp.CompressionType, name)
                        for name in ("zstd_compression", "blosc2_compression")
                        if hasattr(pycdfpp.CompressionType, name)]

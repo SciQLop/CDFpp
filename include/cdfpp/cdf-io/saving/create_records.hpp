@@ -130,22 +130,35 @@ namespace saving
         }
     }
 
+    // Numbers the attribute after the ones already declared, unless it is one of them.
+    inline variable_attribute_ctx& declare_variable_attribute(
+        const std::string& name, saving_context& svg_ctx)
+    {
+        if (svg_ctx.body.variable_attributes.count(name) == 0)
+        {
+            int32_t index = std::size(svg_ctx.body.file_attributes)
+                + std::size(svg_ctx.body.variable_attributes);
+            svg_ctx.body.variable_attributes[name] = variable_attribute_ctx { index, {},
+                cdf_ADR_t<v3x_tag> { {}, 0, 0, cdf_attr_scope::variable, index, 0, -1, 0, 0, 0, 0,
+                    -1, { name } },
+                {} };
+            update_size(svg_ctx.body.variable_attributes[name].adr);
+        }
+        return svg_ctx.body.variable_attributes[name];
+    }
+
+    inline void declare_variable_attributes(const CDF& cdf, saving_context& svg_ctx)
+    {
+        for (const auto& name : cdf.declared_variable_attributes)
+            declare_variable_attribute(name, svg_ctx);
+    }
+
     inline void create_variable_attributes_records(
         const variable_ctx& variable, saving_context& svg_ctx)
     {
         for (const auto& [name, attribute] : variable.variable->attributes)
         {
-            if (svg_ctx.body.variable_attributes.count(name) == 0)
-            {
-                int32_t index = std::size(svg_ctx.body.file_attributes)
-                    + std::size(svg_ctx.body.variable_attributes);
-                svg_ctx.body.variable_attributes[name] = variable_attribute_ctx { index, {},
-                    cdf_ADR_t<v3x_tag> { {}, 0, 0, cdf_attr_scope::variable, index, 0, -1, 0, 0, 0,
-                        0, -1, { name } },
-                    {} };
-            }
-            auto& vac = svg_ctx.body.variable_attributes[name];
-            update_size(vac.adr);
+            auto& vac = declare_variable_attribute(name, svg_ctx);
             vac.attrs.push_back(&attribute);
             const auto& data = *attribute;
             auto& aedr = vac.aedrs.emplace_back(cdf_AzEDR_t<v3x_tag> { {}, 0, vac.adr.record.num,
