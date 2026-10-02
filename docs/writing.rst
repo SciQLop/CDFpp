@@ -293,15 +293,21 @@ them, or ``force=True`` to change the type.
 Copying from another file
 =========================
 
-Pass an existing variable or attribute to ``add_variable`` or ``add_attribute``. It is
-copied with all its values and attributes:
+Pass an existing variable to ``add_variable``: it is copied with its values and its
+attributes. Pass an existing attribute to ``add_attribute``: it is copied with its values.
 
 .. code-block:: python
 
-    other = pycdfpp.CDF()
-    other.add_variable(cdf["Epoch"])
-    other.add_variable(cdf["B"])
-    other.add_attribute(cdf.attributes["Project"])
+    source = pycdfpp.load("my_mission.cdf")
+
+    destination = pycdfpp.CDF()
+    destination.add_attribute(source.attributes["Project"])
+    for name in ("Epoch", "B", "B_labels"):
+        destination.add_variable(source[name])
+
+Copy the variables your attributes point to as well. ``B`` names ``Epoch`` in
+``DEPEND_0`` and ``B_labels`` in ``LABL_PTR_1``: without them, ``destination`` would point to
+variables it does not have.
 
 Removing variables
 ==================
