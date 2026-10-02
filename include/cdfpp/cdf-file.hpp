@@ -31,10 +31,12 @@
 #include "chrono/cdf-leap-seconds.h"
 #include "variable.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <unordered_set>
+#include <vector>
 
 template <class stream_t>
 inline stream_t& operator<<(stream_t& os, const cdf_map<std::string, cdf::Variable>& variables)
@@ -62,6 +64,9 @@ struct CDF
     int32_t compression_level = default_gzip_level;
     cdf_encoding encoding = CDFpp_ENCODING;
     cdf_checksum checksum = cdf_checksum::no_checksum;
+    // The variable attributes the file declares, in their order, also those no variable uses.
+    // Saving numbers them first, then the other ones in the order the variables use them.
+    std::vector<std::string> declared_variable_attributes;
     std::tuple<int32_t, int32_t, int32_t> distribution_version = { 3, 9, 0 };
     cdf_map<std::string, Variable> variables;
     cdf_map<std::string, Attribute> attributes;
@@ -125,12 +130,17 @@ inline void check_attribute_scopes(const CDF& cdf_file)
     std::unordered_set<std::string_view> global_names;
     for (const auto& [name, _] : cdf_file.attributes)
         global_names.insert(name);
+    const auto check = [&global_names](const std::string& name)
+    {
+        if (global_names.contains(name))
+            throw std::invalid_argument { "'" + name
+                + "' is both a global and a variable attribute: a CDF attribute name has one "
+                  "scope, and NASA's library can't read the variable one" };
+    };
+    std::ranges::for_each(cdf_file.declared_variable_attributes, check);
     for (const auto& item : cdf_file.variables)
         for (const auto& [name, _] : item.second.attributes)
-            if (global_names.contains(name))
-                throw std::invalid_argument { "'" + name
-                    + "' is both a global and a variable attribute: a CDF attribute name has one "
-                      "scope, and NASA's library can't read the variable one" };
+            check(name);
 }
 
 } // namespace cdf

@@ -57,10 +57,13 @@ Attribute::attr_data_t load_data(
 template <typename cdf_version_tag_t, bool iso_8859_1_to_utf8, typename context_t>
 bool load_all(context_t& context, common::cdf_repr& repr)
 {
+    std::vector<std::pair<int32_t, std::string>> numbered_variable_attributes;
     std::for_each(begin_ADR(context), end_ADR(context),
         [&](auto& blk)
         {
             auto& [offset, ADR] = blk;
+            if (ADR.scope == cdf_attr_scope::variable || ADR.scope == cdf_attr_scope::variable_assumed)
+                numbered_variable_attributes.emplace_back(ADR.num, ADR.Name.value);
             std::vector<uint32_t> var_nums;
             Attribute::attr_data_t data = [&, &ADR = ADR]() -> Attribute::attr_data_t
             {
@@ -74,6 +77,10 @@ bool load_all(context_t& context, common::cdf_repr& repr)
             }();
             common::add_attribute(repr, ADR.scope, ADR.Name.value, std::move(data), var_nums);
         });
+    std::ranges::sort(numbered_variable_attributes);
+    std::ranges::transform(numbered_variable_attributes,
+        std::back_inserter(repr.declared_variable_attributes),
+        [](auto& numbered) { return std::move(numbered.second); });
     return true;
 }
 } // namespace cdf::io::attribute

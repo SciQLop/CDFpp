@@ -131,6 +131,11 @@ next file.
 The compression of each variable comes from the master too. Here, ``BGSEc`` is saved
 with gzip, as the master asks.
 
+So do the other settings of the master: majority, encoding, checksum, pad values, sparse
+records, and the variable attributes it declares, in their order, even those no variable
+uses (``cdf.declared_variable_attributes``). A master saved as it was loaded gives the same
+``skeletontable`` output.
+
 Producing many files
 ====================
 

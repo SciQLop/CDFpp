@@ -80,6 +80,7 @@ namespace
         cdf.compression_level = repr.compression_level;
         cdf.encoding = repr.encoding;
         cdf.checksum = repr.checksum;
+        cdf.declared_variable_attributes = std::move(repr.declared_variable_attributes);
         // cdf.leap_second_last_updated = repr.leap_second_last_updated;
         return cdf;
     }
