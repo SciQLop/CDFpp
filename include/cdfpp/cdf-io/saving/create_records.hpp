@@ -203,7 +203,8 @@ namespace saving
     }
 
     // Needs the geometry: the pad value is one element, NumElems values of the variable's type.
-    inline void populate_pad_value(const Variable& variable, cdf_zVDR_t<v3x_tag>& vdr)
+    inline void populate_pad_value(
+        const Variable& variable, cdf_zVDR_t<v3x_tag>& vdr, const file_layout& layout)
     {
         const auto& pad = variable.pad_value();
         if (!pad)
@@ -217,12 +218,12 @@ namespace saving
                 cdf_type_str(vdr.DataType), element_size) };
         vdr.Flags |= 2;
         vdr.PadValues.resize(element_size);
-        std::memcpy(vdr.PadValues.data(), pad->bytes_ptr(), element_size);
+        std::memcpy(vdr.PadValues.data(), layout.value(*pad).bytes_ptr(), element_size);
     }
 
     inline typename variable_ctx::values_records_t make_values_record(const Variable& v,
         const std::size_t records_in_vvr, const std::size_t record_size,
-        const std::size_t first_record)
+        const std::size_t first_record, const file_layout& layout)
     {
         if (v.compression_type() == cdf_compression_type::no_compression)
         {
@@ -233,10 +234,15 @@ namespace saving
         else
         {
             auto cvvr = record_wrapper<cdf_CVVR_t<v3x_tag>> {};
+            const auto in_file_layout = layout.matches_memory()
+                ? no_init_vector<char> {}
+                : layout.records(v, first_record, records_in_vvr, record_size);
+            const auto records = layout.matches_memory()
+                ? std::string_view { v.bytes_ptr() + first_record * record_size,
+                      records_in_vvr * record_size }
+                : std::string_view { in_file_layout.data(), std::size(in_file_layout) };
             auto compressed = compression::deflate(v.compression_type(), v.compression_level(),
-                std::string_view {
-                    v.bytes_ptr() + first_record * record_size, records_in_vvr * record_size },
-                cdf_type_size(v.type()), record_size);
+                records, cdf_type_size(v.type()), record_size);
             cvvr.record.data.resize(std::size(compressed));
             std::memcpy(cvvr.record.data.data(), compressed.data(), std::size(compressed));
             cvvr.record.cSize = std::size(cvvr.record.data);
@@ -292,7 +298,7 @@ namespace saving
     }
 
     inline void create_values_records(const Variable& variable, variable_ctx& var_ctx,
-        std::size_t record_size, std::size_t per_block)
+        std::size_t record_size, std::size_t per_block, const file_layout& layout)
     {
         const std::size_t records = variable.len();
         create_vxrs(var_ctx, records, per_block);
@@ -306,7 +312,7 @@ namespace saving
                 const auto first = block * per_block;
                 const auto count = std::min(records, first + per_block) - first;
                 var_ctx.values_records[block]
-                    = make_values_record(variable, count, record_size, first);
+                    = make_values_record(variable, count, record_size, first, layout);
             });
     }
 
@@ -344,7 +350,7 @@ namespace saving
                     .cpr = std::nullopt });
 
             populate_variable_geometry(variable, var_ctx.vdr.record);
-            populate_pad_value(variable, var_ctx.vdr.record);
+            populate_pad_value(variable, var_ctx.vdr.record, svg_ctx.body.layout);
             // An empty variable may have no shape at all, hence no record size.
             const auto record_size = variable.len() ? record_size_of(variable) : 0;
             const auto per_block = variable.len() ? records_per_block(variable, record_size) : 0;
@@ -356,7 +362,8 @@ namespace saving
             }
             update_size(var_ctx.vdr);
             if (variable.len())
-                create_values_records(variable, var_ctx, record_size, per_block);
+                create_values_records(
+                    variable, var_ctx, record_size, per_block, svg_ctx.body.layout);
             create_variable_attributes_records(var_ctx, svg_ctx);
         }
     }

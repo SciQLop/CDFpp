@@ -263,9 +263,6 @@ their floats aren't IEEE 754, and CDFpp doesn't convert them.
     cdf.majority = pycdfpp.Majority.column
     cdf.encoding = pycdfpp.Encoding.network
 
-Saving a file whose majority or encoding isn't your computer's converts a copy of its values,
-so it needs twice their memory.
-
 Compression
 ===========
 

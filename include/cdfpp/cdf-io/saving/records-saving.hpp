@@ -30,6 +30,7 @@
 #include "cdfpp/attribute.hpp"
 #include "cdfpp/cdf-helpers.hpp"
 #include "cdfpp/variable.hpp"
+#include "./file-layout.hpp"
 #include <cpp_utils/serde/serde.hpp>
 #include <algorithm>
 #include <optional>
@@ -135,6 +136,7 @@ struct cdf_body
     std::vector<file_attribute_ctx> file_attributes;
     nomap<std::string, variable_attribute_ctx> variable_attributes;
     std::vector<variable_ctx> variables;
+    saving::file_layout layout;
 };
 
 struct saving_context
