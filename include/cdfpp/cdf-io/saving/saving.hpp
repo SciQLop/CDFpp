@@ -45,7 +45,6 @@ using cpp_utils::containers::no_init_vector;
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <numeric>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -55,12 +54,6 @@ namespace cdf::io
 
 namespace saving
 {
-    [[nodiscard]] inline std::size_t estimate_size(const CDF& cdf)
-    {
-        auto var_size = std::accumulate(std::cbegin(cdf.variables), std::cend(cdf.variables), 0UL,
-            [](std::size_t sz, const auto& node) { return sz + node.mapped().bytes(); });
-        return var_size + (1 << 16);
-    }
 
 
     template <typename T, typename U>
@@ -365,12 +358,12 @@ Greenbelt, Maryland 20771 USA
         return svg_ctx;
     }
 
-    template <typename T>
-    [[nodiscard]] bool impl_save(const CDF& cdf, T& writer)
+    // Known once the records are laid out, so a buffer is allocated once and never moved.
+    [[nodiscard]] inline std::size_t file_size(const saving_context& svg_ctx)
     {
-        auto svg_ctx = build_records(cdf);
-        write_records(svg_ctx, writer);
-        return true;
+        const std::size_t end
+            = svg_ctx.cpr ? svg_ctx.cpr->offset + svg_ctx.cpr->size : svg_ctx.body.gdr.record.eof;
+        return end + (svg_ctx.checksum == cdf_checksum::no_checksum ? 0 : md5::digest_size);
     }
 
 
@@ -396,12 +389,13 @@ Greenbelt, Maryland 20771 USA
 
 [[nodiscard]] inline no_init_vector<char> save(const CDF& cdf)
 {
+    auto svg_ctx = saving::build_records(cdf);
     no_init_vector<char> data;
-    data.reserve(saving::estimate_size(cdf));
+    data.reserve(saving::file_size(svg_ctx));
     buffers::vector_writer writer { data };
-    if (saving::impl_save(cdf, writer))
-        return data;
-    return {};
+    saving::write_records(svg_ctx, writer);
+    assert(std::size(data) == saving::file_size(svg_ctx));
+    return data;
 }
 
 }

@@ -401,6 +401,30 @@ SCENARIO("Saving over a bigger file leaves none of its bytes", "[CDF]")
     std::filesystem::remove(path);
 }
 
+SCENARIO("Saving to memory allocates the file once and at its size", "[CDF]")
+{
+    // A lot of metadata for little data: a size estimated from the values falls short.
+    CDF cdf_obj;
+    for (int v = 0; v < 300; v++)
+    {
+        const auto name = "var" + std::to_string(v);
+        cdf_obj.variables.emplace(name,
+            Variable { name, static_cast<std::size_t>(v),
+                data_t { ones<double> {}(1000), CDF_Types::CDF_DOUBLE }, { 1000 } });
+        cdf_obj.variables[name].attributes.emplace("FIELDNAM",
+            VariableAttribute { "FIELDNAM", data_t { no_init_vector<char>(200, 'x'), CDF_Types::CDF_CHAR } });
+    }
+    for (const auto checksum : { cdf_checksum::no_checksum, cdf_checksum::md5_checksum })
+        for (const auto compression :
+            { cdf_compression_type::no_compression, cdf_compression_type::gzip_compression })
+        {
+            cdf_obj.checksum = checksum;
+            cdf_obj.compression = compression;
+            const auto saved = cdf::io::save(cdf_obj);
+            REQUIRE(saved.capacity() == saved.size());
+        }
+}
+
 SCENARIO("Saving to a path that can't be written reports a failure", "[CDF]")
 {
     const auto path = std::filesystem::temp_directory_path() / "cdfpp_missing_dir" / "out.cdf";
