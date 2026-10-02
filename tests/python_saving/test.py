@@ -242,6 +242,17 @@ class PycdfCreateCDFTest(unittest.TestCase):
             cdf.add_variable("test", data_type=pycdfpp.DataType.CDF_TIME_TT2000)
             self.assertTrue(pycdfpp.save(cdf, f.name))
 
+    def test_the_saved_content_is_used_without_a_copy(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(10.))
+        content = pycdfpp.save(cdf)
+        view = memoryview(content)
+        self.assertTrue(view.readonly)
+        self.assertEqual(len(content), len(view))
+        self.assertEqual(view[:4].tobytes(), b"\xcd\xf3\x00\x01")
+        self.assertEqual(bytes(content), view.tobytes())
+        self.assertTrue(np.array_equal(pycdfpp.load(content)["x"].values, np.arange(10.)))
+
     def test_can_save_a_cdf_with_an_empty_compressed_var(self):
         # https://github.com/SciQLop/CDFpp/issues/25
         cdf = pycdfpp.CDF()
