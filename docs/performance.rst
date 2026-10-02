@@ -115,7 +115,8 @@ We checked that the three libraries return the same values for every variable of
 Why is pycdfpp faster?
 ======================
 
-Each row of the table has its own reason.
+Each row of the table has its own reason. :doc:`optimizations` explains how each one works,
+in detail, with the measurements behind it.
 
 Opening a file
 --------------

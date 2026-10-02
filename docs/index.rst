@@ -123,6 +123,7 @@ Why CDFpp?
    :caption: Reference
 
    performance
+   optimizations
    faq
    api
    history

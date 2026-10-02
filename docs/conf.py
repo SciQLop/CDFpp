@@ -56,7 +56,7 @@ language = 'en'
 html_theme = 'furo'
 html_title = f'CDFpp {version}'
 html_static_path = ['_static']
-html_css_files = ['playground.css']
+html_css_files = ['playground.css', 'diagrams.css']
 html_js_files = ['playground.js']
 html_theme_options = {
     'source_repository': 'https://github.com/SciQLop/CDFpp/',

@@ -1,0 +1,105 @@
+/* Inline SVG diagrams of docs/optimizations.rst. They take their colours from the theme, so they
+   follow Furo's light and dark modes. */
+
+.cdfpp-diagram {
+    --d-fg: var(--color-foreground-primary);
+    --d-muted: var(--color-foreground-secondary);
+    --d-faint: var(--color-foreground-border);
+    --d-panel: var(--color-background-secondary);
+    --d-line: var(--color-background-border);
+    --d-blue: #2563eb;
+    --d-blue-soft: #dbeafe;
+    --d-orange: #d97706;
+    --d-orange-soft: #fef3c7;
+    --d-green: #059669;
+    --d-green-soft: #d1fae5;
+    --d-red: #dc2626;
+    --d-red-soft: #fee2e2;
+    --d-violet: #7c3aed;
+    --d-violet-soft: #ede9fe;
+    margin: 1.5rem 0;
+    padding: 1rem 1rem 0.5rem;
+    border: 1px solid var(--d-line);
+    border-radius: 0.5rem;
+    background: var(--color-background-primary);
+}
+
+@media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) .cdfpp-diagram {
+        --d-blue: #60a5fa;
+        --d-blue-soft: #1e3a5f;
+        --d-orange: #fbbf24;
+        --d-orange-soft: #4a3510;
+        --d-green: #34d399;
+        --d-green-soft: #0f3d30;
+        --d-red: #f87171;
+        --d-red-soft: #4c1d1d;
+        --d-violet: #a78bfa;
+        --d-violet-soft: #2e2457;
+    }
+}
+
+body[data-theme="dark"] .cdfpp-diagram {
+    --d-blue: #60a5fa;
+    --d-blue-soft: #1e3a5f;
+    --d-orange: #fbbf24;
+    --d-orange-soft: #4a3510;
+    --d-green: #34d399;
+    --d-green-soft: #0f3d30;
+    --d-red: #f87171;
+    --d-red-soft: #4c1d1d;
+    --d-violet: #a78bfa;
+    --d-violet-soft: #2e2457;
+}
+
+.cdfpp-diagram svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--font-stack);
+    font-size: 13px;
+}
+
+.cdfpp-diagram figcaption {
+    margin-top: 0.5rem;
+    color: var(--d-muted);
+    font-size: 0.85em;
+    text-align: center;
+}
+
+/* Text */
+.cdfpp-diagram .t { fill: var(--d-fg); }
+.cdfpp-diagram .tm { fill: var(--d-muted); }
+.cdfpp-diagram .tb { fill: var(--d-fg); font-weight: 600; }
+.cdfpp-diagram .ts { fill: var(--d-muted); font-size: 11px; }
+.cdfpp-diagram .tmono { fill: var(--d-fg); font-family: var(--font-stack--monospace); font-size: 12px; }
+.cdfpp-diagram .c { text-anchor: middle; }
+.cdfpp-diagram .r { text-anchor: end; }
+
+/* Shapes */
+.cdfpp-diagram .panel { fill: var(--d-panel); stroke: var(--d-line); }
+.cdfpp-diagram .line { stroke: var(--d-muted); stroke-width: 1.5; fill: none; }
+.cdfpp-diagram .faint { stroke: var(--d-faint); stroke-width: 1; fill: none; }
+.cdfpp-diagram .dash { stroke-dasharray: 4 3; }
+.cdfpp-diagram .arrow { stroke: var(--d-muted); stroke-width: 1.5; fill: none; marker-end: url(#cdfpp-arrow); }
+.cdfpp-diagram .arrowhead { fill: var(--d-muted); }
+
+.cdfpp-diagram .blue { fill: var(--d-blue-soft); stroke: var(--d-blue); }
+.cdfpp-diagram .orange { fill: var(--d-orange-soft); stroke: var(--d-orange); }
+.cdfpp-diagram .green { fill: var(--d-green-soft); stroke: var(--d-green); }
+.cdfpp-diagram .red { fill: var(--d-red-soft); stroke: var(--d-red); }
+.cdfpp-diagram .violet { fill: var(--d-violet-soft); stroke: var(--d-violet); }
+.cdfpp-diagram .solid-blue { fill: var(--d-blue); }
+.cdfpp-diagram .solid-orange { fill: var(--d-orange); }
+.cdfpp-diagram .solid-green { fill: var(--d-green); }
+.cdfpp-diagram .solid-red { fill: var(--d-red); }
+.cdfpp-diagram .solid-violet { fill: var(--d-violet); }
+.cdfpp-diagram .stroke-blue { stroke: var(--d-blue); stroke-width: 2; fill: none; }
+.cdfpp-diagram .stroke-orange { stroke: var(--d-orange); stroke-width: 2; fill: none; }
+.cdfpp-diagram .stroke-green { stroke: var(--d-green); stroke-width: 2; fill: none; }
+.cdfpp-diagram .stroke-red { stroke: var(--d-red); stroke-width: 2; fill: none; }
+.cdfpp-diagram .text-blue { fill: var(--d-blue); font-weight: 600; }
+.cdfpp-diagram .text-orange { fill: var(--d-orange); font-weight: 600; }
+.cdfpp-diagram .text-green { fill: var(--d-green); font-weight: 600; }
+.cdfpp-diagram .text-red { fill: var(--d-red); font-weight: 600; }
+.cdfpp-diagram .text-violet { fill: var(--d-violet); font-weight: 600; }
