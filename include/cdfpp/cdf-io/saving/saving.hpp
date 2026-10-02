@@ -150,7 +150,7 @@ namespace saving
                 {
                     const auto header_sz = record_size(vvr.record);
                     const auto len = vvr.size - header_sz;
-                    if (layout.matches_memory())
+                    if (layout.matches_memory(*variable))
                         save_record(vvr.record, data, len, writer);
                     else
                     {

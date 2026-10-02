@@ -247,10 +247,10 @@ namespace saving
         else
         {
             auto cvvr = record_wrapper<cdf_CVVR_t<v3x_tag>> {};
-            const auto in_file_layout = layout.matches_memory()
+            const auto in_file_layout = layout.matches_memory(v)
                 ? data_t {}
                 : layout.records(v, first_record, records_in_vvr, record_size);
-            const auto records = layout.matches_memory()
+            const auto records = layout.matches_memory(v)
                 ? std::string_view { v.bytes_ptr() + first_record * record_size,
                       records_in_vvr * record_size }
                 : std::string_view { in_file_layout.bytes_ptr(), in_file_layout.bytes() };

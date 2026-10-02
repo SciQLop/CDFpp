@@ -47,9 +47,13 @@ struct file_layout
     cdf_majority majority = cdf_majority::row;
     cdf_encoding encoding = CDFpp_ENCODING;
 
-    [[nodiscard]] bool matches_memory() const
+    // Records with less than 2 dimensions read the same in both majorities (see majority::swap).
+    [[nodiscard]] bool matches_memory(const Variable& variable) const
     {
-        return majority == cdf_majority::row && has_host_byte_order(encoding);
+        const bool is_string = variable.type() == CDF_Types::CDF_CHAR
+            || variable.type() == CDF_Types::CDF_UCHAR;
+        const auto flat_records = std::size(variable.shape()) <= (is_string ? 3UL : 2UL);
+        return has_host_byte_order(encoding) && (majority == cdf_majority::row || flat_records);
     }
 
     // `count` records of `variable` from `first`, as the file stores them.
