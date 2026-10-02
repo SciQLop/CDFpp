@@ -47,13 +47,9 @@ struct file_layout
     cdf_majority majority = cdf_majority::row;
     cdf_encoding encoding = CDFpp_ENCODING;
 
-    // Records with less than 2 dimensions read the same in both majorities (see majority::swap).
     [[nodiscard]] bool matches_memory(const Variable& variable) const
     {
-        const bool is_string = variable.type() == CDF_Types::CDF_CHAR
-            || variable.type() == CDF_Types::CDF_UCHAR;
-        const auto flat_records = std::size(variable.shape()) <= (is_string ? 3UL : 2UL);
-        return has_host_byte_order(encoding) && (majority == cdf_majority::row || flat_records);
+        return has_host_byte_order(encoding) && !transposes(variable);
     }
 
     // `count` records of `variable` from `first`, as the file stores them.
@@ -66,18 +62,20 @@ struct file_layout
     }
 
     // Same, into `out`, which holds at least `count` records: saving reuses one buffer.
-    // Swapped while copied, so the values are read once.
+    // Swapped or transposed while copied, so the values are read once.
     void records_into(data_t& out, const Variable& variable, std::size_t first, std::size_t count,
         std::size_t record_size) const
     {
-        copy_in_byte_order(variable.bytes_ptr() + first * record_size, out.bytes_ptr(),
-            count * record_size, cdf_type_size(variable.type()));
-        if (majority == cdf_majority::column)
-        {
-            auto shape = variable.shape();
-            shape[0] = static_cast<uint32_t>(count);
-            majority::to_column_major(out, shape);
-        }
+        const auto* from = variable.bytes_ptr() + first * record_size;
+        const auto bytes = count * record_size;
+        const auto value_size = cdf_type_size(variable.type());
+        if (!transposes(variable))
+            return copy_in_byte_order(from, out.bytes_ptr(), bytes, value_size);
+        auto shape = variable.shape();
+        shape[0] = static_cast<uint32_t>(count);
+        majority::copy_to_column_major(from, out, shape);
+        if (!has_host_byte_order(encoding))
+            copy_in_byte_order(out.bytes_ptr(), out.bytes_ptr(), bytes, value_size);
     }
 
     // Attribute entries and pad values: majority doesn't apply to them.
@@ -93,11 +91,23 @@ struct file_layout
     }
 
 private:
+    // Records with less than 2 dimensions read the same in both majorities (see majority::swap).
+    [[nodiscard]] bool transposes(const Variable& variable) const
+    {
+        const bool is_string = variable.type() == CDF_Types::CDF_CHAR
+            || variable.type() == CDF_Types::CDF_UCHAR;
+        return majority == cdf_majority::column
+            && std::size(variable.shape()) > (is_string ? 3UL : 2UL);
+    }
+
     void copy_in_byte_order(
         const char* from, char* to, std::size_t bytes, std::size_t value_size) const
     {
         if (has_host_byte_order(encoding) || value_size == 1)
-            std::memcpy(to, from, bytes);
+        {
+            if (from != to)
+                std::memcpy(to, from, bytes);
+        }
         else if (value_size == 2)
             copy_swapped<uint16_t>(from, to, bytes);
         else if (value_size == 4)

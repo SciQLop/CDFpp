@@ -505,6 +505,48 @@ SCENARIO("A variable saves borrowed values without owning them", "[CDF]")
     }
 }
 
+namespace
+{
+template <typename T>
+no_init_vector<T> counting(std::size_t size)
+{
+    no_init_vector<T> values(size);
+    for (std::size_t i = 0; i < size; i++)
+        values[i] = static_cast<T>(i % 9973);
+    return values;
+}
+}
+
+SCENARIO("Multidimensional records round-trip through every majority and byte order", "[CDF]")
+{
+    for (const auto majority : { cdf_majority::row, cdf_majority::column })
+        for (const auto encoding : { cdf_encoding::IBMPC, cdf_encoding::network })
+        {
+            CDF cdf_obj;
+            cdf_obj.majority = majority;
+            cdf_obj.encoding = encoding;
+            // 6 MB: saved in several chunks.
+            cdf_obj.variables.emplace("big", Variable { "big", 0,
+                data_t { counting<float>(3000 * 4 * 8 * 16), CDF_Types::CDF_FLOAT },
+                { 3000, 4, 8, 16 } });
+            cdf_obj.variables.emplace("odd", Variable { "odd", 1,
+                data_t { counting<double>(7 * 3 * 5), CDF_Types::CDF_DOUBLE }, { 7, 3, 5 } });
+            cdf_obj.variables.emplace("short", Variable { "short", 2,
+                data_t { counting<int16_t>(5 * 8 * 8), CDF_Types::CDF_INT2 }, { 5, 8, 8 } });
+            no_init_vector<char> text(3 * 2 * 3 * 4);
+            for (std::size_t i = 0; i < std::size(text); i++)
+                text[i] = static_cast<char>('a' + i % 26);
+            cdf_obj.variables.emplace("text", Variable { "text", 3,
+                data_t { std::move(text), CDF_Types::CDF_CHAR }, { 3, 2, 3, 4 } });
+            const auto saved = cdf::io::save(cdf_obj);
+            std::vector<char> buffer(std::cbegin(saved), std::cend(saved));
+            const auto reloaded = cdf::io::load(buffer, true, false);
+            REQUIRE(reloaded != std::nullopt);
+            for (const auto& name : { "big", "odd", "short", "text" })
+                REQUIRE(reloaded->variables[name] == cdf_obj.variables[name]);
+        }
+}
+
 SCENARIO("Values that don't match the variable's shape raise on first access", "[CDF]")
 {
     // A corrupt file loads lazily: the size check runs on first access, which must throw
