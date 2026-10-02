@@ -524,23 +524,24 @@ namespace
                     auto& variable = [&]() -> Variable&
                     {
                         if (lazy_load)
-                            return common::add_lazy_variable(cdf, vdr.Name.value, vdr.Num,
+                            return common::add_variable(cdf, vdr.Name.value, vdr.Num,
                                 lazy_data { defered_variable_loader<iso_8859_1_to_utf8,
                                                 decltype(context.buffer), decltype(vdr)> {
                                                 context.buffer, context.encoding(), vdr,
                                                 record_count, record_size, compression_type,
                                                 std::move(missing) },
                                     vdr.DataType },
-                                std::move(shape), is_nrv, compression_type, compression_level,
-                                is_zvariable, std::move(block_counter));
+                                std::move(shape), is_nrv, is_zvariable);
                         return common::add_variable(cdf, vdr.Name.value, vdr.Num,
                             load_values<iso_8859_1_to_utf8>(
                                 load_var_data(context.buffer, vdr, record_size, record_count,
                                     compression_type, missing),
                                 context.encoding()),
-                            std::move(shape), is_nrv, compression_type, compression_level,
-                            is_zvariable, std::move(block_counter));
+                            std::move(shape), is_nrv, is_zvariable);
                     }();
+                    variable.set_compression_type(compression_type);
+                    variable.set_compression_level(compression_level);
+                    variable.set_block_counter(std::move(block_counter));
                     variable.set_sparse_records(sparse_records_of(vdr));
                 }
             });
