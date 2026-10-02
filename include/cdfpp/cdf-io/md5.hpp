@@ -143,7 +143,7 @@ private:
     void pad()
     {
         const uint64_t bits = p_length * 8;
-        const char one = static_cast<char>(0x80);
+        const auto one = static_cast<char>(0x80);
         update(&one, 1);
         const std::array<char, block_size> zeros {};
         update(zeros.data(), (block_size + block_size - 8 - p_buffered) % block_size);
