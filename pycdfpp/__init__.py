@@ -391,18 +391,21 @@ def _patch_add_variable():
         var = self._add_variable(name, is_nrv=is_nrv, compression=compression,
                                  compression_level=compression_level)
         var.sparse_records = sparse_records
-        if values is not None:
-            var.set_values(values, data_type, copy=copy)
-        elif data_type is not None:
-            var.set_values([], data_type)
+        _set_first_values(var, values, data_type, copy)
         if pad_value is not None:
             var.pad_value = pad_value
-        if attributes is not None and var is not None:
-            for attr_name, attr_values in attributes.items():
-                var.add_attribute(attr_name, attr_values)
+        for attr_name, attr_values in (attributes or {}).items():
+            var.add_attribute(attr_name, attr_values)
         return var
 
     CDF.add_variable = _add_variable_wrapper
+
+
+def _set_first_values(var: Variable, values, data_type, copy):
+    if values is not None:
+        var.set_values(values, data_type, copy=copy)
+    elif data_type is not None:
+        var.set_values([], data_type)
 
 
 def _single_string(values: np.ndarray):

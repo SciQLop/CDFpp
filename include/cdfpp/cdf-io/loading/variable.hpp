@@ -353,7 +353,7 @@ namespace
     template <typename VDR_t>
     [[nodiscard]] bool declares_pad_value(const VDR_t& vdr)
     {
-        return vdr.Flags & 2 and std::size(vdr.PadValues) == element_size_of(vdr);
+        return (vdr.Flags & 2) && std::size(vdr.PadValues) == element_size_of(vdr);
     }
 
     template <typename VDR_t>
