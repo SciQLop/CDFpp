@@ -26,11 +26,63 @@
 #pragma once
 
 #include <cpp_utils/io/sequential_writer.hpp>
+#include <filesystem>
+#include <fstream>
+#include <string>
+#include <system_error>
+#include <vector>
 
 namespace cdf::io::buffers
 {
 
-using cpp_utils::io::file_writer;
 using cpp_utils::io::vector_writer;
+
+// Writes over an existing file, then cuts what is left past the new end, rather than
+// truncating it first: btrfs and ext4 flush a file truncated to zero when it is closed, which
+// made saving over a file 2.5x slower (https://lkml.iu.edu/hypermail/linux/kernel/1409.0/02294.html).
+struct file_writer
+{
+    std::filesystem::path path;
+    std::fstream os;
+    std::size_t global_offset = 0;
+
+    explicit file_writer(const std::string& fname) : path { fname }
+    {
+        os.open(fname, std::ios::in | std::ios::out | std::ios::binary);
+        if (!os.is_open())
+            os.open(fname, std::ios::out | std::ios::binary);
+    }
+
+    [[nodiscard]] bool is_open() const noexcept { return os.is_open(); }
+
+    std::size_t write(const char* const data_ptr, std::size_t count)
+    {
+        os.write(data_ptr, static_cast<std::streamsize>(count));
+        global_offset += count;
+        return global_offset;
+    }
+
+    std::size_t fill(const char v, std::size_t count)
+    {
+        std::vector<char> values(count, v);
+        return write(values.data(), count);
+    }
+
+    [[nodiscard]] std::size_t offset() const noexcept { return global_offset; }
+
+    // Closes the file and cuts the bytes an older, bigger file left; false if anything failed.
+    [[nodiscard]] bool finish()
+    {
+        os.close();
+        const bool written = !os.fail();
+        std::error_code ec;
+        if (std::filesystem::is_regular_file(path, ec)
+            && std::filesystem::file_size(path, ec) > global_offset && !ec)
+            std::filesystem::resize_file(path, global_offset, ec);
+        return written && !ec;
+    }
+};
+
+static_assert(cpp_utils::io::sequential_writer<file_writer>);
 
 }

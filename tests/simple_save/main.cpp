@@ -382,6 +382,25 @@ SCENARIO("Saving a lazily loaded CDF over its own file", "[CDF]")
     }
 }
 
+SCENARIO("Saving over a bigger file leaves none of its bytes", "[CDF]")
+{
+    const auto path = std::filesystem::temp_directory_path() / "cdfpp_save_over_bigger.cdf";
+    CDF big;
+    big.variables.emplace(
+        "var", Variable { "var", 0, data_t { ones<double> {}(100000), CDF_Types::CDF_DOUBLE },
+                   { 100000 } });
+    CDF small;
+    small.variables.emplace(
+        "var", Variable { "var", 0, data_t { ones<double> {}(10), CDF_Types::CDF_DOUBLE }, { 10 } });
+    REQUIRE(cdf::io::save(big, path.string()));
+    REQUIRE(cdf::io::save(small, path.string()));
+    REQUIRE(std::filesystem::file_size(path) == std::size(cdf::io::save(small)));
+    const auto reloaded = cdf::io::load(path.string(), true, false);
+    REQUIRE(reloaded != std::nullopt);
+    REQUIRE(*reloaded == small);
+    std::filesystem::remove(path);
+}
+
 SCENARIO("Saving to a path that can't be written reports a failure", "[CDF]")
 {
     const auto path = std::filesystem::temp_directory_path() / "cdfpp_missing_dir" / "out.cdf";

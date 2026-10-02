@@ -361,7 +361,7 @@ Greenbelt, Maryland 20771 USA
 } // namespace
 
 
-// Every value is read and every record built before the file is opened: opening truncates it,
+// Every value is read and every record built before the file is opened: saving overwrites it,
 // and a lazily loaded CDF may still be reading its values from that very file. Writing needs
 // all values anyway, so this doesn't raise peak memory.
 // Returns false when the file can't be opened or written; throws std::invalid_argument, before
@@ -375,8 +375,7 @@ Greenbelt, Maryland 20771 USA
     if (!writer.is_open())
         return false;
     saving::write_records(svg_ctx, writer);
-    writer.os.flush();
-    return !writer.os.fail();
+    return writer.finish();
 }
 
 [[nodiscard]] inline no_init_vector<char> save(const CDF& cdf)
