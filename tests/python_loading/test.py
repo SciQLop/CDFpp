@@ -264,6 +264,13 @@ class PycdfApiContract(unittest.TestCase):
         self.assertTrue(all(var.values_loaded for _, var in eager.items()))
         self.assertFalse(pycdfpp.CDF().lazy_loaded)
 
+    def test_column_major_records_are_transposed_one_by_one(self):
+        # Made by tests/resources/make_col_major_strings_cdf.py, as NASA's library reads it
+        cdf = pycdfpp.load(f'{RESOURCES}/col_major_strings.cdf')
+        expected = [[[f"r{r}[{i}{j}]".encode() for j in range(3)] for i in range(2)] for r in range(4)]
+        self.assertEqual(cdf["strings"].values.tolist(), expected)
+        self.assertEqual(cdf["numbers"].values.tolist(), np.arange(24.).reshape(4, 2, 3).tolist())
+
     def test_majority(self):
         self.assertEqual(pycdfpp.CDF().majority, pycdfpp.Majority.row)
         column = pycdfpp.load(f'{RESOURCES}/a_col_major_cdf.cdf')

@@ -138,40 +138,29 @@ template <bool is_string, typename shape_t, typename data_t, bool to_column = fa
 void swap(data_t& data, const shape_t& shape)
 {
     const auto dimensions = std::size(shape);
-    // Basically a variable with shape=2 is a variable with 1D records
+    // Records with less than 2 dimensions read the same in both majorities. A string is an
+    // element of shape.back() characters.
     if ((dimensions > 2 && !is_string) or (is_string and dimensions > 3))
     {
-        const std::size_t records_count = is_string ? 1 : shape[0];
+        const std::size_t records_count = shape[0];
+        const std::size_t element_size = is_string ? shape.back() : 1;
         const std::vector<std::size_t> record_shape(
-            std::rbegin(shape) + (is_string ? 1 : 0), std::crend(shape) - (is_string ? 0 : 1));
+            std::rbegin(shape) + (is_string ? 1 : 0), std::crend(shape) - 1);
         const auto access_patern = _private::generate_access_pattern(record_shape);
-
-        std::vector<typename data_t::value_type> temporary_record(
-            std::size(access_patern) * (is_string ? shape.back() : 1));
-
-
-        const auto elements_per_record = std::size(access_patern);
-        const auto bytes_per_record = elements_per_record
-            * (is_string ? shape.back() : sizeof(typename data_t::value_type));
-        auto offset = 0UL;
-        for (auto record = 0UL; record < records_count; record++)
+        const auto values_per_record = std::size(access_patern) * element_size;
+        std::vector<typename data_t::value_type> temporary_record(values_per_record);
+        for (std::size_t offset = 0; offset < records_count * values_per_record;
+             offset += values_per_record)
         {
             for (const auto& [row, column] : access_patern)
             {
                 const auto [to, from]
                     = to_column ? std::pair { column, row } : std::pair { row, column };
-                if constexpr (is_string)
-                {
-                    std::memcpy(temporary_record.data() + (to * shape.back()),
-                        data.data() + offset + (from * shape.back()), shape.back());
-                }
-                else
-                {
-                    temporary_record[to] = data[offset + from];
-                }
+                std::copy_n(data.data() + offset + from * element_size, element_size,
+                    temporary_record.data() + to * element_size);
             }
-            std::memcpy(data.data() + offset, temporary_record.data(), bytes_per_record);
-            offset += elements_per_record;
+            std::copy(std::cbegin(temporary_record), std::cend(temporary_record),
+                data.data() + offset);
         }
     }
 }
