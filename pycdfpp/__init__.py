@@ -912,8 +912,10 @@ def save(cdf: CDF, fname: Union[str, os.PathLike, None] = None):
     Returns
     -------
     bool or buffer
-        True when saving to a file; otherwise an object implementing the buffer protocol
-        (e.g. ``bytes(pycdfpp.save(cdf))``).
+        True when saving to a file; otherwise the file content, as a read-only object
+        implementing the buffer protocol: write it to a file object, wrap it in a memoryview or
+        load it again without any copy. ``bytes(pycdfpp.save(cdf))`` copies it, for APIs that
+        need a bytes object.
 
     Raises
     ------

@@ -345,7 +345,8 @@ void def_cdf_saving_functions(T& mod)
             {
                 py::gil_scoped_release release;
                 return py::buffer_info(b.data.data(), std::size(b.data), true);
-            });
+            })
+        .def("__len__", [](const cdf_bytes& b) { return std::size(b.data); });
 
     mod.def(
         "save",

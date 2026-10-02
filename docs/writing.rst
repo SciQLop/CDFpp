@@ -342,13 +342,20 @@ To a file
 To memory
 ---------
 
-Leave out the file name to get the file content in memory. Use ``bytes()`` to turn it
-into a ``bytes`` object, for example to upload it:
+Leave out the file name to get the file content in memory. It is a read-only buffer:
+write it, look at it or load it again without copying it.
 
 .. code-block:: python
 
-    content = bytes(pycdfpp.save(cdf))
-    content[:4]       # b'\xcd\xf3\x00\x01': the CDF magic number
+    content = pycdfpp.save(cdf)
+    len(content)                       # the file size, in bytes
+    memoryview(content)[:4].tobytes()  # b'\xcd\xf3\x00\x01': the CDF magic number
+    with open("my_mission.cdf", "wb") as f:
+        f.write(content)
+    pycdfpp.load(content)
+
+``bytes(content)`` makes a copy, for the APIs that only take a ``bytes`` object. For a big
+file, the copy can take several times longer than saving.
 
 Compressed
 ----------
