@@ -57,15 +57,23 @@ struct file_layout
         std::size_t record_size) const
     {
         data_t records = new_data_container(count * record_size, variable.type());
-        std::memcpy(
-            records.bytes_ptr(), variable.bytes_ptr() + first * record_size, records.bytes());
+        records_into(records, variable, first, count, record_size);
+        return records;
+    }
+
+    // Same, into `out`, which holds at least `count` records: saving reuses one buffer.
+    // Swapped while copied, so the values are read once.
+    void records_into(data_t& out, const Variable& variable, std::size_t first, std::size_t count,
+        std::size_t record_size) const
+    {
+        copy_in_byte_order(variable.bytes_ptr() + first * record_size, out.bytes_ptr(),
+            count * record_size, cdf_type_size(variable.type()));
         if (majority == cdf_majority::column)
         {
             auto shape = variable.shape();
             shape[0] = static_cast<uint32_t>(count);
-            majority::to_column_major(records, shape);
+            majority::to_column_major(out, shape);
         }
-        return in_byte_order(std::move(records));
     }
 
     // Attribute entries and pad values: majority doesn't apply to them.
@@ -78,6 +86,30 @@ struct file_layout
     [[nodiscard]] data_t in_byte_order(data_t values) const
     {
         return load_values<false>(std::move(values), encoding);
+    }
+
+private:
+    void copy_in_byte_order(
+        const char* from, char* to, std::size_t bytes, std::size_t value_size) const
+    {
+        if (has_host_byte_order(encoding) || value_size == 1)
+            std::memcpy(to, from, bytes);
+        else if (value_size == 2)
+            copy_swapped<uint16_t>(from, to, bytes);
+        else if (value_size == 4)
+            copy_swapped<uint32_t>(from, to, bytes);
+        else // 8 bytes, or an epoch16: two doubles
+            copy_swapped<uint64_t>(from, to, bytes);
+    }
+
+    template <typename word_t>
+    static void copy_swapped(const char* from, char* to, std::size_t bytes)
+    {
+        using other_endianness_t = std::conditional_t<
+            endianness::is_little_endian_v<endianness::host_endianness_t>,
+            endianness::big_endian_t, endianness::little_endian_t>;
+        endianness::decode_v<other_endianness_t>(reinterpret_cast<const word_t*>(from),
+            bytes / sizeof(word_t), reinterpret_cast<word_t*>(to));
     }
 };
 

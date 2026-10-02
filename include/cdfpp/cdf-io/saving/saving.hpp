@@ -119,7 +119,7 @@ namespace saving
     }
 
     // Converted a chunk at a time, so a variable in another layout costs no copy of its values.
-    inline constexpr std::size_t layout_chunk_bytes = 1 << 20;
+    inline constexpr std::size_t layout_chunk_bytes = 1 << 21;
 
     template <typename U>
     void write_in_file_layout(const Variable& variable, std::size_t first, std::size_t count,
@@ -127,11 +127,12 @@ namespace saving
     {
         const auto record_size = record_size_of(variable);
         const auto per_chunk = std::max(std::size_t { 1 }, layout_chunk_bytes / record_size);
+        auto records = new_data_container(std::min(per_chunk, count) * record_size, variable.type());
         for (auto chunk = first; chunk < first + count; chunk += per_chunk)
         {
             const auto in_chunk = std::min(per_chunk, first + count - chunk);
-            const auto records = layout.records(variable, chunk, in_chunk, record_size);
-            writer.write(records.bytes_ptr(), records.bytes());
+            layout.records_into(records, variable, chunk, in_chunk, record_size);
+            writer.write(records.bytes_ptr(), in_chunk * record_size);
         }
     }
 
