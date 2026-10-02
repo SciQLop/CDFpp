@@ -1019,6 +1019,59 @@ With AVX-512 (Ryzen 7 7840U), TT2000 reaches about 8 × 10⁹ values per second 
 64 M values, every SIMD version drops to the speed of memory: 8 bytes in, 8 bytes out per
 value. Big arrays are split over threads for that reason. The README has the full tables.
 
+From datetime64 back to CDF time
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Writing a ``datetime64`` time axis converts the other way. TT2000 uses the same leap second
+walk, from the UTC side of the table: a one-addition path for dates after 2017, and the
+per-lane walk otherwise, with AVX2 or AVX-512. CDF_EPOCH and EPOCH16 need an exact 64-bit
+division by 10⁶ or 10⁹, which AVX2 can't do in a register: they stay scalar. All three run
+on threads for big arrays.
+
+That rewrite also fixed four wrong results, all of them now tested:
+
+1. NaT became a real date: 2262 as TT2000, 1677 as CDF_EPOCH. It now becomes each type's
+   fill value, which reads back as NaT.
+2. Dates before 1970 lost their EPOCH16 values: picoseconds came out negative, which reads
+   back as NaT. They now round down to the second, with picoseconds between 0 and 10¹².
+3. Dates before 1970 came out one millisecond late as CDF_EPOCH: rounded toward zero instead
+   of down.
+4. Dates before 1707, which TT2000 can't hold, overflowed. They now become TT2000's illegal
+   value, as with NASA's library.
+
+Converting 1.2 M values from Python (``pycdfpp.to_tt2000``), same machine:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Time axis
+     - Before
+     - After
+   * - Sorted, 2019 (after the last leap second)
+     - 1.36 ms
+     - 1.18 ms
+   * - Sorted, 1995
+     - 6.86 ms
+     - 2.12 ms
+   * - Sorted, 2008 to 2017 (leap seconds inside)
+     - 8.27 ms
+     - 1.39 ms
+   * - Shuffled, 2008 to 2017
+     - 12.19 ms
+     - 2.80 ms
+   * - Shuffled, 1972 to 2262
+     - 3.77 ms
+     - 4.90 ms
+
+Most of the 2019 time is not the conversion: the kernel zeroes the fresh output array.
+Shuffling dates across three centuries is the walk's worst case: most lanes of a register
+wait for the oldest one, while the old scalar code handled each date after 2017 at once. Real
+time axes are sorted, or at least from one era.
+
+Fixing the rounding costs a little for CDF_EPOCH and EPOCH16: rounding down needs the sign of
+the remainder, one more multiplication per value. 1.2 M values take 2.0 ms instead of 1.5 ms
+as CDF_EPOCH, 2.6 ms instead of 2.1 ms as EPOCH16.
+
 Measuring it yourself
 ---------------------
 
