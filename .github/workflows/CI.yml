@@ -51,7 +51,7 @@ jobs:
               MACOSX_DEPLOYMENT_TARGET='13.0'
             CIBW_ARCHS: "x86_64"
             CIBW_PLATFORM: "auto"
-          - os: macos-14 # Apple Silicon
+          - os: macos-latest # Apple Silicon
             CIBW_ENVIRONMENT: >
               MACOSX_DEPLOYMENT_TARGET='13.0'
             CIBW_ARCHS: "arm64"
@@ -86,7 +86,7 @@ jobs:
     needs: [build_wheels]
     strategy:
       matrix:
-        os: [macos-15-intel, macos-14, windows-latest, windows-11-arm, ubuntu-latest, ubuntu-24.04-arm]
+        os: [macos-15-intel, macos-latest, windows-latest, windows-11-arm, ubuntu-latest, ubuntu-24.04-arm]
         python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t']
         exclude:
           - os: windows-11-arm
