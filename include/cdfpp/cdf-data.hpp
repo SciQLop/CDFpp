@@ -81,7 +81,7 @@ struct data_t
     [[nodiscard]] cdf_values_t& values() noexcept { return p_values; }
     [[nodiscard]] const cdf_values_t& values() const noexcept { return p_values; }
 
-    data_t& operator=(data_t&& other);
+    data_t& operator=(data_t&& other) noexcept;
     data_t& operator=(const data_t& other);
 
     inline bool operator==(const data_t& other) const
@@ -230,7 +230,7 @@ inline decltype(auto) data_t::get() const
 }
 
 
-inline data_t& data_t::operator=(data_t&& other)
+inline data_t& data_t::operator=(data_t&& other) noexcept
 {
     std::swap(this->p_values, other.p_values);
     std::swap(this->p_type, other.p_type);

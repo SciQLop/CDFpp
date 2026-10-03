@@ -93,6 +93,14 @@ struct lazy_load_guard
         loaded = other.loaded.load();
         return *this;
     }
+    // noexcept, so that Variable is too: std::vector copies elements whose move may throw when it
+    // grows, values included.
+    lazy_load_guard(lazy_load_guard&& other) noexcept : loaded { other.loaded.load() } { }
+    lazy_load_guard& operator=(lazy_load_guard&& other) noexcept
+    {
+        loaded = other.loaded.load();
+        return *this;
+    }
 };
 
 /*

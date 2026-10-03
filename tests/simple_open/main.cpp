@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -722,4 +723,15 @@ SCENARIO("A string literal path picks the file overload of io::load", "[CDF]")
         std::vector<char> garbage(64, 0);
         REQUIRE(cdf::io::load(garbage.data(), garbage.size()) == std::nullopt);
     }
+}
+
+SCENARIO("Variables move without copying their values", "[CDF]")
+{
+    // std::vector moves its elements when it grows only if their move can't throw; otherwise it
+    // copies them. A CDF keeps its variables in a vector: loading or adding one copied the values
+    // of every variable already there.
+    REQUIRE(std::is_nothrow_move_constructible_v<cdf::Variable>);
+    REQUIRE(std::is_nothrow_move_constructible_v<
+        cpp_utils::containers::nomap_node<std::string, cdf::Variable>>);
+    REQUIRE(std::is_nothrow_move_assignable_v<cdf::Variable>);
 }
