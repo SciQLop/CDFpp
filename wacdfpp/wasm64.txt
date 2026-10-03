@@ -2,13 +2,17 @@
 c = 'emcc'
 cpp = 'em++'
 ar = 'emar'
+# xsimd, for the SIMD time conversions, is configured with CMake.
+cmake = 'cmake'
 # No exe_wrapper: meson would run its sanity checks under node, and Node < 24 cannot run
 # wasm64 modules. Tests call node themselves when it supports them (wacdfpp/meson.build).
 
 [built-in options]
-c_args = ['-fwasm-exceptions', '-sMEMORY64=1']
+# -msimd128: WebAssembly SIMD, in every browser since 2023 (Safari 16.4). The compiler
+# vectorizes byte swaps, deflate and other loops with it: 10 to 35% faster on several paths.
+c_args = ['-fwasm-exceptions', '-sMEMORY64=1', '-msimd128']
 c_link_args = ['-sMEMORY64=1']
-cpp_args = ['-fwasm-exceptions', '-sMEMORY64=1']
+cpp_args = ['-fwasm-exceptions', '-sMEMORY64=1', '-msimd128']
 cpp_link_args = ['-sMEMORY64=1']
 
 

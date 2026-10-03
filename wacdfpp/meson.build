@@ -108,6 +108,19 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
             depends: wasm_exe,
             timeout: 120,
         )
+        if wasm_simd
+            chrono_simd = executable('wasm_chrono_simd', '../tests/wasm_chrono_simd/main.cpp',
+                dependencies: [cdfpp_dep],
+                cpp_args: ['-fwasm-exceptions'],
+                link_args: ['-sALLOW_MEMORY_GROWTH=1'],
+                build_by_default: false,
+            )
+            test('wasm_chrono_simd', node,
+                args: [meson.current_build_dir() / 'wasm_chrono_simd.js'],
+                depends: chrono_simd,
+                timeout: 300,
+            )
+        endif
         test('wasm_time_attrs', node,
             args: [
                 files('../tests/wasm_time_attrs/test.mjs'),

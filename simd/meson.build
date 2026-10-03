@@ -74,4 +74,9 @@ if target_machine.cpu_family() == 'aarch64'
     cdfpp_no_simd = false
     cdfpp_simd_sources = files('../src/arch/arm/chrono.cpp')
 endif
-# WebAssembly uses the scalar conversions: SIMD gains there are still to be investigated.
+# WebAssembly built with -msimd128: the x86 kernels, built for xsimd's wasm target. No run-time
+# dispatch: such a module needs WebAssembly SIMD anyway. Without the flag (Pyodide), scalar code.
+if wasm_simd
+    cdfpp_no_simd = false
+    cdfpp_simd_sources = files('../src/arch/wasm/chrono.cpp')
+endif
