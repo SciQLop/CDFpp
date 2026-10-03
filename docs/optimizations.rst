@@ -782,7 +782,7 @@ fast: a time axis can hold hundreds of millions of values.
        second table
 
 All three run on SIMD registers: 2 values at a time with SSE2, 4 with AVX2, 8 with AVX-512.
-Each type has its own difficulty.
+Each type has its own difficulty. ARM uses its own NEON code: see `On Apple Silicon`_.
 
 Choosing the instruction set at run time
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -822,7 +822,7 @@ supports, and calls the best version.
       <text class="t" x="34" y="224">The scalar fallback is compiled separately, without SIMD flags. An inline copy in the AVX-512 object</text>
       <text class="t" x="34" y="242">could be the one the linker keeps: an illegal instruction on every CPU without AVX-512.</text>
     </svg>
-    <figcaption>Other architectures (ARM, WebAssembly) use the scalar code: their SIMD gains are still to be measured.</figcaption>
+    <figcaption>ARM has NEON code of its own (see On Apple Silicon). WebAssembly uses the scalar code.</figcaption>
     </figure>
 
 There is one trap in this scheme, and a test guards it (``tests/simd_isolation``):
@@ -1072,6 +1072,167 @@ Fixing the rounding costs a little for CDF_EPOCH and EPOCH16: rounding down need
 the remainder, one more multiplication per value. 1.2 M values take 2.0 ms instead of 1.5 ms
 as CDF_EPOCH, 2.6 ms instead of 2.1 ms as EPOCH16.
 
+On Apple Silicon
+----------------
+
+Measured on an Apple M2 (4 performance and 4 efficiency cores, 16 KB pages), macOS 26,
+Apple clang 21, APFS on the internal SSD. Before this work, pycdfpp lost one task of the
+comparison to spacepy and cdflib on this machine: writing an uncompressed file, 31.5 ms
+against 12.7 ms. None of the causes showed on Linux.
+
+Build like the wheels
+~~~~~~~~~~~~~~~~~~~~~
+
+Meson turns on libc++'s hardening (``_LIBCPP_HARDENING_MODE_FAST``) when ``NDEBUG`` isn't
+defined, which is the default of ``meson setup --buildtype=release``. Every ``std::span``
+access is then bounds checked, and xsimd's alignment ``assert`` runs on every load. Wheels
+are built by meson-python with ``-Db_ndebug=if-release``, without either. Benchmark with
+``-Db_ndebug=if-release`` too, or the numbers are not the ones users get. libstdc++ only
+checks in debug builds, so Linux builds don't show the difference.
+
+Writing a file without std::fstream
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+libc++'s ``std::fstream`` sends big writes through its small stdio buffer. libstdc++ hands
+them to the kernel at once. Writing 27 MB:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Chunk
+     - 64 KB
+     - 1 MB
+     - 27 MB
+   * - ``std::fstream``, libc++
+     - 27.1 ms
+     - 27.5 ms
+     - 28.7 ms
+   * - ``write()``
+     - 8.6 ms
+     - 8.4 ms
+     - 8.1 ms
+
+On macOS, CDFpp writes files with ``open``, ``write`` and ``ftruncate``. The rest is unchanged:
+an existing file is written over in place, then cut to size. Linux and Windows keep
+``std::fstream``. Saving the uncompressed FGM file: 29.1 → 10.1 ms, the time of a Python
+``f.write()`` of the same bytes.
+
+No C++ exception to end a loop
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Listing the attributes of the MMS FPI file took 3.4 ms here, against 0.6 ms on the Ryzen.
+``sample`` showed most of it in ``libunwind`` and ``dyld``: C++ exceptions. Throwing one on
+macOS looks up the unwind tables of each frame in the loaded images, tens of microseconds.
+
+* ``list(attribute)`` used ``__getitem__`` until it raised ``IndexError``: one exception per
+  attribute.
+* pybind11's ``make_iterator``, used by ``for name in cdf`` and ``.items()``, ends every loop
+  by throwing ``StopIteration`` from C++.
+
+Attributes now have an ``__iter__``, and collections iterate over a Python list of their
+names, or of (name, value) pairs. Python ends those loops without any exception. Values are
+still bound to their CDF, as before, and a loop no longer sees variables added while it runs.
+Opening the file and reading every attribute: 3.4 → 0.5 ms.
+
+Time conversions with NEON
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Every aarch64 CPU has NEON, so ``src/arch/arm/chrono.cpp`` is built without run-time
+dispatch. It doesn't use xsimd. NEON registers hold only two 64-bit lanes, and its generic
+code missed what AArch64 offers and x86 lacks:
+
+* ``fcvtms``/``fcvtps``: double to int64, rounding down or up, in one instruction.
+* ``frintz`` and a fused multiply-add on every core.
+* ``ld2``: loads pairs of doubles split into two registers, the EPOCH16 layout.
+
+So each type has its own kernel:
+
+* **TT2000, both ways.** Between two leap seconds, a conversion is one addition. Values are
+  checked 32 at a time to be in the interval of the first one. That is one unsigned comparison
+  per value, ``uint64(v - first) <= last - first``, and one reduction per block. A block that
+  crosses a leap second, or holds fill values, goes to the scalar code. The next block takes
+  the interval of its own first value. Sorted data converts with one addition per value,
+  whatever its year, without walking the table per lane as on x86.
+* **CDF_EPOCH.** ``p = x × 10⁶`` rounds, but ``e = p - x × 10⁶``, computed with one fused
+  multiply-add, is exact. Below 2⁵², ``p`` is exact and ``e = 0``. Above, ``p`` is whole.
+  ``floor(x × 10⁶) = floor(p) - ceil(e)`` in both cases: two conversions, no 2¹³ split.
+* **EPOCH16.** ``ld2`` splits seconds and picoseconds. The same product trick handles whole
+  seconds × 10⁹.
+
+Apple's cores need two more things:
+
+1. NEON operations take 2 cycles or more. With 2 lanes, a loop that ANDs each result into one
+   accumulator waits on it: 1 value per cycle at most. Each step works on 4 independent
+   registers, and the "all in the interval" mask is reduced once per 32 values. Moving a
+   vector to a general register (``uminv``, ``fmov``) is slow too.
+2. Big arrays convert 1.5 times faster when each store writes a whole 64-byte cache line:
+   one 4-register ``st1`` rather than two ``stp``. Our reading is that the core then doesn't
+   read the line before writing it. Loads are the other way round: pairs (``ldp``) beat the
+   4-register ``ld1``.
+
+Values per second, one thread, data in the L2 cache (1 M values) and not (64 M):
+
+.. list-table::
+   :header-rows: 1
+
+   * - Apple M2
+     - scalar, 1 M
+     - NEON, 1 M
+     - scalar, 64 M
+     - NEON, 64 M
+   * - TT2000, 2019 (after the last leap second)
+     - 5.2 × 10⁹
+     - **6.1 × 10⁹**
+     - 3.0 × 10⁹
+     - **4.3 × 10⁹**
+   * - TT2000, 1972 to 2036
+     - 0.67 × 10⁹
+     - **6.1 × 10⁹**
+     - 0.68 × 10⁹
+     - **4.2 × 10⁹**
+   * - CDF_EPOCH
+     - 1.7 × 10⁹
+     - **2.4 × 10⁹**
+     - 1.7 × 10⁹
+     - **2.3 × 10⁹**
+   * - EPOCH16
+     - 0.67 × 10⁹
+     - **1.2 × 10⁹**
+     - 0.67 × 10⁹
+     - **1.2 × 10⁹**
+   * - datetime64 to TT2000, 2019
+     - 1.1 × 10⁹
+     - **4.4 × 10⁹**
+     - 1.1 × 10⁹
+     - **3.8 × 10⁹**
+   * - datetime64 to TT2000, 1972 to 2036
+     - 0.22 × 10⁹
+     - **5.2 × 10⁹**
+     - 0.22 × 10⁹
+     - **4.4 × 10⁹**
+
+Two cases favour the scalar code. Clang vectorizes the scalar loop for recent TT2000 well:
+it converts 1 000 values, in the L1 cache, at 8.6 × 10⁹ against 7.0 × 10⁹. A time axis
+shuffled across leap seconds goes to the scalar code block after block. Both take
+microseconds, and real time axes are sorted. ``pycdfpp.to_tt2000`` on the 1.2 M FGM times:
+1.13 → 0.23 ms.
+
+Every result is the scalar code's, bit for bit. ``tests/chrono`` checks it around every leap
+second, at every position in a block, and with special values among recent ones. Changing
+any interval bound, or the one-sided test of the last interval, fails it.
+
+Where the rest goes
+~~~~~~~~~~~~~~~~~~~
+
+* Reading is 85% libdeflate decompression, on every core.
+* Writing gzip is libdeflate compression, about 7 of the 8 cores busy. The efficiency cores
+  are slower, so the M2 writes the FPI file in 400 ms, against 275 ms on the 16 threads of the
+  Ryzen. That is still 11 times faster than spacepy and cdflib here.
+
+Profile on macOS with ``sample <pid> 5 -file out.txt`` while a script loops. Its "Sort by top
+of stack" summary is the equivalent of ``perf report --no-children``.
+
+
 Measuring it yourself
 ---------------------
 
@@ -1144,5 +1305,12 @@ Ideas that were not kept
    * - Forcing the file to disk, overlapping the disk with the CPU
      - Only useful when the caller waits for the disk. Planned as an option:
        `issue #127 <https://github.com/SciQLop/CDFpp/issues/127>`_.
-   * - SIMD time conversions on ARM and WebAssembly
-     - Not measured yet: they use the scalar code.
+   * - SIMD time conversions on WebAssembly
+     - Not measured yet: it uses the scalar code.
+   * - xsimd's generic code on NEON
+     - Its ``floor`` and ``trunc`` are emulated there: CDF_EPOCH ran 2.3 times slower than
+       scalar. See `On Apple Silicon`_.
+   * - Parallel ``pwrite``, ``F_NOCACHE``, ``F_PREALLOCATE``, ``mmap`` on APFS
+     - 27 MB in 8.2 to 9.7 ms, against 8.6 ms for one ``write()``: noise.
+   * - More threads for time conversions on an M2
+     - One core already streams about 70 GB/s; two threads gain nothing.
