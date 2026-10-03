@@ -28,6 +28,11 @@
 #include <cpp_utils/io/sequential_writer.hpp>
 #include <filesystem>
 #include <fstream>
+#if defined(__APPLE__)
+#include <cerrno>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 #include <string>
 #include <system_error>
 #include <vector>
@@ -50,6 +55,7 @@ template <typename Container>
 // Writes over an existing file, then cuts what is left past the new end, rather than
 // truncating it first: btrfs and ext4 flush a file truncated to zero when it is closed, which
 // made saving over a file 2.5x slower (https://lkml.iu.edu/hypermail/linux/kernel/1409.0/02294.html).
+#if !defined(__APPLE__)
 struct file_writer
 {
     std::filesystem::path path;
@@ -92,6 +98,68 @@ struct file_writer
         return written && !ec;
     }
 };
+#else
+// macOS: straight write() calls, not std::fstream. Apple's libc++ passes big writes through its
+// small stdio buffer: 27 MB took 28 ms instead of 8 on an M2. libstdc++ sends them to the kernel
+// at once, so Linux keeps the std::fstream version above.
+struct file_writer
+{
+    int fd = -1;
+    bool failed = false;
+    std::size_t global_offset = 0;
+
+    explicit file_writer(const std::string& fname)
+            : fd { ::open(fname.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, 0666) }
+    {
+    }
+
+    file_writer(const file_writer&) = delete;
+    file_writer& operator=(const file_writer&) = delete;
+
+    ~file_writer()
+    {
+        if (fd != -1)
+            ::close(fd);
+    }
+
+    [[nodiscard]] bool is_open() const noexcept { return fd != -1; }
+
+    std::size_t write(const char* data_ptr, std::size_t count)
+    {
+        global_offset += count;
+        while (count != 0 && !failed)
+        {
+            const auto written = ::write(fd, data_ptr, count);
+            if (written < 0)
+            {
+                failed = errno != EINTR;
+                continue;
+            }
+            data_ptr += written;
+            count -= static_cast<std::size_t>(written);
+        }
+        return global_offset;
+    }
+
+    std::size_t fill(const char v, std::size_t count)
+    {
+        std::vector<char> values(count, v);
+        return write(values.data(), count);
+    }
+
+    [[nodiscard]] std::size_t offset() const noexcept { return global_offset; }
+
+    // Cuts the bytes an older, bigger file left and closes the file; false if anything failed.
+    [[nodiscard]] bool finish()
+    {
+        if (!failed && ::lseek(fd, 0, SEEK_END) > static_cast<off_t>(global_offset))
+            failed = ::ftruncate(fd, static_cast<off_t>(global_offset)) != 0;
+        failed |= ::close(fd) != 0;
+        fd = -1;
+        return !failed;
+    }
+};
+#endif
 
 static_assert(cpp_utils::io::sequential_writer<file_writer>);
 
