@@ -1,3 +1,4 @@
+#include <numeric>
 #include <random>
 #include <cmath>
 #include <cstring>
@@ -336,6 +337,57 @@ TEST_CASE("SIMD time conversions match the scalar ones bit for bit", "")
     require_simd_matches_scalar(epochs_to_compare());
     require_simd_matches_scalar(epoch16s_to_compare());
     require_simd_matches_scalar(tt2000s_to_compare());
+}
+
+namespace
+{
+void require_tt2000_simd_matches_scalar(const std::vector<int64_t>& values)
+{
+    const std::span<const cdf::tt2000_t> tt2000s { reinterpret_cast<const cdf::tt2000_t*>(
+                                                       values.data()),
+        std::size(values) };
+    std::vector<int64_t> expected(std::size(values)), output(std::size(values));
+    cdf::_impl::scalar_to_ns_from_1970(tt2000s, expected.data());
+    vectorized_to_ns_from_1970(tt2000s, output.data());
+    REQUIRE(output == expected);
+    std::vector<cdf::tt2000_t> expected_tt2000(std::size(values)), output_tt2000(std::size(values));
+    cdf::_impl::scalar_from_ns_from_1970(std::span<const int64_t> { values }, expected_tt2000.data());
+    vectorized_from_ns_from_1970(std::span<const int64_t> { values }, output_tt2000.data());
+    REQUIRE(output_tt2000 == expected_tt2000);
+}
+}
+
+// SIMD code converts runs of values between two leap seconds with one addition: runs must stop
+// exactly at each leap second, whatever the position of the boundary in a SIMD block.
+TEST_CASE("SIMD TT2000 conversions are exact around every leap second", "")
+{
+    std::vector<int64_t> boundaries;
+    for (const auto& [boundary, _] : cdf::leap_seconds::leap_seconds_tt2000_reverse)
+        boundaries.push_back(boundary);
+    for (const auto& [boundary, _] : cdf::leap_seconds::leap_seconds_tt2000)
+        boundaries.push_back(boundary);
+    boundaries.push_back(cdf::_impl::last_representable_tt2000);
+    for (const auto boundary : boundaries)
+        for (int64_t phase = 0; phase < 41; ++phase)
+        {
+            std::vector<int64_t> values(100);
+            std::iota(values.begin(), values.end(), boundary - 40 - phase);
+            require_tt2000_simd_matches_scalar(values);
+        }
+}
+
+TEST_CASE("SIMD TT2000 conversions catch special values among recent ones", "")
+{
+    for (const int64_t special : { nat, nat + 1, nat + 2, nat + 3, int64_t { 0 },
+             std::numeric_limits<int64_t>::max(), cdf::_impl::last_representable_tt2000 + 1 })
+        for (std::size_t position = 0; position < 70; ++position)
+        {
+            std::vector<int64_t> values(70);
+            for (std::size_t i = 0; i < std::size(values); ++i)
+                values[i] = 1'546'300'800'000'000'000 + static_cast<int64_t>(i) * 1000;
+            values[position] = special;
+            require_tt2000_simd_matches_scalar(values);
+        }
 }
 #endif
 

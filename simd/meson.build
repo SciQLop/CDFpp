@@ -68,5 +68,10 @@ if target_machine.cpu_family() == 'x86_64'
     cdfpp_simd_libs = x86_vectorized_libs
     cdfpp_simd_args = x86_vectorized_defs + ['-DCDFPP_XSIMD_ARCH_LIST=@0@'.format(xsimd_arch_list)]
 endif
-# Other architectures (aarch64, WebAssembly) use the scalar conversions: SIMD gains there are
-# still to be investigated.
+
+# Every aarch64 CPU has NEON: one build with hand-written kernels, no run-time dispatch.
+if target_machine.cpu_family() == 'aarch64'
+    cdfpp_no_simd = false
+    cdfpp_simd_sources = files('../src/arch/arm/chrono.cpp')
+endif
+# WebAssembly uses the scalar conversions: SIMD gains there are still to be investigated.
