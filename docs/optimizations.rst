@@ -783,6 +783,7 @@ fast: a time axis can hold hundreds of millions of values.
 
 All three run on SIMD registers: 2 values at a time with SSE2, 4 with AVX2, 8 with AVX-512.
 Each type has its own difficulty. ARM uses its own NEON code: see `On Apple Silicon`_.
+WebAssembly uses these kernels with two lanes: see `In the browser`_.
 
 Choosing the instruction set at run time
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -822,7 +823,7 @@ supports, and calls the best version.
       <text class="t" x="34" y="224">The scalar fallback is compiled separately, without SIMD flags. An inline copy in the AVX-512 object</text>
       <text class="t" x="34" y="242">could be the one the linker keeps: an illegal instruction on every CPU without AVX-512.</text>
     </svg>
-    <figcaption>ARM has NEON code of its own (see On Apple Silicon). WebAssembly uses the scalar code.</figcaption>
+    <figcaption>ARM has NEON code of its own (see On Apple Silicon). WebAssembly builds these kernels for its SIMD (see In the browser).</figcaption>
     </figure>
 
 There is one trap in this scheme, and a test guards it (``tests/simd_isolation``):
@@ -1233,6 +1234,111 @@ Profile on macOS with ``sample <pid> 5 -file out.txt`` while a script loops. Its
 of stack" summary is the equivalent of ``perf report --no-children``.
 
 
+In the browser
+--------------
+
+CDFpp runs in the browser twice: the `CDFpp Explorer <https://sciqlop.github.io/CDFpp/>`_,
+built with Emscripten, and the Pyodide wheels. Neither can start threads, so everything above
+that runs on several cores runs on one there.
+
+The measurements below come from Node 22 running the Explorer's module on the same five
+CDAWeb files as before. V8 profiles WebAssembly too: link with ``--profiling-funcs`` to keep
+function names, run ``node --cpu-prof``, and sum the self time per function of the
+``.cpuprofile`` it writes.
+
+Where the time goes
+~~~~~~~~~~~~~~~~~~~
+
+* **Loading** is libdeflate decompression (55%) and its CRC-32 check (15%). WebAssembly has no
+  carry-less multiplication, so CRC-32 uses tables.
+* **Saving a file with a checksum** is MD5 (33 to 44%), now with no second thread to hide
+  behind.
+* **Returning a saved file to JavaScript** copies it: 29% of a raw save. The Explorer
+  transfers each saved file from its worker to the page, and only a JavaScript
+  ``ArrayBuffer`` can be transferred.
+* **Gzip saves** are compression, on one core: 1.3 s for the 78 MB MMS FGM file, 3.4 s for
+  the 186 MB FPI file.
+
+The profile also showed a bug that wasn't specific to WebAssembly at all.
+
+Variables were copied when a CDF grew
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+11% of a load went to a function named after ``std::variant``'s copy constructor. Its
+callers led to ``nomap::operator[]``:
+
+1. A CDF keeps its variables in a ``std::vector``.
+2. When a vector grows, it moves its elements only if their move can't throw. Otherwise it
+   copies them, to keep its strong exception guarantee.
+3. ``Variable`` holds a ``lazy_load_guard``, with a mutex and only a copy constructor. So
+   moving a ``Variable`` could throw.
+4. Every time the vector grew, it copied every variable already in it, values included.
+
+``lazy_load_guard`` now has a ``noexcept`` move, and a test checks that moving a ``Variable``
+can't throw. Native builds gain as much:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Ryzen 7 5800X
+     - Before
+     - After
+   * - Eager load, MMS FGM
+     - 57 ms
+     - 25 ms
+   * - Eager load, MMS FPI
+     - 108 ms
+     - 65 ms
+   * - Eager load, Wind MFI
+     - 29 ms
+     - 17 ms
+   * - Adding 300 variables of 800 KB from Python
+     - 193 ms
+     - 102 ms
+
+One file got slower: THEMIS ESA, 383 small variables, 40.6 to 43.2 ms. Its copies are gone,
+but more time goes to the kernel zeroing fresh pages.
+
+WebAssembly SIMD
+~~~~~~~~~~~~~~~~
+
+The Explorer's module was built for baseline WebAssembly, without SIMD. It is now built with
+``-msimd128``. Every browser has WebAssembly SIMD since 2023 (Safari 16.4). The compiler then
+vectorizes byte swaps, deflate and other loops on its own:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Task (Node 22, Ryzen 7 5800X)
+     - Without SIMD
+     - With SIMD
+   * - Gzip save, MMS FPI
+     - 3.77 s
+     - 3.36 s
+   * - Gzip save, THEMIS ESA
+     - 695 ms
+     - 579 ms
+   * - Load, Wind MFI (big-endian)
+     - 25.3 ms
+     - 16.6 ms
+   * - Raw save, THEMIS ESA (big-endian)
+     - 58 ms
+     - 51 ms
+   * - Load, MMS FPI (decompression only)
+     - 564 ms
+     - 560 ms
+
+The time conversions build the x86 kernels for xsimd's WebAssembly target. WebAssembly SIMD
+has ``floor``, ``trunc``, 64-bit compares and selects, so they map one to one, unlike on NEON.
+They matter for one reason. Left to itself, the compiler vectorized the CDF_EPOCH loop badly:
+WebAssembly SIMD has no double to int64 conversion, so it converted lane by lane inside vector
+code, and the Wind MFI time axis took 3.8 ms instead of 2.8. The kernel, with the magic number
+conversion, takes 2.5 ms. TT2000 doesn't change: the compiler already vectorized its fast path.
+``wasm_chrono_simd`` checks all four conversions against the scalar code, bit for bit.
+
+The Pyodide wheels are built by Pyodide's tools, without ``-msimd128``: they keep the scalar
+code.
+
 Measuring it yourself
 ---------------------
 
@@ -1305,8 +1411,11 @@ Ideas that were not kept
    * - Forcing the file to disk, overlapping the disk with the CPU
      - Only useful when the caller waits for the disk. Planned as an option:
        `issue #127 <https://github.com/SciQLop/CDFpp/issues/127>`_.
-   * - SIMD time conversions on WebAssembly
-     - Not measured yet: it uses the scalar code.
+   * - Turning assertions off in the WebAssembly build
+     - No measurable difference on any file or task.
+   * - Threads in the browser
+     - They need ``SharedArrayBuffer``, which needs headers GitHub Pages can't send. Gzip saves
+       stay on one core there. See `In the browser`_.
    * - xsimd's generic code on NEON
      - Its ``floor`` and ``trunc`` are emulated there: CDF_EPOCH ran 2.3 times slower than
        scalar. See `On Apple Silicon`_.
