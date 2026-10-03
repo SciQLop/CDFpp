@@ -308,13 +308,29 @@ Everyday tasks on real CDAWeb files, with each library used the way its document
 
 (N×) = N times longer than pycdfpp. Median of 5 runs, files in the page cache. AMD Ryzen 7 5800X (AVX2, no AVX-512), Python 3.13, pycdfpp 0.15.0, spacepy 0.7.0 (NASA CDF 3.9.0), cdflib 1.3.14.
 
+On an Apple M2 (MacBook Air, macOS, NEON), pycdfpp is faster on every task, writing without compression included:
+
+| Task | Data | pycdfpp | spacepy.pycdf | cdflib |
+|---|---|---|---|---|
+| Open a file, list variables, read all attributes | MMS FPI electron distribution, 178 MB | **0.3 ms** | 369 ms (1062×) | 8.3 ms (24×) |
+| Read B and its time axis as `datetime64` | MMS FGM survey, 1.2 M points, gzip, TT2000 | **8.3 ms** | 4.36 s (523×) | 239 ms (29×) |
+| Read B and its time axis as `datetime64` | Wind MFI, 0.9 M points, CDF_EPOCH | **2.5 ms** | 28.5 ms (11×) | 10.9 s (4388×) |
+| Read every variable of a file | MMS FPI electron distribution, 178 MB, gzip | **93.7 ms** | 1.13 s (12×) | 499 ms (5.3×) |
+| Read every variable of a folder | 23 CDAWeb files, 11 missions, 528 MB | **295 ms** | 2.62 s (8.9×) | 2.74 s (9.3×) |
+| Same folder, 8 threads | 23 CDAWeb files, 11 missions, 528 MB | **186 ms** | not thread-safe | 2.28 s (12×) |
+| Write B and its time axis, gzip | MMS FGM survey, 1.2 M points, 29 MB | **55.7 ms** | 572 ms (10×) | 507 ms (9.1×) |
+| Write B and its time axis, uncompressed | MMS FGM survey, 1.2 M points, 29 MB | **10.6 ms** | 12.8 ms (1.2×) | 12.3 ms (1.2×) |
+| Write a particle distribution file, gzip | MMS FPI electron distribution, 210 MB | **425 ms** | 4.39 s (10×) | 4.23 s (10×) |
+
+Same script, on AC power. Python 3.14, pycdfpp 0.16.0 built from source like the wheels, spacepy 0.7.0 (NASA CDF 3.9.1), cdflib 1.3.14. See [what was done for Apple Silicon](https://pycdfpp.readthedocs.io/en/latest/optimizations.html#on-apple-silicon).
+
 Why is pycdfpp faster?
 
 - **Opening a file** only parses the headers, in C++. NASA's library, used by spacepy, hashes the whole file to check its MD5 checksum on every open. pycdfpp skips that check.
 - **Time conversion** runs in C++ with SIMD, straight to `datetime64[ns]`. For TT2000, spacepy creates one Python `datetime` per value. cdflib converts CDF_EPOCH in a Python loop.
-- **Gzip** blocks are decompressed on all cores at once (an MMS FPI distribution variable has 640 of them), with [libdeflate](https://github.com/ebiggers/libdeflate), itself 1.5–1.7× faster than zlib on these files. Big buffers use 2 MB huge pages.
+- **Gzip** blocks are decompressed on all cores at once (an MMS FPI distribution variable has 640 of them), with [libdeflate](https://github.com/ebiggers/libdeflate), itself 1.5–1.7× faster than zlib on these files. On Linux, big buffers use 2 MB huge pages.
 - **Threads** work: pycdfpp releases the GIL while reading and decompressing. cdflib is mostly Python, so it holds the GIL. NASA's library keeps global state.
-- **Writing** compresses 256 KB blocks on all cores, with libdeflate. The other two compress with zlib, on one thread. Without compression there is little to gain. With `copy=False`, pycdfpp writes straight from the arrays, like spacepy. The rest of the gap is the time axis: pycdfpp converts it from `datetime64` (1.3 ms), spacepy is given TT2000 integers.
+- **Writing** compresses 256 KB blocks on all cores, with libdeflate. The other two compress with zlib, on one thread. Without compression there is little to gain. With `copy=False`, pycdfpp writes straight from the arrays, like spacepy. The rest of the gap is the time axis: pycdfpp converts it from `datetime64` (1.3 ms on the Ryzen, 0.2 ms on the M2), spacepy is given TT2000 integers.
 
 Reading scales to about 2× with threads, and to 3.5 GB/s on big files; writing reaches 710 MB/s with gzip, where spacepy stays at 42 MB/s. See the [scaling results](https://pycdfpp.readthedocs.io/en/latest/performance.html#scaling).
 
@@ -326,7 +342,7 @@ Release builds (`-O3`). Source code in [`benchmarks/`](benchmarks/).
 
 #### SIMD time conversions
 
-Converting CDF time types to nanoseconds since 1970 (epochs/s, higher is better, one thread). CDFpp picks the best instruction set the CPU has at run time (AVX-512, AVX2 or SSE2).
+Converting CDF time types to nanoseconds since 1970 (epochs/s, higher is better, one thread). On x86, CDFpp picks the best instruction set the CPU has at run time (AVX-512, AVX2 or SSE2). On ARM (aarch64), it uses NEON code of its own.
 
 AMD Ryzen 7 7840U/HS laptop CPU (Zen 4, 5.1 GHz boost, 16 MB L3), **AVX-512**, measured with pycdfpp 0.13, before CDF_EPOCH conversions became exact (see below):
 
@@ -348,6 +364,17 @@ AMD Ryzen 7 5800X desktop CPU (Zen 3, 32 MB L3), **AVX2** (median of 3 runs):
 
 With AVX-512, TT2000 conversion peaked at ~**8 billion epochs/s** and EPOCH at ~**14 billion epochs/s** for L1/L2-resident data. With AVX2, SIMD runs 2.5–3× faster than scalar code. CDF_EPOCH conversions are exact since 0.14.0: they used to round to 256 ns. That made scalar EPOCH conversion about 2× slower (it was 2.3e+09 epochs/s on the 5800X), while the SIMD version, reworked to need no 64-bit integer conversions, is faster than the old scalar one. At 64M values (1 GB of data), every SIMD row drops to 1.2–1.5 billion epochs/s: the data no longer fits in cache.
 
+Apple M2 (MacBook Air, 4+4 cores, 16 MB L2), **NEON** (median of 3 runs):
+
+| Conversion | 64 | 1K | 64K | 1M | 64M |
+|---|---|---|---|---|---|
+| TT2000 scalar | 5.7e+08 | 6.4e+08 | 6.8e+08 | 6.8e+08 | 6.8e+08 |
+| TT2000 SIMD | 8.8e+08 | 2.1e+09 | 5.9e+09 | **6.0e+09** | 4.2e+09 |
+| EPOCH scalar | 1.5e+09 | 1.7e+09 | 1.7e+09 | 1.7e+09 | 1.7e+09 |
+| EPOCH SIMD | 2.3e+09 | 2.4e+09 | 2.4e+09 | **2.4e+09** | 2.3e+09 |
+
+These TT2000 values are sorted from 1972 to 2036. NEON converts sorted values between two leap seconds 32 at a time, with one addition each, so it needs runs longer than a few dozen values: with 1K values, there is a leap second every 38 of them. The M2 keeps 4.2 billion epochs/s at 64M values, 1 GB of data, where the x86 CPUs drop to 1.3–1.5 billion.
+
 #### Leap-second lookup
 
 Epochs/s, one row per CPU:
@@ -358,6 +385,8 @@ Epochs/s, one row per CPU:
 | Branchless | 5800X | 1.2e+08 | 1.1e+08 | 1.2e+08 | 1.2e+08 |
 | Baseline | 7840U/HS | 2.4e+08 | 2.4e+08 | 2.4e+08 | 2.4e+08 |
 | Baseline | 5800X | 3.1e+08 | 3.2e+08 | 3.2e+08 | 3.2e+08 |
+| Branchless | M2 | 1.4e+08 | 1.5e+08 | 1.4e+08 | 1.4e+08 |
+| Baseline | M2 | 1.8e+08 | 1.8e+08 | 1.8e+08 | 1.8e+08 |
 
 #### RLE compression (bytes/s)
 
@@ -365,10 +394,13 @@ Epochs/s, one row per CPU:
 |---|---|---|---|---|---|
 | Deflate | 7840U/HS | 7.4e+08 | 6.9e+08 | 3.3e+08 | 2.7e+08 |
 | Deflate | 5800X | 6.2e+08 | 3.8e+08 | 2.7e+08 | 2.6e+08 |
+| Deflate | M2 | 6.7e+08 | 4.1e+08 | 2.8e+08 | 2.5e+08 |
 | Inflate | 7840U/HS | **1.8e+09** | **1.7e+09** | **1.8e+09** | 4.5e+08 |
 | Inflate | 5800X | 1.3e+09 | 6.4e+08 | 4.4e+08 | 4.2e+08 |
+| Inflate | M2 | 1.1e+09 | 4.7e+08 | 3.3e+08 | 2.9e+08 |
 | Roundtrip | 7840U/HS | 5.1e+08 | 5.0e+08 | 1.9e+08 | 1.7e+08 |
 | Roundtrip | 5800X | 4.5e+08 | 2.0e+08 | 1.7e+08 | 1.7e+08 |
+| Roundtrip | M2 | 4.1e+08 | 1.8e+08 | 1.4e+08 | 1.3e+08 |
 
 RLE inflate sustains ~**1.8 GB/s** on the 7840U/HS for data that fits in cache; on the 5800X it drops from 1.3 GB/s at 1 KB to 0.4 GB/s at 64 KB. At 1 MB both CPUs run at the same speed.
 
@@ -392,7 +424,7 @@ RLE inflate sustains ~**1.8 GB/s** on the 7840U/HS for data that fits in cache; 
     - [ ] Pad values
 - **General**
     - [x] [libdeflate](https://github.com/ebiggers/libdeflate) for faster GZip
-    - [x] SIMD time conversions (AVX512/AVX2/SSE2 with runtime dispatch)
+    - [x] SIMD time conversions (AVX512/AVX2/SSE2 with runtime dispatch, NEON on ARM)
     - [x] Leap-second handling
     - [x] Python bindings with GIL-free I/O
     - [x] [Documentation](https://pycdfpp.readthedocs.io/en/latest/)

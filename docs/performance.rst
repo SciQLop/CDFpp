@@ -10,13 +10,20 @@ files, then explains where the differences come from.
 The short answer
 ================
 
-``pycdfpp`` is faster on every task we measured but one. When you read whole files of
-compressed data, it is 5.6× to 15× faster. When you open a file, or convert time
-variables, it is 11× to about 3700× faster. Writing compressed files is 3.7× to 14×
-faster. Writing without compression, ``spacepy`` is 13% faster.
+On an AMD Ryzen 7 5800X under Linux, ``pycdfpp`` is faster on every task we measured but
+one. When you read whole files of compressed data, it is 5.6× to 15× faster. When you open a
+file, or convert time variables, it is 11× to about 3700× faster. Writing compressed files
+is 3.7× to 14× faster. Writing without compression, ``spacepy`` is 13% faster.
+
+On an Apple M2 (MacBook Air), ``pycdfpp`` is faster on every task, that one included: 5.3× to
+12× when reading whole compressed files, 11× to about 4400× when opening a file or converting
+time, 9× to 10× when writing compressed files, and 1.2× without compression.
 
 Results
 =======
+
+AMD Ryzen 7 5800X, Linux
+------------------------
 
 .. list-table::
    :header-rows: 1
@@ -80,6 +87,74 @@ Measured on an AMD Ryzen 7 5800X (8 cores, AVX2, no AVX-512), Linux, Python 3.13
 from PyPI: pycdfpp 0.15.0, spacepy 0.7.0 (which bundles NASA's CDF library 3.9.0),
 cdflib 1.3.14 and numpy 2.5.3.
 
+Apple M2, macOS
+---------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 26 12 16 16
+
+   * - Task
+     - Data
+     - pycdfpp
+     - spacepy.pycdf
+     - cdflib
+   * - Open a file, list variables, read all attributes
+     - MMS FPI electron distribution, 178 MB
+     - **0.3 ms**
+     - 369 ms (1062×)
+     - 8.3 ms (24×)
+   * - Read B and its time axis as ``datetime64``
+     - MMS FGM survey, 1.2 M points, gzip, TT2000
+     - **8.3 ms**
+     - 4.36 s (523×)
+     - 239 ms (29×)
+   * - Read B and its time axis as ``datetime64``
+     - Wind MFI, 0.9 M points, CDF_EPOCH
+     - **2.5 ms**
+     - 28.5 ms (11×)
+     - 10.9 s (4388×)
+   * - Read every variable of a file
+     - MMS FPI electron distribution, 178 MB, gzip
+     - **93.7 ms**
+     - 1.13 s (12×)
+     - 499 ms (5.3×)
+   * - Read every variable of a folder
+     - 23 CDAWeb files, 11 missions, 528 MB
+     - **295 ms**
+     - 2.62 s (8.9×)
+     - 2.74 s (9.3×)
+   * - Same folder, 8 threads
+     - 23 CDAWeb files, 11 missions, 528 MB
+     - **186 ms**
+     - not thread-safe
+     - 2.28 s (12×)
+   * - Write B and its time axis, gzip
+     - MMS FGM survey, 1.2 M points, 29 MB
+     - **55.7 ms**
+     - 572 ms (10×)
+     - 507 ms (9.1×)
+   * - Write B and its time axis, uncompressed
+     - MMS FGM survey, 1.2 M points, 29 MB
+     - **10.6 ms**
+     - 12.8 ms (1.2×)
+     - 12.3 ms (1.2×)
+   * - Write a particle distribution file, gzip
+     - MMS FPI electron distribution, 210 MB
+     - **425 ms**
+     - 4.39 s (10×)
+     - 4.23 s (10×)
+
+Same files and script. Measured on a MacBook Air with an Apple M2 (4 performance and 4
+efficiency cores, NEON, 16 GB), macOS 26.6, on AC power, Python 3.14. pycdfpp 0.16.0 was
+built from source like the wheels (``-Db_ndebug=if-release``), with the Apple Silicon work of
+:doc:`optimizations`. spacepy 0.7.0 bundles NASA's CDF library 3.9.1 there; cdflib 1.3.14,
+numpy 2.5.3.
+
+Compared with the Ryzen, the M2 reads files within 6% or faster on one thread, and opens them
+faster. With threads, and when writing gzip, the Ryzen's 16 hardware threads win: compression
+keeps every core busy, and 4 of the M2's 8 cores are efficiency cores.
+
 How it was measured
 ===================
 
@@ -135,8 +210,9 @@ Converting time
 ---------------
 
 1. ``pycdfpp`` converts CDF time values to ``datetime64[ns]`` in C++, using SIMD
-   instructions, and exactly. On the test machine (AVX2), it converts about one billion
-   TT2000 values and 2.6 billion CDF_EPOCH values per second.
+   instructions, and exactly. On the Ryzen (AVX2), it converts about one billion
+   TT2000 values and 2.6 billion CDF_EPOCH values per second. On the M2 (NEON), 4 to 6
+   billion sorted TT2000 values and 2.4 billion CDF_EPOCH values per second.
 2. For TT2000, ``spacepy`` creates one Python ``datetime`` object per value. That takes
    seconds for a million points. ``datetime`` also stops at microseconds, so
    nanoseconds are lost. For CDF_EPOCH, ``spacepy.time.Ticktock`` is vectorized, so the
@@ -192,15 +268,18 @@ Writing
 3. Without compression, writing is mostly copying memory to the file. With
    ``copy=False`` (see :doc:`writing`), ``pycdfpp`` writes straight from the arrays, like
    ``spacepy``. The rest of the gap is the time axis: ``pycdfpp`` converts it from
-   ``datetime64``, which takes 1.3 ms here, while ``spacepy`` is given TT2000 integers.
+   ``datetime64``, which takes 1.3 ms on the Ryzen and 0.2 ms on the M2, while ``spacepy``
+   is given TT2000 integers.
+4. On macOS, ``pycdfpp`` writes files with plain ``write()`` calls: the C++ library of macOS
+   copies big writes through a small buffer, which made this row 3 times slower.
 
 Scaling
 =======
 
 The script
 `benchmarks/python_libs/scaling.py <https://github.com/SciQLop/CDFpp/blob/main/benchmarks/python_libs/scaling.py>`_
-measures how each library scales with threads and with file size. Same machine and
-versions as above.
+measures how each library scales with threads and with file size. Same machines and
+versions as above: the Ryzen first, then the M2.
 
 Reading the 23-file folder with a thread pool (``spacepy`` can't use threads):
 
@@ -275,3 +354,73 @@ of values (higher is better). Every library reads the file written by NASA's lib
    compresses and decompresses on one thread, like the others.
 2. From 10 MB up, it compresses and decompresses on all cores, and keeps that speed up
    to 1 GB.
+
+On the Apple M2, reading the same folder with a thread pool:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Threads
+     - pycdfpp
+     - cdflib
+   * - 1
+     - 0.31 s
+     - 2.71 s
+   * - 2
+     - 0.22 s (1.4×)
+     - 2.15 s (1.3×)
+   * - 4
+     - 0.19 s (1.6×)
+     - 2.08 s (1.3×)
+   * - 8
+     - 0.19 s (1.6×)
+     - 2.20 s (1.2×)
+   * - 16
+     - 0.19 s (1.6×)
+     - 2.28 s (1.2×)
+
+One thread already decompresses each file's blocks on all cores, and the biggest file takes
+0.09 s on its own: threads gain less than on the Ryzen.
+
+And one ``float32`` variable of 3 components, gzip compressed, in MB/s of values:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Size
+     - Write: pycdfpp
+     - spacepy
+     - cdflib
+     - Read: pycdfpp
+     - spacepy
+     - cdflib
+   * - 1 MB
+     - 93
+     - 36
+     - 37
+     - 475
+     - 257
+     - 400
+   * - 10 MB
+     - 449
+     - 36
+     - 38
+     - 2494
+     - 257
+     - 400
+   * - 100 MB
+     - 484
+     - 36
+     - 38
+     - 2734
+     - 256
+     - 398
+   * - 1000 MB
+     - 441
+     - 37
+     - 37
+     - 2757
+     - 251
+     - 393
+
+Writing with gzip reaches 12 times the speed of spacepy and cdflib, reading 7 to 11 times.
