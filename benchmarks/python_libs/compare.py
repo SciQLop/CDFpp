@@ -279,6 +279,10 @@ def _spacepy_version():
 
 
 def _cpu_name():
+    if platform.system() == "Darwin":  # platform.processor() only says "arm"
+        import subprocess
+        return subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True,
+                              text=True).stdout.strip() or platform.processor()
     cpuinfo = Path("/proc/cpuinfo")
     if cpuinfo.exists():
         for line in cpuinfo.read_text().splitlines():

@@ -165,4 +165,111 @@ BENCHMARK_CAPTURE(BM_to_ns_from_1970, epoch_entry_point,
     ->Complexity()
     ->UseRealTime();
 
+// Most real time axes: sorted, after the last leap second (2017). TT2000 2019 to 2020.
+BENCHMARK_CAPTURE(BM_to_ns_from_1970, tt2000_recent_scalar,
+    static_cast<void (*)(const std::span<const cdf::tt2000_t>&, int64_t* const)>(
+        cdf::chrono::_impl::scalar_to_ns_from_1970),
+    cdf::tt2000_t { 599'572'869'184'000'000 }, cdf::tt2000_t { 631'195'269'184'000'000 })
+    ->RangeMultiplier(32)
+    ->Range(1024, mega(64))
+    ->UseRealTime();
+
+BENCHMARK_CAPTURE(BM_to_ns_from_1970, tt2000_recent_vectorized,
+    static_cast<void (*)(const std::span<const cdf::tt2000_t>&, int64_t* const)>(
+        vectorized_to_ns_from_1970),
+    cdf::tt2000_t { 599'572'869'184'000'000 }, cdf::tt2000_t { 631'195'269'184'000'000 })
+    ->RangeMultiplier(32)
+    ->Range(1024, mega(64))
+    ->UseRealTime();
+
+template <typename func_t>
+static void BM_epoch16_to_ns_from_1970(benchmark::State& state, func_t func)
+{
+    no_init_vector<cdf::epoch16> time_vect(state.range(0));
+    double seconds = 63'745'052'400.0;
+    double picoseconds = 0.;
+    for (auto& v : time_vect)
+    {
+        v = cdf::epoch16 { seconds, picoseconds };
+        picoseconds += 62'500'000'000.; // 16 Hz
+        if (picoseconds >= 1e12)
+        {
+            picoseconds -= 1e12;
+            seconds += 1.;
+        }
+    }
+    no_init_vector<int64_t> output(time_vect.size());
+    for (auto _ : state)
+    {
+        benchmark::ClobberMemory();
+        func(time_vect, output.data());
+        benchmark::DoNotOptimize(output);
+    }
+    state.counters["epochs_per_second"]
+        = benchmark::Counter(std::size(time_vect), benchmark::Counter::kIsIterationInvariantRate);
+}
+
+BENCHMARK_CAPTURE(BM_epoch16_to_ns_from_1970, scalar,
+    static_cast<void (*)(const std::span<const cdf::epoch16>&, int64_t* const)>(
+        cdf::chrono::_impl::scalar_to_ns_from_1970))
+    ->RangeMultiplier(32)
+    ->Range(1024, mega(64))
+    ->UseRealTime();
+
+BENCHMARK_CAPTURE(BM_epoch16_to_ns_from_1970, vectorized,
+    static_cast<void (*)(const std::span<const cdf::epoch16>&, int64_t* const)>(
+        vectorized_to_ns_from_1970))
+    ->RangeMultiplier(32)
+    ->Range(1024, mega(64))
+    ->UseRealTime();
+
+// datetime64 to TT2000, when saving: sorted 2019 to 2020, and 1972 to 2036.
+template <typename func_t>
+static void BM_ns_from_1970_to_tt2000(
+    benchmark::State& state, func_t func, int64_t start, int64_t end)
+{
+    const auto time_vect = generate_sorted_time_vectors<int64_t>(start, end, state.range(0));
+    no_init_vector<cdf::tt2000_t> output(time_vect.size());
+    for (auto _ : state)
+    {
+        benchmark::ClobberMemory();
+        func(time_vect, output.data());
+        benchmark::DoNotOptimize(output);
+    }
+    state.counters["epochs_per_second"]
+        = benchmark::Counter(std::size(time_vect), benchmark::Counter::kIsIterationInvariantRate);
+}
+
+BENCHMARK_CAPTURE(BM_ns_from_1970_to_tt2000, recent_scalar,
+    static_cast<void (*)(const std::span<const int64_t>&, cdf::tt2000_t* const)>(
+        cdf::chrono::_impl::scalar_from_ns_from_1970),
+    1'546'300'800'000'000'000, 1'577'836'800'000'000'000)
+    ->RangeMultiplier(32)
+    ->Range(1024, mega(64))
+    ->UseRealTime();
+
+BENCHMARK_CAPTURE(BM_ns_from_1970_to_tt2000, recent_vectorized,
+    static_cast<void (*)(const std::span<const int64_t>&, cdf::tt2000_t* const)>(
+        vectorized_from_ns_from_1970),
+    1'546'300'800'000'000'000, 1'577'836'800'000'000'000)
+    ->RangeMultiplier(32)
+    ->Range(1024, mega(64))
+    ->UseRealTime();
+
+BENCHMARK_CAPTURE(BM_ns_from_1970_to_tt2000, 1972_2036_scalar,
+    static_cast<void (*)(const std::span<const int64_t>&, cdf::tt2000_t* const)>(
+        cdf::chrono::_impl::scalar_from_ns_from_1970),
+    63'072'000'000'000'000, 2'082'758'400'000'000'000)
+    ->RangeMultiplier(32)
+    ->Range(1024, mega(64))
+    ->UseRealTime();
+
+BENCHMARK_CAPTURE(BM_ns_from_1970_to_tt2000, 1972_2036_vectorized,
+    static_cast<void (*)(const std::span<const int64_t>&, cdf::tt2000_t* const)>(
+        vectorized_from_ns_from_1970),
+    63'072'000'000'000'000, 2'082'758'400'000'000'000)
+    ->RangeMultiplier(32)
+    ->Range(1024, mega(64))
+    ->UseRealTime();
+
 BENCHMARK_MAIN();
