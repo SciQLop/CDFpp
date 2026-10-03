@@ -79,12 +79,9 @@ auto def_cdf_map(T3& mod, const char* name)
             py::return_value_policy::reference_internal)
         .def("__contains__",
             [](const cdf_map<T1, T2>& m, std::string& key) { return m.count(key) > 0; })
-        .def(
-            "__iter__", [](const cdf_map<T1, T2>& m)
-            { return py::make_key_iterator(std::begin(m), std::end(m)); }, py::keep_alive<0, 1>())
-        .def(
-            "items", [](const cdf_map<T1, T2>& m)
-            { return py::make_iterator(std::begin(m), std::end(m)); }, py::keep_alive<0, 1>())
+        .def("__iter__", [](const cdf_map<T1, T2>& m) { return iter_keys(m); })
+        .def("items",
+            [](const py::object& self) { return iter_items(self.cast<const cdf_map<T1, T2>&>(), self); })
         .def("keys",
             [](const cdf_map<T1, T2>& m)
             {

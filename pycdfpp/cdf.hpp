@@ -144,14 +144,9 @@ void def_cdf_wrapper(T& mod)
             py::return_value_policy::reference_internal)
         .def("__contains__",
             [](const CDF& cd, std::string& key) { return cd.variables.count(key) > 0; })
-        .def(
-            "__iter__", [](const CDF& cd)
-            { return py::make_key_iterator(std::begin(cd.variables), std::end(cd.variables)); },
-            py::keep_alive<0, 1>())
-        .def(
-            "items", [](const CDF& cd)
-            { return py::make_iterator(std::begin(cd.variables), std::end(cd.variables)); },
-            py::keep_alive<0, 1>())
+        .def("__iter__", [](const CDF& cd) { return iter_keys(cd.variables); })
+        .def("items",
+            [](const py::object& self) { return iter_items(self.cast<const CDF&>().variables, self); })
         .def("keys",
             [](const CDF& cd)
             {

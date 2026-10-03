@@ -405,6 +405,16 @@ void def_attribute_wrapper(T& mod)
             },
             py::return_value_policy::copy)
         .def("__len__", [](const Attribute& att) { return att.size(); })
+        // Without __iter__, list(attribute) calls __getitem__ until it throws: one C++ exception
+        // per attribute, and unwinding one costs tens of microseconds on macOS.
+        .def("__iter__",
+            [](Attribute& att)
+            {
+                py::list values(att.size());
+                for (std::size_t index = 0; index < att.size(); ++index)
+                    values[index] = py::cast(to_py_cdf_data(att[index]));
+                return py::iter(values);
+            })
         .def("type",
             [](Attribute& att, std::size_t index)
             {
@@ -437,6 +447,13 @@ void def_attribute_wrapper(T& mod)
             },
             py::return_value_policy::copy)
         .def("__len__", [](const VariableAttribute&) { return 1; })
+        .def("__iter__",
+            [](VariableAttribute& att)
+            {
+                py::list values(1);
+                values[0] = py::cast(to_py_cdf_data(*att));
+                return py::iter(values);
+            })
         .def_property_readonly("value",
             [](VariableAttribute& att) -> py_cdf_attr_data_t { return to_py_cdf_data(*att); })
         .def("type", [](VariableAttribute& att) { return att.type(); });

@@ -50,6 +50,30 @@ using namespace cdf;
 
 namespace py = pybind11;
 
+// Iterators over a snapshot, as Python lists: pybind11's make_iterator ends every loop by throwing
+// a C++ exception, and unwinding one costs tens of microseconds on macOS. Values are bound to
+// owner, as with make_iterator's reference_internal.
+template <typename Map>
+py::iterator iter_keys(const Map& map)
+{
+    py::list keys(std::size(map));
+    std::size_t index = 0;
+    for (const auto& item : map)
+        keys[index++] = py::cast(item.first);
+    return py::iter(keys);
+}
+
+template <typename Map>
+py::iterator iter_items(const Map& map, const py::handle owner)
+{
+    py::list items(std::size(map));
+    std::size_t index = 0;
+    for (const auto& item : map)
+        items[index++] = py::make_tuple(py::cast(item.first),
+            py::cast(&item.second, py::return_value_policy::reference_internal, owner));
+    return py::iter(items);
+}
+
 template <typename T>
 concept py_list_or_py_tuple
     = std::is_same_v<std::decay_t<T>, py::list> || std::is_same_v<std::decay_t<T>, py::tuple>;

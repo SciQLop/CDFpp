@@ -419,5 +419,43 @@ class Skeletons(unittest.TestCase):
                                     "CompressionType.no_compression", "is_nrv": False}}})
 
 
+class Iteration(unittest.TestCase):
+    """Iterators are Python lists' iterators over a snapshot, not pybind11's: those end each loop
+    with a C++ exception, slow on macOS. Values stay bound to their CDF, as before."""
+
+    def make(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("multi", [[1, 2], "text", [3.5]])
+        cdf.add_variable("a", values=np.arange(3, dtype=np.float64), attributes={"UNITS": "nT"})
+        cdf.add_variable("b", values=np.arange(4, dtype=np.int32))
+        return cdf
+
+    def test_attribute_entries(self):
+        attr = self.make().attributes["multi"]
+        self.assertEqual(len(list(attr)), 3)
+        for got, expected in zip(attr, [attr[i] for i in range(len(attr))]):
+            np.testing.assert_array_equal(got, expected)
+        self.assertEqual(list(self.make()["a"].attributes["UNITS"]), ["nT"])
+
+    def test_keys_and_items_keep_their_order(self):
+        cdf = self.make()
+        self.assertEqual(list(cdf), ["a", "b"])
+        self.assertEqual([name for name, _ in cdf.items()], ["a", "b"])
+        self.assertEqual(list(cdf.attributes), ["multi"])
+        self.assertEqual([name for name, _ in cdf["a"].attributes.items()], ["UNITS"])
+
+    def test_items_outlive_the_names_they_came_from(self):
+        items = list(self.make().items())
+        np.testing.assert_array_equal(items[1][1].values, np.arange(4, dtype=np.int32))
+        attributes = list(self.make().attributes.items())
+        self.assertEqual(attributes[0][1][1], "text")
+
+    def test_iterating_a_snapshot(self):
+        cdf = self.make()
+        names = iter(cdf)
+        cdf.add_variable("c", values=np.arange(2, dtype=np.int8))
+        self.assertEqual(list(names), ["a", "b"])
+
+
 if __name__ == '__main__':
     unittest.main()
