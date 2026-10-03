@@ -385,19 +385,19 @@ SCENARIO("Saving a lazily loaded CDF over its own file", "[CDF]")
 SCENARIO("Saving over a bigger file leaves none of its bytes", "[CDF]")
 {
     const auto path = std::filesystem::temp_directory_path() / "cdfpp_save_over_bigger.cdf";
-    CDF big;
-    big.variables.emplace(
+    CDF bigger;
+    bigger.variables.emplace(
         "var", Variable { "var", 0, data_t { ones<double> {}(100000), CDF_Types::CDF_DOUBLE },
                    { 100000 } });
-    CDF small;
-    small.variables.emplace(
+    CDF smaller;
+    smaller.variables.emplace(
         "var", Variable { "var", 0, data_t { ones<double> {}(10), CDF_Types::CDF_DOUBLE }, { 10 } });
-    REQUIRE(cdf::io::save(big, path.string()));
-    REQUIRE(cdf::io::save(small, path.string()));
-    REQUIRE(std::filesystem::file_size(path) == std::size(cdf::io::save(small)));
+    REQUIRE(cdf::io::save(bigger, path.string()));
+    REQUIRE(cdf::io::save(smaller, path.string()));
+    REQUIRE(std::filesystem::file_size(path) == std::size(cdf::io::save(smaller)));
     const auto reloaded = cdf::io::load(path.string(), true, false);
     REQUIRE(reloaded != std::nullopt);
-    REQUIRE(*reloaded == small);
+    REQUIRE(*reloaded == smaller);
     std::filesystem::remove(path);
 }
 
