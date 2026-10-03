@@ -5,6 +5,72 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
+0.17.0 (2026-10-03)
+-------------------
+
+* Saving a loaded file keeps what it declares. Each of these is read, written back and
+  settable:
+
+  * the GZIP compression level: ``CDF.compression_level``, ``Variable.compression_level``
+    and ``add_variable(compression_level=...)``. CDFpp always wrote 9 while compressing at 6.
+  * the sparse records mode: ``Variable.sparse_records`` (``pycdfpp.SparseRecords``).
+  * the pad value: ``Variable.pad_value``. A resaved master got the default pad value of its
+    type instead (#38).
+  * the majority and byte order: ``CDF.majority`` and ``CDF.encoding``
+    (``pycdfpp.Encoding``). Files are written column major or big endian when asked, a
+    loaded file keeps its own. They all came back row major and in the host byte order.
+  * the MD5 checksum: ``CDF.checksum`` (``pycdfpp.Checksum``). It is computed while the file
+    is written. It isn't checked when loading.
+  * the declared variable attributes, in their order: ``CDF.declared_variable_attributes``.
+    Attributes no variable uses were dropped, and the others numbered in another order.
+
+* Writing ``datetime64`` values gives the right dates:
+
+  * NaT was stored as a real date, 2262-04-11 as TT2000 and 1677-09-21 as CDF_EPOCH. It is
+    now stored as the fill value, which reads back as NaT.
+  * Dates before 1970 read back as NaT as CDF_EPOCH16, and one millisecond late as
+    CDF_EPOCH.
+  * Dates before 1707, which TT2000 can't hold, overflowed. They become its illegal value,
+    as with NASA's library.
+
+* HP encoded files are read as big endian: their values had their bytes swapped.
+* Column major string arrays of two dimensions or more, in several records, read with the
+  strings of different records mixed.
+* ``CDF.add_attribute("A", [])`` raised an error. Masters declare such attributes.
+* A loop over variables or attributes sees the collection as it was when it started. Adding a
+  variable during the loop could leave it reading freed memory.
+* Faster saving, on the AMD Ryzen 7 5800X of :doc:`optimizations`:
+
+  * over an existing file: 40 to 8 ms for 83 MB. btrfs and ext4 flushed the file to disk
+    when it was closed.
+  * column major files with multi-dimensional records: 75 to 32 ms for an MMS FPI burst
+    distribution file, and loading them 81 to 58 ms.
+  * files with a checksum: MD5 runs at 970 MB/s instead of 660, while the file is written.
+  * big-endian files, and files with much metadata (THEMIS ESA: 18.7 to 10.8 ms).
+  * ``datetime64`` time axes are converted to TT2000 with SIMD and threads: 3 to 6 times
+    faster for dates before 2017.
+
+* Loading a file eagerly, or adding variables, no longer copies the values of every variable
+  already there each time the CDF grows: eager loads of MMS FGM, MMS FPI and Wind MFI files
+  take 40 to 56% less time.
+* Faster on Apple Silicon (MacBook Air M2), see :doc:`optimizations`:
+
+  * time conversions use NEON on every ARM CPU: TT2000 both ways, CDF_EPOCH and EPOCH16.
+  * files are written with ``write()`` on macOS, whose ``std::fstream`` copies big writes
+    through a small buffer: the uncompressed MMS FGM file saves in 10.1 ms instead of 29.1,
+    now faster than spacepy.
+  * loops over attributes and variables no longer end by throwing a C++ exception, which is
+    slow on macOS: opening the MMS FPI file and reading all its attributes takes 0.5 ms
+    instead of 3.4.
+
+* CDFpp Explorer: its WebAssembly module uses WebAssembly SIMD, which every browser has since
+  2023 (Safari 16.4). Gzip saves are 10 to 17% faster, and big-endian files load up to a third
+  faster. The Pyodide wheels don't use it yet.
+* ``save(cdf)``'s result can be written, viewed or loaded again without ``bytes()``, which
+  copies it, and has a length.
+* New documentation page, :doc:`optimizations`: how reading, writing and time conversions
+  are made fast, on x86, on Apple Silicon and in the browser, with the measurements behind it.
+
 0.16.0 (2026-10-01)
 -------------------
 
