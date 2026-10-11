@@ -2,7 +2,7 @@
 //   node test.mjs
 import {
     MAX_LINES, MAX_PLOT_DIMENSIONS, MAX_PLOT_POINTS,
-    recordLength, plotSpec, KEEP, COLLAPSE, needsReduction, defaultModes, withAxisMode, reducedVariable, maskArgs, applyMask, decimateMinMax, toCSV, toJSON, dropMissingX, lineView, gapThreshold, spectroView, columnSpans,
+    recordLength, plotSpec, KEEP, COLLAPSE, needsReduction, yAxisLog, positiveOnly, tickLabel, defaultModes, withAxisMode, reducedVariable, maskArgs, applyMask, decimateMinMax, toCSV, toJSON, dropMissingX, lineView, gapThreshold, spectroView, columnSpans,
 } from "../../wacdfpp/plot-model.js";
 import { normalizeWheelDelta, wheelIntent, zoomToward, panRange, pinchRange, yRangeFromPixels }
     from "../../wacdfpp/plot-gestures.js";
@@ -279,5 +279,19 @@ check("a short kept axis plots as lines", eq(fewAngles.shape, [100, 4]) && plotS
 
 check("maskArgs reads FILLVAL/VALIDMIN/VALIDMAX", eq(maskArgs(dist.attributes), [-1e31, 0, 1e10]));
 check("maskArgs: unset is NaN", maskArgs({}).every(Number.isNaN));
+
+// Y axis log/linear: the user's choice wins when a log axis is possible.
+check("yAxisLog: default follows the file", yAxisLog(undefined, true, true) && !yAxisLog(undefined, false, true));
+check("yAxisLog: override log", yAxisLog("log", false, true));
+check("yAxisLog: override linear", !yAxisLog("linear", true, true));
+check("yAxisLog: log impossible stays linear", !yAxisLog("log", true, false) && !yAxisLog(undefined, true, false));
+check("positiveOnly hides values a log axis cannot show",
+    eq(Array.from(positiveOnly(new Float64Array([2, 0, -1, NaN, 0.5]))).map(String), ["2", "NaN", "NaN", "NaN", "0.5"]));
+
+// Axis tick labels: tiny or huge values (distribution sums ~1e-20) must not read "0".
+check("tickLabel tiny", tickLabel(1.5e-20) === "1.5e-20" && tickLabel(1e-20) === "1e-20");
+check("tickLabel huge", tickLabel(2.5e9) === "2.5e+9");
+check("tickLabel ordinary", tickLabel(2500) === "2,500" && tickLabel(0.25) === "0.25" && tickLabel(-21.5) === "-21.5");
+check("tickLabel zero", tickLabel(0) === "0");
 
 process.exit(failures ? 1 : 0);

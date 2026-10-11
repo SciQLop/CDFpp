@@ -127,6 +127,28 @@ export function maskArgs(attributes) {
     return ["FILLVAL", "VALIDMIN", "VALIDMAX"].map((k) => numericAttr(attributes?.[k]) ?? NaN);
 }
 
+// Whether the y axis is logarithmic. override: undefined | "log" | "linear" (the toggle);
+// fileLog: the ISTP SCALETYP default; possible: false when the axis has values <= 0 that
+// must stay visible (spectrogram bin centers).
+export function yAxisLog(override, fileLog, possible) {
+    if (!possible) return false;
+    return override === undefined ? fileLog : override === "log";
+}
+
+// Y tick label. uPlot's default rounds to a few decimals, so a distribution summed to
+// ~1e-20 would read "0" on every tick: very small and very large values use exponents.
+export function tickLabel(v) {
+    const a = Math.abs(v);
+    if (a !== 0 && (a < 1e-3 || a >= 1e6))
+        return v.toExponential(2).replace(/\.?0+e/, "e");
+    return v.toLocaleString("en-US", { maximumSignificantDigits: 6 });
+}
+
+// A log axis cannot place values <= 0: they become gaps.
+export function positiveOnly(values) {
+    return values.map((v) => (v > 0 ? v : NaN));
+}
+
 // Min/max decimation for line plots: bucket into ~targetCols columns, emitting the
 // per-bucket min and max (in index order) so spikes survive. NaN-only buckets emit
 // a single NaN gap. Returns parallel { x, y } arrays. Pass-through when already small.

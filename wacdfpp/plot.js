@@ -6,7 +6,7 @@
 import uPlot from "./uPlot.esm.js";
 import {
     plotSpec, applyMask, dropMissingX, lineView, gapThreshold, spectroView, columnSpans, toCSV, toJSON,
-    CHAR_TYPES, KEEP, COLLAPSE, needsReduction, defaultModes, withAxisMode, reducedVariable, maskArgs,
+    CHAR_TYPES, KEEP, COLLAPSE, needsReduction, yAxisLog, positiveOnly, tickLabel, defaultModes, withAxisMode, reducedVariable, maskArgs,
 } from "./plot-model.js";
 import { bindGestures } from "./plot-gestures.js";
 import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "./spectrogram.js";
@@ -34,6 +34,16 @@ function themeAxis(extra) {
         ticks: { stroke: TICK_STROKE, width: 1 },
         ...extra,
     };
+}
+
+// Y axis with readable labels for tiny or huge values (tickLabel), wide enough for them.
+// uPlot passes null for the ticks its filter hides (e.g. minor log ticks).
+function yAxis(extra) {
+    return themeAxis({
+        values: (u, ticks) => ticks.map((v) => (v == null ? null : tickLabel(v))),
+        size: (u, values) => 16 + 7 * Math.max(3, ...(values ?? []).map((s) => (s == null ? 0 : String(s).length))),
+        ...extra,
+    });
 }
 
 // --- value helpers -----------------------------------------------------------
@@ -130,10 +140,11 @@ function note(text) {
     return el;
 }
 
-function button(label, onClick, active) {
+function button(label, onClick, active, disabled = false) {
     const b = document.createElement("button");
     b.className = "plot-btn" + (active ? " active" : "");
     b.textContent = label;
+    b.disabled = disabled;
     b.addEventListener("click", onClick);
     return b;
 }
@@ -149,14 +160,17 @@ function download(filename, text, mime) {
 
 // --- renderers ---------------------------------------------------------------
 
-function drawLines(target, cdf, meta, spec, x, values) {
+function drawLines(target, cdf, meta, spec, x, values, yLog) {
     const recCount = x.values.length;
     const comps = Math.max(1, spec.components);
     const labels = lineLabels(cdf, spec);
     const xs = x.values;
 
     const kept = dropMissingX(xs, Array.from({ length: comps },
-        (_, c) => applyMask(deinterleave(values, comps, recCount, c), spec)));
+        (_, c) => {
+            const masked = applyMask(deinterleave(values, comps, recCount, c), spec);
+            return yLog ? positiveOnly(masked) : masked;
+        }));
     const gap = gapThreshold(kept.x);
     const series = [{ label: x.isTime ? "time" : "record" },
         ...Array.from({ length: comps }, (_, c) =>
@@ -165,14 +179,16 @@ function drawLines(target, cdf, meta, spec, x, values) {
     const opts = {
         width: target.clientWidth || 800,
         height: PLOT_HEIGHT,
-        scales: { x: { time: x.isTime } },
-        axes: [themeAxis(), themeAxis()],
+        scales: { x: { time: x.isTime }, y: { distr: yLog ? 3 : 1 } },
+        axes: [themeAxis(), yAxis()],
         series,
         legend: { show: comps > 1 },
     };
     zoomableChart(opts, target, x.isTime, {
         viewFor: (lo, hi) => lineView(kept, lo, hi, MAX_POINTS, gap),
-        autoY: (u, dmin, dmax) => uPlot.rangeNum(dmin, dmax, 0.1, true),
+        autoY: (u, dmin, dmax) => (yLog
+            ? (dmin > 0 ? uPlot.rangeLog(dmin, dmax, 10, true) : [1, 10])
+            : uPlot.rangeNum(dmin, dmax, 0.1, true)),
     });
 }
 
@@ -212,7 +228,7 @@ function zoomableChart(opts, el, isTime, { viewFor, autoY }) {
     return u;
 }
 
-// Resolve the y (bin) axis from DEPEND_1: its values, log/linear (SCALETYP), units.
+// Resolve the y (bin) axis from DEPEND_1: its values, SCALETYP (fileLog), units.
 // Falls back to a linear bin index when DEPEND_1 is absent/non-monotonic.
 function resolveBins(cdf, spec, rows) {
     if (spec.depend1) {
@@ -221,14 +237,14 @@ function resolveBins(cdf, spec, rows) {
             if (dv && dv.copy_values && dv.copy_values.length >= rows) {
                 const centers = Array.from(dv.copy_values.slice(0, rows), Number);
                 if (isMonotonic(centers)) {
-                    const log = scaleTypeOf(dv.attributes, "linear") === "log" && centers.every(c => c > 0);
+                    const fileLog = scaleTypeOf(dv.attributes, "linear") === "log";
                     const units = typeof dv.attributes?.UNITS === "string" ? dv.attributes.UNITS : "";
-                    return { centers, log, units };
+                    return { centers, fileLog, units };
                 }
             }
         } catch { /* fall back to bin index */ }
     }
-    return { centers: Array.from({ length: rows }, (_, i) => i), log: false, units: "bin" };
+    return { centers: Array.from({ length: rows }, (_, i) => i), fileLog: false, units: "bin" };
 }
 
 // Vertical viridis gradient + max/scale/min labels.
@@ -257,7 +273,7 @@ function colorbar(min, max, scale, units) {
     return el;
 }
 
-function drawSpectro(target, cdf, meta, spec, x, values, scale) {
+function drawSpectro(target, meta, spec, x, values, scale, bins, yLog) {
     const rows = Math.max(1, spec.components);
     const masked = applyMask(values, spec);
 
@@ -279,8 +295,7 @@ function drawSpectro(target, cdf, meta, spec, x, values, scale) {
         return;
     }
 
-    const bins = resolveBins(cdf, spec, rows);
-    const yEdges = cellEdges(bins.centers, bins.log);
+    const yEdges = cellEdges(bins.centers, yLog);
     const yLo = Math.min(yEdges[0], yEdges[rows]);
     const yHi = Math.max(yEdges[0], yEdges[rows]);
     const units = typeof meta.attributes?.UNITS === "string" ? meta.attributes.UNITS : "";
@@ -328,8 +343,8 @@ function drawSpectro(target, cdf, meta, spec, x, values, scale) {
     const opts = {
         width: (plotEl.clientWidth || 700),
         height: PLOT_HEIGHT,
-        scales: { x: { time: x.isTime }, y: { distr: bins.log ? 3 : 1 } },
-        axes: [themeAxis(), themeAxis(bins.units ? { label: bins.units } : undefined)],
+        scales: { x: { time: x.isTime }, y: { distr: yLog ? 3 : 1 } },
+        axes: [themeAxis(), yAxis(bins.units ? { label: bins.units } : undefined)],
         series: [{}, { paths: () => null, points: { show: false } }],
         legend: { show: false },
         hooks: { draw: [paint] },
@@ -450,6 +465,7 @@ function axisSelect(axis, mode, op, onChange) {
 function chartPanel(mount, cdf, name, x) {
     let override;          // undefined | "line" | "spectrogram"
     let scale;             // spectrogram color scale, from the first variable shown
+    let yScale;            // undefined (SCALETYP) | "log" | "linear"
     let meta, values, error;
 
     const controls = document.createElement("div");
@@ -477,10 +493,18 @@ function chartPanel(mount, cdf, name, x) {
             button("Line", () => { override = "line"; redraw(); }, spec.kind === "line"),
             button("Spectrogram", () => { override = "spectrogram"; redraw(); }, spec.kind === "spectrogram"),
         );
+        const bins = spec.kind === "spectrogram" ? resolveBins(cdf, spec, Math.max(1, spec.components)) : null;
+        const logPossible = bins ? bins.centers.every((c) => c > 0) : true;
+        const fileLog = bins ? bins.fileLog : scaleTypeOf(meta.attributes, "linear") === "log";
+        const yLog = yAxisLog(yScale, fileLog, logPossible);
+        controls.append(
+            button("y linear", () => { yScale = "linear"; redraw(); }, !yLog),
+            button("y log", () => { yScale = "log"; redraw(); }, yLog, !logPossible),
+        );
         if (spec.kind === "spectrogram") {
             controls.append(
-                button("log", () => { scale = "log"; redraw(); }, scale === "log"),
-                button("linear", () => { scale = "linear"; redraw(); }, scale === "linear"),
+                button("color linear", () => { scale = "linear"; redraw(); }, scale === "linear"),
+                button("color log", () => { scale = "log"; redraw(); }, scale === "log"),
             );
         }
         controls.append(
@@ -488,8 +512,8 @@ function chartPanel(mount, cdf, name, x) {
             button("JSON", () => download(`${name}.json`, toJSON(exportColumns(cdf, meta, spec, x, values)), "application/json")),
         );
 
-        if (spec.kind === "line") drawLines(body, cdf, meta, spec, x, values);
-        else drawSpectro(body, cdf, meta, spec, x, values, scale);
+        if (spec.kind === "line") drawLines(body, cdf, meta, spec, x, values, yLog);
+        else drawSpectro(body, meta, spec, x, values, scale, bins, yLog);
     }
 
     return (newMeta, newValues, newError) => {

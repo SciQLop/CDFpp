@@ -30,6 +30,10 @@ ISTP attributes to do it right: ``DEPEND_0`` for the time axis, ``DISPLAY_TYPE``
 ``SCALETYP`` for log scales, and ``FILLVAL``, ``VALIDMIN`` and ``VALIDMAX`` to hide
 invalid values. You can export the plotted data as CSV or JSON.
 
+The **y log** and **y linear** buttons override the y axis scale. On a log axis, values
+of zero or less are hidden. A spectrogram whose bins include zero or negative values,
+like an azimuth, stays linear.
+
 Variables with more dimensions, like particle distributions, are reduced before they are
 drawn. Each dimension gets a menu, named after its ``DEPEND_k`` variable:
 
