@@ -141,7 +141,7 @@ export function tickLabel(v) {
     const a = Math.abs(v);
     if (a !== 0 && (a < 1e-3 || a >= 1e6))
         return v.toExponential(2).replace(/\.?0+e/, "e");
-    return v.toLocaleString("en-US", { maximumSignificantDigits: 6 });
+    return v.toLocaleString("en-US", { maximumSignificantDigits: 4 });
 }
 
 // A log axis cannot place values <= 0: they become gaps.
@@ -371,10 +371,17 @@ export function spectroView({ centers, grid, rows }, lo, hi, maxCols) {
     const parts = splitAtGaps(centers, start, end, gapThreshold(centers)).map(([s, e]) =>
         thinColumns(centers.slice(s, e), grid.subarray(s * rows, e * rows), rows,
             Math.max(1, Math.floor(maxCols * (e - s) / total))));
-    return {
-        centers: parts.flatMap((p) => p.centers),
-        grid: Float64Array.from(parts.flatMap((p) => Array.from(p.grid))),
-    };
+    return { centers: parts.flatMap((p) => p.centers), grid: concatGrids(parts.map((p) => p.grid)) };
+}
+
+function concatGrids(grids) {
+    const out = new Float64Array(grids.reduce((n, g) => n + g.length, 0));
+    let at = 0;
+    for (const g of grids) {
+        out.set(g, at);
+        at += g.length;
+    }
+    return out;
 }
 
 function thinColumns(centers, grid, rows, maxCols) {

@@ -1,7 +1,8 @@
 // Pure helpers for the spectrogram (no DOM, Node unit-tested): viridis colormap,
 // normalizeLevel (log/linear), cellEdges (bin/time cell boundaries), scaleTypeOf
-// (ISTP SCALETYP), isMonotonic. The heatmap itself is painted in plot.js via a
-// uPlot draw hook using these helpers.
+// (ISTP SCALETYP), isMonotonic, and the raster helpers: the heatmap is painted in plot.js
+// via a uPlot draw hook as one image, one lookup per pixel (fillRect per cell was ~300 ms
+// a frame for 4000 x 96 cells).
 
 const VIRIDIS_ANCHORS = [
     [68, 1, 84], [72, 40, 120], [62, 74, 137], [49, 104, 142], [38, 130, 142],
@@ -65,4 +66,56 @@ export function cellEdges(centers, log) {
     edges[0] = log ? centers[0] ** 2 / edges[1] : 2 * centers[0] - edges[1];
     edges[n] = log ? centers[n - 1] ** 2 / edges[n - 1] : 2 * centers[n - 1] - edges[n - 1];
     return edges;
+}
+
+// 256 viridis colors as RGBA packed in a Uint32 (little-endian: 0xAABBGGRR), opaque.
+export function colorLUT() {
+    return Uint32Array.from({ length: 256 }, (_, i) => {
+        const [r, g, b] = viridis(i / 255);
+        return ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
+    });
+}
+
+// One packed color per grid cell, computed once per view. Values that have no color
+// (NaN, or <= 0 on a log scale) are transparent (0).
+export function cellColors(grid, min, max, scale, lut) {
+    const log = scale === "log";
+    const lo = log ? Math.log10(min) : min;
+    const span = (log ? Math.log10(max) : max) - lo;
+    const out = new Uint32Array(grid.length);
+    for (let i = 0; i < grid.length; i++) {
+        const v = grid[i];
+        if (Number.isNaN(v) || (log && v <= 0)) continue;
+        const t = ((log ? Math.log10(v) : v) - lo) / span;
+        out[i] = lut[Math.round(Math.min(1, Math.max(0, t)) * 255)];
+    }
+    return out;
+}
+
+// For each of `size` pixels, the index of the span [a, b] (pixel coordinates, either order)
+// that covers the pixel's center, or -1. Later spans win where they overlap.
+export function pixelIndex(spans, size) {
+    const out = new Int32Array(size).fill(-1);
+    spans.forEach(([a, b], i) => {
+        const from = Math.max(0, Math.ceil(Math.min(a, b) - 0.5));
+        const to = Math.min(size, Math.ceil(Math.max(a, b) - 0.5));
+        out.fill(i, from, to);
+    });
+    return out;
+}
+
+// A width x height image (row-major pixels) of colors[col * rows + row], given the column
+// of each pixel x and the row of each pixel y (-1: transparent).
+export function rasterize(colors, rows, colOf, rowOf, width, height) {
+    const out = new Uint32Array(width * height);
+    for (let py = 0; py < height; py++) {
+        const r = rowOf[py];
+        if (r < 0) continue;
+        const line = py * width;
+        for (let px = 0; px < width; px++) {
+            const c = colOf[px];
+            if (c >= 0) out[line + px] = colors[c * rows + r];
+        }
+    }
+    return out;
 }

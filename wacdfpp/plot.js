@@ -9,7 +9,7 @@ import {
     CHAR_TYPES, KEEP, COLLAPSE, needsReduction, yAxisLog, positiveOnly, tickLabel, defaultModes, withAxisMode, reducedVariable, maskArgs,
 } from "./plot-model.js";
 import { bindGestures } from "./plot-gestures.js";
-import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "./spectrogram.js";
+import { viridis, cellEdges, scaleTypeOf, isMonotonic, colorLUT, cellColors, pixelIndex, rasterize } from "./spectrogram.js";
 import { nsToISO, nsToSeconds } from "./render.js";
 
 const LINE_COLORS = ["#6c8aff", "#4ade80", "#fbbf24", "#f87171", "#22d3ee", "#c084fc", "#fb923c", "#a3e635"];
@@ -307,35 +307,35 @@ function drawSpectro(target, meta, spec, x, values, scale, bins, yLog) {
     wrap.append(plotEl, colorbar(min, max, scale, units));
     target.appendChild(wrap);
 
-    // Paint one filled rect per (time-cell x bin-cell) of the shown view over the uPlot draw area.
+    // Paint at most one (block-max) column per canvas pixel: sampling one of several
+    // columns under a pixel would show an empty one as a hole.
+    const pixelCols = Math.max(1, Math.round((plotEl.clientWidth || 700) * (window.devicePixelRatio || 1)));
+    const lut = colorLUT();
+    let colors = cellColors(shown.grid, min, max, scale, lut);
+    const image = document.createElement("canvas");
+
+    // The shown view as one image over the uPlot draw area: each canvas pixel looks up the
+    // cell under its center (see spectrogram.js).
     const paint = (u) => {
-        const { ctx } = u;
-        const spans = columnSpans(shown.centers);
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(u.bbox.left, u.bbox.top, u.bbox.width, u.bbox.height);
-        ctx.clip();
-        for (let c = 0; c < spans.length; c++) {
-            const xl = u.valToPos(spans[c][0], "x", true);
-            const xr = u.valToPos(spans[c][1], "x", true);
-            const left = Math.min(xl, xr), w = Math.abs(xr - xl) + 1;
-            for (let r = 0; r < rows; r++) {
-                const t = normalizeLevel(shown.grid[c * rows + r], min, max, scale);
-                if (Number.isNaN(t)) continue;
-                const yb = u.valToPos(yEdges[r], "y", true);
-                const yt = u.valToPos(yEdges[r + 1], "y", true);
-                const [R, G, B] = viridis(t);
-                ctx.fillStyle = `rgb(${R},${G},${B})`;
-                ctx.fillRect(left, Math.min(yt, yb), w, Math.abs(yb - yt) + 1);
-            }
-        }
-        ctx.restore();
+        const left = Math.round(u.bbox.left), top = Math.round(u.bbox.top);
+        const width = Math.round(u.bbox.width), height = Math.round(u.bbox.height);
+        if (width <= 0 || height <= 0) return;
+        const xPx = (v) => u.valToPos(v, "x", true) - left;
+        const yPx = (v) => u.valToPos(v, "y", true) - top;
+        const colOf = pixelIndex(columnSpans(shown.centers).map(([a, b]) => [xPx(a), xPx(b)]), width);
+        const rowOf = pixelIndex(Array.from({ length: rows }, (_, r) => [yPx(yEdges[r]), yPx(yEdges[r + 1])]), height);
+        const pixels = rasterize(colors, rows, colOf, rowOf, width, height);
+        image.width = width;
+        image.height = height;
+        image.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer), width, height), 0, 0);
+        u.ctx.drawImage(image, left, top);
     };
 
     // The variable's outer cell edges stay in the x data (with no y) so the edge columns
     // render fully and double-click resets to the whole variable.
     const viewFor = (lo, hi) => {
-        shown = spectroView(full, lo, hi, MAX_COLS);
+        shown = spectroView(full, lo, hi, pixelCols);
+        colors = cellColors(shown.grid, min, max, scale, lut);
         const xs = [fullEdges[0], ...shown.centers, fullEdges[fullEdges.length - 1]];
         return [xs, new Array(xs.length).fill(null)];
     };
