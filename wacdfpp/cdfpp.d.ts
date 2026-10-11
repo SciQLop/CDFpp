@@ -23,6 +23,9 @@ export interface CompressionType {
     readonly value: number;
 }
 
+/** A variable's metadata, without its values (see CdfFile.variable_info). */
+export type VariableInfo = Omit<Variable, "values" | "copy_values">;
+
 /**
  * A CDF variable returned as a plain JS object.
  * `values` is a zero-copy typed array view into WASM memory — invalidated if the
@@ -71,6 +74,17 @@ export interface CdfFile {
     variable_names(): string[];
     attribute_names(): string[];
     get_variable(name: string): Variable;
+    /** Shape, type and attributes of a variable, without reading its values. */
+    variable_info(name: string): VariableInfo | undefined;
+    /**
+     * Reduces a numeric variable to one row per record, in WASM. `modes` has one entry per
+     * non-record dimension: -1 keeps it, -2 collapses it with `op`, an index >= 0 slices it.
+     * Values that are non-finite, equal to `fill` or outside [valid_min, valid_max] are
+     * skipped (pass NaN for unset); a cell with no valid value is NaN. Returns an owned
+     * row-major (records, kept dimensions) array. Throws on a bad mode or a non-numeric type.
+     */
+    reduce_values(name: string, modes: number[], op: "sum" | "mean",
+        fill: number, valid_min: number, valid_max: number): Float64Array | undefined;
 
     /**
      * UTC nanoseconds since 1970 (leap-second corrected) for a time variable

@@ -23,7 +23,7 @@ flags += wasm64 ? ['-sMEMORY64=1', '-sMAXIMUM_MEMORY=16GB'] : ['-sMAXIMUM_MEMORY
 if meson.get_compiler('cpp').get_id() == 'emscripten'
     wasm_exe = executable(wasm_name,
         'wacdfpp.cpp',
-        dependencies: [cdfpp_dep],
+        dependencies: [cdfpp_dep, xsimd_dep],
         cpp_args: ['-fwasm-exceptions'],
         link_args: flags + ['-O2'],
         install: false,
@@ -121,6 +121,14 @@ if meson.get_compiler('cpp').get_id() == 'emscripten'
                 timeout: 300,
             )
         endif
+        test('wasm_reduce', node,
+            args: [
+                files('../tests/wasm_reduce/test.mjs'),
+                meson.current_build_dir() / wasm_name + '.js',
+            ],
+            depends: wasm_exe,
+            timeout: 120,
+        )
         test('wasm_time_attrs', node,
             args: [
                 files('../tests/wasm_time_attrs/test.mjs'),

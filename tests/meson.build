@@ -82,6 +82,12 @@ foreach example:['basic_cpp']
                     )
 endforeach
 
+# The Explorer's reduction kernel uses xsimd, found on x86_64 (and in WebAssembly builds).
+if xsimd_dep.found()
+    test('explorer_reduce', executable('test-explorer_reduce', 'explorer_reduce/main.cpp',
+        dependencies: [catch_dep, cdfpp_dep, xsimd_dep], install: false))
+endif
+
 node = find_program('node', required: false)
 if node.found()
     test('wacdfpp_model', node,

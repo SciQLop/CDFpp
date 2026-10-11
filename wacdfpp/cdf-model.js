@@ -51,12 +51,10 @@ export function filterModel(model, query) {
 }
 
 // Browser-only: read a loaded CdfFile into raw records for buildModel.
-// NOTE: get_variable() currently force-loads values (see wacdfpp.cpp); we keep
-// only metadata here (attributes are owned copies, safe) and re-fetch values
-// lazily on selection. A metadata-only binding is a future (Phase 2+) optimization.
+// variable_info reads no values: they are fetched on selection.
 export function rawFromCdfFile(cdf) {
     const rawVars = cdf.variable_names().map(name => {
-        const v = cdf.get_variable(name);
+        const v = cdf.variable_info(name);
         const attributes = {};
         const attributeTypes = {};
         for (const an of v.attribute_names) {

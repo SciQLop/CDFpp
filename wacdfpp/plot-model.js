@@ -71,6 +71,62 @@ export function plotSpec(variable, override) {
     return { ...base, kind };
 }
 
+// --- reduction of high-rank variables -----------------------------------------
+// A particle distribution (records, phi, theta, energy) is drawn by reducing it in WASM
+// (CdfFile.reduce_values) to one row per record. Each non-record axis has a mode: KEEP,
+// COLLAPSE (sum or mean over it), or an index >= 0 (a slice). At most one axis is kept, so
+// the result is a time series or a spectrogram.
+export const KEEP = -1;
+export const COLLAPSE = -2;
+const CDF_DOUBLE = 45;
+const ENERGY = /energ/i;
+
+export function needsReduction(variable) {
+    return !CHAR_TYPES.has(variable.type) && !TIME_TYPES.has(variable.type)
+        && (variable.shape?.length ?? 0) > MAX_PLOT_DIMENSIONS && variable.shape[0] > 0;
+}
+
+// Keep the energy axis (found from its DEPEND_k name), else the last one; collapse the rest:
+// an omnidirectional energy spectrogram.
+export function defaultModes(variable) {
+    const axes = variable.shape.length - 1;
+    const attrs = variable.attributes ?? {};
+    const energy = Array.from({ length: axes }, (_, k) => k)
+        .find((k) => ENERGY.test(String(attrs[`DEPEND_${k + 1}`] ?? "")));
+    const kept = energy ?? axes - 1;
+    return Array.from({ length: axes }, (_, k) => (k === kept ? KEEP : COLLAPSE));
+}
+
+export function withAxisMode(modes, axis, mode) {
+    return modes.map((m, k) => (k === axis ? mode : mode === KEEP && m === KEEP ? COLLAPSE : m));
+}
+
+// Metadata of the reduced (records, kept axis) variable, for plotSpec and the axis resolvers.
+// The mask is applied in WASM before reducing, so FILLVAL/VALIDMIN/VALIDMAX are dropped: a
+// sum may rightly exceed VALIDMAX. DISPLAY_TYPE is dropped: the shape decides.
+export function reducedVariable(variable, modes) {
+    const { FILLVAL, VALIDMIN, VALIDMAX, DISPLAY_TYPE, ...attrs } = variable.attributes ?? {};
+    for (let k = 1; k < variable.shape.length; k++) {
+        delete attrs[`DEPEND_${k}`];
+        delete attrs[`LABL_PTR_${k}`];
+    }
+    const kept = modes.indexOf(KEEP);
+    const shape = [variable.shape[0]];
+    if (kept !== -1) {
+        shape.push(variable.shape[kept + 1]);
+        for (const key of ["DEPEND", "LABL_PTR"]) {
+            const value = variable.attributes?.[`${key}_${kept + 1}`];
+            if (value !== undefined) attrs[`${key}_1`] = value;
+        }
+    }
+    return { type: CDF_DOUBLE, shape, attributes: attrs };
+}
+
+// [fill, validMin, validMax] for reduce_values; NaN when unset.
+export function maskArgs(attributes) {
+    return ["FILLVAL", "VALIDMIN", "VALIDMAX"].map((k) => numericAttr(attributes?.[k]) ?? NaN);
+}
+
 // Min/max decimation for line plots: bucket into ~targetCols columns, emitting the
 // per-bucket min and max (in index order) so spikes survive. NaN-only buckets emit
 // a single NaN gap. Returns parallel { x, y } arrays. Pass-through when already small.

@@ -2,7 +2,7 @@
 //   node test.mjs
 import {
     MAX_LINES, MAX_PLOT_DIMENSIONS, MAX_PLOT_POINTS,
-    recordLength, plotSpec, applyMask, decimateMinMax, toCSV, toJSON, dropMissingX, lineView, gapThreshold, spectroView, columnSpans,
+    recordLength, plotSpec, KEEP, COLLAPSE, needsReduction, defaultModes, withAxisMode, reducedVariable, maskArgs, applyMask, decimateMinMax, toCSV, toJSON, dropMissingX, lineView, gapThreshold, spectroView, columnSpans,
 } from "../../wacdfpp/plot-model.js";
 import { normalizeWheelDelta, wheelIntent, zoomToward, panRange, pinchRange, yRangeFromPixels }
     from "../../wacdfpp/plot-gestures.js";
@@ -239,5 +239,45 @@ check("yRangeFromPixels linear",
 const logPan = yRangeFromPixels({ min: 1, max: 1000, log: true, heightPx: 300 }, 200, -100);
 check("yRangeFromPixels pans a log axis by decades", near(logPan.min, 10) && Math.abs(logPan.max - 10000) < 1e-3);
 check("yRangeFromPixels degenerate is null", yRangeFromPixels(lin, 50, 50) === null && yRangeFromPixels(lin, 0, 200) === null);
+
+// Reduction of high-rank variables (particle distributions) to one row per record.
+const dist = { type: 21, shape: [100, 32, 16, 32],
+    attributes: { DEPEND_0: "Epoch", DEPEND_1: "phi", DEPEND_2: "theta", DEPEND_3: "energy",
+        LABL_PTR_3: "energy_labels", DISPLAY_TYPE: "spectrogram", UNITS: "s^3/cm^6",
+        FILLVAL: fillAttr, VALIDMIN: new Float32Array([0]), VALIDMAX: new Float32Array([1e10]) } };
+check("needsReduction: 4-D numeric", needsReduction(dist));
+check("needsReduction: not 2-D", !needsReduction({ type: 21, shape: [10, 3], attributes: {} }));
+check("needsReduction: not char", !needsReduction({ type: 51, shape: [10, 3, 4], attributes: {} }));
+check("needsReduction: not without records", !needsReduction({ type: 21, shape: [0, 3, 4], attributes: {} }));
+check("defaultModes keeps the energy axis",
+    eq(defaultModes(dist), [COLLAPSE, COLLAPSE, KEEP]));
+check("defaultModes finds energy anywhere", eq(defaultModes({ ...dist,
+    attributes: { DEPEND_1: "mms1_dis_energy_fast", DEPEND_2: "phi", DEPEND_3: "theta" } }), [KEEP, COLLAPSE, COLLAPSE]));
+check("defaultModes falls back to the last axis",
+    eq(defaultModes({ type: 21, shape: [5, 2, 3], attributes: {} }), [COLLAPSE, KEEP]));
+check("withAxisMode: keeping an axis collapses the previous one",
+    eq(withAxisMode([COLLAPSE, COLLAPSE, KEEP], 0, KEEP), [KEEP, COLLAPSE, COLLAPSE]));
+check("withAxisMode: a slice leaves the kept axis", eq(withAxisMode([COLLAPSE, COLLAPSE, KEEP], 1, 7), [COLLAPSE, 7, KEEP]));
+check("withAxisMode does not mutate", (() => { const m = [KEEP, COLLAPSE]; withAxisMode(m, 1, KEEP); return eq(m, [KEEP, COLLAPSE]); })());
+
+const omni = reducedVariable(dist, [COLLAPSE, COLLAPSE, KEEP]);
+check("reduced shape", eq(omni.shape, [100, 32]));
+check("reduced type is double", omni.type === 45);
+check("reduced DEPEND_1 is the kept axis", omni.attributes.DEPEND_1 === "energy" && omni.attributes.LABL_PTR_1 === "energy_labels");
+check("reduced keeps DEPEND_0 and UNITS", omni.attributes.DEPEND_0 === "Epoch" && omni.attributes.UNITS === "s^3/cm^6");
+check("reduced drops the mask (applied in WASM) and DISPLAY_TYPE",
+    ["FILLVAL", "VALIDMIN", "VALIDMAX", "DISPLAY_TYPE", "DEPEND_2", "DEPEND_3"].every((k) => !(k in omni.attributes)));
+check("reduced energy spectrum is a spectrogram", plotSpec(omni).kind === "spectrogram");
+const total = reducedVariable(dist, [COLLAPSE, COLLAPSE, COLLAPSE]);
+check("collapsing every axis gives a time series", eq(total.shape, [100]) && plotSpec(total).kind === "line"
+    && !("DEPEND_1" in total.attributes));
+const cut = reducedVariable(dist, [3, COLLAPSE, 5]);
+check("slices + collapse give a time series", eq(cut.shape, [100]));
+const fewAngles = reducedVariable({ ...dist, shape: [100, 32, 4, 32] }, [COLLAPSE, KEEP, COLLAPSE]);
+check("a short kept axis plots as lines", eq(fewAngles.shape, [100, 4]) && plotSpec(fewAngles).kind === "line"
+    && fewAngles.attributes.DEPEND_1 === "theta" && !("LABL_PTR_1" in fewAngles.attributes));
+
+check("maskArgs reads FILLVAL/VALIDMIN/VALIDMAX", eq(maskArgs(dist.attributes), [-1e31, 0, 1e10]));
+check("maskArgs: unset is NaN", maskArgs({}).every(Number.isNaN));
 
 process.exit(failures ? 1 : 0);

@@ -189,8 +189,9 @@ function previewTable(cdf, v) {
         return { table, total, shown: n };
     }
 
-    if (isCharType(v.type) && v.copy_values !== undefined) {
-        const { strings, total } = decodeChars(v.copy_values, v.shape, PREVIEW_RECORDS);
+    const values = cdf.get_variable(v.name)?.copy_values;
+    if (isCharType(v.type) && values !== undefined) {
+        const { strings, total } = decodeChars(values, v.shape, PREVIEW_RECORDS);
         strings.forEach((s, i) => {
             const tr = table.insertRow();
             tr.insertCell().textContent = i;
@@ -199,7 +200,6 @@ function previewTable(cdf, v) {
         return { table, total, shown: strings.length };
     }
 
-    const values = v.copy_values;
     if (values === undefined || values.length === 0) return { table, total: 0, shown: 0 };
     const recLen = recordLength(v.shape);
     const records = chunkRecords(values, recLen);
@@ -220,12 +220,12 @@ function sectionLabel(text) {
     return el;
 }
 
-// Render the right detail panel for variable `name`. Re-fetches the variable so
-// values are read immediately (avoids holding stale views across heap growth).
+// Render the right detail panel for variable `name`. Reads metadata only; the value
+// preview fetches values once its gate passed.
 export function renderDetail(container, cdf, name) {
     container.innerHTML = "";
     if (!cdf) return;
-    const v = cdf.get_variable(name);
+    const v = cdf.variable_info(name);
     if (v === undefined) {
         container.innerHTML = `<div class="log-err">Variable not found: ${esc(name)}</div>`;
         return;

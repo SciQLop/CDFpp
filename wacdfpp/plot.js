@@ -4,7 +4,10 @@
 // Reuses nsToISO from render.js for faithful time export (render.js has no import
 // side effects, so this stays one-directional: render.js never imports plot.js).
 import uPlot from "./uPlot.esm.js";
-import { plotSpec, applyMask, dropMissingX, lineView, gapThreshold, spectroView, columnSpans, toCSV, toJSON } from "./plot-model.js";
+import {
+    plotSpec, applyMask, dropMissingX, lineView, gapThreshold, spectroView, columnSpans, toCSV, toJSON,
+    CHAR_TYPES, KEEP, COLLAPSE, needsReduction, defaultModes, withAxisMode, reducedVariable, maskArgs,
+} from "./plot-model.js";
 import { bindGestures } from "./plot-gestures.js";
 import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "./spectrogram.js";
 import { nsToISO, nsToSeconds } from "./render.js";
@@ -351,26 +354,103 @@ function exportColumns(cdf, meta, spec, x, values) {
 
 // --- entry point -------------------------------------------------------------
 
-// Render the plot panel for `name` into `mount`. Re-fetches the variable and reads
-// owned copies immediately (heap-growth safety). Toggles re-render from cached data.
+// Render the plot panel for `name` into `mount`. Metadata comes from variable_info, which
+// reads no values; values are fetched only once the variable passed the gates.
 export function renderPlot(mount, cdf, name) {
     mount.innerHTML = "";
-    const v = cdf.get_variable(name);
-    if (!v) return;
+    const info = cdf.variable_info(name);
+    if (!info) return;
+    const meta = { type: info.type, shape: Array.from(info.shape), attributes: info.attributes };
+    if (needsReduction(meta)) renderReduced(mount, cdf, name, meta);
+    else renderDirect(mount, cdf, name, meta);
+}
 
-    const meta = { type: v.type, shape: Array.from(v.shape), attributes: v.attributes };
-
-    // Gate from metadata BEFORE materializing values: copy_values copies the whole
-    // variable, so a high-rank/oversized distribution would OOM here. plotSpec (no
-    // override) returns kind "none" for char, empty, >2-D and over-size variables.
+function renderDirect(mount, cdf, name, meta) {
+    // plotSpec (no override) returns kind "none" for char, empty, >2-D and over-size variables.
     const gate = plotSpec(meta);
     if (gate.kind === "none") { mount.appendChild(note(gate.reason || "not plottable")); return; }
 
+    const v = cdf.get_variable(name);
     const values = v.copy_values ? Float64Array.from(v.copy_values, Number) : new Float64Array(0);
-    const x = resolveXAxis(cdf, meta);
+    chartPanel(mount, cdf, name, resolveXAxis(cdf, meta))(meta, values);
+}
 
+// A distribution is reduced in WASM to (records, kept axis); one select per axis picks its
+// mode, and sum/mean applies to every collapsed axis.
+function renderReduced(mount, cdf, name, meta) {
+    let modes = defaultModes(meta);
+    let op = "sum";
+    const mask = maskArgs(meta.attributes);
+    const axes = document.createElement("div");
+    axes.className = "plot-controls";
+    mount.appendChild(axes);
+    const show = chartPanel(mount, cdf, name, resolveXAxis(cdf, meta));
+    const choices = axisChoices(cdf, meta);
+
+    function update() {
+        axes.replaceChildren(
+            ...choices.map((axis, k) => axisSelect(axis, modes[k], op, (mode) => { modes = withAxisMode(modes, k, mode); update(); })),
+            button("sum", () => { op = "sum"; update(); }, op === "sum"),
+            button("mean", () => { op = "mean"; update(); }, op === "mean"),
+        );
+        const reduced = reducedVariable(meta, modes);
+        if (plotSpec(reduced).kind === "none") { show(reduced, new Float64Array(0)); return; }
+        try {
+            show(reduced, cdf.reduce_values(name, modes, op, ...mask));
+        } catch (e) {
+            show(null, null, e.message);
+        }
+    }
+    update();
+}
+
+// Per non-record axis: its name (DEPEND_k, else "axis k") and one label per index, from the
+// DEPEND_k values (first record when they vary) and units.
+function axisChoices(cdf, meta) {
+    return meta.shape.slice(1).map((size, k) => {
+        const dep = meta.attributes?.[`DEPEND_${k + 1}`];
+        const centers = dep ? axisValues(cdf, dep, size) : null;
+        return {
+            name: dep || `axis ${k + 1}`,
+            labels: Array.from({ length: size }, (_, i) => (centers ? `${centers.values[i]}${centers.units}` : `#${i}`)),
+        };
+    });
+}
+
+function axisValues(cdf, dep, size) {
+    try {
+        const dv = cdf.get_variable(dep);
+        if (!dv?.copy_values || dv.copy_values.length < size || CHAR_TYPES.has(dv.type)) return null;
+        const units = typeof dv.attributes?.UNITS === "string" ? ` ${dv.attributes.UNITS.trim()}` : "";
+        return { values: Array.from(dv.copy_values.slice(0, size), (v) => String(Number(Number(v).toPrecision(4)))), units };
+    } catch {
+        return null;
+    }
+}
+
+function axisSelect(axis, mode, op, onChange) {
+    const label = document.createElement("label");
+    label.className = "plot-axis";
+    const select = document.createElement("select");
+    const option = (value, text) => {
+        const o = document.createElement("option");
+        o.value = String(value);
+        o.textContent = text;
+        o.selected = value === mode;
+        return o;
+    };
+    select.append(option(KEEP, "plot"), option(COLLAPSE, op), ...axis.labels.map((text, i) => option(i, `= ${text}`)));
+    select.addEventListener("change", () => onChange(Number(select.value)));
+    label.append(axis.name, select);
+    return label;
+}
+
+// Chart area with the line/spectrogram, log/linear and export controls. The returned
+// show(meta, values, error?) redraws it for new data and keeps the toggles.
+function chartPanel(mount, cdf, name, x) {
     let override;          // undefined | "line" | "spectrogram"
-    let scale = scaleTypeOf(meta.attributes, "log");   // spectrogram color scale (ISTP default)
+    let scale;             // spectrogram color scale, from the first variable shown
+    let meta, values, error;
 
     const controls = document.createElement("div");
     controls.className = "plot-controls";
@@ -379,6 +459,11 @@ export function renderPlot(mount, cdf, name) {
     mount.append(controls, body);
 
     function redraw() {
+        if (error) {
+            controls.innerHTML = "";
+            body.replaceChildren(note(error));
+            return;
+        }
         const spec = plotSpec(meta, override);
         controls.innerHTML = "";
         body.innerHTML = "";
@@ -407,5 +492,9 @@ export function renderPlot(mount, cdf, name) {
         else drawSpectro(body, cdf, meta, spec, x, values, scale);
     }
 
-    redraw();
+    return (newMeta, newValues, newError) => {
+        [meta, values, error] = [newMeta, newValues, newError];
+        scale ??= meta && scaleTypeOf(meta.attributes, "log");   // ISTP default
+        redraw();
+    };
 }

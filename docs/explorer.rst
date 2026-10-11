@@ -30,6 +30,18 @@ ISTP attributes to do it right: ``DEPEND_0`` for the time axis, ``DISPLAY_TYPE``
 ``SCALETYP`` for log scales, and ``FILLVAL``, ``VALIDMIN`` and ``VALIDMAX`` to hide
 invalid values. You can export the plotted data as CSV or JSON.
 
+Variables with more dimensions, like particle distributions, are reduced before they are
+drawn. Each dimension gets a menu, named after its ``DEPEND_k`` variable:
+
+- **plot**: this dimension becomes the y axis. Only one dimension can be plotted.
+- **sum** or **mean**: this dimension is summed or averaged. The **sum** and **mean**
+  buttons pick which one.
+- **= value**: keep a single slice, for example one energy channel.
+
+By default, the energy dimension is plotted and the others are summed: you get the
+omnidirectional energy spectrogram. Invalid values are left out of sums and means. The
+reduction runs in WebAssembly, so the full distribution is never copied into the page.
+
 Validate
 --------
 

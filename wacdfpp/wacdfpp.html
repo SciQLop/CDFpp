@@ -313,6 +313,10 @@
         .plot-btn:hover:not(:disabled) { opacity: 1; background: var(--border); }
         .plot-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
         .plot-body { min-height: 60px; }
+        .plot-axis { display: inline-flex; align-items: center; gap: 0.3rem;
+            font-family: var(--mono); font-size: 0.72rem; color: var(--text-dim); }
+        .plot-axis select { font: inherit; padding: 0.2em 0.4em; background: var(--surface2);
+            color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
         .spectro-wrap { display: flex; gap: 0.5rem; align-items: stretch; }
         .spectro-plot { flex: 1; min-width: 0; }
         .colorbar { display: flex; gap: 0.3rem; flex: 0 0 auto; }

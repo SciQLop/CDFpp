@@ -29,6 +29,8 @@
 #include <cdfpp/chrono/cdf-chrono.hpp>
 #include <cdfpp_config.h>
 
+#include "reduce.hpp"
+
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
@@ -38,6 +40,7 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <span>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -320,6 +323,90 @@ em::val to_js_string_array(const auto& map)
     return arr;
 }
 
+em::val variable_metadata(const cdf::Variable& var)
+{
+    auto obj = em::val::object();
+    obj.set("name", var.name());
+    obj.set("type", static_cast<int>(var.type()));
+    obj.set("type_name", std::string(cdf::cdf_type_str(var.type())));
+    obj.set("is_nrv", var.is_nrv());
+    obj.set("compression", std::string(cdf::cdf_compression_type_str(var.compression_type())));
+    obj.set("values_loaded", var.values_loaded());
+
+    auto& shape = var.shape();
+    auto js_shape = em::val::array();
+    for (std::size_t i = 0; i < std::size(shape); ++i)
+        js_shape.call<void>("push", shape[i]);
+    obj.set("shape", js_shape);
+
+    obj.set("attribute_names", to_js_string_array(var.attributes));
+
+    // Attributes as a plain object, plus a parallel map of CDF type codes so callers
+    // can tell e.g. a time-typed VALIDMIN (returned as ISO date strings) from a plain
+    // numeric attribute.
+    auto attrs = em::val::object();
+    auto attr_types = em::val::object();
+    for (const auto& [aname, attr] : var.attributes)
+    {
+        attrs.set(aname, data_to_string_or_copy(attr.value()));
+        attr_types.set(aname, static_cast<int>(attr.value().type()));
+    }
+    obj.set("attributes", attrs);
+    obj.set("attribute_types", attr_types);
+    return obj;
+}
+
+wacdfpp::reduce_op parse_reduce_op(const std::string& op)
+{
+    if (op == "sum")
+        return wacdfpp::reduce_op::sum;
+    if (op == "mean")
+        return wacdfpp::reduce_op::mean;
+    throw std::invalid_argument { "reduction must be \"sum\" or \"mean\"" };
+}
+
+template <typename T>
+std::vector<double> reduce_as(const cdf::Variable& var, std::span<const int32_t> modes,
+    wacdfpp::reduce_op op, wacdfpp::value_mask mask)
+{
+    const std::vector<std::size_t> shape(std::cbegin(var.shape()), std::cend(var.shape()));
+    const std::span<const T> values { reinterpret_cast<const T*>(var.bytes_ptr()),
+        var.bytes() / sizeof(T) };
+    return wacdfpp::reduce<T>(values, shape, modes, op, mask);
+}
+
+std::vector<double> reduce_variable(const cdf::Variable& var, std::span<const int32_t> modes,
+    wacdfpp::reduce_op op, wacdfpp::value_mask mask)
+{
+    using enum cdf::CDF_Types;
+    switch (var.type())
+    {
+        case CDF_INT1:
+        case CDF_BYTE:
+            return reduce_as<int8_t>(var, modes, op, mask);
+        case CDF_UINT1:
+            return reduce_as<uint8_t>(var, modes, op, mask);
+        case CDF_INT2:
+            return reduce_as<int16_t>(var, modes, op, mask);
+        case CDF_UINT2:
+            return reduce_as<uint16_t>(var, modes, op, mask);
+        case CDF_INT4:
+            return reduce_as<int32_t>(var, modes, op, mask);
+        case CDF_UINT4:
+            return reduce_as<uint32_t>(var, modes, op, mask);
+        case CDF_INT8:
+            return reduce_as<int64_t>(var, modes, op, mask);
+        case CDF_FLOAT:
+        case CDF_REAL4:
+            return reduce_as<float>(var, modes, op, mask);
+        case CDF_DOUBLE:
+        case CDF_REAL8:
+            return reduce_as<double>(var, modes, op, mask);
+        default:
+            throw std::invalid_argument { "only numeric variables can be reduced" };
+    }
+}
+
 } // namespace
 
 
@@ -343,53 +430,37 @@ struct CdfFile
         return to_js_string_array(cdf->attributes);
     }
 
-    em::val get_variable(const std::string& name)
+    cdf::Variable* find_variable(const std::string& name)
     {
         if (!cdf)
-            return em::val::undefined();
+            return nullptr;
         auto it = cdf->variables.find(name);
-        if (it == cdf->variables.end())
+        return it == cdf->variables.end() ? nullptr : &it->second;
+    }
+
+    // Metadata only: never reads values, so it is cheap even for GiB-sized variables.
+    em::val variable_info(const std::string& name)
+    {
+        const auto* var = find_variable(name);
+        return var ? variable_metadata(*var) : em::val::undefined();
+    }
+
+    em::val get_variable(const std::string& name)
+    {
+        auto* var = find_variable(name);
+        if (var == nullptr)
             return em::val::undefined();
 
-        auto& var = it->second;
-        auto obj = em::val::object();
-        obj.set("name", var.name());
-        obj.set("type", static_cast<int>(var.type()));
-        obj.set("type_name", std::string(cdf::cdf_type_str(var.type())));
-        obj.set("is_nrv", var.is_nrv());
-        obj.set("compression", std::string(cdf::cdf_compression_type_str(var.compression_type())));
-        obj.set("values_loaded", var.values_loaded());
-
-        auto& shape = var.shape();
-        auto js_shape = em::val::array();
-        for (std::size_t i = 0; i < std::size(shape); ++i)
-            js_shape.call<void>("push", shape[i]);
-        obj.set("shape", js_shape);
-
-        obj.set("attribute_names", to_js_string_array(var.attributes));
-
-        // Lazily provide attribute getter as a plain object, plus a parallel map
-        // of CDF type codes so callers can tell e.g. a time-typed VALIDMIN
-        // (returned as ISO date strings) from a plain numeric attribute.
-        auto attrs = em::val::object();
-        auto attr_types = em::val::object();
-        for (const auto& [aname, attr] : var.attributes)
-        {
-            attrs.set(aname, data_to_string_or_copy(attr.value()));
-            attr_types.set(aname, static_cast<int>(attr.value().type()));
-        }
-        obj.set("attributes", attrs);
-        obj.set("attribute_types", attr_types);
-
+        auto obj = variable_metadata(*var);
         // values: zero-copy typed array view into WASM memory
-        var.load_values();
-        auto ptr = var.bytes_ptr();
+        var->load_values();
+        auto ptr = var->bytes_ptr();
         if (ptr != nullptr)
         {
-            auto byte_count = var.bytes();
-            obj.set("values", typed_array_view(ptr, byte_count, var.type()));
+            auto byte_count = var->bytes();
+            obj.set("values", typed_array_view(ptr, byte_count, var->type()));
             // copy_values: owned copy safe to keep after CdfFile is freed
-            obj.set("copy_values", typed_array_view(ptr, byte_count, var.type())
+            obj.set("copy_values", typed_array_view(ptr, byte_count, var->type())
                                        .call<em::val>("slice"));
         }
         else
@@ -399,6 +470,28 @@ struct CdfFile
         }
 
         return obj;
+    }
+
+    // Collapses (op "sum" or "mean") or slices the non-record dimensions of a numeric
+    // variable, one mode per dimension (see reduce.hpp), and returns an owned Float64Array
+    // of (records, kept dimensions). Invalid values are skipped; pass NaN for an unset
+    // fill / valid_min / valid_max.
+    em::val reduce_values(const std::string& name, em::val js_modes, const std::string& op,
+        double fill, double valid_min, double valid_max)
+    {
+        auto* var = find_variable(name);
+        if (var == nullptr)
+            return em::val::undefined();
+        return with_js_errors(
+            [&]
+            {
+                const auto modes = em::vecFromJSArray<int32_t>(js_modes);
+                var->load_values();
+                const auto out = reduce_variable(
+                    *var, modes, parse_reduce_op(op), { fill, valid_min, valid_max });
+                return em::val(em::typed_memory_view(std::size(out), out.data()))
+                    .call<em::val>("slice");
+            });
     }
 
     // UTC nanoseconds since 1970 for a time variable (CDF_TIME_TT2000 / CDF_EPOCH /
@@ -587,6 +680,8 @@ EMSCRIPTEN_BINDINGS(cdfpp)
         .function("variable_names", &CdfFile::variable_names)
         .function("attribute_names", &CdfFile::attribute_names)
         .function("get_variable", &CdfFile::get_variable)
+        .function("variable_info", &CdfFile::variable_info)
+        .function("reduce_values", &CdfFile::reduce_values)
         .function("time_values_as_ns_since_1970", &CdfFile::time_values_as_ns_since_1970)
         .function("get_attribute", &CdfFile::get_attribute)
         .function("majority", &CdfFile::majority)
