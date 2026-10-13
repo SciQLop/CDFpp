@@ -273,7 +273,24 @@ already with the right numpy dtype:
 
     cdf["Epoch"].add_attribute("FILLVAL", pycdfpp.default_fill_value(DataType.CDF_TIME_TT2000))
 
-:func:`pycdfpp.default_pad_value` does the same for pad values.
+Pad values
+----------
+
+A file can leave records out ("sparse records"). Readers give those records the
+variable's **pad value**. Set it when you create the variable, or later with the
+``pad_value`` property. It takes a value of the variable's type, like an attribute:
+
+.. code-block:: python
+
+    cdf.add_variable("B", np.zeros((10, 3), dtype=np.float32),
+                     pad_value=np.float32(-1e31),
+                     sparse_records=pycdfpp.SparseRecords.pad_sparse_records)
+
+    cdf["B"].pad_value = np.float32(0.0)   # change it
+    cdf["B"].pad_value = None              # the file declares no pad value
+
+:func:`pycdfpp.default_pad_value` returns the value readers use when the file declares
+none. :doc:`concepts` explains how readers fill missing records.
 
 Changing a variable's values
 ============================

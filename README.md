@@ -421,7 +421,7 @@ RLE inflate sustains ~**1.8 GB/s** on the 7840U/HS for data that fits in cache; 
 - **Writing**
     - [x] Uncompressed and compressed files/variables
     - [x] All numeric types, strings, datetime types
-    - [ ] Pad values
+    - [x] Pad values and sparse records
 - **General**
     - [x] [libdeflate](https://github.com/ebiggers/libdeflate) for faster GZip
     - [x] SIMD time conversions (AVX512/AVX2/SSE2 with runtime dispatch, NEON on ARM)
