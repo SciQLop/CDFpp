@@ -311,7 +311,10 @@ previous record with ``prev_sparse_records``:
     cdf["B"].virtual_records = None   # store every record
 
 The last record must be stored: NASA's library can't read the records after the last one a
-file stores, so saving refuses it. New values with another number of records are all stored.
+file stores, so saving refuses it.
+
+``set_values`` stores every record: the variable loses its virtual records, with a warning.
+Editing ``var.values`` in place keeps them, so the changes to virtual records aren't saved.
 
 Changing a variable's values
 ============================
