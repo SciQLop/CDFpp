@@ -426,12 +426,20 @@ class PycdfVirtualRecordsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             cdf["x"].virtual_records = np.zeros(9, dtype=bool)
 
-    def test_new_values_with_another_record_count_store_every_record(self):
-        cdf = self._sparse(np.arange(10.), np.arange(10) < 5)
-        cdf["x"].set_values(np.arange(10.) * 2, force=True)
-        self.assertEqual(cdf["x"].virtual_records.sum(), 5)
-        cdf["x"].set_values(np.arange(12.), force=True)
-        self.assertFalse(cdf["x"].virtual_records.any())
+    def test_new_values_store_every_record_with_a_warning(self):
+        for values in (np.arange(10.) * 2, np.arange(12.)):
+            with self.subTest(records=len(values)):
+                cdf = self._sparse(np.arange(10.), np.arange(10) < 5)
+                with self.assertWarnsRegex(UserWarning, "virtual records"):
+                    cdf["x"].set_values(values, force=True)
+                self.assertFalse(cdf["x"].virtual_records.any())
+
+    def test_new_values_dont_warn_without_virtual_records(self):
+        cdf = self._sparse(np.arange(10.), None)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            cdf["x"].set_values(np.arange(12.), force=True)
+            cdf["x"].set_values(np.arange(12.), force=True, copy=False)
 
     def test_virtual_records_written_by_the_nasa_library_survive_a_round_trip(self):
         original = pycdfpp.load(os.path.join(RESOURCES, "sparse_records.cdf"))

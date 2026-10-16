@@ -247,45 +247,40 @@ struct Variable
         set_stored_records(source.stored_records());
     }
 
-    // New values with another record count are all stored: the old virtual records don't
-    // describe them.
+    // New values are all stored: the old virtual records don't describe them.
     void set_data(const data_t& data, const shape_t& shape)
     {
-        const auto records = len();
         p_data = data;
         p_shape = shape;
         check_shape();
-        forget_stored_records_if_resized(records);
+        forget_stored_records();
     }
 
 
     void set_data(data_t&& data, shape_t&& shape)
     {
-        const auto records = len();
         p_data = std::move(data);
         p_shape = std::move(shape);
         check_shape();
-        forget_stored_records_if_resized(records);
+        forget_stored_records();
     }
 
     void set_data(std::pair<data_t, shape_t>&& data)
     {
-        const auto records = len();
         p_data = std::move(data.first);
         p_shape = std::move(data.second);
         check_shape();
-        forget_stored_records_if_resized(records);
+        forget_stored_records();
     }
 
     // Saving writes borrowed values as they are; any other access copies them first.
     void set_data(borrowed_data&& data, shape_t&& shape)
     {
-        const auto records = len();
         p_data = std::move(data);
         p_shape = std::move(shape);
         p_load_guard.loaded = false;
         check_shape();
-        forget_stored_records_if_resized(records);
+        forget_stored_records();
     }
 
     [[nodiscard]] std::size_t bytes() const
@@ -353,6 +348,12 @@ struct Variable
     {
         std::lock_guard lock { p_load_guard.mutex };
         return _stored_records();
+    }
+    [[nodiscard]] bool has_virtual_records() const
+    {
+        std::lock_guard lock { p_load_guard.mutex };
+        (void)_stored_records();
+        return p_stored_records.has_value();
     }
     void set_stored_records(std::vector<record_range> ranges)
     {
@@ -515,10 +516,8 @@ private:
         p_stored_records = all_stored ? std::nullopt : std::optional { std::move(ranges) };
     }
 
-    void forget_stored_records_if_resized(std::size_t previous_records)
+    void forget_stored_records()
     {
-        if (len() == previous_records)
-            return;
         p_stored_records_lister = nullptr;
         p_stored_records = std::nullopt;
     }

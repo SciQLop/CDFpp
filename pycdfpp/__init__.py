@@ -224,6 +224,9 @@ def _patch_set_values():
     def _set_values_wrapper(self, values, data_type=None, force=False, copy=True):
         """Sets or resets the values of the variable.
 
+        New values are all stored: the variable loses its virtual records, with a warning,
+        see Variable.virtual_records.
+
         Parameters
         ----------
         values : numpy.ndarray or list or tuple or Variable
@@ -271,6 +274,13 @@ def _patch_set_values():
         """
         if isinstance(values, Variable):
             return self._set_values(values, force=force)
+        had_virtual_records = self._has_virtual_records
+        _set_array_values(self, values, data_type, force, copy)
+        if had_virtual_records:
+            warnings.warn(f"set_values stores every record of '{self.name}': it had virtual records",
+                          stacklevel=2)
+
+    def _set_array_values(self, values, data_type, force, copy):
         keeps_its_type = not force and self.type != DataType.CDF_NONE
         if data_type is not None and data_type == DataType.CDF_NONE:
             data_type = None

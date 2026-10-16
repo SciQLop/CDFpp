@@ -88,7 +88,7 @@ sparse_records: SparseRecords
 virtual_records: numpy.array of bool
     one boolean per record, True for the records the file doesn't store (virtual records);
     saving leaves them out. Set it with a mask of the same length, or None to store every record.
-    New values with another record count store every record.
+    set_values stores every record, with a warning when the variable had virtual records.
 values: numpy.array
     returns variable values as a numpy.array of the corresponding dtype and shape, note that no copies are involved, the returned array is just a view on variable data.
 values_encoded: numpy.array
@@ -751,6 +751,7 @@ void def_variable_wrapper(T& mod)
             py::arg("value").noconvert(), py::arg("data_type"))
         .def("_clear_pad_value", [](Variable& var) { var.set_pad_value(std::nullopt); })
         .def_property("virtual_records", virtual_records, set_virtual_records)
+        .def_property_readonly("_has_virtual_records", &Variable::has_virtual_records)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
         .def_property_readonly("values", make_values_view<false>, py::keep_alive<0, 1>())
         .def_property_readonly("values_encoded", make_values_view<true>, py::keep_alive<0, 1>())
