@@ -51,6 +51,13 @@ def _built_fixtures():
     for flag in pycdfpp.SparseRecords:
         sparse_records.add_variable(flag.name, np.arange(10.), sparse_records=flag)
     yield "built_sparse_records.cdf", sparse_records
+    virtual_records = pycdfpp.CDF()
+    gaps = (np.arange(20_000) // 97) % 3 == 1
+    for compression in (pycdfpp.CompressionType.no_compression, pycdfpp.CompressionType.gzip_compression):
+        virtual_records.add_variable(compression.name, np.arange(20_000.), compression=compression,
+                                     sparse_records=pycdfpp.SparseRecords.pad_sparse_records,
+                                     virtual_records=gaps)
+    yield "built_virtual_records.cdf", virtual_records
     pad_values = pycdfpp.CDF()
     pad_values.add_variable("float", np.empty((0, 3), dtype=np.float32), pad_value=np.float32(-1e-30))
     pad_values.add_variable("int", np.arange(10, dtype=np.int16), pad_value=-7)

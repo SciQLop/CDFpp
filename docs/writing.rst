@@ -292,6 +292,27 @@ variable's **pad value**. Set it when you create the variable, or later with the
 :func:`pycdfpp.default_pad_value` returns the value readers use when the file declares
 none. :doc:`concepts` explains how readers fill missing records.
 
+Virtual records
+---------------
+
+To leave records out of the file, pass a mask with one boolean per record, ``True`` for the
+records not to store. Their values are ignored. Readers give them the pad value, or the
+previous record with ``prev_sparse_records``:
+
+.. code-block:: python
+
+    virtual = np.zeros(10, dtype=bool)
+    virtual[[2, 3, 7]] = True
+    cdf.add_variable("B", np.arange(10.), pad_value=-1.,
+                     sparse_records=pycdfpp.SparseRecords.pad_sparse_records,
+                     virtual_records=virtual)
+    pycdfpp.load(pycdfpp.save(cdf))["B"].values   # [0, 1, -1, -1, 4, 5, 6, -1, 8, 9]
+
+    cdf["B"].virtual_records = None   # store every record
+
+The last record must be stored: NASA's library can't read the records after the last one a
+file stores, so saving refuses it. New values with another number of records are all stored.
+
 Changing a variable's values
 ============================
 

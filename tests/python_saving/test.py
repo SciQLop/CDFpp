@@ -368,6 +368,86 @@ class PycdfSparseRecordsTest(unittest.TestCase):
                     self.assertTrue(np.array_equal(reloaded[name].values, original[name].values))
 
 
+class PycdfVirtualRecordsTest(unittest.TestCase):
+    def _sparse(self, values, virtual, **kwargs):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", values, sparse_records=pycdfpp.SparseRecords.pad_sparse_records,
+                         virtual_records=virtual, **kwargs)
+        return cdf
+
+    def _assert_round_trip(self, cdf):
+        reloaded = pycdfpp.load(pycdfpp.save(cdf))
+        stored = ~cdf["x"].virtual_records
+        self.assertEqual(reloaded["x"].virtual_records.tolist(), cdf["x"].virtual_records.tolist())
+        self.assertTrue(np.array_equal(reloaded["x"].values[stored], cdf["x"].values[stored]))
+        return reloaded
+
+    def test_there_are_none_by_default(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(10.))
+        for c in (cdf, pycdfpp.load(pycdfpp.save(cdf))):
+            self.assertFalse(c["x"].virtual_records.any())
+
+    def test_virtual_records_are_not_stored(self):
+        virtual = np.zeros(10, dtype=bool)
+        virtual[[0, 3, 4, 8]] = True
+        cdf = self._sparse(np.arange(10.), virtual, pad_value=-1.)
+        reloaded = self._assert_round_trip(cdf)
+        self.assertTrue(np.array_equal(reloaded["x"].values[virtual], [-1.] * 4))
+
+    def test_can_be_set_on_an_existing_variable_and_cleared(self):
+        cdf = self._sparse(np.arange(10.), None)
+        cdf["x"].virtual_records = np.arange(10) % 2 == 0
+        self._assert_round_trip(cdf)
+        cdf["x"].virtual_records = None
+        self.assertFalse(pycdfpp.load(pycdfpp.save(cdf))["x"].virtual_records.any())
+
+    def test_the_first_record_can_be_virtual(self):
+        self._assert_round_trip(self._sparse(np.arange(10.), np.arange(10) < 5))
+
+    def test_a_virtual_last_record_is_refused_at_save(self):
+        # NASA's library fails to read records after the last one a file stores
+        for virtual in (np.arange(10) >= 5, np.ones(10, dtype=bool)):
+            with self.subTest(virtual=virtual):
+                with self.assertRaises(ValueError):
+                    pycdfpp.save(self._sparse(np.arange(10.), virtual))
+
+    def test_many_gaps_in_compressed_and_uncompressed_variables(self):
+        # More gaps than a VXR holds entries, and gzip blocks spanning several stored ranges
+        values = np.arange(200_000, dtype=np.float64)
+        virtual = (np.arange(200_000) // 997) % 3 == 1
+        for compression in (pycdfpp.CompressionType.no_compression,
+                            pycdfpp.CompressionType.gzip_compression):
+            with self.subTest(compression=compression):
+                self._assert_round_trip(self._sparse(values, virtual, compression=compression))
+
+    def test_a_mask_of_another_length_is_refused(self):
+        cdf = self._sparse(np.arange(10.), None)
+        with self.assertRaises(ValueError):
+            cdf["x"].virtual_records = np.zeros(9, dtype=bool)
+
+    def test_new_values_with_another_record_count_store_every_record(self):
+        cdf = self._sparse(np.arange(10.), np.arange(10) < 5)
+        cdf["x"].set_values(np.arange(10.) * 2, force=True)
+        self.assertEqual(cdf["x"].virtual_records.sum(), 5)
+        cdf["x"].set_values(np.arange(12.), force=True)
+        self.assertFalse(cdf["x"].virtual_records.any())
+
+    def test_virtual_records_written_by_the_nasa_library_survive_a_round_trip(self):
+        original = pycdfpp.load(os.path.join(RESOURCES, "sparse_records.cdf"))
+        reloaded = pycdfpp.load(pycdfpp.save(original))
+        for name in original:
+            with self.subTest(name=name):
+                self.assertEqual(reloaded[name].virtual_records.tolist(),
+                                 original[name].virtual_records.tolist())
+
+    def test_copied_variables_keep_them(self):
+        cdf = self._sparse(np.arange(10.), np.arange(10) < 5)
+        copy = pycdfpp.CDF()
+        copy.add_variable(cdf["x"])
+        self.assertEqual(copy["x"].virtual_records.tolist(), cdf["x"].virtual_records.tolist())
+
+
 class PycdfPadValueTest(unittest.TestCase):
     D = pycdfpp.DataType
     # (values of an empty variable, data type, pad value)

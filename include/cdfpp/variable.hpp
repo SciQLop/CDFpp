@@ -103,6 +103,33 @@ struct lazy_load_guard
     }
 };
 
+// Records [first, last] of a variable.
+struct record_range
+{
+    std::size_t first;
+    std::size_t last;
+    bool operator==(const record_range&) const = default;
+};
+
+// Sorted and merged ranges, clipped to the first `records` records.
+[[nodiscard]] inline std::vector<record_range> normalized(
+    std::vector<record_range> ranges, std::size_t records)
+{
+    std::erase_if(ranges,
+        [records](const record_range& r) { return r.first >= records or r.first > r.last; });
+    std::ranges::sort(ranges, { }, &record_range::first);
+    std::vector<record_range> merged;
+    for (auto range : ranges)
+    {
+        range.last = std::min(range.last, records - 1);
+        if (not merged.empty() and range.first <= merged.back().last + 1)
+            merged.back().last = std::max(merged.back().last, range.last);
+        else
+            merged.push_back(range);
+    }
+    return merged;
+}
+
 /*
  * Before version 1.0 it would make sense to consider exposing a view to data instead of
  * a vector. That would allow zero copy from and to any user defined data structure
@@ -168,7 +195,7 @@ struct Variable
             && other.p_compression == p_compression
             && other.p_compression_level == p_compression_level
             && other.p_sparse_records == p_sparse_records && other.p_pad_value == p_pad_value
-            && other.p_shape == p_shape
+            && other.p_shape == p_shape && other.stored_records() == stored_records()
             && other.attributes == attributes && other._data() == _data();
     }
 
@@ -217,38 +244,48 @@ struct Variable
         p_sparse_records = source.p_sparse_records;
         p_pad_value = source.p_pad_value;
         check_shape();
+        set_stored_records(source.stored_records());
     }
 
-
+    // New values with another record count are all stored: the old virtual records don't
+    // describe them.
     void set_data(const data_t& data, const shape_t& shape)
     {
+        const auto records = len();
         p_data = data;
         p_shape = shape;
         check_shape();
+        forget_stored_records_if_resized(records);
     }
 
 
     void set_data(data_t&& data, shape_t&& shape)
     {
+        const auto records = len();
         p_data = std::move(data);
         p_shape = std::move(shape);
         check_shape();
+        forget_stored_records_if_resized(records);
     }
 
     void set_data(std::pair<data_t, shape_t>&& data)
     {
+        const auto records = len();
         p_data = std::move(data.first);
         p_shape = std::move(data.second);
         check_shape();
+        forget_stored_records_if_resized(records);
     }
 
     // Saving writes borrowed values as they are; any other access copies them first.
     void set_data(borrowed_data&& data, shape_t&& shape)
     {
+        const auto records = len();
         p_data = std::move(data);
         p_shape = std::move(shape);
         p_load_guard.loaded = false;
         check_shape();
+        forget_stored_records_if_resized(records);
     }
 
     [[nodiscard]] std::size_t bytes() const
@@ -309,6 +346,31 @@ struct Variable
     [[nodiscard]] const std::optional<data_t>& pad_value() const noexcept { return p_pad_value; }
     void set_pad_value(std::optional<data_t> pad) noexcept { p_pad_value = std::move(pad); }
 
+    // The records the file stores, as sorted and disjoint ranges. A file may leave records out
+    // (CDF User's Guide, "Sparse Records"): readers fill those virtual records, see
+    // sparse_records(). Variables not loaded from a file store every record.
+    [[nodiscard]] std::vector<record_range> stored_records() const
+    {
+        std::lock_guard lock { p_load_guard.mutex };
+        return _stored_records();
+    }
+    void set_stored_records(std::vector<record_range> ranges)
+    {
+        const auto records = len();
+        if (std::ranges::any_of(ranges,
+                [records](const record_range& r) { return r.first > r.last or r.last >= records; }))
+            throw std::invalid_argument { fmt::format(
+                "Variable '{}': stored records outside its {} records", p_name, records) };
+        p_stored_records_lister = nullptr;
+        keep_stored_records(normalized(std::move(ranges), records));
+    }
+    // Like the block counter: read from the file on first use, then the file is released.
+    void set_stored_records_lister(std::function<std::vector<record_range>()> lister)
+    {
+        p_stored_records_lister = std::move(lister);
+        release_file_if_loaded();
+    }
+
     [[nodiscard]] inline bool values_loaded() const
     {
         auto lock = lock_unless_loaded();
@@ -343,7 +405,10 @@ struct Variable
     void release_file_if_loaded() const
     {
         if (holds_values())
+        {
             (void)_is_contiguous();
+            (void)_stored_records();
+        }
     }
 
     template <class stream_t>
@@ -428,6 +493,36 @@ private:
         return *p_contiguous;
     }
 
+    [[nodiscard]] std::vector<record_range> _stored_records() const
+    {
+        if (p_stored_records_lister)
+        {
+            keep_stored_records(normalized(p_stored_records_lister(), len()));
+            p_stored_records_lister = nullptr;
+        }
+        if (p_stored_records)
+            return *p_stored_records;
+        if (len() == 0)
+            return { };
+        return { { 0, len() - 1 } };
+    }
+
+    // Kept only when some records are virtual.
+    void keep_stored_records(std::vector<record_range>&& ranges) const
+    {
+        const bool all_stored = len() == 0
+            or (std::size(ranges) == 1 and ranges.front() == record_range { 0, len() - 1 });
+        p_stored_records = all_stored ? std::nullopt : std::optional { std::move(ranges) };
+    }
+
+    void forget_stored_records_if_resized(std::size_t previous_records)
+    {
+        if (len() == previous_records)
+            return;
+        p_stored_records_lister = nullptr;
+        p_stored_records = std::nullopt;
+    }
+
     [[nodiscard]] var_data_t& _data()
     {
         own_values();
@@ -469,6 +564,9 @@ Data:
     bool p_is_zvariable = true;
     mutable std::function<std::size_t()> p_block_counter;
     mutable std::optional<bool> p_contiguous;
+    mutable std::function<std::vector<record_range>()> p_stored_records_lister;
+    // nullopt: every record is stored.
+    mutable std::optional<std::vector<record_range>> p_stored_records;
     mutable lazy_load_guard p_load_guard;
 };
 

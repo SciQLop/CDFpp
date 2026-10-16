@@ -353,6 +353,45 @@ SCENARIO("Every compiled-in codec round-trips through save and reload", "[CDF]")
     }
 }
 
+SCENARIO("Virtual records are left out of the file", "[CDF]")
+{
+    const auto codec = GENERATE(from_range(compiled_in_codecs()));
+    std::vector<char> buffer;
+    GIVEN("a variable compressed with " + cdf_compression_type_str(codec) + " and two gaps")
+    {
+        auto original = cdf_with_variables_compressed_as(codec);
+        auto& cos = original.variables["cos"];
+        const std::vector<record_range> stored { { 10, 4999 }, { 5100, 9999 } };
+        cos.set_stored_records({ { 5100, 9999 }, { 10, 2000 }, { 2001, 4999 } });
+        REQUIRE(cos.stored_records() == stored);
+        auto reloaded = saved_and_reloaded(original, buffer);
+        REQUIRE(reloaded != std::nullopt);
+        THEN("the same records are stored, with the same values")
+        {
+            const auto& cos_reloaded = reloaded->variables["cos"];
+            REQUIRE(cos_reloaded.stored_records() == stored);
+            REQUIRE(reloaded->variables["epoch"].stored_records()
+                == std::vector<record_range> { { 0, 9999 } });
+            const auto values = cos.get<double>();
+            const auto reloaded_values = cos_reloaded.get<double>();
+            for (const auto& [first, last] : stored)
+                REQUIRE(std::equal(std::begin(values) + first * 3,
+                    std::begin(values) + (last + 1) * 3, std::begin(reloaded_values) + first * 3));
+        }
+    }
+    GIVEN("ranges outside the variable's records")
+    {
+        auto original = cdf_with_variables_compressed_as(codec);
+        THEN("they are refused")
+        {
+            REQUIRE_THROWS_AS(original.variables["cos"].set_stored_records({ { 0, 10000 } }),
+                std::invalid_argument);
+            REQUIRE_THROWS_AS(
+                original.variables["cos"].set_stored_records({ { 5, 4 } }), std::invalid_argument);
+        }
+    }
+}
+
 SCENARIO("Saving a lazily loaded CDF over its own file", "[CDF]")
 {
     // Lazy variables read their values from the file when needed; saving over that file

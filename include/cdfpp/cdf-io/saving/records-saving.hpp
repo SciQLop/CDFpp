@@ -113,6 +113,8 @@ struct variable_ctx
     const Variable* variable;
     record_wrapper<cdf_zVDR_t<v3x_tag>> vdr;
     std::vector<record_wrapper<cdf_VXR_t<v3x_tag>>> vxrs;
+    // The records of each VVR/CVVR, in the same order.
+    std::vector<record_range> blocks;
     std::vector<values_records_t> values_records;
     std::optional<record_wrapper<cdf_CPR_t<v3x_tag>>> cpr = std::nullopt;
 };

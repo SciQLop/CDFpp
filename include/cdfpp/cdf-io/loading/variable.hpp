@@ -112,17 +112,10 @@ namespace
             data, offset + sizeof(vvr.header.record_size) + sizeof(vvr.header.record_type), size);
     }
 
-    // Records [first, last], as stored in one VVR/CVVR block.
-    struct stored_records
-    {
-        std::size_t first;
-        std::size_t last;
-    };
-
     // A VVR or CVVR: the records it holds, and where it is in the file.
     struct values_block
     {
-        stored_records records;
+        record_range records;
         std::size_t file_offset;
     };
 
@@ -163,6 +156,32 @@ namespace
                     };
             }
         }
+    }
+
+    template <typename cdf_version_tag_t, typename stream_t>
+    std::vector<values_block> list_var_blocks(stream_t& stream, std::size_t vxr_head)
+    {
+        std::vector<values_block> blocks;
+        cdf_VXR_t<cdf_version_tag_t> vxr;
+        if (vxr_head != 0 && load_record(vxr, stream, vxr_head))
+        {
+            list_blocks<cdf_version_tag_t>(stream, vxr, blocks);
+            while (vxr.VXRnext != 0)
+            {
+                if (!load_record(vxr, stream, vxr.VXRnext))
+                    throw std::runtime_error { "Failed to read vxr" };
+                list_blocks<cdf_version_tag_t>(stream, vxr, blocks);
+            }
+        }
+        return blocks;
+    }
+
+    [[nodiscard]] inline std::vector<record_range> records_of(
+        const std::vector<values_block>& blocks)
+    {
+        std::vector<record_range> records(std::size(blocks));
+        std::ranges::transform(blocks, std::begin(records), &values_block::records);
+        return records;
     }
 
     // The block goes at the place of its first record: a file may leave records out (sparse
@@ -222,7 +241,7 @@ namespace
     };
 
     inline void fill_missing_records(char* data, std::size_t record_count, std::size_t record_size,
-        std::vector<stored_records>& stored, const missing_records_t& missing)
+        std::vector<record_range>& stored, const missing_records_t& missing)
     {
         const auto fill = [&](std::size_t from, std::size_t to)
         {
@@ -242,7 +261,7 @@ namespace
                         std::min(std::size(missing.value), end - byte));
             }
         };
-        std::ranges::sort(stored, {}, &stored_records::first);
+        std::ranges::sort(stored, { }, &record_range::first);
         std::size_t next = 0;
         for (const auto& block : stored)
         {
@@ -261,23 +280,10 @@ namespace
             = static_cast<std::size_t>(record_count) * static_cast<std::size_t>(record_size);
         using version_t = typename VDR_t::cdf_version_t;
         data_t data = new_data_container(data_len, vdr.DataType);
-        std::vector<values_block> blocks;
-        cdf_VXR_t<version_t> vxr;
-
-        if (vdr.VXRhead != 0 && load_record(vxr, stream, vdr.VXRhead))
-        {
-            list_blocks<version_t>(stream, vxr, blocks);
-            while (vxr.VXRnext != 0)
-            {
-                if (!load_record(vxr, stream, vxr.VXRnext))
-                    throw std::runtime_error { "Failed to read vxr" };
-                list_blocks<version_t>(stream, vxr, blocks);
-            }
-        }
+        auto blocks = list_var_blocks<version_t>(stream, static_cast<std::size_t>(vdr.VXRhead));
         load_blocks<version_t>(
             stream, blocks, data.bytes_ptr(), data_len, record_size, compression_type);
-        std::vector<stored_records> stored(std::size(blocks));
-        std::ranges::transform(blocks, std::begin(stored), &values_block::records);
+        auto stored = records_of(blocks);
         fill_missing_records(data.bytes_ptr(), record_count, record_size, stored, missing);
         return data;
     }
@@ -563,6 +569,13 @@ namespace
                     variable.set_compression_type(compression_type);
                     variable.set_compression_level(compression_level);
                     variable.set_block_counter(std::move(block_counter));
+                    variable.set_stored_records_lister(
+                        [buffer = context.buffer,
+                            vxr_head = static_cast<std::size_t>(vdr.VXRhead)]()
+                        {
+                            auto stream = buffer;
+                            return records_of(list_var_blocks<cdf_version_tag_t>(stream, vxr_head));
+                        });
                     variable.set_sparse_records(sparse_records_of(vdr));
                     variable.set_pad_value(pad_value_of(vdr, context.encoding()));
                 }

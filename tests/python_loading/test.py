@@ -521,6 +521,43 @@ NASA_RECORDS = {
 }
 
 
+# The records NASA's CDF library 3.9.2 reads as virtual (CDFgetzVarRecordData returns
+# VIRTUAL_RECORD_DATA). It stores the gap of a variable without sparse records as pad values.
+NASA_VIRTUAL_RECORDS = {
+    "pad_explicit": [0, 1, 1, 0, 1, 0],
+    "pad_with_fillval": [0, 1, 1, 0, 1, 0],
+    "prev": [1, 1, 0, 1, 0],
+    "prev_with_fillval": [1, 1, 0, 1, 0],
+    "default_double": [0, 1, 0],
+    "default_uint2": [0, 1, 0],
+    "default_char": [0, 1, 0],
+    "default_tt2000": [0, 1, 0],
+    "default_epoch": [0, 1, 0],
+    "compressed_pad": [0, 1, 1, 0],
+    "no_sparse_gap": [0, 0, 0, 0],
+}
+
+
+class PycdfVirtualRecords(unittest.TestCase):
+    RESOURCES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "resources")
+
+    def test_matches_nasa_library(self):
+        for lazy_load in (True, False):
+            cdf = pycdfpp.load(os.path.join(self.RESOURCES, "sparse_records.cdf"), lazy_load=lazy_load)
+            for name, expected in NASA_VIRTUAL_RECORDS.items():
+                with self.subTest(variable=name, lazy_load=lazy_load):
+                    self.assertEqual(cdf[name].virtual_records.tolist(), [bool(v) for v in expected])
+
+    def test_is_one_boolean_per_record(self):
+        cdf = pycdfpp.load(os.path.join(self.RESOURCES, "a_cdf.cdf"))
+        for name in cdf:
+            with self.subTest(variable=name):
+                mask = cdf[name].virtual_records
+                self.assertEqual(mask.dtype, np.bool_)
+                self.assertEqual(mask.shape, (len(cdf[name]),))
+                self.assertFalse(mask.any())
+
+
 class PycdfMissingRecords(unittest.TestCase):
     """Records a file doesn't store are filled like NASA's library does: with the previous
     record (previous-missing sparse records), else FILLVAL, else the pad value."""

@@ -211,8 +211,15 @@ variable asks for it, otherwise with ``FILLVAL``, otherwise with the variable's 
 value**. So a missing record reads like a fill value, and you can mask both at once.
 
 ``var.sparse_records`` tells which way a variable asks for (a :class:`pycdfpp.SparseRecords`),
-and ``pycdfpp`` writes it back when it saves the file. It always writes every record, so the
-setting only matters to the tools that add records to the file later, as masters are used.
+and ``pycdfpp`` writes it back when it saves the file.
+
+``var.virtual_records`` tells which records the file leaves out: one boolean per record, ``True``
+for these **virtual records**. Their values are the filled ones, so they still line up with the
+other variables. Saving a loaded file leaves out the same records.
+
+.. code-block:: python
+
+    cdf["EDC_SRF"].values[~cdf["EDC_SRF"].virtual_records]   # only the records the file stores
 
 ``var.pad_value`` is the pad value the file declares, or ``None``. It reads and is set like
 the value of an attribute of the variable's type, so a ``CDF_REAL4`` variable takes
