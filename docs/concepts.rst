@@ -213,14 +213,6 @@ value**. So a missing record reads like a fill value, and you can mask both at o
 ``var.sparse_records`` tells which way a variable asks for (a :class:`pycdfpp.SparseRecords`),
 and ``pycdfpp`` writes it back when it saves the file.
 
-``var.virtual_records`` tells which records the file leaves out: one boolean per record, ``True``
-for these **virtual records**. Their values are the filled ones, so they still line up with the
-other variables. Saving a loaded file leaves out the same records.
-
-.. code-block:: python
-
-    cdf["EDC_SRF"].values[~cdf["EDC_SRF"].virtual_records]   # only the records the file stores
-
 ``var.pad_value`` is the pad value the file declares, or ``None``. It reads and is set like
 the value of an attribute of the variable's type, so a ``CDF_REAL4`` variable takes
 ``np.float32(-1e-30)``: a Python float that a float32 can't hold exactly is refused.
@@ -232,6 +224,15 @@ the value of an attribute of the variable's type, so a ``CDF_REAL4`` variable ta
                      pad_value=np.float32(-1e-30),
                      sparse_records=pycdfpp.SparseRecords.pad_sparse_records)
     cdf["EDC_SRF"].pad_value    # [-1.0000000031710769e-30], the float32 nearest to -1e-30
+
+``var.virtual_records`` tells which records the file leaves out: one boolean per record, ``True``
+for these **virtual records**. Their values are the filled ones, so they still line up with the
+other variables. Saving a loaded file leaves out the same records; :doc:`writing` shows how to
+choose them.
+
+.. code-block:: python
+
+    var.values[~var.virtual_records]   # only the records the file stores
 
 The ``FILLVAL`` attribute tells you which value that is. ``VALIDMIN`` and ``VALIDMAX``
 give the range of physically meaningful values. Always mask values outside it before
