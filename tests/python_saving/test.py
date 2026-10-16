@@ -409,8 +409,9 @@ class PycdfVirtualRecordsTest(unittest.TestCase):
         # NASA's library fails to read records after the last one a file stores
         for virtual in (np.arange(10) >= 5, np.ones(10, dtype=bool)):
             with self.subTest(virtual=virtual):
+                cdf = self._sparse(np.arange(10.), virtual)
                 with self.assertRaises(ValueError):
-                    pycdfpp.save(self._sparse(np.arange(10.), virtual))
+                    pycdfpp.save(cdf)
 
     def test_many_gaps_in_compressed_and_uncompressed_variables(self):
         # More gaps than a VXR holds entries, and gzip blocks spanning several stored ranges
