@@ -85,6 +85,10 @@ pad_value: list or str or None
 sparse_records: SparseRecords
     how readers fill the records the file doesn't store: with the pad value (pad_sparse_records),
     with the previous record (prev_sparse_records), or no sparse records (default)
+virtual_records: numpy.array of bool
+    one boolean per record, True for the records the file doesn't store (virtual records);
+    saving leaves them out. Set it with a mask of the same length, or None to store every record.
+    New values with another record count store every record.
 values: numpy.array
     returns variable values as a numpy.array of the corresponding dtype and shape, note that no copies are involved, the returned array is just a view on variable data.
 values_encoded: numpy.array
@@ -100,7 +104,6 @@ set_values
     Sets the variable values
 
 )";
-
 }
 
 namespace py = pybind11;
@@ -666,6 +669,40 @@ inline void set_values(Variable& var, const py::array& values, std::optional<CDF
 }
 
 
+// One boolean per record, true for the records the file doesn't store.
+inline py::array_t<bool> virtual_records(const Variable& var)
+{
+    py::array_t<bool> mask(static_cast<py::ssize_t>(var.len()));
+    auto* virtual_ = mask.mutable_data();
+    std::fill_n(virtual_, var.len(), true);
+    for (const auto& [first, last] : var.stored_records())
+        std::fill(virtual_ + first, virtual_ + last + 1, false);
+    return mask;
+}
+
+inline void set_virtual_records(Variable& var,
+    const std::optional<py::array_t<bool, py::array::c_style | py::array::forcecast>>& mask)
+{
+    if (not mask)
+        return var.set_stored_records(var.len() ? std::vector<record_range> { { 0, var.len() - 1 } }
+                                                : std::vector<record_range> { });
+    if (mask->ndim() != 1 or static_cast<std::size_t>(mask->size()) != var.len())
+        throw std::invalid_argument { fmt::format(
+            "virtual_records needs one boolean per record: {} for '{}'", var.len(), var.name()) };
+    const auto* virtual_ = mask->data();
+    std::vector<record_range> stored;
+    for (std::size_t record = 0; record < var.len(); ++record)
+    {
+        if (virtual_[record])
+            continue;
+        if (not stored.empty() and stored.back().last + 1 == record)
+            stored.back().last = record;
+        else
+            stored.push_back({ record, record });
+    }
+    var.set_stored_records(std::move(stored));
+}
+
 template <typename T>
 void def_variable_wrapper(T& mod)
 {
@@ -713,6 +750,7 @@ void def_variable_wrapper(T& mod)
             { var.set_pad_value(to_attr_data_entry(value, data_type)); },
             py::arg("value").noconvert(), py::arg("data_type"))
         .def("_clear_pad_value", [](Variable& var) { var.set_pad_value(std::nullopt); })
+        .def_property("virtual_records", virtual_records, set_virtual_records)
         .def_buffer([](Variable& var) -> py::buffer_info { return make_buffer(var); })
         .def_property_readonly("values", make_values_view<false>, py::keep_alive<0, 1>())
         .def_property_readonly("values_encoded", make_values_view<true>, py::keep_alive<0, 1>())

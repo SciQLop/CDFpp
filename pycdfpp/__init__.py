@@ -306,7 +306,7 @@ def _patch_add_variable():
                               attributes: Mapping[str, List[Any]] or None = None,
                               copy: bool = True, *, compression_level: int = 6,
                               sparse_records: SparseRecords = SparseRecords.no_sparse_records,
-                              pad_value=None) -> Variable:
+                              pad_value=None, virtual_records=None) -> Variable:
         ...
 
     @overload
@@ -314,15 +314,16 @@ def _patch_add_variable():
         ...
 
     @_strict_kwargs(['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes', 'copy'],
-                    keyword_only=['compression_level', 'sparse_records', 'pad_value'])
+                    keyword_only=['compression_level', 'sparse_records', 'pad_value', 'virtual_records'])
     def _add_variable_wrapper(self, name=None, values=None, data_type=None,
                               is_nrv=False, compression=CompressionType.no_compression,
                               attributes=None, copy=True, *, compression_level=6,
-                              sparse_records=SparseRecords.no_sparse_records, pad_value=None) -> Variable:
+                              sparse_records=SparseRecords.no_sparse_records, pad_value=None,
+                              virtual_records=None) -> Variable:
         """Adds a new variable to the CDF.
 
         This method can be called in two ways:
-        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True, *, compression_level=6, sparse_records=SparseRecords.no_sparse_records, pad_value=None)
+        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True, *, compression_level=6, sparse_records=SparseRecords.no_sparse_records, pad_value=None, virtual_records=None)
         2. With a Variable object: add_variable(variable)
 
         Parameters
@@ -351,6 +352,9 @@ def _patch_add_variable():
         pad_value : optional, keyword-only
             The value readers give the records the file doesn't store, see Variable.pad_value.
             (Default is None: the file declares no pad value)
+        virtual_records : numpy.ndarray of bool, optional, keyword-only
+            One boolean per record, True for the records the file won't store, see
+            Variable.virtual_records. (Default is None: every record is stored)
         variable : Variable
             An existing Variable object to add to the CDF (for the second calling method).
 
@@ -395,6 +399,8 @@ def _patch_add_variable():
         _set_first_values(var, values, data_type, copy)
         if pad_value is not None:
             var.pad_value = pad_value
+        if virtual_records is not None:
+            var.virtual_records = virtual_records
         for attr_name, attr_values in (attributes or {}).items():
             var.add_attribute(attr_name, attr_values)
         return var

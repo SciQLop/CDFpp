@@ -137,31 +137,29 @@ namespace saving
     }
 
     template <typename U>
-    void write_records(const Variable* const variable,
+    void write_records(const Variable* const variable, const std::vector<record_range>& blocks,
         const std::vector<typename variable_ctx::values_records_t>& values_records,
         const file_layout& layout, U&& writer, std::size_t virtual_offset = 0)
     {
-        const auto* data = variable->bytes_ptr();
-        for (auto& values_record : values_records)
+        const auto record_bytes = record_size_of(*variable);
+        for (std::size_t block = 0; block < std::size(values_records); ++block)
         {
+            const auto first = blocks[block].first;
             visit(
-                values_record,
+                values_records[block],
                 [&](const record_wrapper<cdf_VVR_t<v3x_tag>>& vvr)
                 {
                     const auto header_sz = record_size(vvr.record);
                     const auto len = vvr.size - header_sz;
                     if (layout.matches_memory(*variable))
-                        save_record(vvr.record, data, len, writer);
+                        save_record(
+                            vvr.record, variable->bytes_ptr() + first * record_bytes, len, writer);
                     else
                     {
                         save_record(vvr.record, writer);
-                        const auto record_bytes = record_size_of(*variable);
-                        write_in_file_layout(*variable,
-                            static_cast<std::size_t>(data - variable->bytes_ptr()) / record_bytes,
-                            len / record_bytes, layout, writer);
+                        write_in_file_layout(*variable, first, len / record_bytes, layout, writer);
                     }
                     assert(writer.offset() + virtual_offset - vvr.size == vvr.offset);
-                    data += len;
                 },
                 [&writer, virtual_offset](const record_wrapper<cdf_CVVR_t<v3x_tag>>& cvvr)
                 { write_record(cvvr, writer, virtual_offset); });
@@ -202,8 +200,8 @@ namespace saving
             {
                 write_record(variable_ctx.cpr.value(), writer, virtual_offset);
             }
-            write_records(variable_ctx.variable, variable_ctx.values_records, layout, writer,
-                virtual_offset);
+            write_records(variable_ctx.variable, variable_ctx.blocks, variable_ctx.values_records,
+                layout, writer, virtual_offset);
         }
     }
 

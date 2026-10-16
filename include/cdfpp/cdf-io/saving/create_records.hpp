@@ -290,16 +290,26 @@ namespace saving
     // (see NUM_VXR_ENTRIES in cdflib's cdfwrite.py). Longer variables get a chain of VXRs.
     inline constexpr std::size_t max_vxr_entries = 7;
 
-    inline void create_vxrs(variable_ctx& var_ctx, std::size_t records, std::size_t per_block)
+    // A block never spans virtual records: they are the ones no block holds.
+    inline std::vector<record_range> blocks_of(
+        const std::vector<record_range>& stored, std::size_t per_block)
     {
-        const std::size_t blocks = (records + per_block - 1) / per_block;
-        for (std::size_t block = 0; block < blocks; ++block)
+        std::vector<record_range> blocks;
+        for (const auto& [first, last] : stored)
+            for (auto block = first; block <= last; block += per_block)
+                blocks.push_back({ block, std::min(last, block + per_block - 1) });
+        return blocks;
+    }
+
+    inline void create_vxrs(variable_ctx& var_ctx)
+    {
+        for (std::size_t block = 0; block < std::size(var_ctx.blocks); ++block)
         {
             if (block % max_vxr_entries == 0)
                 var_ctx.vxrs.emplace_back(cdf_VXR_t<v3x_tag> { {}, 0, 0, 0, {}, {}, {} });
             auto& vxr = var_ctx.vxrs.back().record;
-            vxr.First.push_back(static_cast<int32_t>(block * per_block));
-            vxr.Last.push_back(static_cast<int32_t>(std::min(records, (block + 1) * per_block) - 1));
+            vxr.First.push_back(static_cast<int32_t>(var_ctx.blocks[block].first));
+            vxr.Last.push_back(static_cast<int32_t>(var_ctx.blocks[block].last));
         }
         for (auto& vxr : var_ctx.vxrs)
         {
@@ -314,18 +324,23 @@ namespace saving
         std::size_t record_size, std::size_t per_block, const file_layout& layout)
     {
         const std::size_t records = variable.len();
-        create_vxrs(var_ctx, records, per_block);
-        const std::size_t blocks = (records + per_block - 1) / per_block;
-        var_ctx.values_records.resize(blocks);
+        const auto stored = variable.stored_records();
+        // NASA's library fails to read the records after the last one a file stores.
+        if (stored.empty() or stored.back().last != records - 1)
+            throw std::invalid_argument { fmt::format(
+                "The last record of '{}' is virtual: a file must store it", variable.name()) };
+        var_ctx.blocks = blocks_of(stored, per_block);
+        create_vxrs(var_ctx);
+        var_ctx.values_records.resize(std::size(var_ctx.blocks));
         const bool worth_threads = variable.compression_type() != cdf_compression_type::no_compression
             && records * record_size >= parallel::min_bytes_worth_threads;
-        parallel::for_each_index(blocks, worth_threads ? parallel::hardware_threads() : 1,
+        parallel::for_each_index(std::size(var_ctx.blocks),
+            worth_threads ? parallel::hardware_threads() : 1,
             [&](std::size_t block)
             {
-                const auto first = block * per_block;
-                const auto count = std::min(records, first + per_block) - first;
+                const auto [first, last] = var_ctx.blocks[block];
                 var_ctx.values_records[block]
-                    = make_values_record(variable, count, record_size, first, layout);
+                    = make_values_record(variable, last - first + 1, record_size, first, layout);
             });
     }
 
