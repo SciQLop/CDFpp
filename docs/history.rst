@@ -5,6 +5,30 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
+0.18.0 (2026-10-21)
+-------------------
+
+* Virtual records: ``Variable.virtual_records`` is one boolean per record, True for the
+  records the file doesn't store. It is read from the file, settable, and
+  ``add_variable(virtual_records=...)`` takes it. A loaded sparse file stays sparse when
+  saved. Checked against NASA's CDF library 3.9.2.
+
+  * Saving refuses a virtual last record: NASA's library can't read the records after the
+    last one a file stores.
+  * ``set_values`` stores every record, and warns when the variable had virtual records.
+    Their new values were silently not saved.
+
+* Attributes of type ``CDF_BYTE`` can be created: ``add_attribute`` and ``set_values``
+  raised "Unsupported CDF type".
+* ``Attribute.set_values([], [])`` raised an error instead of emptying the attribute.
+* CDFpp Explorer:
+
+  * particle distributions and other multi-dimensional variables plot by summing,
+    averaging or slicing their dimensions.
+  * the y axis can be set to linear or log, and tiny or huge values get readable ticks.
+  * spectrograms pan and zoom 5 to 8 times faster.
+  * plot time axes are in UTC, and say so. They showed the viewer's timezone.
+
 0.17.0 (2026-10-03)
 -------------------
 
