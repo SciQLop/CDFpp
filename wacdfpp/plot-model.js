@@ -144,6 +144,18 @@ export function tickLabel(v) {
     return v.toLocaleString("en-US", { maximumSignificantDigits: 4 });
 }
 
+// uPlot's tzDate: a Date whose local getters read the UTC time of `seconds`. uPlot labels
+// time axes with local getters, so without this they show the viewer's timezone.
+// The offset is taken again at the shifted date: uPlot.tzDate(d, "UTC") uses the offset at
+// the real date, which is an hour off for ~2 h around each DST change.
+// simplify: the UTC times whose wall clock is a skipped local hour (spring forward) still
+// read one hour late; exact everywhere would need a UTC fmtDate and our own time splits.
+export function utcWallClock(seconds) {
+    const ms = seconds * 1e3;
+    const firstGuess = new Date(ms + new Date(ms).getTimezoneOffset() * 6e4);
+    return new Date(ms + firstGuess.getTimezoneOffset() * 6e4);
+}
+
 // A log axis cannot place values <= 0: they become gaps.
 export function positiveOnly(values) {
     return values.map((v) => (v > 0 ? v : NaN));

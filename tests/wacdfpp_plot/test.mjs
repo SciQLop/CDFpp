@@ -2,7 +2,7 @@
 //   node test.mjs
 import {
     MAX_LINES, MAX_PLOT_DIMENSIONS, MAX_PLOT_POINTS,
-    recordLength, plotSpec, KEEP, COLLAPSE, needsReduction, yAxisLog, positiveOnly, tickLabel, defaultModes, withAxisMode, reducedVariable, maskArgs, applyMask, decimateMinMax, toCSV, toJSON, dropMissingX, lineView, gapThreshold, spectroView, columnSpans,
+    recordLength, plotSpec, KEEP, COLLAPSE, needsReduction, yAxisLog, positiveOnly, tickLabel, defaultModes, withAxisMode, utcWallClock, reducedVariable, maskArgs, applyMask, decimateMinMax, toCSV, toJSON, dropMissingX, lineView, gapThreshold, spectroView, columnSpans,
 } from "../../wacdfpp/plot-model.js";
 import { normalizeWheelDelta, wheelIntent, zoomToward, panRange, pinchRange, yRangeFromPixels }
     from "../../wacdfpp/plot-gestures.js";
@@ -314,5 +314,17 @@ check("pixelIndex: sub-pixel cells still cover every pixel",
     eq(Array.from(pixelIndex(Array.from({ length: 9 }, (_, i) => [i / 3, (i + 1) / 3]), 3)), [1, 4, 7]));
 const raster = rasterize(new Uint32Array([11, 12, 21, 22]), 2, Int32Array.from([0, 1, -1]), Int32Array.from([1, 0]), 3, 2);
 check("rasterize: colors[col*rows+row], gaps transparent", eq(Array.from(raster), [12, 22, 0, 11, 21, 0]));
+
+// uPlot labels time axes with a Date's local getters: they must read UTC in any timezone.
+process.env.TZ = "Europe/Paris";
+const wallClock = (iso) => {
+    const d = utcWallClock(Date.parse(iso) / 1e3);
+    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}`;
+};
+check("utcWallClock: winter noon", wallClock("2026-01-15T12:00:00Z") === "2026-1-15 12:0");
+check("utcWallClock: summer midnight", wallClock("2026-07-01T00:30:00Z") === "2026-7-1 0:30");
+check("utcWallClock: just after spring forward", wallClock("2026-03-29T01:30:00Z") === "2026-3-29 1:30");
+check("utcWallClock: just after fall back", wallClock("2026-10-25T01:30:00Z") === "2026-10-25 1:30");
+check("utcWallClock: fall back repeated hour", wallClock("2026-10-25T02:30:00Z") === "2026-10-25 2:30");
 
 process.exit(failures ? 1 : 0);

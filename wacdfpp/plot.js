@@ -6,7 +6,7 @@
 import uPlot from "./uPlot.esm.js";
 import {
     plotSpec, applyMask, dropMissingX, lineView, gapThreshold, spectroView, columnSpans, toCSV, toJSON,
-    CHAR_TYPES, KEEP, COLLAPSE, needsReduction, yAxisLog, positiveOnly, tickLabel, defaultModes, withAxisMode, reducedVariable, maskArgs,
+    CHAR_TYPES, KEEP, COLLAPSE, needsReduction, yAxisLog, positiveOnly, tickLabel, utcWallClock, defaultModes, withAxisMode, reducedVariable, maskArgs,
 } from "./plot-model.js";
 import { bindGestures } from "./plot-gestures.js";
 import { viridis, cellEdges, scaleTypeOf, isMonotonic, colorLUT, cellColors, pixelIndex, rasterize } from "./spectrogram.js";
@@ -210,6 +210,7 @@ function zoomableChart(opts, el, isTime, { viewFor, autoY }) {
     };
     const u = new uPlot({
         ...opts,
+        tzDate: utcWallClock,
         scales: {
             ...opts.scales,
             x: { ...opts.scales.x, auto: () => !holdX },
