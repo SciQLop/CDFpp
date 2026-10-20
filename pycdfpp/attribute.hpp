@@ -276,6 +276,8 @@ data_t to_attr_data_entry(const py::buffer& input, CDF_Types data_type)
     {
         case CDF_INT1:
             return to_attr_data_entry<CDF_INT1>(buffer);
+        case CDF_BYTE:
+            return to_attr_data_entry<CDF_BYTE>(buffer);
         case CDF_INT2:
             return to_attr_data_entry<CDF_INT2>(buffer);
         case CDF_INT4:

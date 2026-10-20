@@ -146,6 +146,28 @@ class PycdfCreateCDFTest(unittest.TestCase):
             for name in ("EMPTY", "EMPTY_TOO"):
                 self.assertEqual(len(reloaded.attributes[name]), 0)
 
+    def test_can_empty_a_CDF_attribute_with_set_values(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("A", [[1, 2]])
+        cdf.attributes["A"].set_values([], [])
+        for reloaded in (cdf, pycdfpp.load(pycdfpp.save(cdf))):
+            self.assertEqual(len(reloaded.attributes["A"]), 0)
+
+    def test_can_create_CDF_BYTE_attributes(self):
+        cdf = pycdfpp.CDF()
+        var = cdf.add_variable("v", values=np.ones(1))
+        var.add_attribute("b", np.array([1, -2], dtype=np.int8), pycdfpp.DataType.CDF_BYTE)
+        cdf.add_attribute("g", [[1, -2]], [pycdfpp.DataType.CDF_BYTE])
+        cdf.add_attribute("s", [[0]])
+        cdf.attributes["s"].set_values([[3, -4]], [pycdfpp.DataType.CDF_BYTE])
+        for reloaded in (cdf, pycdfpp.load(pycdfpp.save(cdf))):
+            entries = ((reloaded["v"].attributes["b"].type(), reloaded["v"].attributes["b"].value),
+                       (reloaded.attributes["g"].type(0), reloaded.attributes["g"][0]),
+                       (reloaded.attributes["s"].type(0), reloaded.attributes["s"][0]))
+            for (data_type, values), expected in zip(entries, ([1, -2], [1, -2], [3, -4])):
+                self.assertEqual(data_type, pycdfpp.DataType.CDF_BYTE)
+                self.assertEqual(list(values), expected)
+
     def test_can_create_CDF_attributes_with_given_type(self):
         cdf = pycdfpp.CDF()
         cdf.add_attribute("ints", [[1, 2, 3], [128, 256, 512]],

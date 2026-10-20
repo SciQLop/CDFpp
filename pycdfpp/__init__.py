@@ -468,6 +468,13 @@ def _attribute_values_view_and_type(values: np.ndarray or list or str, data_type
     return _values_view_and_type(values, data_type)
 
 
+def _attribute_entries_values_and_types(entries_values, entries_types):
+    entries_types = entries_types or [None] * len(entries_values)
+    entries = [_attribute_values_view_and_type(values, data_type)
+               for values, data_type in zip(entries_values, entries_types)]
+    return [v for v, _ in entries], [t for _, t in entries]
+
+
 def _patch_add_variable_attribute():
     @overload
     def _add_attribute_wrapper(self, name: str, values: np.ndarray or List[float or int or datetime or np.integer] or str, data_type=None) -> VariableAttribute:
@@ -592,11 +599,8 @@ def _patch_add_cdf_attribute():
         """
         if isinstance(name, Attribute):
             return self._add_attribute(attribute=name)
-        entries_types = entries_types or [None] * len(entries_values)
-        entries = [_attribute_values_view_and_type(values, data_type)
-                   for values, data_type in zip(entries_values, entries_types)]
-        return self._add_attribute(name=name, entries_values=[v for v, _ in entries],
-                                   entries_types=[t for _, t in entries])
+        v, t = _attribute_entries_values_and_types(entries_values, entries_types)
+        return self._add_attribute(name=name, entries_values=v, entries_types=t)
 
     CDF.add_attribute = _add_attribute_wrapper
 
@@ -631,10 +635,7 @@ def _patch_attribute_set_values():
         if isinstance(entries_values, Attribute):
             self._set_values(entries_values)
         else:
-            entries_types = entries_types or [None] * len(entries_values)
-            v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
-                                           for values, data_type in zip(entries_values, entries_types)])]
-            self._set_values(v, t)
+            self._set_values(*_attribute_entries_values_and_types(entries_values, entries_types))
 
     Attribute.set_values = _attribute_set_values
 
