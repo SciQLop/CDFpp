@@ -211,6 +211,7 @@ function zoomableChart(opts, el, isTime, { viewFor, autoY }) {
     const u = new uPlot({
         ...opts,
         tzDate: utcWallClock,
+        axes: [{ ...opts.axes[0], ...(isTime && { label: "UTC" }) }, ...opts.axes.slice(1)],
         scales: {
             ...opts.scales,
             x: { ...opts.scales.x, auto: () => !holdX },
