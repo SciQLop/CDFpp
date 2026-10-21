@@ -434,16 +434,14 @@ RLE inflate sustains ~**1.8 GB/s** on the 7840U/HS for data that fits in cache; 
 ## Caveats
 
 - **NRV variables shape**: PyCDFpp exposes the record count as the first dimension, so NRV variables will have shape `(0, ...)` or `(1, ...)`.
-- **Reference invalidation**: Python wrappers hold references into C++ containers. Adding or removing variables/attributes can invalidate them. Always re-fetch after mutation:
+- **Removed entries**: Python wrappers hold references into C++ containers. Adding or removing *other* variables or attributes is safe, but a wrapper of an entry that is itself removed, e.g. by `pycdfpp.filter_cdf(..., inplace=True)`, dangles:
     ```python
-    # UNSAFE - ref may dangle after add_variable
     var = cdf["B_GSM"]
     cdf.add_variable("new_var", values=np.zeros(10))
-    var.values  # potential segfault
+    var.values  # fine
 
-    # SAFE - re-fetch
-    cdf.add_variable("new_var", values=np.zeros(10))
-    var = cdf["B_GSM"]
+    pycdfpp.filter_cdf(cdf, variables=["new_var"], inplace=True)  # removes B_GSM
+    var.values  # dangling: don't
     ```
 
 See the [full documentation](https://pycdfpp.readthedocs.io/en/latest/) for more details.

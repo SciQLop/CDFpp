@@ -657,10 +657,10 @@ Two things can surprise you:
 
 - ``emplace`` does nothing when the name already exists, like ``std::map::emplace``.
   To replace a value, assign to ``at(name)``.
-- The maps store their elements in a ``std::vector``.
-  Adding or removing a variable or attribute can move the others in memory.
-  Don't keep references across an ``erase`` or an ``emplace``: look the element up again.
-  That is why the example erases first, then takes ``b_gse``.
+- Each element of the maps lives in its own allocation.
+  References to an element stay valid when other elements are added or erased, like
+  ``std::map``. Iterators don't: after an ``erase`` or an ``emplace``, look the element up again.
+  Erasing keeps the order of the other elements.
 
 Saving over the file you loaded is safe, even with lazy loading: ``io::save`` reads every
 value before it opens the file. It returns ``false`` if the file can't be written.
