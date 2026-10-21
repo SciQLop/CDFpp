@@ -379,6 +379,36 @@ class Filter(unittest.TestCase):
             pycdfpp.filter_cdf(cdf, variables=42)
 
 
+class HeldReferences(unittest.TestCase):
+
+    def test_attribute_survives_adding_many_more(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("B", np.zeros(2))
+        cdf["B"].add_attribute("UNITS", "nT")
+        units = cdf["B"].attributes["UNITS"]
+        for index in range(200):
+            cdf["B"].add_attribute(f"ATTR_{index:03d}_WITH_A_LONG_NAME", "x" * 64)
+        self.assertEqual(units.name, "UNITS")
+        self.assertEqual(units.value, "nT")
+
+    def test_variable_survives_removing_another(self):
+        cdf = pycdfpp.CDF()
+        for name in ("A_VARIABLE_WITH_A_LONG_NAME", "B_VARIABLE_WITH_A_LONG_NAME",
+                     "C_VARIABLE_WITH_A_LONG_NAME"):
+            cdf.add_variable(name, np.zeros(2))
+        held = [cdf["B_VARIABLE_WITH_A_LONG_NAME"], cdf["C_VARIABLE_WITH_A_LONG_NAME"]]
+        cdf._remove_variable("A_VARIABLE_WITH_A_LONG_NAME")
+        self.assertEqual([variable.name for variable in held],
+                         ["B_VARIABLE_WITH_A_LONG_NAME", "C_VARIABLE_WITH_A_LONG_NAME"])
+
+    def test_removing_keeps_the_order(self):
+        cdf = pycdfpp.CDF()
+        for name in ("A", "B", "C", "D"):
+            cdf.add_attribute(name, ["x"])
+        cdf._remove_attribute("B")
+        self.assertEqual(list(cdf.attributes.keys()), ["A", "C", "D"])
+
+
 class Saving(unittest.TestCase):
 
     def test_experimental_codecs_warn_the_caller(self):

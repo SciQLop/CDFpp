@@ -69,18 +69,7 @@ Key meson options: `-Duse_libdeflate=true` (default, faster gzip), `-Dwith_exper
 
 ## Known Limitations
 
-**Python bindings: nomap reference invalidation.** The default `nomap` container is backed by `std::vector`. Python wrappers returned by `__getitem__` hold raw pointers into this vector. Any insertion or deletion (e.g. `add_variable`, `add_attribute`, `remove_variable`) can reallocate the vector and invalidate those pointers, causing segfaults. Do not keep references to variables or attributes while mutating the same map. For example:
-
-```python
-# UNSAFE — attr may become a dangling pointer after add_attribute
-attr = cdf["var"].attributes["DEPEND_0"]
-cdf["var"].add_attribute("NEW", "value")  # may reallocate
-attr.value  # potential segfault
-
-# SAFE — re-fetch after mutation
-cdf["var"].add_attribute("NEW", "value")
-attr = cdf["var"].attributes["DEPEND_0"]
-```
+**Python bindings: removed entries dangle.** Python wrappers returned by `__getitem__` hold raw pointers into the C++ maps. `nomap` keeps each entry in its own allocation, so adding or removing *other* entries is safe. But a wrapper of an entry that is itself removed (`_remove_variable`, `_remove_attribute`) dangles: do not use it afterwards.
 
 ## Dependencies (as meson subprojects)
 
