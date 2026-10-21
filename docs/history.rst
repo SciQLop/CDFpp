@@ -5,6 +5,19 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
+0.19.0 (2026-10-21)
+-------------------
+
+* ``filter_cdf(variable_attributes=...)`` removes variable attributes. Names or a pattern
+  apply to every variable; a function gets the variable and the attribute, to target one
+  variable. With ``add_attribute``, it renames an attribute, e.g. ``Frame`` to ``FRAME``.
+* A variable or attribute held from Python stays valid when other entries are added or
+  removed. It could read freed memory, or another entry, and crash.
+
+  * Removing a variable or an attribute keeps the order of the others: it moved the last
+    one into its place, which also changed the order in saved files.
+  * Only a wrapper of the removed entry itself dangles.
+
 0.18.0 (2026-10-21)
 -------------------
 
