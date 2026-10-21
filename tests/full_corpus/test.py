@@ -21,13 +21,19 @@ CORPUS_BASE_URL = "https://129.104.27.7/data/mirrors/CDF/test_files"
 # CI caches this directory (keyed on this file's hash) across workflows/jobs so the
 # same ~33 files aren't re-fetched from the single mirror above on every run.
 CORPUS_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.cache')
+# (connect, read) seconds: read is the longest silence, so a slow but live download goes on.
+# Without it, a stalled mirror hung a CI job until GitHub's 6 h limit.
+DOWNLOAD_TIMEOUT = (60, 300)
 
 def fetch_cdf(fname):
     cache_path = os.path.join(CORPUS_CACHE_DIR, fname)
     if os.path.exists(cache_path):
         with open(cache_path, 'rb') as f:
             return pycdfpp.load(f.read())
-    content = requests.get(f"{CORPUS_BASE_URL}/{fname}", verify=False).content
+    response = requests.get(f"{CORPUS_BASE_URL}/{fname}", verify=False,
+                            timeout=DOWNLOAD_TIMEOUT)
+    response.raise_for_status()
+    content = response.content
     os.makedirs(CORPUS_CACHE_DIR, exist_ok=True)
     with open(cache_path, 'wb') as f:
         f.write(content)

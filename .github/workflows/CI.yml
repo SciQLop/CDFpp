@@ -84,6 +84,8 @@ jobs:
 
   test_wheels:
     needs: [build_wheels]
+    # A normal run takes under 5 minutes; this only stops a hung one.
+    timeout-minutes: 45
     strategy:
       matrix:
         os: [macos-15-intel, macos-latest, windows-latest, windows-11-arm, ubuntu-latest, ubuntu-24.04-arm]
