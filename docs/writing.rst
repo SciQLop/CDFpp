@@ -361,6 +361,29 @@ everything else:
     cdf.filter(variables=lambda v: v.name != "Instrument_mode", inplace=True)
     "Instrument_mode" in cdf      # False
 
+Removing and renaming attributes
+================================
+
+``attributes`` filters the global attributes. ``variable_attributes`` filters the attributes
+of every variable. Give it names or a pattern to keep them everywhere, or a function of the
+variable and the attribute to target one variable:
+
+.. code-block:: python
+
+    cdf.filter(attributes=lambda a: a.name != "Generated_by", inplace=True)
+    cdf.filter(variable_attributes=lambda v, a: not (v.name == "B" and a.name == "Frame"),
+               inplace=True)
+
+There is no rename: remove the attribute, then add it back under its new name.
+
+.. code-block:: python
+
+    frame = cdf["B"].attributes["Frame"]
+    new = cdf.filter(variable_attributes=lambda v, a: not (v.name == "B" and a.name == "Frame"))
+    new["B"].add_attribute("FRAME", frame.value, frame.type())
+
+Without ``inplace=True``, ``frame`` still points into ``cdf``, which keeps its ``Frame``.
+
 Editing an existing file
 ========================
 

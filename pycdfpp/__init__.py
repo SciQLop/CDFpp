@@ -716,9 +716,34 @@ def _patch_pad_value():
 _patch_pad_value()
 
 
+def _make_filter(criterion):
+    if criterion is None:
+        return lambda x: True
+    elif isinstance(criterion, (list, tuple)):
+        return lambda x: x.name in criterion
+    elif isinstance(criterion, str):
+        return lambda x: re.match(criterion, x.name) is not None
+    elif isinstance(criterion, re.Pattern):
+        return lambda x: criterion.match(x.name) is not None
+    elif callable(criterion):
+        return criterion
+    else:
+        raise TypeError(f"Unsupported type for filter criterion: {type(criterion)}")
+
+
+def _make_variable_attribute_filter(criterion):
+    """A (variable, attribute) predicate: names and patterns ignore the variable."""
+    if callable(criterion):
+        return criterion
+    by_name = _make_filter(criterion)
+    return lambda var, attr: by_name(attr)
+
+
 def filter_cdf(cdf: CDF,
                variables: Union[List[str], str, re.Pattern, Callable[[Variable], bool]] = None,
                attributes: Union[List[str], str, re.Pattern, Callable[[Attribute], bool]]= None,
+               variable_attributes: Union[List[str], str, re.Pattern,
+                                          Callable[[Variable, VariableAttribute], bool]] = None,
                inplace=False) -> CDF:
     """Filters the CDF object based on the provided criteria.
 
@@ -732,6 +757,10 @@ def filter_cdf(cdf: CDF,
     attributes : Union[List[str], str, re.Pattern, Callable[[Attribute], bool]], optional
         A list of global attribute names to keep, a regex pattern, or a callable that returns True for attributes
         to keep. If None (default), all global attributes are kept.
+    variable_attributes : Union[List[str], str, re.Pattern, Callable[[Variable, VariableAttribute], bool]], optional
+        A list of variable attribute names to keep, or a regex pattern, applied to every variable; or a
+        callable that takes the variable and the attribute, and returns True for attributes to keep.
+        If None (default), all variable attributes are kept.
     inplace : bool, optional
         If True, modifies the original CDF object. If False, returns a new filtered CDF object. (Default is False)
 
@@ -739,33 +768,32 @@ def filter_cdf(cdf: CDF,
     -------
     CDF
         Returns a new CDF object with the filtered variables and attributes.
+
+    Examples
+    --------
+    Rename the attribute Frame of variable B to FRAME:
+
+    >>> frame = cdf["B"].attributes["Frame"]
+    >>> new = filter_cdf(cdf, variable_attributes=lambda var, attr: not (var.name == "B" and attr.name == "Frame"))
+    >>> new["B"].add_attribute("FRAME", frame.value, frame.type())
     """
 
     result_cdf = cdf if inplace else copy.deepcopy(cdf)
 
-    def _make_filter(criterion):
-        if criterion is None:
-            return lambda x: True
-        elif isinstance(criterion, (list, tuple)):
-            return lambda x: x.name in criterion
-        elif isinstance(criterion, str):
-            return lambda x: re.match(criterion, x.name) is not None
-        elif isinstance(criterion, re.Pattern):
-            return lambda x: criterion.match(x.name) is not None
-        elif callable(criterion):
-            return criterion
-        else:
-            raise TypeError(f"Unsupported type for filter criterion: {type(criterion)}")
-    
     var_filter = _make_filter(variables)
     attr_filter = _make_filter(attributes)
+    var_attr_filter = _make_variable_attribute_filter(variable_attributes)
 
     vars_to_remove = [ name for name, var in result_cdf.items() if not var_filter(var)]
     attrs_to_remove = [ name for name, attr in list(result_cdf.attributes.items()) if not attr_filter(attr)]
 
     list(map(result_cdf._remove_variable, vars_to_remove))
     list(map(result_cdf._remove_attribute, attrs_to_remove))
-    
+    for _, var in result_cdf.items():
+        var_attrs_to_remove = [name for name, attr in list(var.attributes.items())
+                               if not var_attr_filter(var, attr)]
+        list(map(var._remove_attribute, var_attrs_to_remove))
+
     return result_cdf
 
 CDF.filter = filter_cdf

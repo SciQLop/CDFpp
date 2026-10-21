@@ -378,6 +378,50 @@ class Filter(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, "criterion"):
             pycdfpp.filter_cdf(cdf, variables=42)
 
+    @staticmethod
+    def cdf_with_variable_attributes():
+        cdf = pycdfpp.CDF()
+        for name in ("B", "E"):
+            cdf.add_variable(name, np.zeros(2), attributes={"Frame": ["GSE"], "UNITS": ["nT"],
+                                                            "FIELDNAM": [name]})
+        return cdf
+
+    @staticmethod
+    def variable_attribute_names(cdf):
+        return {name: list(cdf[name].attributes.keys()) for name in cdf.keys()}
+
+    def test_variable_attributes_by_name_apply_to_every_variable(self):
+        for criterion in (["UNITS", "FIELDNAM"], ("UNITS", "FIELDNAM"), "UNITS|FIELDNAM",
+                          re.compile("UNITS|FIELDNAM")):
+            with self.subTest(criterion=criterion):
+                result = pycdfpp.filter_cdf(self.cdf_with_variable_attributes(),
+                                            variable_attributes=criterion)
+                self.assertEqual(self.variable_attribute_names(result),
+                                 {"B": ["UNITS", "FIELDNAM"], "E": ["UNITS", "FIELDNAM"]})
+
+    def test_variable_attributes_callable_sees_the_variable(self):
+        cdf = self.cdf_with_variable_attributes()
+        result = pycdfpp.filter_cdf(
+            cdf, variable_attributes=lambda var, attr: not (var.name == "B" and attr.name == "Frame"))
+        self.assertEqual(self.variable_attribute_names(result),
+                         {"B": ["UNITS", "FIELDNAM"], "E": ["Frame", "UNITS", "FIELDNAM"]})
+        self.assertEqual(self.variable_attribute_names(cdf)["B"], ["Frame", "UNITS", "FIELDNAM"])
+
+    def test_renaming_a_variable_attribute(self):
+        cdf = self.cdf_with_variable_attributes()
+        frame = cdf["B"].attributes["Frame"]
+        result = pycdfpp.filter_cdf(
+            cdf, variable_attributes=lambda var, attr: not (var.name == "B" and attr.name == "Frame"))
+        result["B"].add_attribute("FRAME", frame.value, frame.type())
+        reloaded_b = reloaded(result)["B"]
+        self.assertEqual(list(reloaded_b.attributes.keys()), ["UNITS", "FIELDNAM", "FRAME"])
+        self.assertEqual(reloaded_b.attributes["FRAME"].value, "GSE")
+
+    def test_removing_a_missing_variable_attribute(self):
+        cdf = self.cdf_with_variable_attributes()
+        with self.assertRaisesRegex(ValueError, "Variable attribute 'nope' does not exist"):
+            cdf["B"]._remove_attribute("nope")
+
 
 class HeldReferences(unittest.TestCase):
 

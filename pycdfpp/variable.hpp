@@ -854,5 +854,16 @@ void def_variable_wrapper(T& mod)
                         "Variable attribute '{}' already exists", attr.name) };
                 }
             },
-            py::arg("attribute"), py::return_value_policy::reference_internal);
+            py::arg("attribute"), py::return_value_policy::reference_internal)
+        .def(
+            "_remove_attribute",
+            [](Variable& var, const std::string& name)
+            {
+                auto it = var.attributes.find(name);
+                if (it == var.attributes.end())
+                    throw std::invalid_argument { fmt::format(
+                        "Variable attribute '{}' does not exist", name) };
+                var.attributes.erase(it);
+            },
+            py::arg("name"));
 }

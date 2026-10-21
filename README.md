@@ -201,6 +201,9 @@ filtered = cdf.filter(variables="B_.*", attributes=".*")
 
 # Filter with a callable
 filtered = cdf.filter(variables=lambda var: var.name.startswith("B_"))
+
+# Drop one variable attribute, here Frame of B
+filtered = cdf.filter(variable_attributes=lambda var, attr: not (var.name == "B" and attr.name == "Frame"))
 ```
 
 ### Cloning variables between CDF files
