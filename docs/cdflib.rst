@@ -105,3 +105,17 @@ Writing files (``cdfwrite.CDF``)
 - No file exists before ``close()``: ``cdr_head``, ``gdr_head`` and ``offset`` are ``0``, the
   offsets in ``zvarsinfo``, ``rvarsinfo`` and ``attrsinfo`` too, and ``compressed_file`` is
   ``None``.
+
+xarray (``cdf_to_xarray``)
+--------------------------
+
+- The differences of ``cdfepoch`` and ``CDF`` above carry over: ``CDF_EPOCH`` times keep their
+  fraction of a millisecond, ``CDF_EPOCH`` fill values give ``NaT``, sparse records hold NASA's
+  values.
+- Without time conversion (``to_datetime=False``, ``to_unixtime=False``), every value of a
+  ``CDF_EPOCH16`` variable or attribute becomes a ``CDF_EPOCH`` value, as cdflib intends. cdflib
+  converts only single values: an array keeps its ``CDF_EPOCH16`` values and only its first 7
+  records, in a dimension of its own, or raises ``ValueError`` on unusual dates.
+- A ``LABL_PTR_n`` whose ``DEPEND_n`` names no variable is ignored. cdflib raises ``KeyError``.
+  ``DEPEND_n``, ``LABL_PTR_n`` and ``DELTA_PLUS_VAR``/``DELTA_MINUS_VAR`` values that are not
+  names are ignored too; cdflib raises ``TypeError`` for arrays.

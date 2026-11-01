@@ -14,9 +14,12 @@ import api_parity
 
 # Loop variables of the class body that reads the leap second file: not API, and lsreader's
 # repr holds a memory address.
-CDFEPOCH_LOADER_LEFTOVERS = tuple("CDFepoch." + name for name in ("lsfile", "lsreader", "csv_row", "row", "r"))
+LOADER_LEFTOVERS = ("lsfile", "lsreader", "csv_row", "row", "r")
+CDFEPOCH_LOADER_LEFTOVERS = tuple("CDFepoch." + name for name in LOADER_LEFTOVERS)
 # gzip_inflate is imported from cdflib's private _gzip_wrapper: not API.
 CDFREAD_NOT_OURS = ("gzip_inflate",)
+# xarray_to_cdf comes with the writer half of the xarray converters.
+XARRAY_NOT_YET = ("xarray_to_cdf",)
 RESOURCES = Path(__file__).resolve().parent.parent / "resources"
 
 
@@ -70,6 +73,11 @@ class CdflibApi(unittest.TestCase):
             api_parity.assert_same_instance_attributes(self, ours, theirs)
             ours.close()
             theirs.close()
+
+    def test_xarray_api(self):
+        api_parity.assert_same_api(self, *api_parity.module_pair("xarray"), ignored=XARRAY_NOT_YET)
+        api_parity.assert_same_api(self, *api_parity.module_pair("xarray.cdf_to_xarray"),
+                                   ignored=tuple("cdfepoch." + name for name in LOADER_LEFTOVERS))
 
     def test_package_exports_reader(self):
         import pycdfpp.cdflib as ours

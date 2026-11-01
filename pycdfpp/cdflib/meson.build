@@ -14,3 +14,5 @@ fs.copyfile('utils.py', 'utils.py')
 fs.copyfile('logging.py', 'logging.py')
 
 python3.install_sources(cdflib_python_sources, pure: false, subdir: 'pycdfpp/cdflib')
+
+subdir('xarray')
