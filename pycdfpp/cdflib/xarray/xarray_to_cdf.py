@@ -1,8 +1,8 @@
 """xarray.Dataset to CDF file: cdflib 1.3.16's xarray_to_cdf, its ISTP checks and type choices, on our cdfwrite.CDF."""
+import functools
 import os
-import re
 from datetime import datetime
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional
 
 import numpy as np
 import xarray as xr
@@ -13,6 +13,13 @@ from .. import _types
 from ..cdfwrite import CDF
 from ..epochs import CDFepoch as cdfepoch
 from ..logging import logger
+from ._istp import DEPEND_ATTRIBUTE, ISTP_COMPLIANT_NAME, ISTPError  # noqa: F401 (public, as in cdflib)
+from ._istp import Records as _Records
+from ._istp import Report as _Report
+from ._istp import is_epoch_name as _is_epoch_name
+from ._istp import istp_records as _istp_records
+from ._istp import names as _names
+from ._istp import reporter as _reporter
 
 
 def _fill_value(cdf_type: _types.CdfType):
@@ -31,63 +38,30 @@ def _fill_value(cdf_type: _types.CdfType):
 DATATYPES_TO_STRINGS = {t.number: t.name for t in _types.CDF_TYPES}
 STRINGS_TO_DATATYPES = {t.name: t.number for t in _types.CDF_TYPES}
 DATATYPE_FILLVALS = {t.number: _fill_value(t) for t in _types.CDF_TYPES}
-ISTP_COMPLIANT_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
-DEPEND_ATTRIBUTE = re.compile(r"^DEPEND_[0-9]+$")
-
-
-class ISTPError(Exception):
-    """
-    Raised by xarray_to_cdf with terminate_on_warning=True when the Dataset breaks an ISTP rule.
-    """
-
-    def __init__(self, message: str = ""):
-        super().__init__(message)
-
 
 _TIME_TYPES = ("CDF_EPOCH", "CDF_EPOCH16", "CDF_TIME_TT2000")
-_VAR_TYPES = ("data", "support_data", "metadata", "ignore_data")
-_REQUIRED_GLOBAL_ATTRIBUTES = (
-    "Project", "Source_name", "Discipline", "Data_type", "Descriptor", "Data_version", "Logical_file_id", "PI_name",
-    "PI_affiliation", "TEXT", "Instrument_type", "Mission_group", "Logical_source", "Logical_source_description")
-_EPOCH_NAME = re.compile(r"epoch(_[0-9]+)?$")
-_DEPEND_KEY = re.compile(r"depend_[0-9]+$")
-_LABELLED_DEPEND = re.compile(r"^DEPEND_([1-9])$")
-# DISPLAY_TYPE: first DEPEND_n number that needs a LABL_PTR_n.
-_FIRST_LABELLED_DEPEND = {"time_series": 1, "stack_plot": 1, "spectrogram": 2}
 _NUMPY_TO_CDF = {np.dtype(code): name for code, name in (
     ("i1", "CDF_INT1"), ("i2", "CDF_INT2"), ("i4", "CDF_INT4"), ("i8", "CDF_INT8"), ("u1", "CDF_UINT1"),
     ("u2", "CDF_UINT2"), ("u4", "CDF_UINT4"), ("f2", "CDF_FLOAT"), ("f4", "CDF_FLOAT"), ("f8", "CDF_DOUBLE"),
     ("c16", "CDF_EPOCH16"))}
 _FROM_UNIX = {"CDF_EPOCH": cdfepoch.timestamp_to_cdfepoch, "CDF_EPOCH16": cdfepoch.timestamp_to_cdfepoch16}
-
-_Report = Callable[..., None]
-
-
-class _Records(NamedTuple):
-    depend_0s: List[Any]
-    varying: List[Any]
+# Raw fill values of the time types, for unix times: DATATYPE_FILLVALS holds NaT for TT2000.
+_RAW_TIME_FILLS = {"CDF_EPOCH": -1e31, "CDF_EPOCH16": complex(-1e31, -1e31),
+                   "CDF_TIME_TT2000": np.iinfo(np.int64).min}
 
 
-def _reporter(terminate_on_warning: bool) -> _Report:
-    """report(message, error): raises error with terminate_on_warning, else logs a warning. ISTP rules raise
-    ISTPError, other problems Exception, as in cdflib."""
-    def report(message: str, error: type = ISTPError) -> None:
-        if terminate_on_warning:
-            raise error(message)
-        logger.warning(message)
-    return report
+class _Choice(NamedTuple):
+    """A variable's CDF type, its number of elements, and why cdflib would warn about it (or None)."""
+    cdf_type: _types.CdfType
+    size: int
+    problem: Optional[str] = None
 
 
-def _names(dataset: xr.Dataset) -> list:
-    return [*dataset.data_vars, *dataset.coords]
-
-
-def _is_epoch_name(name) -> bool:
-    return bool(_EPOCH_NAME.match(name.lower()))
-
-
-def _has_depend_0(attrs: dict) -> bool:
-    return any(key.lower() == "depend_0" for key in attrs)
+class _Options(NamedTuple):
+    compression: int
+    skip: List[str]
+    unix: bool
+    istp: bool
 
 
 def _holds_datetimes(value) -> bool:
@@ -101,38 +75,64 @@ def _text_size(values) -> int:
     return max((len(str(v).encode("utf-8")) for v in np.ravel(values)), default=0)
 
 
-def _cdf_type(variable: xr.DataArray) -> Tuple[_types.CdfType, int]:
-    """The CDF type of a variable and its number of elements, as cdflib chooses them."""
+def _is_time(cdf_type: _types.CdfType) -> bool:
+    return cdf_type.name in _TIME_TYPES
+
+
+def _choice(variable: xr.DataArray) -> _Choice:
+    """The CDF type cdflib chooses: CDF_DATA_TYPE, else TT2000 for epoch names, else from the numpy dtype."""
     override = variable.attrs.get("CDF_DATA_TYPE")
     if override in STRINGS_TO_DATATYPES:
-        return _types.by_name[override], 1
+        return _Choice(_types.by_name[override], 1)
     if _is_epoch_name(variable.name):
-        return _types.by_name["CDF_TIME_TT2000"], 1
-    name, size = _numpy_cdf_type(variable)
-    return _types.by_name[name], size
+        return _Choice(_types.by_name["CDF_TIME_TT2000"], 1)
+    name, size, problem = _numpy_choice(variable)
+    return _Choice(_types.by_name[name], size, problem)
 
 
-def _numpy_cdf_type(variable: xr.DataArray) -> Tuple[str, int]:
-    dtype = variable.dtype
+def _uint64_choice(variable: xr.DataArray):
+    """CDF has no 64 bit unsigned integers: CDF_INT8 holds them below 2**63. cdflib wraps them into CDF_UINT4."""
+    values = variable.values
+    if values.size and values.max() >= 2**63:
+        raise ValueError(f"{variable.name}: values from 2**63 on fit no CDF type")
+    return "CDF_INT8", 1, f"{variable.name}: CDF has no 64 bit unsigned integers, written as CDF_INT8"
+
+
+def _numpy_choice(variable: xr.DataArray):
+    dtype = variable.dtype.newbyteorder("=")
     if dtype in _NUMPY_TO_CDF:
-        return _NUMPY_TO_CDF[dtype], 1
+        return _NUMPY_TO_CDF[dtype], 1, None
     if dtype == np.uint64:
-        logger.warning(f"{variable.name}: CDF has no 64 bit unsigned integers, written as CDF_UINT4")
-        return "CDF_UINT4", 1
+        return _uint64_choice(variable)
     if dtype.kind == "S":
-        return "CDF_CHAR", dtype.itemsize
+        return "CDF_CHAR", dtype.itemsize, None
     if dtype.kind == "U":
-        return "CDF_CHAR", max(dtype.itemsize // 4, _text_size(variable.values))
+        return "CDF_CHAR", max(dtype.itemsize // 4, _text_size(variable.values)), None
     if dtype.kind == "M" or (dtype == object and _holds_datetimes(variable.values)):
-        return "CDF_TIME_TT2000", 1
+        return "CDF_TIME_TT2000", 1, None
     if dtype == object:
-        return "CDF_CHAR", _text_size(variable.values)
-    logger.warning(f"{variable.name}: values of type {dtype} have no CDF type")
-    return "CDF_CHAR", 1
+        return "CDF_CHAR", _text_size(variable.values), None
+    return "CDF_CHAR", 1, f"{variable.name}: values of type {dtype} have no CDF type"
 
 
-def _fill_value_of(variable: xr.DataArray):
-    return DATATYPE_FILLVALS[_cdf_type(variable)[0].number]
+def _fill_of(choices: Dict[Any, _Choice], name):
+    return DATATYPE_FILLVALS[choices[name].cdf_type.number]
+
+
+def _choices(dataset: xr.Dataset) -> Dict[Any, _Choice]:
+    return {name: _choice(dataset[name]) for name in _names(dataset)}
+
+
+def _log_problems(*choices: Dict[Any, _Choice]) -> None:
+    """One warning per variable, whether its type was a problem before or after filling NaN."""
+    problems = {name: c.problem for found in choices for name, c in found.items() if c.problem}
+    for problem in problems.values():
+        logger.warning(problem)
+
+
+def _is_unix_time(variable: xr.DataArray, cdf_type: _types.CdfType, unix_time_to_cdf_time: bool) -> bool:
+    return unix_time_to_cdf_time and not _holds_datetimes(variable.values) and (
+        _is_epoch_name(variable.name) or _is_time(cdf_type))
 
 
 def _nan_to_fill(value, fill):
@@ -142,273 +142,21 @@ def _nan_to_fill(value, fill):
         return value
 
 
-def _fill_nans(dataset: xr.Dataset) -> None:
+def _fill_nans(dataset: xr.Dataset, choices: Dict[Any, _Choice], unix_time_to_cdf_time: bool) -> None:
+    """NaN to FILLVAL, as cdflib. Unix times keep their NaN: the time conversion maps them to the fill value.
+    Integers hold no NaN: left alone, filling would make floats of uint64."""
     for name in _names(dataset):
-        fill = _fill_value_of(dataset[name])
-        attrs = dataset[name].attrs
-        if np.asarray(fill).dtype.kind != "M":
+        cdf_type = choices[name].cdf_type
+        fill, attrs = DATATYPE_FILLVALS[cdf_type.number], dataset[name].attrs
+        unix_time = _is_unix_time(dataset[name], cdf_type, unix_time_to_cdf_time)
+        time_attrs = attrs.get("TIME_ATTRS", ()) if unix_time else ()
+        if np.asarray(fill).dtype.kind != "M" and not unix_time and dataset[name].dtype.kind not in "iu":
             try:
                 dataset[name] = dataset[name].fillna(fill)
             except Exception:  # values fillna can't fill keep their NaNs
                 pass
-        dataset[name].attrs = {key: _nan_to_fill(value, fill) for key, value in attrs.items()}
-
-
-def _check_names(dataset: xr.Dataset, report: _Report) -> None:
-    named = (("variable", dataset.variables), ("global attribute", dataset.attrs),
-             ("variable attribute", [key for v in dataset.variables.values() for key in v.attrs]))
-    for kind, names in named:
-        for name in names:
-            if not ISTP_COMPLIANT_NAME.match(str(name)):
-                report(f"ISTP: {name!r} is not a valid {kind} name")
-
-
-def _mark_label_variables(dataset: xr.Dataset, report: _Report) -> None:
-    """Variables a LABL_PTR names are metadata, unless they say otherwise."""
-    labels = set()
-    for name in dataset.data_vars:
-        for key, target in dataset[name].attrs.items():
-            if not key.startswith("LABL_PTR"):
-                continue
-            if target in dataset.variables:
-                labels.add(target)
-            else:
-                report(f"ISTP: {key} of {name} names {target}, which is not in the Dataset")
-    for label in labels:
-        dataset[label].attrs.setdefault("VAR_TYPE", "metadata")
-
-
-def _checked_var_type(name, attrs: dict, report: _Report) -> str:
-    if "VAR_TYPE" not in attrs:
-        report(f"ISTP: {name} has no VAR_TYPE (data, support_data, metadata or ignore_data)")
-        return ""
-    if attrs["VAR_TYPE"].lower() not in _VAR_TYPES:
-        report(f"ISTP: VAR_TYPE of {name} is {attrs['VAR_TYPE']}, not one of {', '.join(_VAR_TYPES)}")
-        return ""
-    return attrs["VAR_TYPE"].lower()
-
-
-# Shape rules a DEPEND_n variable must follow, in cdflib's order: (rule broken, problem).
-# p: shape of the variable, c: shape of its DEPEND_n, n: the DEPEND number, a: the variable's attributes.
-_DEPEND_SHAPE_RULES = (
-    (lambda p, c, n, a: len(p) != 0 and len(c) == 0, "their dimensions differ"),
-    (lambda p, c, n, a: len(c) != 0 and len(p) == 0, "their dimensions differ"),
-    (lambda p, c, n, a: len(c) > 2, "it has more than 2 dimensions"),
-    (lambda p, c, n, a: len(c) == 2 and p[0] != c[0], "their records differ"),
-    (lambda p, c, n, a: len(p) < n, "the variable has fewer dimensions"),
-    (lambda p, c, n, a: len(p) < n + 1 and a.get("VAR_TYPE", None) == "data",
-     "a data variable needs a dimension per DEPEND"),
-    (lambda p, c, n, a: len(p) < n + 1 and "VAR_TYPE" in a and a["VAR_TYPE"] != "data" and _has_depend_0(a),
-     "a variable with a DEPEND_0 needs a dimension per DEPEND"),
-    (lambda p, c, n, a: _has_depend_0(a) and p[n] != c[-1], "their sizes differ"),
-    (lambda p, c, n, a: not _has_depend_0(a) and p[n - 1] != c[-1], "their sizes differ"),
-)
-
-
-def _depend_fits(dataset: xr.Dataset, number: int, name, target, report: _Report) -> bool:
-    """Whether target can be DEPEND_<number> of name; reports why not."""
-    shape, target_shape, attrs = dataset[name].shape, dataset[target].shape, dataset[name].attrs
-    try:
-        problem = next((problem for broken, problem in _DEPEND_SHAPE_RULES
-                        if broken(shape, target_shape, number, attrs)), None)
-    except IndexError as error:
-        report(f"{target} as DEPEND_{number} of {name} could not be checked: {error}", Exception)
-        return False
-    if problem is not None:
-        report(f"ISTP: {target} can't be DEPEND_{number} of {name}: {problem}")
-    return problem is None
-
-
-def _depend_dimensions(dataset: xr.Dataset, report: _Report) -> set:
-    """Names of the non-record dimensions: dimensions after the first, and valid DEPEND_n (n > 0) targets."""
-    found = set()
-    for name in _names(dataset):
-        attrs = dataset[name].attrs
-        var_type = _checked_var_type(name, attrs, report)
-        for key, target in list(attrs.items()):
-            if not _DEPEND_KEY.match(key.lower()) or key == "DEPEND_0":
-                continue
-            if target not in dataset.variables:
-                report(f"ISTP: {key} of {name} names {target}, which is not in the Dataset")
-            elif _depend_fits(dataset, int(key[-1]), name, target, report):
-                found.add(target)
-        for number, dim in enumerate(dataset[name].dims[1:], 1):
-            found.add(dim)
-            if dim not in dataset.variables and var_type == "data" and f"DEPEND_{number}" not in attrs:
-                report(f"ISTP: dimension {dim} of {name} is no variable: give {name} a DEPEND_{number}")
-    return found
-
-
-def _depend_0_candidate(name, dims, attrs: dict):
-    """What the records of a variable would be: its DEPEND_0, an Epoch, or the first dimension of (2D support) data."""
-    if "DEPEND_0" in attrs:
-        return attrs["DEPEND_0"]
-    if _is_epoch_name(dims[0]):
-        return dims[0]
-    if _is_epoch_name(name):
-        return name
-    var_type = attrs["VAR_TYPE"].lower() if "VAR_TYPE" in attrs else ""
-    if var_type == "data" or (var_type == "support_data" and len(dims) > 1):
-        return dims[0]
-    return ""
-
-
-def _record_variables(dataset: xr.Dataset, dimensions: set, report: _Report) -> Tuple[List[Any], List[Any]]:
-    """The record (DEPEND_0) variables, and the variables that vary along them."""
-    depend_0s, varying = [], []
-    for name in _names(dataset):
-        dims, attrs = dataset[name].dims, dataset[name].attrs
-        target = _depend_0_candidate(name, dims, attrs) if dims else ""
-        if target in dimensions or target == "":
-            continue
-        if target in dataset.variables:
-            if not _depend_fits(dataset, 0, name, target, report):
-                report(f"ISTP: {name} varies along {target}, but their records differ")
-                continue
-        elif not _is_epoch_name(name):
-            report(f"ISTP: {name} varies along {target}, which is not in the Dataset")
-            continue
-        depend_0s.append(target)
-        varying.append(name)
-    _check_epochs(dataset, set(depend_0s), report)
-    return list(set(depend_0s)), varying
-
-
-def _check_epochs(dataset: xr.Dataset, depend_0s: set, report: _Report) -> None:
-    if not depend_0s:
-        report("ISTP: no variable gives the records (no DEPEND_0, no Epoch)")
-    increasing = [_is_increasing(dataset, name, report) for name in depend_0s if name.lower().startswith("epoch")]
-    if not any(increasing):
-        report("ISTP: no variable is named Epoch, the name ISTP requires for the records")
-
-
-def _is_increasing(dataset: xr.Dataset, name, report: _Report) -> bool:
-    values = dataset[name].data
-    if np.all(values[1:] > values[:-1]):
-        return True
-    report(f"ISTP: {name} gives the records, but its values don't increase")
-    return False
-
-
-def _dimension_names(dataset: xr.Dataset, varying: list, dimensions: set) -> set:
-    return dimensions | {dataset[name].dims[0] for name in _names(dataset)
-                         if name not in varying and dataset[name].dims}
-
-
-def _add_depend(attrs: dict, name, key: str, target, auto_fix_depends: bool) -> None:
-    """These never stop the conversion, even with terminate_on_warning, as in cdflib."""
-    logger.warning(f"ISTP: {name} needs {key}={target}")
-    if auto_fix_depends:
-        logger.warning(f"{key}={target} added to {name}")
-        attrs[key] = target
-
-
-def _add_missing_depends(dataset: xr.Dataset, dimensions: set, records: _Records, auto_fix_depends: bool) -> None:
-    for name in _names(dataset):
-        attrs, dims = dataset[name].attrs, dataset[name].dims
-        others = dims
-        if name in records.varying:
-            others = dims[1:]
-            if "DEPEND_0" not in attrs and dims[0] in records.depend_0s and name != dims[0]:
-                _add_depend(attrs, name, "DEPEND_0", dims[0], auto_fix_depends)
-        for number, dim in enumerate(others, 1):
-            key = f"DEPEND_{number}"
-            if dim in dataset.variables and dim in dimensions and key not in attrs and name != dim:
-                _add_depend(attrs, name, key, dim, auto_fix_depends)
-
-
-def _check_global_attributes(dataset: xr.Dataset, report: _Report) -> None:
-    for name in _REQUIRED_GLOBAL_ATTRIBUTES:
-        if name not in dataset.attrs:
-            report(f"ISTP: global attribute {name} is missing")
-
-
-def _check_labels(dataset: xr.Dataset, name, attrs: dict, report: _Report) -> None:
-    display = attrs["DISPLAY_TYPE"].lower()
-    first = _FIRST_LABELLED_DEPEND.get(display)
-    for key in list(attrs):
-        match = _LABELLED_DEPEND.match(key)
-        if first is None or not match or int(match.group(1)) < first:
-            continue
-        label = f"LABL_PTR_{match.group(1)}"
-        if label not in attrs:
-            report(f"ISTP: {name} has a {key} and DISPLAY_TYPE={display}: it needs a {label}")
-            continue
-        if attrs[label] not in dataset.variables:
-            report(f"ISTP: {label} of {name} names {attrs[label]}, which is not in the Dataset")
-        if "LABLAXIS" in attrs:
-            report(f"{name} has both LABLAXIS and {label}: keep one", Exception)
-
-
-def _check_display(dataset: xr.Dataset, name, attrs: dict, report: _Report) -> None:
-    if "DISPLAY_TYPE" not in attrs:
-        report(f"ISTP: data variable {name} has no DISPLAY_TYPE")
-    elif attrs["DISPLAY_TYPE"].lower() == "image":
-        if "LABLAXIS" not in attrs:
-            report(f"ISTP: data variable {name} with DISPLAY_TYPE=image needs a LABLAXIS")
-    else:
-        _check_labels(dataset, name, attrs, report)
-    if "LABLAXIS" not in attrs and "LABL_PTR_1" not in attrs:
-        report(f"ISTP: data variable {name} needs a LABLAXIS or a LABL_PTR_1")
-
-
-def _check_pointer(dataset: xr.Dataset, name, attrs: dict, key: str, pointer: str, report: _Report) -> None:
-    if key in attrs:
-        return
-    if pointer not in attrs:
-        report(f"ISTP: {name} needs a {key} or a {pointer}")
-    elif attrs[pointer] not in dataset.variables:
-        report(f"ISTP: {pointer} of {name} names {attrs[pointer]}, which is not in the Dataset")
-
-
-def _check_required(dataset: xr.Dataset, name, var_type: str, depend_0s: list, report: _Report) -> None:
-    """VALIDMIN, VALIDMAX and FILLVAL of data and of record varying support_data. A missing FILLVAL is added."""
-    variable = dataset[name]
-    varies = bool(variable.dims) and variable.dims[0] in depend_0s
-    if not (var_type == "data" or (var_type == "support_data" and varies)):
-        return
-    for key in ("VALIDMIN", "VALIDMAX", "FILLVAL"):
-        if key not in variable.attrs:
-            report(f"ISTP: {name} needs a {key}")
-    if "FILLVAL" not in variable.attrs:
-        variable.attrs["FILLVAL"] = fill = _fill_value_of(variable)
-        report(f"ISTP: FILLVAL of {name} set to {fill}")
-
-
-def _check_variable_attributes(dataset: xr.Dataset, depend_0s: list, report: _Report) -> None:
-    for name in _names(dataset):
-        attrs = dataset[name].attrs
-        for key in [key for key, value in attrs.items() if value is None]:
-            report(f"{key} of {name} is None: CDF has no None, it is written as an empty string", Exception)
-        var_type = _checked_var_type(name, attrs, report)
-        if "CATDESC" not in attrs:
-            report(f"ISTP: {name} needs a CATDESC")
-        if var_type == "data":
-            _check_display(dataset, name, attrs, report)
-        if "FIELDNAM" not in attrs:
-            report(f"ISTP: {name} needs a FIELDNAM")
-        _check_pointer(dataset, name, attrs, "FORMAT", "FORM_PTR", report)
-        if var_type in ("data", "support_data"):
-            _check_pointer(dataset, name, attrs, "UNITS", "UNIT_PTR", report)
-        _check_required(dataset, name, var_type, depend_0s, report)
-
-
-def _istp_records(dataset: xr.Dataset, record_dimensions: List[str], auto_fix_depends: bool,
-                  report: _Report) -> _Records:
-    """Checks the Dataset against ISTP, completes its attributes and finds which variables vary along records."""
-    _check_names(dataset, report)
-    _mark_label_variables(dataset, report)
-    dimensions = _depend_dimensions(dataset, report)
-    depend_0s, varying = _record_variables(dataset, dimensions, report)
-    records = _Records([*record_dimensions, *depend_0s], [*record_dimensions, *varying])
-    _add_missing_depends(dataset, _dimension_names(dataset, records.varying, dimensions), records, auto_fix_depends)
-    _check_global_attributes(dataset, report)
-    _check_variable_attributes(dataset, records.depend_0s, report)
-    return records
-
-
-def _is_time(cdf_type: _types.CdfType) -> bool:
-    return cdf_type.name in _TIME_TYPES
+        dataset[name].attrs = {key: value if key in time_attrs else _nan_to_fill(value, fill)
+                               for key, value in attrs.items()}
 
 
 def _is_epoch_like(name, cdf_type: _types.CdfType, dims, dim_sizes: list, record_vary: bool) -> bool:
@@ -427,29 +175,37 @@ def _time_values(values, cdf_type: _types.CdfType) -> np.ndarray:
     return np.asarray(pycdfpp.to_tt2000(times.ravel())).view(np.int64).reshape(times.shape)
 
 
-def _from_unix(values, attrs: dict):
-    return _FROM_UNIX.get(attrs.get("CDF_DATA_TYPE"), cdfepoch.timestamp_to_tt2000)(values)
+def _from_unix(values, cdf_type: _types.CdfType):
+    """Unix times to the time type; NaN (missing) to its fill value. cdflib raises or writes junk for NaN."""
+    times = np.asarray(values, dtype=np.float64)
+    missing = np.isnan(times)
+    converted = _FROM_UNIX.get(cdf_type.name, cdfepoch.timestamp_to_tt2000)(np.where(missing, 0.0, times))
+    fill = _RAW_TIME_FILLS.get(cdf_type.name, DATATYPE_FILLVALS[cdf_type.number])
+    return np.where(missing.reshape(np.shape(converted)), fill, converted)
 
 
 def _variable_values(variable: xr.DataArray, cdf_type: _types.CdfType, unix_time_to_cdf_time: bool):
     values = variable.values
     if _holds_datetimes(values):
         return _time_values(values, cdf_type)
-    if unix_time_to_cdf_time and (_is_epoch_name(variable.name) or _is_time(cdf_type)):
-        return _from_unix(values, variable.attrs)
+    if _is_unix_time(variable, cdf_type, unix_time_to_cdf_time):
+        return _from_unix(values, cdf_type)
     return values
 
 
-def _typed_attribute(key, value, attrs: dict, cdf_type: _types.CdfType, unix_time_to_cdf_time: bool, istp: bool):
+def _typed_attribute(key, value, attrs: dict, cdf_type: _types.CdfType, options: _Options):
     """An attribute value, given the variable's type where cdflib does. cdflib skips the VALIDMIN, VALIDMAX, FILLVAL
-    and BIN_LOCATION types with unix_time_to_cdf_time: ISTP wants them anyway."""
+    and BIN_LOCATION types with unix_time_to_cdf_time: ISTP wants them anyway. None was reported by the ISTP check:
+    an empty string spares the writer's warning."""
+    if value is None and options.istp:
+        return ""
     if _holds_datetimes(value):
         return [_time_values(value, cdf_type), cdf_type.name]
-    if unix_time_to_cdf_time and _is_time(cdf_type) and key in attrs.get("TIME_ATTRS", ()):
-        return [_from_unix(value, attrs), cdf_type.name]
-    if istp and key.upper() == "BIN_LOCATION":
+    if options.unix and _is_time(cdf_type) and key in attrs.get("TIME_ATTRS", ()):
+        return [_from_unix(value, cdf_type), cdf_type.name]
+    if options.istp and key.upper() == "BIN_LOCATION":
         return [np.float32(value), "CDF_REAL4"]
-    if istp and key in ("VALIDMIN", "VALIDMAX", "FILLVAL") and (
+    if options.istp and key in ("VALIDMIN", "VALIDMAX", "FILLVAL") and (
             not _is_time(cdf_type) or np.issubdtype(np.asarray(value).dtype, np.integer)):
         return [value, cdf_type.name]
     return value
@@ -467,17 +223,24 @@ class _Variable(NamedTuple):
     values: Any
 
 
-def _variable(dataset: xr.Dataset, name, records: _Records, options: dict) -> _Variable:
-    variable = dataset[name]
-    cdf_type, size = _cdf_type(variable)
+def _layout(variable: xr.DataArray, name, records: _Records):
+    """Rec_Vary and Dim_Sizes. A variable without values has zero records: CDF has no dimension of size 0."""
     record_vary = not variable.dims or name in records.varying or name in records.depend_0s or variable.size == 0
     dim_sizes = list(variable.shape[1:] if variable.dims and record_vary else variable.shape)
-    skip = _is_epoch_like(name, cdf_type, variable.dims, dim_sizes, record_vary) or name in options["skip"]
-    spec = {"Variable": name, "Data_Type": cdf_type.number, "Num_Elements": size, "Rec_Vary": record_vary,
-            "Dim_Sizes": dim_sizes, "Compress": 0 if skip else options["compression"]}
-    attrs = {key: _typed_attribute(key, value, variable.attrs, cdf_type, options["unix"], options["istp"])
+    if 0 in dim_sizes:
+        raise ValueError(f"{name}: CDF has no dimension of size 0 (shape {variable.shape})")
+    return record_vary, dim_sizes
+
+
+def _variable(dataset: xr.Dataset, name, choice: _Choice, records: _Records, options: _Options) -> _Variable:
+    variable = dataset[name]
+    record_vary, dim_sizes = _layout(variable, name, records)
+    skip = _is_epoch_like(name, choice.cdf_type, variable.dims, dim_sizes, record_vary) or name in options.skip
+    spec = {"Variable": name, "Data_Type": choice.cdf_type.number, "Num_Elements": choice.size,
+            "Rec_Vary": record_vary, "Dim_Sizes": dim_sizes, "Compress": 0 if skip else options.compression}
+    attrs = {key: _typed_attribute(key, value, variable.attrs, choice.cdf_type, options)
              for key, value in variable.attrs.items()}
-    return _Variable(spec, attrs, _variable_values(variable, cdf_type, options["unix"]))
+    return _Variable(spec, attrs, _variable_values(variable, choice.cdf_type, options.unix))
 
 
 def _global_entries(value) -> dict:
@@ -542,15 +305,17 @@ def xarray_to_cdf(
         report(f"{file_name} exists: nothing written", Exception)
         return
     dataset = xarray_dataset.copy()
+    choices = before = _choices(dataset)
     if nan_to_fillval:
-        _fill_nans(dataset)
+        _fill_nans(dataset, before, unix_time_to_cdf_time)
+        choices = _choices(dataset)
+    _log_problems(before, choices)
     if istp:
-        records = _istp_records(dataset, record_dimensions, auto_fix_depends, report)
-    else:
-        records = _Records(list(record_dimensions), list(record_dimensions))
-    options = {"skip": compression_skip_vars or [], "compression": compression, "unix": unix_time_to_cdf_time,
-               "istp": istp}
-    if istp:
+        records = _istp_records(dataset, record_dimensions, auto_fix_depends, report,
+                                functools.partial(_fill_of, choices))
         for name in _names(dataset):
             _check_depend_values(name, dataset[name].attrs, report)
-    _write(dataset, file_name, [_variable(dataset, name, records, options) for name in _names(dataset)])
+    else:
+        records = _Records(list(record_dimensions), list(record_dimensions))
+    options = _Options(compression, compression_skip_vars or [], unix_time_to_cdf_time, istp)
+    _write(dataset, file_name, [_variable(dataset, name, choices[name], records, options) for name in _names(dataset)])
