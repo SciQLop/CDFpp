@@ -5,6 +5,7 @@ import sys
 import types
 import typing
 import unittest
+from pathlib import Path
 
 import api_parity
 
@@ -12,6 +13,9 @@ import api_parity
 # Loop variables of the class body that reads the leap second file: not API, and lsreader's
 # repr holds a memory address.
 CDFEPOCH_LOADER_LEFTOVERS = tuple("CDFepoch." + name for name in ("lsfile", "lsreader", "csv_row", "row", "r"))
+# gzip_inflate is imported from cdflib's private _gzip_wrapper: not API. The S3 helpers come with remote reading.
+CDFREAD_NOT_OURS_YET = ("gzip_inflate", "S3object", "s3_fetchall")
+RESOURCES = Path(__file__).resolve().parent.parent / "resources"
 
 
 class CdflibApi(unittest.TestCase):
@@ -33,6 +37,21 @@ class CdflibApi(unittest.TestCase):
 
     def test_epochs_api(self):
         api_parity.assert_same_api(self, *api_parity.module_pair("epochs"), ignored=CDFEPOCH_LOADER_LEFTOVERS)
+
+    def test_cdfread_api(self):
+        api_parity.assert_same_api(self, *api_parity.module_pair("cdfread"), ignored=CDFREAD_NOT_OURS_YET)
+
+    def test_cdfread_instance_attributes(self):
+        import cdflib
+        from pycdfpp.cdflib import cdfread
+        for name in ("a_cdf.cdf", "a_compressed_cdf.cdf"):
+            with self.subTest(name):
+                path = RESOURCES / name
+                api_parity.assert_same_instance_attributes(self, cdfread.CDF(path), cdflib.cdfread.CDF(path))
+
+    def test_package_exports_reader(self):
+        import pycdfpp.cdflib as ours
+        self.assertIs(ours.CDF, ours.cdfread.CDF)
 
     def test_missing_cdflib_message(self):
         code = "import sys; sys.modules['cdflib'] = None; import pycdfpp.cdflib"
