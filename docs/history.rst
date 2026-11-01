@@ -10,6 +10,11 @@ Unreleased
 
 * Python 3.9 is no longer supported: it reached its end of life in October 2025. Wheels are
   built for Python 3.10 to 3.15.
+* Saved files carry the right number of strings in each text attribute entry (the
+  ``NumStrings`` field), as NASA's library writes it: a variable entry holding
+  ``"first\\N second"`` counts 2 strings, a global entry 0. pycdfpp counted newlines
+  instead, since writing was added, so readers that split entries on that field, like
+  cdflib's ``attget``, got one string instead of several. The text itself was never changed.
 
 0.19.0 (2026-10-21)
 -------------------

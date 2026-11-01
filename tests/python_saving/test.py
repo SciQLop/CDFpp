@@ -14,6 +14,7 @@ import unittest
 import warnings
 from glob import glob
 import pycdfpp
+import pycdfpp.debug
 
 os.environ['TZ'] = 'UTC'
 
@@ -1054,6 +1055,25 @@ class PycdfDatetime64WritingTest(unittest.TestCase):
         for data_type in (pycdfpp.DataType.CDF_TIME_TT2000, pycdfpp.DataType.CDF_EPOCH16):
             with self.subTest(data_type=data_type):
                 self.assertTrue(np.array_equal(self.written(values, data_type), values))
+
+
+class PycdfAttributeNumStringsTest(unittest.TestCase):
+    # Expected values are what NASA's CDF 3.9 library writes for the same entries.
+    # https://spdf.gsfc.nasa.gov/pub/software/cdf/doc/cdf_Internal_Format.pdf (AEDR, NumStrings)
+    def test_num_strings_follow_nasa(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("G", ["one\\N two", "a\nb\nc"])
+        for name, text in (("multi", "first\\N second\\N third"), ("plain", "plain"),
+                           ("newlines", "a\nb\nc")):
+            cdf.add_variable(name, values=np.arange(2, dtype=np.int32)).add_attribute("V", text)
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "num_strings.cdf")
+            pycdfpp.save(cdf, path)
+            records = [(kind, fields["NumStrings"])
+                       for _, kind, fields in pycdfpp.debug.for_each_record(path)
+                       if kind.endswith("EDR")]
+        self.assertEqual(sorted(records), sorted([("AgrEDR", 0), ("AgrEDR", 0),
+                                                  ("AzEDR", 3), ("AzEDR", 1), ("AzEDR", 1)]))
 
 
 if __name__ == '__main__':

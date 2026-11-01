@@ -39,6 +39,7 @@ using cpp_utils::containers::no_init_vector;
 #include <iostream>
 #include <numeric>
 #include <optional>
+#include <string_view>
 #include <utility>
 
 namespace cdf::io
@@ -87,6 +88,29 @@ namespace saving
             [](const auto& v) -> int32_t { return std::size(v); });
     }
 
+    template <typename T>
+    [[nodiscard]] int32_t count_strings(const no_init_vector<T>& text)
+    {
+        constexpr std::string_view delimiter { "\\N " };
+        const auto next_delimiter = [&](auto from)
+        { return std::search(from, std::cend(text), std::cbegin(delimiter), std::cend(delimiter)); };
+        int32_t count = 1;
+        for (auto found = next_delimiter(std::cbegin(text)); found != std::cend(text);
+             found = next_delimiter(std::next(found, std::size(delimiter))))
+            count += 1;
+        return count;
+    }
+
+    // NASA's NumStrings: strings joined by "\N " in a variable entry, 0 for anything else.
+    // https://spdf.gsfc.nasa.gov/pub/software/cdf/doc/cdf_Internal_Format.pdf (AEDR)
+    [[nodiscard]] inline int32_t variable_entry_num_strings(const data_t& entry)
+    {
+        return visit(
+            entry, [](const no_init_vector<char>& v) { return count_strings(v); },
+            [](const no_init_vector<unsigned char>& v) { return count_strings(v); },
+            [](const auto&) -> int32_t { return 0; });
+    }
+
     inline void create_file_attributes_records(const CDF& cdf, saving_context& svg_ctx)
     {
         for (const auto& [name, attribute] : cdf.attributes)
@@ -105,24 +129,6 @@ namespace saving
             {
                 auto& aedr = fac.aedrs.emplace_back(cdf_AgrEDR_t<v3x_tag> {
                     {}, 0, index, data.type(), value_index, 0, 0, 0, 0, -1, -1, {} });
-                if (is_string(data.type()))
-                {
-                    aedr.record.NumStrings = visit(
-                        data,
-                        [](const no_init_vector<char>& v) -> uint32_t
-                        {
-                            return std::max(std::size_t { 1 },
-                                static_cast<std::size_t>(
-                                    std::count(std::cbegin(v), std::cend(v), '\n')));
-                        },
-                        [](const no_init_vector<unsigned char>& v) -> uint32_t
-                        {
-                            return std::max(std::size_t { 1 },
-                                static_cast<std::size_t>(std::count(std::cbegin(v), std::cend(v),
-                                    static_cast<unsigned char>('\n'))));
-                        },
-                        [](const auto&) -> uint32_t { return 0; });
-                }
                 aedr.record.NumElements = attribute_entry_num_elements(data);
                 value_index += 1;
                 update_size(aedr, aedr.record.NumElements * cdf_type_size(aedr.record.DataType));
@@ -163,24 +169,7 @@ namespace saving
             const auto& data = *attribute;
             auto& aedr = vac.aedrs.emplace_back(cdf_AzEDR_t<v3x_tag> { {}, 0, vac.adr.record.num,
                 data.type(), static_cast<int32_t>(variable.number), 0, 0, 0, 0, -1, -1, {} });
-            if (is_string(data.type()))
-            {
-                aedr.record.NumStrings = visit(
-                    data,
-                    [](const no_init_vector<char>& v) -> int32_t
-                    {
-                        return std::max(std::size_t { 1 },
-                            static_cast<std::size_t>(
-                                std::count(std::cbegin(v), std::cend(v), '\n')));
-                    },
-                    [](const no_init_vector<unsigned char>& v) -> int32_t
-                    {
-                        return std::max(std::size_t { 1 },
-                            static_cast<std::size_t>(std::count(
-                                std::cbegin(v), std::cend(v), static_cast<unsigned char>('\n'))));
-                    },
-                    [](const auto&) -> int32_t { return 0; });
-            }
+            aedr.record.NumStrings = variable_entry_num_strings(data);
             aedr.record.NumElements = attribute_entry_num_elements(data);
             update_size(aedr, aedr.record.NumElements * cdf_type_size(aedr.record.DataType));
             vac.adr.record.MAXzEntries = std::max(vac.adr.record.MAXzEntries, aedr.record.Num);
