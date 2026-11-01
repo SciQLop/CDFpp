@@ -79,6 +79,12 @@ Writing files (``cdfwrite.CDF``)
   entry; cdflib skips it.
 - Column major files hold the values you give. cdflib writes the bytes of the C ordered array, so
   records read back transposed.
+- Integers outside the range of their integer type (given as ``Data_Type`` or as
+  ``[value, 'CDF_INT1']``) raise ``ValueError`` naming the variable or attribute, the type and the
+  values; nothing is written. cdflib wraps them silently: ``300`` as ``CDF_INT1`` is ``44``,
+  ``2**40`` as ``CDF_INT4`` or ``CDF_UINT4`` is ``0``, ``-1`` as ``CDF_UINT4`` is ``4294967295``,
+  ``2**63`` as ``CDF_INT8`` is the fill value. Floats are cast as before. In ``xarray_to_cdf``
+  this covers a ``CDF_DATA_TYPE`` narrower than the values.
 - A string longer than ``Num_Elements`` raises ``ValueError``; cdflib shifts every record after
   it. A string ``Pad`` keeps the whole string, cut to ``Num_Elements``; cdflib keeps its first
   character.
@@ -145,16 +151,20 @@ raise the same exception type (``ISTPError`` or ``Exception``). Messages differ.
 - ``bytes`` values are written as their text. cdflib writes ``"b'a'"``.
 - A string variable's ``Num_Elements`` counts UTF-8 bytes, so non-ASCII strings fit. cdflib
   counts characters.
-- A variable without values whose only dimension is empty is written with zero records. Any
+- A variable without values whose only empty dimension is the record one is written with zero
+  records. Any
   other empty dimension raises ``ValueError``: CDF has no dimension of size 0. cdflib writes
   dimensions of size 0, files it can't read back.
 - ``uint64`` values are ``CDF_INT8`` when every value is below ``2**63``; larger values raise
   ``ValueError``. cdflib warns and writes them as ``CDF_UINT4``, wrapping values from ``2**32``.
-- Big-endian numbers keep their numeric type. Without ``NaN`` filling to make them native first,
-  cdflib warns and writes them as text.
-- With ``unix_time_to_cdf_time=True``, ``VALIDMIN``, ``VALIDMAX`` and ``FILLVAL`` still get the
-  variable's type and ``BIN_LOCATION`` is ``CDF_REAL4``, as ISTP requires. cdflib leaves them to
-  the writer's guess.
+- Big-endian numbers keep their numeric type. cdflib warns and writes them as text (one character
+  per value without ``NaN`` filling).
+- ``VALIDMIN``, ``VALIDMAX`` and ``FILLVAL`` get the variable's type as ISTP requires, also with
+  ``unix_time_to_cdf_time=True`` (``BIN_LOCATION`` stays ``CDF_REAL4``), and also for a
+  ``CDF_EPOCH`` variable given ``float64`` values, like the ``-1e31`` ``FILLVAL`` the ISTP check
+  adds. cdflib leaves them to its writer's guess: ``CDF_DOUBLE`` for those ``CDF_EPOCH`` values.
+  Values of another numpy type than the time type's own (a ``float32`` ``FILLVAL`` of a
+  ``CDF_EPOCH`` variable) keep the guess, as in cdflib.
 - An object array of ``datetime`` objects is a time variable whatever its length. cdflib only
   sees a single ``datetime`` as a time.
 - A ``DEPEND_n`` whose shape can't be checked is logged as a warning. cdflib prints it.

@@ -205,10 +205,16 @@ def _typed_attribute(key, value, attrs: dict, cdf_type: _types.CdfType, options:
         return [_from_unix(value, cdf_type), cdf_type.name]
     if options.istp and key.upper() == "BIN_LOCATION":
         return [np.float32(value), "CDF_REAL4"]
-    if options.istp and key in ("VALIDMIN", "VALIDMAX", "FILLVAL") and (
-            not _is_time(cdf_type) or np.issubdtype(np.asarray(value).dtype, np.integer)):
+    if options.istp and key in ("VALIDMIN", "VALIDMAX", "FILLVAL") and _is_raw_value(value, cdf_type):
         return [value, cdf_type.name]
     return value
+
+
+def _is_raw_value(value, cdf_type: _types.CdfType) -> bool:
+    """Whether value can be a raw value of the type: any value for other types; integers (as cdflib) or the type's
+    own dtype for time types. cdflib types only integers, so a raw CDF_EPOCH FILLVAL (float64) became CDF_DOUBLE."""
+    dtype = np.asarray(value).dtype
+    return not _is_time(cdf_type) or dtype.kind in "iu" or dtype == cdf_type.dtype
 
 
 def _check_depend_values(name, attrs: dict, report: _Report) -> None:

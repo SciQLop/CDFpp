@@ -158,12 +158,22 @@ def nat_where_cdflib_wrote_zero(theirs, ours):
     return np.where(np.isnat(o) & (t == TT2000_ZERO), o, t)
 
 
+def with_typed_epoch_fill(theirs_attrs, our_attrs):
+    """We write a float64 FILLVAL of a CDF_EPOCH variable as CDF_EPOCH (read back as NaT and listed in TIME_ATTRS),
+    cdflib as CDF_DOUBLE."""
+    fill = np.asarray(our_attrs.get("FILLVAL", 0))
+    if fill.dtype.kind == "M" and np.isnat(fill).all() and np.all(np.asarray(theirs_attrs.get("FILLVAL")) == -1e31):
+        return {**theirs_attrs, "FILLVAL": our_attrs["FILLVAL"], "TIME_ATTRS": our_attrs.get("TIME_ATTRS")}
+    return theirs_attrs
+
+
 def without_cdflib_zeros(theirs, ours):
     def variable(name, v):
         if name not in ours.variables:
             return v
         mine = ours[name]
         attrs = {k: nat_where_cdflib_wrote_zero(a, mine.attrs[k]) if k in mine.attrs else a for k, a in v.attrs.items()}
+        attrs = with_typed_epoch_fill(attrs, mine.attrs)
         return xr.Variable(v.dims, nat_where_cdflib_wrote_zero(v.values, mine.values), attrs)
     return theirs.assign({name: variable(name, v) for name, v in theirs.variables.items()})
 
@@ -533,8 +543,35 @@ class IstpChecks(unittest.TestCase):
         self.assertIsInstance(outcome.error, ValueError)
         self.assertFalse(outcome.written)
 
+    def test_integers_outside_the_given_type_raise(self):
+        """cdflib wraps them: 2**63 as CDF_INT8 is the fill value, 300 as CDF_INT1 is 44."""
+        for values, cdf_type in ((np.array([1, 2**63], dtype=np.uint64), "CDF_INT8"),
+                                 (np.array([1, 300]), "CDF_INT1"), (np.array([1, 2**40]), "CDF_UINT4")):
+            with self.subTest(cdf_type):
+                dataset = xr.Dataset({"v": xr.Variable(("x",), values, {"CDF_DATA_TYPE": cdf_type})})
+                outcome = Outcome(ours_module(), dataset, self.root / "ours.cdf", istp=False)
+                self.assertIsInstance(outcome.error, ValueError)
+                self.assertRegex(str(outcome.error), f"v.*{cdf_type}.*{values[-1]}")
+                self.assertFalse(outcome.written)
+
+    def test_fillval_of_float_time_types_has_their_type(self):
+        """ISTP: FILLVAL, VALIDMIN and VALIDMAX have the variable's type. cdflib leaves raw CDF_EPOCH values
+        (float64) untyped: CDF_DOUBLE. Its writer guesses CDF_EPOCH16 for complex values."""
+        for cdf_type, unix in (("CDF_EPOCH", True), ("CDF_EPOCH", False), ("CDF_EPOCH16", False)):
+            with self.subTest(cdf_type, unix=unix):
+                raw = {"CDF_EPOCH": 6.3e13, "CDF_EPOCH16": complex(6.3e10, 0)}[cdf_type]
+                values = np.array([0.0, 1.0, 2.0, 3.0]) if unix else np.array([raw] * 4)
+                attrs = dict(DATA, CDF_DATA_TYPE=cdf_type, VALIDMIN=raw, VALIDMAX=raw)
+                del attrs["FILLVAL"]
+                dataset = with_variable("t", ("Epoch",), values, attrs)(istp_dataset())
+                Outcome(ours_module(), dataset, self.root / "ours.cdf", unix_time_to_cdf_time=unix)
+                written = pycdfpp.load(str(self.root / "ours.cdf"))["t"]
+                for key in ("FILLVAL", "VALIDMIN", "VALIDMAX"):
+                    self.assertEqual(written.attributes[key].type().name, cdf_type, key)
+                (self.root / "ours.cdf").unlink()
+
     def test_big_endian_numbers_keep_their_type(self):
-        """cdflib writes them as text when no NaN filling made them native first."""
+        """cdflib warns and writes them as text (one character per value without NaN filling)."""
         for values, data_type in (((np.arange(3) + 0.5).astype(">f8"), pycdfpp.DataType.CDF_DOUBLE),
                                   ((np.arange(3) - 1).astype(">i4"), pycdfpp.DataType.CDF_INT4)):
             for nan_to_fillval in (True, False):
