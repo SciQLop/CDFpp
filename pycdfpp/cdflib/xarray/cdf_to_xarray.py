@@ -72,18 +72,24 @@ def _converted_attribute(attribute: AttData, mode: Optional[str]):
     return _converted_time(np.array(attribute.Data), mode)
 
 
-def _keeps_cdf_type(type_name: str, mode: Optional[str]) -> bool:
-    return (type_name in ("CDF_EPOCH", "CDF_REAL4", "CDF_REAL8")
-            or (type_name == "CDF_EPOCH16" and mode is not None)
-            or (type_name == "CDF_TIME_TT2000" and mode == "unixtime"))
+def _cdf_data_type(type_name: str, mode: Optional[str]) -> Optional[str]:
+    """The CDF_DATA_TYPE attribute telling xarray_to_cdf the values' type, None to leave the file's attributes.
+    EPOCH16 values read raw are CDF_EPOCH milliseconds: written back as EPOCH16 they would be wrong times."""
+    if type_name == "CDF_EPOCH16" and mode is None:
+        return "CDF_EPOCH"
+    if (type_name in ("CDF_EPOCH", "CDF_REAL4", "CDF_REAL8", "CDF_EPOCH16")
+            or (type_name == "CDF_TIME_TT2000" and mode == "unixtime")):
+        return type_name
+    return None
 
 
 def _variable_attrs(attributes: Dict[str, AttData], type_name: str, has_values: bool, mode: Optional[str]):
     attrs = {name: _converted_attribute(attribute, mode) for name, attribute in attributes.items()}
     if mode and has_values and type_name in _TIME_TYPES and "UNITS" in attrs:
         attrs["UNITS"] = _TIME_CONVERSIONS[mode][1]
-    if _keeps_cdf_type(type_name, mode):
-        attrs["CDF_DATA_TYPE"] = type_name
+    data_type = _cdf_data_type(type_name, mode)
+    if data_type:
+        attrs["CDF_DATA_TYPE"] = data_type
     converted = [name for name, attribute in attributes.items() if mode and attribute.Data_Type in _TIME_TYPES]
     if converted:
         attrs["TIME_ATTRS"] = converted
