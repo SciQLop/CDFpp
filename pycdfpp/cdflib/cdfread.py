@@ -4,7 +4,9 @@ Values come from ``pycdfpp.load``; the record level details cdflib exposes (vari
 dimension variances, pad values, attribute entry numbers, ...) from the descriptor records, read here.
 """
 import hashlib
+import io
 import mmap
+import urllib.request
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
@@ -17,6 +19,7 @@ from cdflib.dataclasses import AEDR, VDR, ADRInfo, AttData, CDFInfo, CDRInfo, GD
 from . import _types
 from . import _records
 from . import epochs as epoch
+from .s3 import S3object  # noqa: F401
 from .epochs import CDFepoch as _CDFepoch
 
 __all__ = ["CDF"]
@@ -45,6 +48,36 @@ def _mapped(path: Path):
     """The file's bytes, read on demand: opening a CDF reads only its descriptor records."""
     with path.open("rb") as file:
         return mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) if path.stat().st_size else b""
+
+
+def s3_fetchall(obj) -> io.BytesIO:
+    return io.BytesIO(obj["Body"].read())
+
+
+def _fetch_url(url: str) -> bytes:
+    return urllib.request.urlopen(urllib.request.Request(url)).read()
+
+
+def _fetch_s3(url: str) -> bytes:
+    try:
+        import boto3
+    except ImportError:
+        raise ImportError("boto3/botocore package not installed")
+    bucket, _, key = url[len("s3://"):].partition("/")
+    try:
+        obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)
+    except Exception:  # public buckets refuse signed requests, as in cdflib
+        from botocore import UNSIGNED
+        from botocore.client import Config
+        obj = boto3.client("s3", config=Config(signature_version=UNSIGNED)).get_object(Bucket=bucket, Key=key)
+    return s3_fetchall(obj).getvalue()
+
+
+_REMOTE = {"s3://": ("s3", _fetch_s3), "http://": ("url", _fetch_url), "https://": ("url", _fetch_url)}
+
+
+def _remote_kind(path) -> Optional[Tuple[str, Any]]:
+    return next((kind for prefix, kind in _REMOTE.items() if str(path).startswith(prefix)), None)
 
 
 def _cdf_version(buffer, path) -> int:
@@ -135,12 +168,13 @@ class CDF:
 
     def __init__(self, path: Union[str, Path], validate: bool = False, string_encoding: str = "ascii",
                  s3_read_method: int = 1):
-        self.file: Union[str, Path] = _local_path(path)
-        self.ftype = "file"
+        remote = _remote_kind(path)
+        self.ftype, fetch = remote or ("file", None)
+        self.file: Union[str, Path] = str(path) if remote else _local_path(path)
         self.string_encoding = string_encoding
         self.compressed_file = None
         self.temp_file: Optional[Path] = None
-        self._buffer = _mapped(self.file)
+        self._buffer = fetch(self.file) if fetch else _mapped(self.file)
         self.cdfversion = _cdf_version(self._buffer, self.file)
         self._open(self._buffer, validate)
 
@@ -157,7 +191,7 @@ class CDF:
     def _cdf(self) -> pycdfpp.CDF:
         """Loaded on the first values read: opening reads only descriptor records, as cdflib does.
         Raw string bytes: string_encoding decodes them, as in cdflib."""
-        return pycdfpp.load(self.file, iso_8859_1_to_utf8=False, lazy_load=True)
+        return pycdfpp.load(self._buffer if self.ftype != "file" else self.file, iso_8859_1_to_utf8=False, lazy_load=True)
 
     @cached_property
     def _zvdrs(self) -> List[dict]:

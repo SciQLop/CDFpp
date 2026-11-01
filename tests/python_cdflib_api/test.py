@@ -14,8 +14,8 @@ import api_parity
 # Loop variables of the class body that reads the leap second file: not API, and lsreader's
 # repr holds a memory address.
 CDFEPOCH_LOADER_LEFTOVERS = tuple("CDFepoch." + name for name in ("lsfile", "lsreader", "csv_row", "row", "r"))
-# gzip_inflate is imported from cdflib's private _gzip_wrapper: not API. The S3 helpers come with remote reading.
-CDFREAD_NOT_OURS_YET = ("gzip_inflate", "S3object", "s3_fetchall")
+# gzip_inflate is imported from cdflib's private _gzip_wrapper: not API.
+CDFREAD_NOT_OURS = ("gzip_inflate",)
 RESOURCES = Path(__file__).resolve().parent.parent / "resources"
 
 
@@ -40,9 +40,14 @@ class CdflibApi(unittest.TestCase):
         api_parity.assert_same_api(self, *api_parity.module_pair("epochs"), ignored=CDFEPOCH_LOADER_LEFTOVERS)
 
     def test_cdfread_api(self):
-        api_parity.assert_same_api(self, *api_parity.module_pair("cdfread"), ignored=CDFREAD_NOT_OURS_YET)
+        api_parity.assert_same_api(self, *api_parity.module_pair("cdfread"), ignored=CDFREAD_NOT_OURS)
         ours, theirs = api_parity.module_pair("cdfread")
         self.assertEqual(inspect.signature(ours.CDF.__del__), inspect.signature(theirs.CDF.__del__))
+
+    def test_s3_utils_logging_api(self):
+        for name in ("s3", "utils", "logging"):
+            with self.subTest(name):
+                api_parity.assert_same_api(self, *api_parity.module_pair(name))
 
     def test_cdfread_instance_attributes(self):
         import cdflib
