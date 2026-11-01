@@ -297,6 +297,44 @@ class Writer(unittest.TestCase):
         self.assertEqual(read.attget("G", 1).Data_Type, "CDF_INT4")
         self.assertEqual(read.attinq("Empty").num_gr_entry, 0)
 
+    def test_untyped_values_cdflib_cannot_store_are_skipped(self):
+        """No wrong number: uint64 (also Python ints from 2**63), long doubles, numpy booleans and
+        complex64 have no CDF type cdflib guesses, it skips them; small unsigned keep their size."""
+        with self.assertLogs("cdflib.logging", "WARNING"):
+            with cdfwrite.CDF(self.path) as out:
+                out.write_var(spec("v", 44), {"U64": np.uint64(2**40 + 5), "U64S": np.array([2**33], np.uint64),
+                                              "BIG": 2**63 + 1, "BIGS": [1, 2**63], "LD": np.longdouble(1) / 3,
+                                              "B": np.bool_(True), "C64": np.complex64(1j), "U8": np.uint8(7),
+                                              "U16": np.array([7], np.uint16), "U32": np.uint32(2**31 + 1),
+                                              "PYBOOL": True}, np.arange(3.))
+        same(self, cdflib.CDF(self.path).varattsget("v"),
+             {"U8": np.uint8(7), "U16": np.uint16(7), "U32": np.uint32(2**31 + 1), "PYBOOL": np.int64(1)}, "v")
+
+    @unittest.expectedFailure
+    def test_several_strings_in_one_entry(self):
+        """pycdfpp's saver counts the strings of an entry by '\\n', NASA separates them with "\\N ":
+        cdflib reads one joined string. Needs a C++ fix."""
+        with cdfwrite.CDF(self.path) as out:
+            out.write_var(spec("v", 44), None, np.arange(3.))
+            out.write_variableattrs({"TEXTS": {"v": [["a", "b"], "CDF_CHAR"]}})
+        same(self, cdflib.CDF(self.path).attget("TEXTS", "v").Data, np.array(["a", "b"]), "TEXTS")
+
+    def test_string_pad_list_uses_its_first_item(self):
+        read = self.write((spec("s", 51, num_elements=3, Pad=["xy", "z"]), ["abc"]))
+        self.assertEqual(read.varinq("s").Pad, "xy")
+
+    def test_sparse_data_shorter_than_its_records_raises(self):
+        with cdfwrite.CDF(self.path) as out:
+            for records, data in (([0, 1, 4], [1.0, 2.0]), ([0, 5], [1.0, 2.0, 3.0])):
+                with self.subTest(records), self.assertRaisesRegex(ValueError, "less data than"):
+                    out.write_var(spec(f"v{len(data)}", 45, Sparse="pad_sparse"), var_data=[records, data])
+
+    def test_dropped_open_writer_warns(self):
+        out = cdfwrite.CDF(self.path)
+        with self.assertWarns(ResourceWarning):
+            del out
+        self.assertFalse(self.path.exists())
+
     def test_global_attribute_twice_raises(self):
         with cdfwrite.CDF(self.path) as out:
             out.write_globalattrs({"G": {0: "a"}})
