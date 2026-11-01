@@ -317,10 +317,8 @@ class Writer(unittest.TestCase):
             expected["LD"] = np.float64(1) / 3
         same(self, cdflib.CDF(self.path).varattsget("v"), expected, "v")
 
-    @unittest.expectedFailure
     def test_several_strings_in_one_entry(self):
-        """pycdfpp's saver counts the strings of an entry by '\\n', NASA separates them with "\\N ":
-        cdflib reads one joined string. Needs a C++ fix."""
+        """The file counts the strings joined by "\\N ": cdflib reads them back as an array."""
         with cdfwrite.CDF(self.path) as out:
             out.write_var(spec("v", 44), None, np.arange(3.))
             out.write_variableattrs({"TEXTS": {"v": [["a", "b"], "CDF_CHAR"]}})
