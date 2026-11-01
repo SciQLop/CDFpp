@@ -1,0 +1,6 @@
+cdflib_python_sources = files('__init__.py', 'dataclasses.py', 'epochs_astropy.py')
+fs.copyfile('__init__.py', '__init__.py')
+fs.copyfile('dataclasses.py', 'dataclasses.py')
+fs.copyfile('epochs_astropy.py', 'epochs_astropy.py')
+
+python3.install_sources(cdflib_python_sources, pure: false, subdir: 'pycdfpp/cdflib')
