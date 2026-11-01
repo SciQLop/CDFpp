@@ -15,6 +15,11 @@ Unreleased
   ``"first\\N second"`` counts 2 strings, a global entry 0. pycdfpp counted newlines
   instead, since writing was added, so readers that split entries on that field, like
   cdflib's ``attget``, got one string instead of several. The text itself was never changed.
+* ``pycdfpp.cdflib``: a drop-in replacement for the Python package
+  `cdflib <https://github.com/MAVENSDC/cdflib>`_ 1.3.16 (``CDF``, ``cdfwrite.CDF``,
+  ``cdfepoch``, ``cdf_to_xarray``, ``xarray_to_cdf``), faster and built on pycdfpp. Install it
+  with ``pip install pycdfpp[cdflib]``. ``pycdfpp.cdflib.install()`` makes ``import cdflib``
+  give it. See :doc:`cdflib`.
 
 0.19.0 (2026-10-21)
 -------------------

@@ -1,0 +1,54 @@
+{
+  "load_1min_before": 5.85009765625,
+  "repeats": 5,
+  "results": [
+    {
+      "task": "Open, read one variable",
+      "data": "MMS FGM survey, 1.2 M points, gzip",
+      "seconds": {
+        "cdflib": 0.0677910449448973,
+        "pycdfpp.cdflib": 0.008570379111915827
+      }
+    },
+    {
+      "task": "Open, read every variable",
+      "data": "MMS FPI electron distribution, 178 MB, gzip",
+      "seconds": {
+        "cdflib": 0.8582838049624115,
+        "pycdfpp.cdflib": 0.16114222281612456
+      }
+    },
+    {
+      "task": "CDFepoch.to_datetime",
+      "data": "1,000,000 CDF_TIME_TT2000 values",
+      "seconds": {
+        "cdflib": 0.23401689599268138,
+        "pycdfpp.cdflib": 0.0023891408927738667
+      }
+    },
+    {
+      "task": "CDFepoch.to_datetime",
+      "data": "1,000,000 CDF_EPOCH values",
+      "seconds": {
+        "cdflib": 14.150367190130055,
+        "pycdfpp.cdflib": 0.002735246904194355
+      }
+    },
+    {
+      "task": "cdfwrite: write a file",
+      "data": "time and B, 1,191,296 records, gzip",
+      "seconds": {
+        "cdflib": 0.5113441471476108,
+        "pycdfpp.cdflib": 0.045679371105507016
+      }
+    },
+    {
+      "task": "cdf_to_xarray",
+      "data": "MMS FGM survey, 1.2 M points, gzip",
+      "seconds": {
+        "cdflib": 0.7587517888750881,
+        "pycdfpp.cdflib": 0.08022351190447807
+      }
+    }
+  ]
+}
