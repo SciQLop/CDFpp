@@ -60,3 +60,39 @@ Reading files (``CDF``)
 - ``varget`` with a ``startrec`` past the last record raises ``ValueError``; cdflib raises or reads
   garbage depending on the file. With ``epoch=`` naming a variable that isn't a time variable,
   ``varget`` raises ``ValueError``; cdflib raises ``UnboundLocalError``.
+
+Writing files (``cdfwrite.CDF``)
+--------------------------------
+
+- The file is built in memory and written by ``close()``, or at the end of a ``with`` block. A
+  ``with`` block left by an exception writes nothing, and a writer never closed writes nothing.
+  cdflib writes as it goes and leaves a partial file. With ``delete=True``, the old file is
+  replaced when the new one is written; cdflib deletes it right away.
+- rVariables are written as zVariables holding their varying dimensions only: the values are the
+  same, but ``varinq`` on the new file says ``zVariable`` and ``Dim_Sizes`` lists the varying
+  dimensions. ``rvars`` and integer variable ids in ``write_variableattrs`` work as in cdflib.
+- ``datetime64`` values for a ``CDF_TIME_TT2000``, ``CDF_EPOCH`` or ``CDF_EPOCH16`` variable or
+  attribute store the right instants. cdflib stores nanoseconds since 1970 as TT2000, so dates
+  come back 30 years late. A ``datetime64`` attribute value without a type is a ``CDF_TIME_TT2000``
+  entry; cdflib skips it.
+- Column major files hold the values you give. cdflib writes the bytes of the C ordered array, so
+  records read back transposed.
+- A string longer than ``Num_Elements`` raises ``ValueError``; cdflib shifts every record after
+  it. A string ``Pad`` keeps the whole string, cut to ``Num_Elements``; cdflib keeps its first
+  character.
+- Global attribute entries are numbered from 0, in the order of their entry numbers: with
+  ``{0: a, 3: b}``, ``b`` is entry 1. cdflib keeps entry number 3.
+- Encodings without IEEE 754 floats (VAX, Alpha and IA64 VMS D and G floats) and unknown encodings
+  raise ``OSError``. cdflib writes IEEE floats under these labels, or encoding 0.
+- ``Data_Type`` in ``var_spec`` can also be a name (``"CDF_REAL4"``). ``Block_Factor`` is ignored:
+  pycdfpp chooses the blocks.
+- A list of strings typed ``CDF_CHAR`` is one entry, strings joined with ``"\N "``, in every
+  method. cdflib does so in ``write_var``, but raises in ``write_variableattrs`` and stops
+  ``write_globalattrs``. An entry of unknown type is skipped with a warning; cdflib also skips the
+  attributes after it in ``write_globalattrs``. Numbers written as text with a numeric type are
+  parsed in every method.
+- Writing a variable attribute twice for one variable replaces its value. cdflib adds a second
+  entry to the file.
+- No file exists before ``close()``: ``cdr_head``, ``gdr_head`` and ``offset`` are ``0``, the
+  offsets in ``zvarsinfo``, ``rvarsinfo`` and ``attrsinfo`` too, and ``compressed_file`` is
+  ``None``.
