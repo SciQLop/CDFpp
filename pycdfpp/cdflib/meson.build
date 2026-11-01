@@ -1,5 +1,8 @@
-cdflib_python_sources = files('__init__.py', 'dataclasses.py', 'epochs.py', 'epochs_astropy.py')
+cdflib_python_sources = files('__init__.py', '_types.py', 'cdfread.py', 'dataclasses.py', 'epochs.py',
+    'epochs_astropy.py')
 fs.copyfile('__init__.py', '__init__.py')
+fs.copyfile('_types.py', '_types.py')
+fs.copyfile('cdfread.py', 'cdfread.py')
 fs.copyfile('dataclasses.py', 'dataclasses.py')
 fs.copyfile('epochs.py', 'epochs.py')
 fs.copyfile('epochs_astropy.py', 'epochs_astropy.py')
