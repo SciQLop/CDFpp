@@ -36,7 +36,7 @@ foreach py_test:['python_loading', 'python_saving', 'python_skeletons',
             'python_windows_crash', 'python_structural_introspection', 'python_debug',
             'python_cli_irsdump', 'python_threads', 'python_value_conversions',
             'python_api_contract', 'python_cdflib_api', 'python_cdflib_epochs',
-            'python_cdflib_read']
+            'python_cdflib_read', 'python_cdflib_remote']
     test(py_test, python3,
         args:[files(py_test+'/test.py')],
         env:['PYTHONPATH='+meson.project_build_root()],
