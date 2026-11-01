@@ -1,5 +1,6 @@
 """Compare the public API of pycdfpp.cdflib.<module> with the real cdflib.<module>."""
 import dataclasses
+import functools
 import importlib
 import inspect
 import typing
@@ -83,8 +84,19 @@ def instance_attributes(instance):
     return sorted(name for name in vars(instance) if _is_public(name))
 
 
-def assert_same_api(testcase, ours, theirs):
-    testcase.assertEqual(public_api(ours), public_api(theirs))
+def _without(api, dotted_name):
+    head, _, rest = dotted_name.partition(".")
+    if not rest:
+        return {name: value for name, value in api.items() if name != head}
+    if head not in api:
+        return api
+    kind, members, fields = api[head]
+    return {**api, head: (kind, _without(members, rest), fields)}
+
+
+def assert_same_api(testcase, ours, theirs, ignored=()):
+    """ignored: dotted names ("Class.member") left out of the comparison."""
+    testcase.assertEqual(*(functools.reduce(_without, ignored, public_api(module)) for module in (ours, theirs)))
 
 
 def assert_same_instance_attributes(testcase, ours, theirs):

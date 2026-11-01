@@ -9,6 +9,11 @@ import unittest
 import api_parity
 
 
+# Loop variables of the class body that reads the leap second file: not API, and lsreader's
+# repr holds a memory address.
+CDFEPOCH_LOADER_LEFTOVERS = tuple("CDFepoch." + name for name in ("lsfile", "lsreader", "csv_row", "row", "r"))
+
+
 class CdflibApi(unittest.TestCase):
     def test_version(self):
         import pycdfpp.cdflib as cdflib
@@ -25,6 +30,9 @@ class CdflibApi(unittest.TestCase):
 
     def test_epochs_astropy_api(self):
         api_parity.assert_same_api(self, *api_parity.module_pair("epochs_astropy"))
+
+    def test_epochs_api(self):
+        api_parity.assert_same_api(self, *api_parity.module_pair("epochs"), ignored=CDFEPOCH_LOADER_LEFTOVERS)
 
     def test_missing_cdflib_message(self):
         code = "import sys; sys.modules['cdflib'] = None; import pycdfpp.cdflib"
@@ -107,6 +115,13 @@ class ParityCanFail(unittest.TestCase):
             with self.subTest(label):
                 with self.assertRaises(AssertionError):
                     api_parity.assert_same_api(self, fake_module(**ours), fake_module(**theirs))
+
+    def test_ignored_names_are_dropped(self):
+        api_parity.assert_same_api(self, fake_module(C=WithoutMethod), fake_module(C=WithMethod),
+                                   ignored=("C.method",))
+        with self.assertRaises(AssertionError):
+            api_parity.assert_same_api(self, fake_module(C=WithoutMethod), fake_module(C=WithMethod),
+                                       ignored=("C.other",))
 
     def test_reimported_typing_names_are_ignored(self):
         api_parity.assert_same_api(self, fake_module(Union=typing.Union, List=typing.List), fake_module())
