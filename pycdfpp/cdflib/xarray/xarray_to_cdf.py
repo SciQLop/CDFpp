@@ -13,7 +13,8 @@ from .. import _types, _values
 from ..cdfwrite import CDF
 from ..epochs import CDFepoch as cdfepoch
 from ..logging import logger
-from ._istp import DEPEND_ATTRIBUTE, ISTP_COMPLIANT_NAME, ISTPError  # noqa: F401 (public, as in cdflib)
+# Public, as in cdflib.
+from ._istp import DEPEND_ATTRIBUTE, ISTP_COMPLIANT_NAME, ISTPError  # noqa: F401
 from ._istp import Records as _Records
 from ._istp import Report as _Report
 from ._istp import is_epoch_name as _is_epoch_name
