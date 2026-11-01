@@ -3,6 +3,7 @@ import subprocess
 import dataclasses
 import inspect
 import sys
+import tempfile
 import types
 import typing
 import unittest
@@ -56,6 +57,19 @@ class CdflibApi(unittest.TestCase):
             with self.subTest(name):
                 path = RESOURCES / name
                 api_parity.assert_same_instance_attributes(self, cdfread.CDF(path), cdflib.cdfread.CDF(path))
+
+    def test_cdfwrite_api(self):
+        api_parity.assert_same_api(self, *api_parity.module_pair("cdfwrite"))
+
+    def test_cdfwrite_instance_attributes(self):
+        import cdflib.cdfwrite
+        from pycdfpp.cdflib import cdfwrite
+        with tempfile.TemporaryDirectory() as folder:
+            ours = cdfwrite.CDF(Path(folder) / "ours.cdf")
+            theirs = cdflib.cdfwrite.CDF(Path(folder) / "theirs.cdf")
+            api_parity.assert_same_instance_attributes(self, ours, theirs)
+            ours.close()
+            theirs.close()
 
     def test_package_exports_reader(self):
         import pycdfpp.cdflib as ours
