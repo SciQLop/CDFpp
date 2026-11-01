@@ -160,13 +160,22 @@ class ToDatetime(SameAs):
         result = CDFepoch.to_datetime(np.array([63745056000000.0, -1e31]))
         np.testing.assert_array_equal(result, np.array(["2020-01-01", "NaT"], dtype="datetime64[ns]"))
 
-    def test_tt2000_after_2262_is_nat(self):
-        result = CDFepoch.to_datetime(REF.compute_tt2000([2280, 1, 1, 0, 0, 0, 0, 0, 0]))
-        self.assertTrue(np.isnat(result).all())
+    def test_dates_outside_datetime64_raise_like_cdflib(self):
+        cases = {"tt2000 after 2262": REF.compute_tt2000([2280, 1, 1, 0, 0, 0, 0, 0, 0]),
+                 "epoch 1500 and 3000": REF.compute_epoch([[1500, 3, 4, 5, 6, 7, 8], [3000, 1, 1, 0, 0, 0, 0]]),
+                 "epoch 3000 next to fill": np.array([REF.compute_epoch([3000, 1, 1, 0, 0, 0, 0]), -1e31]),
+                 "epoch16 year 5": REF.compute_epoch16([5, 3, 4, 5, 6, 7, 8, 9, 10, 11])}
+        for label, values in cases.items():
+            with self.subTest(label):
+                with self.assertRaises(OverflowError):
+                    REF.to_datetime(values)
+                with self.assertRaises(OverflowError):
+                    CDFepoch.to_datetime(values)
 
-    def test_epoch_outside_datetime64_is_nat(self):
-        result = CDFepoch.to_datetime(REF.compute_epoch([[1500, 3, 4, 5, 6, 7, 8], [3000, 1, 1, 0, 0, 0, 0]]))
-        self.assertTrue(np.isnat(result).all())
+    def test_fill_and_pad_of_every_type_are_nat(self):
+        for values in ([TT2000_FILL, TT2000_PAD], [-1e31, 0.0, np.nan], [complex(-1e31, -1e31), 0j]):
+            with self.subTest(values=values):
+                self.assertTrue(np.isnat(CDFepoch.to_datetime(values)).all())
 
     def test_tt2000_fill_and_pad_are_nat(self):
         result = CDFepoch.to_datetime([TT2000_FILL, TT2000_PAD])
@@ -348,6 +357,19 @@ class EpochRange(SameAs):
                     getattr(REF, method)(*args)
                 with self.assertRaises(error):
                     getattr(CDFepoch, method)(*args)
+
+
+class LeapSeconds(unittest.TestCase):
+    def test_every_leap_second_of_cdflib_table_is_second_60(self):
+        days = [row for row in REF.LTS[REF.NERA1 + 1:]]
+        values = [REF.compute_tt2000([y, m, d, 0, 0, 0, 0, 0, 0]) - SECOND // 2 for y, m, d, *_ in days]
+        np.testing.assert_array_equal(CDFepoch.breakdown_tt2000(values)[:, 5], 60)
+
+    def test_leapsec_file_is_cdflib_public_constant(self):
+        import cdflib.epochs
+        from pycdfpp.cdflib import epochs
+        self.assertEqual(epochs.LEAPSEC_FILE, cdflib.epochs.LEAPSEC_FILE)
+        self.assertEqual(CDFepoch.LTS, REF.LTS)
 
 
 class Package(unittest.TestCase):

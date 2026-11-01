@@ -1,15 +1,12 @@
 """cdflib.epochs (1.3.16) on pycdfpp's vectorised time conversions."""
-import os
 import re
 from typing import List, Optional, Tuple, Union
 
-import cdflib as _cdflib
 import numpy as np
 import numpy.typing as npt
 
 import pycdfpp
-
-LEAPSEC_FILE = os.path.join(os.path.dirname(os.path.realpath(_cdflib.__file__)), "CDFLeapSeconds.txt")
+from cdflib.epochs import LEAPSEC_FILE
 
 epochs_type = Union[str, List[float], List[int], List[complex], Tuple[float, ...], Tuple[int, ...], Tuple[complex, ...], np.ndarray]
 
@@ -90,9 +87,11 @@ def _utc_fields(values, dtype):
     return np.stack([digits[:, a:b] @ 10 ** np.arange(b - a - 1, -1, -1) for a, b in _TEXT_COLUMNS], axis=-1)
 
 
-def _leap_second_starts(leap_second_days):
-    midnights = np.array([f"{y:04d}-{m:02d}-{d:02d}" for y, m, d, *_ in leap_second_days], dtype="datetime64[ns]")
-    return pycdfpp.to_tt2000(midnights)["nseconds"] - _SECOND
+def _leap_second_starts():
+    """From pycdfpp's own table, so detection and conversion never disagree: a leap day is 86401 s long."""
+    midnights = np.arange(np.datetime64("1972-01-01"), _LAST_DATETIME64_NS_DAY).astype("datetime64[ns]")
+    tt2000 = pycdfpp.to_tt2000(midnights)["nseconds"]
+    return tt2000[1:][np.diff(tt2000) != 86400 * _SECOND] - _SECOND
 
 
 def _in_leap_second(tt2000):
@@ -182,6 +181,14 @@ def _to_unixtime(fields):
 def _check_unixtime_years(fields):
     if np.any(fields[:, 0] < 1):
         raise ValueError("year 0 is out of range")
+
+
+def _check_only_fill_and_pad_are_nat(nat_values):
+    """pycdfpp also gives NaT for dates datetime64[ns] can't hold; cdflib raises for those."""
+    if len(nat_values):
+        fields = np.atleast_2d(CDFepoch.breakdown(nat_values))[:, :7]
+        if not np.all(_is_row(fields, _FILL) | _is_row(fields, _PAD)):
+            raise OverflowError("Date out of the datetime64[ns] range (1678 to 2262)")
 
 
 def _encode(fields, iso_8601):
@@ -298,10 +305,12 @@ class CDFepoch:
 
     @classmethod
     def to_datetime(cls, cdf_time: epoch_types) -> npt.NDArray[np.datetime64]:
-        """CDF time values to datetime64[ns]; fill, pad and out of range values give NaT."""
+        """CDF time values to datetime64[ns]; fill and pad values give NaT."""
         values = np.atleast_1d(np.array(cdf_time))
         _kind_of(values, TypeError, "Not sure how to handle this type")
-        return pycdfpp.to_datetime64(_as_records(values, values.dtype))
+        times = pycdfpp.to_datetime64(_as_records(values, values.dtype))
+        _check_only_fill_and_pad_are_nat(values.reshape(-1)[np.isnat(times)])
+        return times
 
     @staticmethod
     def unixtime(cdf_time: npt.ArrayLike) -> Union[float, npt.NDArray]:
@@ -462,8 +471,7 @@ class CDFepoch:
         return np.squeeze([_parse_one(text) for text in value])
 
 
-# Rows before NERA1 are pre-1972 drift; the NERA1 row (1972-01-01) starts the 10 s offset, not a leap second.
-_LEAP_SECOND_STARTS = _leap_second_starts(CDFepoch.LTS[CDFepoch.NERA1 + 1:])
+_LEAP_SECOND_STARTS = _leap_second_starts()
 _COMPUTE_BY_SIZE = {7: CDFepoch.compute_epoch, 9: CDFepoch.compute_tt2000, 10: CDFepoch.compute_epoch16}
 _SUB_SECONDS = {
     "epoch": (r"(?P<ms>\d{3})", r"(?P<ms>\d{3})"),
