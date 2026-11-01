@@ -159,6 +159,12 @@ class Corpus(SameMixin, unittest.TestCase):
                     cdfread.CDF(RESOURCES / name)
 
 
+def read_everything(path):
+    """Opens, reads and drops the reader: Windows can't delete a file a live reader holds."""
+    cdf = cdfread.CDF(path)
+    cdf.cdf_info(), cdf.varinq(0), cdf.varattsget(0)
+
+
 class Targeted(SameMixin, unittest.TestCase):
     def test_record_ranges(self):
         ours, theirs = open_both("a_cdf.cdf")
@@ -259,7 +265,7 @@ class Targeted(SameMixin, unittest.TestCase):
                              "attget": lambda c: c.attget("caf\xe9_attr", 0)}
                     for label, call in calls.items():
                         self.assertSameCall(ours, theirs, call, label)
-                    del ours  # releases the mapped file before the folder goes
+                    del ours, theirs  # both hold the file: Windows can't delete it while they live
 
     def test_descriptors_from_bytes(self):
         from pycdfpp.cdflib import _records
@@ -311,8 +317,7 @@ class Targeted(SameMixin, unittest.TestCase):
                         path = Path(folder) / f"{size}_{name}"
                         path.write_bytes((RESOURCES / name).read_bytes()[:size])
                         with self.assertRaises(ValueError):
-                            cdf = cdfread.CDF(path)
-                            cdf.cdf_info(), cdf.varinq(0), cdf.varattsget(0)
+                            read_everything(path)
 
     def test_varget_gives_a_new_array_each_time(self):
         cdf = cdfread.CDF(RESOURCES / "a_cdf.cdf")

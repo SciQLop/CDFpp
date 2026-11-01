@@ -197,6 +197,7 @@ class Writer(unittest.TestCase):
                     read = self.write((spec("v", data_type, [2]), values))
                     self.assertEqual(read.varinq("v").Data_Type, NUMBERS[type_name])
                     same(self, read.varget("v"), values, type_name)
+                    del read  # the reader holds the file: Windows can't delete it
                     self.path.unlink()
 
     def test_strings(self):
@@ -205,6 +206,7 @@ class Writer(unittest.TestCase):
                 read = self.write((spec("s", type_name, num_elements=5), ["ab", "cdefg", "h"]))
                 self.assertEqual(read.varinq("s").Num_Elements, 5)
                 same(self, read.varget("s"), np.array(["ab", "cdefg", "h"]), type_name)
+                del read  # the reader holds the file: Windows can't delete it
                 self.path.unlink()
 
     def test_string_longer_than_num_elements_raises(self):
@@ -253,6 +255,7 @@ class Writer(unittest.TestCase):
                 read = self.write((spec("v", 22, [2]), np.arange(4.).reshape(2, 2)), cdf_spec={"Encoding": encoding})
                 self.assertEqual(read.cdf_info().Encoding, 1)
                 same(self, read.varget("v"), np.arange(4.).reshape(2, 2), "v")
+                del read  # the reader holds the file: Windows can't delete it
                 self.path.unlink()
 
     def test_bad_encodings_raise(self):
@@ -308,8 +311,10 @@ class Writer(unittest.TestCase):
                                               "B": np.bool_(True), "C64": np.complex64(1j), "U8": np.uint8(7),
                                               "U16": np.array([7], np.uint16), "U32": np.uint32(2**31 + 1),
                                               "PYBOOL": True}, np.arange(3.))
-        same(self, cdflib.CDF(self.path).varattsget("v"),
-             {"U8": np.uint8(7), "U16": np.uint16(7), "U32": np.uint32(2**31 + 1), "PYBOOL": np.int64(1)}, "v")
+        expected = {"U8": np.uint8(7), "U16": np.uint16(7), "U32": np.uint32(2**31 + 1), "PYBOOL": np.int64(1)}
+        if np.finfo(np.longdouble).bits == 64:  # MSVC: a long double is a double, nothing is lost
+            expected["LD"] = np.float64(1) / 3
+        same(self, cdflib.CDF(self.path).varattsget("v"), expected, "v")
 
     @unittest.expectedFailure
     def test_several_strings_in_one_entry(self):
