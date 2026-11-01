@@ -210,8 +210,9 @@ class Writer(unittest.TestCase):
                 self.path.unlink()
 
     def test_string_longer_than_num_elements_raises(self):
+        variable = (spec("s", "CDF_CHAR", num_elements=2), ["abc"])
         with self.assertRaises(ValueError):
-            self.write((spec("s", "CDF_CHAR", num_elements=2), ["abc"]))
+            self.write(variable)
 
     def test_data_as_list_scalar_and_array(self):
         read = self.write((spec("list", 45), [1.0, 2.0, 3.0]), (spec("scalar", 4), 7),
@@ -369,9 +370,9 @@ class Writer(unittest.TestCase):
                 with self.subTest(type_name=type_name, where=where, values=values):
                     self.path.unlink(missing_ok=True)
                     data, attrs = (values, None) if where == "data" else ([1, 2], {"A": [values[1], type_name]})
-                    with self.assertRaisesRegex(ValueError, f"v.*{type_name}.*{values[-1]}"):
-                        with cdfwrite.CDF(self.path) as out:
-                            out.write_var(spec("v", type_name), attrs, np.asarray(data))
+                    out, variable, array = cdfwrite.CDF(self.path), spec("v", type_name), np.asarray(data)
+                    with self.assertRaisesRegex(ValueError, f"v.*{type_name}.*{values[-1]}"), out:
+                        out.write_var(variable, attrs, array)
                     self.assertFalse(self.path.exists())
 
     def test_floats_out_of_the_type_range_raise(self):
@@ -384,9 +385,9 @@ class Writer(unittest.TestCase):
                 with self.subTest(type_name=type_name, where=where, values=values):
                     self.path.unlink(missing_ok=True)
                     data, attrs = (values, None) if where == "data" else ([1, 2], {"A": [values[1], type_name]})
-                    with self.assertRaisesRegex(ValueError, f"v.*{type_name}.*{re.escape(str(values[-1]))}"):
-                        with cdfwrite.CDF(self.path) as out:
-                            out.write_var(spec("v", type_name), attrs, np.asarray(data))
+                    out, variable, array = cdfwrite.CDF(self.path), spec("v", type_name), np.asarray(data)
+                    with self.assertRaisesRegex(ValueError, f"v.*{type_name}.*{re.escape(str(values[-1]))}"), out:
+                        out.write_var(variable, attrs, array)
                     self.assertFalse(self.path.exists())
 
     def test_floats_in_the_type_range_are_truncated(self):
@@ -400,9 +401,9 @@ class Writer(unittest.TestCase):
         same(self, read.varattsget("v")["A"], np.int8(-128), "A")
 
     def test_global_integer_out_of_the_type_range_raises(self):
-        with self.assertRaisesRegex(ValueError, "G.*CDF_INT2.*40000"):
-            with cdfwrite.CDF(self.path) as out:
-                out.write_globalattrs({"G": {0: [40000, "CDF_INT2"]}})
+        out = cdfwrite.CDF(self.path)
+        with self.assertRaisesRegex(ValueError, "G.*CDF_INT2.*40000"), out:
+            out.write_globalattrs({"G": {0: [40000, "CDF_INT2"]}})
 
     def test_integers_in_the_type_range_are_kept(self):
         with cdfwrite.CDF(self.path) as out:
@@ -449,10 +450,10 @@ class Writer(unittest.TestCase):
         same(self, read.varattsget("r"), {"UNITS": "m", "OTHER": "x"}, "r")
 
     def test_exception_in_with_block_writes_nothing(self):
-        with self.assertRaises(ZeroDivisionError):
-            with cdfwrite.CDF(self.path) as out:
-                out.write_var(spec("v", 45), var_data=[1.0])
-                1 / 0
+        out, variable = cdfwrite.CDF(self.path), spec("v", 45)
+        with self.assertRaises(ZeroDivisionError), out:
+            out.write_var(variable, var_data=[1.0])
+            raise ZeroDivisionError
         self.assertFalse(self.path.exists())
 
     def test_never_closed_writes_nothing(self):
@@ -467,8 +468,9 @@ class Writer(unittest.TestCase):
         out = cdfwrite.CDF(self.path)
         out.close()
         out.close()
+        variable = spec("v", 45)
         with self.assertRaises(OSError):
-            out.write_var(spec("v", 45))
+            out.write_var(variable)
 
     def test_existing_path(self):
         self.write((spec("v", 45), [1.0]))

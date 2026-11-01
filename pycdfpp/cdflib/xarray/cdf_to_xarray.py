@@ -17,7 +17,7 @@ ISTP_TO_XARRAY_ATTRS = {"FIELDNAM": "standard_name", "LABLAXIS": "long_name", "U
 
 _FILLABLE_TYPES = ("CDF_FLOAT", "CDF_REAL4", "CDF_DOUBLE", "CDF_REAL8") + _types.TIME_NAMES
 _TIME_CONVERSIONS = {"datetime": (cdfepoch.to_datetime, "Datetime (UTC)"), "unixtime": (cdfepoch.unixtime, "seconds")}
-_DEPEND_KEY = re.compile("depend_[0-9]+$")
+_DEPEND_KEY = re.compile(r"depend_\d+$", re.ASCII)
 _UNCERTAINTY_KEYS = ("DELTA_PLUS_VAR", "DELTA_MINUS_VAR")
 
 
@@ -395,8 +395,9 @@ def _check_dimension_variables(data_vars: Dict[str, xr.Variable], coords: Dict[s
         for dim in variable.dims:
             wrong = next((pool[dim] for pool in pools if dim in pool and pool[dim].dims != (dim,)), None)
             if wrong is not None:
+                # cdflib raises a plain Exception here too, and exception types are API.
                 raise Exception(f'Variable "{name}" has the dimension "{dim}", a variable whose dimensions are {wrong.dims}'
-                                f' instead of ("{dim}",). Check the DEPEND_X attributes of {name} and {dim}.')
+                                f' instead of ("{dim}",). Check the DEPEND_X attributes of {name} and {dim}.')  # NOSONAR(S112)
 
 
 def cdf_to_xarray(filename: str, to_datetime: bool = True, to_unixtime: bool = False, fillval_to_nan: bool = False) -> xr.Dataset:

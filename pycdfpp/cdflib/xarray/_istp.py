@@ -7,14 +7,14 @@ import xarray as xr
 
 from ..logging import logger
 
-ISTP_COMPLIANT_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
-DEPEND_ATTRIBUTE = re.compile(r"^DEPEND_[0-9]+$")
+ISTP_COMPLIANT_NAME = re.compile(r"^[A-Za-z]\w*$", re.ASCII)
+DEPEND_ATTRIBUTE = re.compile(r"^DEPEND_\d+$", re.ASCII)
 _VAR_TYPES = ("data", "support_data", "metadata", "ignore_data")
 _REQUIRED_GLOBAL_ATTRIBUTES = (
     "Project", "Source_name", "Discipline", "Data_type", "Descriptor", "Data_version", "Logical_file_id", "PI_name",
     "PI_affiliation", "TEXT", "Instrument_type", "Mission_group", "Logical_source", "Logical_source_description")
-_EPOCH_NAME = re.compile(r"epoch(_[0-9]+)?$")
-_DEPEND_KEY = re.compile(r"depend_[0-9]+$")
+_EPOCH_NAME = re.compile(r"epoch(_\d+)?$", re.ASCII)
+_DEPEND_KEY = re.compile(r"depend_\d+$", re.ASCII)
 _LABELLED_DEPEND = re.compile(r"^DEPEND_([1-9])$")
 # DISPLAY_TYPE: first DEPEND_n number that needs a LABL_PTR_n.
 _FIRST_LABELLED_DEPEND = {"time_series": 1, "stack_plot": 1, "spectrogram": 2}
@@ -130,18 +130,31 @@ def _depend_dimensions(dataset: xr.Dataset, report: Report) -> set:
     for name in names(dataset):
         attrs = dataset[name].attrs
         var_type = _checked_var_type(name, attrs, report)
-        for key, target in list(attrs.items()):
-            if not _DEPEND_KEY.match(key.lower()) or key == "DEPEND_0":
-                continue
-            if target not in dataset.variables:
-                report(f"ISTP: {key} of {name} names {target}, which is not in the Dataset")
-            elif _depend_fits(dataset, int(key[-1]), name, target, report):
-                found.add(target)
-        for number, dim in enumerate(dataset[name].dims[1:], 1):
-            found.add(dim)
-            if dim not in dataset.variables and var_type == "data" and f"DEPEND_{number}" not in attrs:
-                report(f"ISTP: dimension {dim} of {name} is no variable: give {name} a DEPEND_{number}")
+        found |= _depend_targets(dataset, name, report)
+        found |= _check_dimensions_have_depend(dataset, name, var_type, report)
     return found
+
+
+def _depend_targets(dataset: xr.Dataset, name, report: Report) -> set:
+    """The valid targets of the DEPEND_n (n > 0) attributes of a variable."""
+    targets = set()
+    for key, target in dataset[name].attrs.items():
+        if not _DEPEND_KEY.match(key.lower()) or key == "DEPEND_0":
+            continue
+        if target not in dataset.variables:
+            report(f"ISTP: {key} of {name} names {target}, which is not in the Dataset")
+        elif _depend_fits(dataset, int(key[-1]), name, target, report):
+            targets.add(target)
+    return targets
+
+
+def _check_dimensions_have_depend(dataset: xr.Dataset, name, var_type: str, report: Report) -> set:
+    """The non-record dimensions of a variable; data variables must give each a DEPEND_n."""
+    attrs, dims = dataset[name].attrs, dataset[name].dims[1:]
+    for number, dim in enumerate(dims, 1):
+        if dim not in dataset.variables and var_type == "data" and f"DEPEND_{number}" not in attrs:
+            report(f"ISTP: dimension {dim} of {name} is no variable: give {name} a DEPEND_{number}")
+    return set(dims)
 
 
 def _depend_0_candidate(name, dims, attrs: dict):
@@ -196,8 +209,8 @@ def _is_increasing(dataset: xr.Dataset, name, report: Report) -> bool:
 
 
 def _dimension_names(dataset: xr.Dataset, varying: list, dimensions: set) -> set:
-    return dimensions | {dataset[name].dims[0] for name in names(dataset)
-                         if name not in varying and dataset[name].dims}
+    return {*dimensions, *(dataset[name].dims[0] for name in names(dataset)
+                           if name not in varying and dataset[name].dims)}
 
 
 def _add_depend(attrs: dict, name, key: str, target, auto_fix_depends: bool) -> None:
@@ -231,7 +244,7 @@ def _check_global_attributes(dataset: xr.Dataset, report: Report) -> None:
 def _check_labels(dataset: xr.Dataset, name, attrs: dict, report: Report) -> None:
     display = attrs["DISPLAY_TYPE"].lower()
     first = _FIRST_LABELLED_DEPEND.get(display)
-    for key in list(attrs):
+    for key in attrs:
         match = _LABELLED_DEPEND.match(key)
         if first is None or not match or int(match.group(1)) < first:
             continue

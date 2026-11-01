@@ -162,15 +162,16 @@ class ParityCanFail(unittest.TestCase):
     def test_every_variant_is_detected(self):
         for label, (ours, theirs) in VARIANTS.items():
             with self.subTest(label):
+                ours_module, theirs_module = fake_module(**ours), fake_module(**theirs)
                 with self.assertRaises(AssertionError):
-                    api_parity.assert_same_api(self, fake_module(**ours), fake_module(**theirs))
+                    api_parity.assert_same_api(self, ours_module, theirs_module)
 
     def test_ignored_names_are_dropped(self):
         api_parity.assert_same_api(self, fake_module(C=WithoutMethod), fake_module(C=WithMethod),
                                    ignored=("C.method",))
+        ours, theirs = fake_module(C=WithoutMethod), fake_module(C=WithMethod)
         with self.assertRaises(AssertionError):
-            api_parity.assert_same_api(self, fake_module(C=WithoutMethod), fake_module(C=WithMethod),
-                                       ignored=("C.other",))
+            api_parity.assert_same_api(self, ours, theirs, ignored=("C.other",))
 
     def test_reimported_typing_names_are_ignored(self):
         api_parity.assert_same_api(self, fake_module(Union=typing.Union, List=typing.List), fake_module())

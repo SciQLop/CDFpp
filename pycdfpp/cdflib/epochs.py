@@ -22,6 +22,8 @@ cdf_epoch16_type = Union[complex, np.complex128, List[complex], npt.NDArray[np.c
 cdf_tt2000_type = Union[int, np.int64, List[int], npt.NDArray[np.int64]]
 
 _SECOND = 1_000_000_000
+_NS = "datetime64[ns]"
+_NOT_SURE_HOW = "Not sure how to handle this type"
 _FILL = (9999, 12, 31, 23, 59, 59, 999, 999, 999, 999)
 _PAD = (0, 1, 1, 0, 0, 0, 0, 0, 0, 0)
 _LAST_DATETIME64_NS_DAY = np.datetime64("2262-04-11", "D")
@@ -90,7 +92,7 @@ def _utc_fields(values, dtype):
 
 def _leap_second_starts():
     """From pycdfpp's own table, so detection and conversion never disagree: a leap day is 86401 s long."""
-    midnights = np.arange(np.datetime64("1972-01-01"), _LAST_DATETIME64_NS_DAY).astype("datetime64[ns]")
+    midnights = np.arange(np.datetime64("1972-01-01"), _LAST_DATETIME64_NS_DAY).astype(_NS)
     tt2000 = pycdfpp.to_tt2000(midnights)["nseconds"]
     return tt2000[1:][np.diff(tt2000) != 86400 * _SECOND] - _SECOND
 
@@ -105,7 +107,7 @@ def _tt2000_of_midnights(midnights):
     """datetime64[ns] ends in 2262 and TT2000 in 2292; no leap second comes after 2262, so days add plainly."""
     clamped = np.minimum(midnights, _LAST_DATETIME64_NS_DAY)
     days_after = (midnights - clamped).astype(np.int64)
-    return pycdfpp.to_tt2000(clamped.astype("datetime64[ns]"))["nseconds"] + days_after * 86400 * _SECOND
+    return pycdfpp.to_tt2000(clamped.astype(_NS))["nseconds"] + days_after * 86400 * _SECOND
 
 
 def _tt2000_fields(tt2000):
@@ -218,7 +220,7 @@ def _indices_between(values, start, end):
     if start > end:
         raise ValueError("Invalid start/end time")
     values = np.array(values)
-    return np.where(np.logical_and(values >= start, values <= end))[0]
+    return np.nonzero(np.logical_and(values >= start, values <= end))[0]
 
 
 def _not_before(values, bound):
@@ -301,25 +303,25 @@ class CDFepoch:
 
     @staticmethod
     def encode(epochs: epoch_types, iso_8601: bool = True) -> encoded_type:
-        kind = _kind_of(epochs, TypeError, "Not sure how to handle this type")
+        kind = _kind_of(epochs, TypeError, _NOT_SURE_HOW)
         return getattr(CDFepoch, "encode_" + kind)(np.array(epochs), iso_8601)
 
     @staticmethod
     def breakdown(epochs: epoch_types) -> np.ndarray:
-        kind = _kind_of(epochs, TypeError, "Not sure how to handle this type")
+        kind = _kind_of(epochs, TypeError, _NOT_SURE_HOW)
         return getattr(CDFepoch, "breakdown_" + kind)(np.array(epochs))
 
     @classmethod
     def to_datetime(cls, cdf_time: epoch_types) -> npt.NDArray[np.datetime64]:
         """CDF time values to datetime64[ns]; fill and pad values give NaT."""
         values = np.atleast_1d(np.array(cdf_time))
-        _kind_of(values, TypeError, "Not sure how to handle this type")
+        _kind_of(values, TypeError, _NOT_SURE_HOW)
         times = pycdfpp.to_datetime64(_as_records(values, values.dtype))
         _check_only_fill_and_pad_are_nat(values.reshape(-1)[np.isnat(times)])
         return times
 
     @staticmethod
-    def unixtime(cdf_time: npt.ArrayLike) -> Union[float, npt.NDArray]:
+    def unixtime(cdf_time: npt.ArrayLike) -> float | npt.NDArray:
         fields = np.atleast_2d(CDFepoch.breakdown(np.atleast_1d(cdf_time)))
         _check_unixtime_years(fields)
         return _squeeze_or_scalar(_to_unixtime(fields))
@@ -343,12 +345,12 @@ class CDFepoch:
         times = _timestamps(unixtime_data)
         missing, fill = np.isnan(times), times >= _UNIX_TT2000_FILL
         microseconds = np.trunc(np.where(missing | fill, 0, times) * 1000000.0).astype(np.int64)
-        tt2000 = pycdfpp.to_tt2000(microseconds.astype("datetime64[us]").astype("datetime64[ns]"))["nseconds"]
+        tt2000 = pycdfpp.to_tt2000(microseconds.astype("datetime64[us]").astype(_NS))["nseconds"]
         tt2000 = np.where(fill, CDFepoch.FILLED_TT2000_VALUE, tt2000)
         return np.where(missing, np.nan, tt2000) if missing.any() else tt2000
 
     @staticmethod
-    def compute(datetimes: npt.ArrayLike) -> Union[int, float, complex, npt.NDArray]:
+    def compute(datetimes: npt.ArrayLike) -> int | float | complex | npt.NDArray:
         if not isinstance(datetimes, (list, tuple, np.ndarray)):
             raise TypeError("datetime must be in list form")
         compute = _COMPUTE_BY_SIZE.get(np.atleast_2d(datetimes).shape[1])
@@ -358,7 +360,7 @@ class CDFepoch:
 
     @staticmethod
     def findepochrange(
-        epochs: epochs_type, starttime: Optional[epoch_types] = None, endtime: Optional[epoch_types] = None
+        epochs: epochs_type, starttime: epoch_types | None = None, endtime: epoch_types | None = None
     ) -> np.ndarray:
         kind = _kind_of(epochs, TypeError, "Bad input")
         return getattr(CDFepoch, "epochrange_" + kind)(np.array(epochs), starttime, endtime)
@@ -373,7 +375,7 @@ class CDFepoch:
         return np.squeeze(_tt2000_fields(values.reshape(-1)).reshape(values.shape + (9,)))
 
     @staticmethod
-    def compute_tt2000(datetimes: npt.ArrayLike) -> Union[int, npt.NDArray[np.int64]]:
+    def compute_tt2000(datetimes: npt.ArrayLike) -> int | npt.NDArray[np.int64]:
         if not isinstance(datetimes, (list, tuple, np.ndarray)):
             raise TypeError("datetime must be in list form")
         components = _components(datetimes, 9)
@@ -386,7 +388,7 @@ class CDFepoch:
 
     @staticmethod
     def epochrange_tt2000(
-        epochs: cdf_tt2000_type, starttime: Optional[epoch_types] = None, endtime: Optional[epoch_types] = None
+        epochs: cdf_tt2000_type, starttime: epoch_types | None = None, endtime: epoch_types | None = None
     ) -> npt.NDArray:
         _check_first_value(epochs, (int, np.int64), ValueError)
         compute = lambda value: int(CDFepoch.compute_tt2000(value))  # noqa: E731
@@ -399,7 +401,7 @@ class CDFepoch:
         return _encode(np.atleast_2d(CDFepoch.breakdown_epoch16(np.atleast_1d(epochs))), iso_8601)
 
     @staticmethod
-    def compute_epoch16(datetimes: npt.ArrayLike) -> Union[complex, npt.NDArray[np.complex128]]:
+    def compute_epoch16(datetimes: npt.ArrayLike) -> complex | npt.NDArray[np.complex128]:
         components = _components(datetimes, 10)
         if np.atleast_2d(datetimes).shape[1] < 9:
             components[:, 9] = 0  # cdflib carries a fraction down to picoseconds only from given nanoseconds
@@ -418,8 +420,8 @@ class CDFepoch:
 
     @staticmethod
     def epochrange_epoch16(
-        epochs: cdf_epoch16_type, starttime: Optional[epoch_types] = None, endtime: Optional[epoch_types] = None
-    ) -> Optional[np.ndarray]:
+        epochs: cdf_epoch16_type, starttime: epoch_types | None = None, endtime: epoch_types | None = None
+    ) -> np.ndarray | None:
         values = np.atleast_1d(epochs)
         compute = lambda value: complex(CDFepoch.compute_epoch16(value))  # noqa: E731
         start = _bound(starttime, complex(-1.0e31, -1.0e31), (complex, np.complex128), list, compute, ValueError)
@@ -437,7 +439,7 @@ class CDFepoch:
         return _encode(np.atleast_2d(CDFepoch.breakdown_epoch(epochs)), iso_8601)
 
     @staticmethod
-    def compute_epoch(dates: npt.ArrayLike) -> Union[float, npt.NDArray]:
+    def compute_epoch(dates: npt.ArrayLike) -> float | npt.NDArray:
         components = _components(dates, 7)
         _check_years(components)
         milliseconds_in_day = _seconds_in_day(components) * 1000 + components[:, 6]
@@ -455,7 +457,7 @@ class CDFepoch:
 
     @staticmethod
     def epochrange_epoch(
-        epochs: epoch_types, starttime: Optional[epoch_types] = None, endtime: Optional[epoch_types] = None
+        epochs: epoch_types, starttime: epoch_types | None = None, endtime: epoch_types | None = None
     ) -> np.ndarray:
         _check_first_value(epochs, (float, np.float64), TypeError)
         compute = lambda value: float(CDFepoch.compute_epoch(value))  # noqa: E731
@@ -464,7 +466,7 @@ class CDFepoch:
         return _indices_between(epochs, start, end)
 
     @staticmethod
-    def parse(value: Union[str, Tuple[str, ...], List[str]]) -> np.ndarray:
+    def parse(value: str | Tuple[str, ...] | List[str]) -> np.ndarray:
         """
         Parses date/time string(s), as encode writes them, into CDF epoch value(s).
         The format picks the type: milliseconds for CDF_EPOCH, nanoseconds for TT2000,
