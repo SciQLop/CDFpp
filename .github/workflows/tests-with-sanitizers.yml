@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install Python dependencies
-        run: python3.14 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt cdflib==1.3.16 xarray astropy requests cyclopts rich
+        run: python3.14 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests cyclopts rich
       - name: Configure with meson
         run: meson setup -Db_sanitize=address,undefined -Dwith_tests=true -Dwith_experimental_zstd=true build
       - name: Build
