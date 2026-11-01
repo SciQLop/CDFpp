@@ -176,12 +176,14 @@ Writing files (``cdfwrite.CDF``)
   entry; cdflib skips it.
 - Column major files hold the values you give. cdflib writes the bytes of the C ordered array, so
   records read back transposed.
-- Integers outside the range of their integer type (given as ``Data_Type`` or as
+- Numbers outside the range of their integer type (given as ``Data_Type`` or as
   ``[value, 'CDF_INT1']``) raise ``ValueError`` naming the variable or attribute, the type and the
-  values; nothing is written. cdflib wraps them silently: ``300`` as ``CDF_INT1`` is ``44``,
-  ``2**40`` as ``CDF_INT4`` or ``CDF_UINT4`` is ``0``, ``-1`` as ``CDF_UINT4`` is ``4294967295``,
-  ``2**63`` as ``CDF_INT8`` is the fill value. Floats are cast as before. In ``xarray_to_cdf``
-  this covers a ``CDF_DATA_TYPE`` narrower than the values.
+  values; nothing is written. Floats count after truncation, as C casts them (``127.9`` as
+  ``CDF_INT1`` is ``127``), and ``NaN`` or infinite floats never fit. cdflib wraps them silently:
+  ``300`` or ``300.5`` as ``CDF_INT1`` is ``44``, ``2**40`` as ``CDF_INT4`` or ``CDF_UINT4`` is
+  ``0``, ``-1`` or ``-1.0`` as ``CDF_UINT4`` is ``4294967295``, ``2**63`` as ``CDF_INT8`` is the
+  fill value, ``NaN`` and ``1e10`` as ``CDF_INT1`` are ``0``. In ``xarray_to_cdf`` this covers a
+  ``CDF_DATA_TYPE`` narrower than the values.
 - A string longer than ``Num_Elements`` raises ``ValueError``; cdflib shifts every record after
   it. A string ``Pad`` keeps the whole string, cut to ``Num_Elements``; cdflib keeps its first
   character.
@@ -265,6 +267,9 @@ raise the same exception type (``ISTPError`` or ``Exception``). Messages differ.
   adds. cdflib leaves them to its writer's guess: ``CDF_DOUBLE`` for those ``CDF_EPOCH`` values.
   Values of another numpy type than the time type's own (a ``float32`` ``FILLVAL`` of a
   ``CDF_EPOCH`` variable) keep the guess, as in cdflib.
+- A ``FILLVAL`` outside the range of the variable's integer type (a ``float`` ``-1e31`` of a
+  ``CDF_INT4`` variable) is written as the type's ISTP fill value. A ``VALIDMIN`` or ``VALIDMAX``
+  outside it keeps its own type. cdflib wraps them into the variable's type.
 - An object array of ``datetime`` objects is a time variable whatever its length. cdflib only
   sees a single ``datetime`` as a time.
 - A ``DEPEND_n`` whose shape can't be checked is logged as a warning. cdflib prints it.

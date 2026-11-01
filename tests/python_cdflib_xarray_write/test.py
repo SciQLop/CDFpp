@@ -565,6 +565,30 @@ class IstpChecks(unittest.TestCase):
                 self.assertRegex(str(outcome.error), f"v.*{cdf_type}.*{values[-1]}")
                 self.assertFalse(outcome.written)
 
+    def test_floats_outside_the_given_integer_type_raise(self):
+        """cdflib wraps them: 300.5 as CDF_INT1 is 44, NaN is 0, -1.0 as CDF_UINT2 is 65535."""
+        for values, cdf_type in ((np.array([1.0, 300.5]), "CDF_INT1"), (np.array([1.0, np.nan]), "CDF_INT1"),
+                                 (np.array([1.0, -1.0]), "CDF_UINT2")):
+            with self.subTest(cdf_type, values=values):
+                dataset = xr.Dataset({"v": xr.Variable(("x",), values, {"CDF_DATA_TYPE": cdf_type})})
+                outcome = Outcome(ours_module(), dataset, self.root / "ours.cdf", istp=False, nan_to_fillval=False)
+                self.assertIsInstance(outcome.error, ValueError)
+                self.assertRegex(str(outcome.error), f"v.*{cdf_type}.*{values[-1]}")
+                self.assertFalse(outcome.written)
+
+    def test_istp_limits_outside_the_integer_type_are_not_wrapped(self):
+        """A float FILLVAL of -1e31 on an integer variable (as in SolO RPW files) is the type's fill value. cdflib wraps
+        it, and VALIDMIN or VALIDMAX, into the variable's type."""
+        attrs = {"FILLVAL": np.float32(-1e31), "VALIDMIN": np.int64(-5), "VALIDMAX": np.float64(1e10)}
+        dataset = xr.Dataset({"v": xr.Variable(("x",), np.array([1, 2, 3], dtype=np.int32), attrs)})
+        outcome = Outcome(ours_module(), dataset, self.root / "ours.cdf", record_dimensions=["v"])
+        self.assertIsNone(outcome.error)
+        written = pycdfpp.load(str(self.root / "ours.cdf"))["v"].attributes
+        self.assertEqual({key: (written[key].type(), written[key].value) for key in attrs},
+                         {"FILLVAL": (pycdfpp.DataType.CDF_INT4, [np.iinfo(np.int32).min]),
+                          "VALIDMIN": (pycdfpp.DataType.CDF_INT4, [-5]),
+                          "VALIDMAX": (pycdfpp.DataType.CDF_DOUBLE, [1e10])})
+
     def test_fillval_of_float_time_types_has_their_type(self):
         """ISTP: FILLVAL, VALIDMIN and VALIDMAX have the variable's type. cdflib leaves raw CDF_EPOCH values
         (float64) untyped: CDF_DOUBLE. Its writer guesses CDF_EPOCH16 for complex values."""
