@@ -100,7 +100,9 @@ interleaved runs, files in the page cache.
 
 AMD Ryzen 7 5800X (8 cores, x86-64 with AVX2, no AVX-512), Python 3.14, 2026-11-01. The machine
 was shared with other builds: the 1 minute load average was 5.9 when the run started and 5.7
-when it ended. Each run uses one core, and the minimum of the runs is kept. cdflib was never
+when it ended. pycdfpp uses several threads for compressed variables (decompression on read, compression
+on write) while cdflib uses one, so part of the gap on those rows is multithreading. The
+minimum of the runs is kept. cdflib was never
 faster. The speedup on ``CDF_EPOCH`` is so large because cdflib converts each value in a Python
 loop.
 
