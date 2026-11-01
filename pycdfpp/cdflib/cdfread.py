@@ -65,15 +65,17 @@ def _fetch_s3(url: str) -> bytes:
         raise ImportError("boto3/botocore package not installed")
     bucket, _, key = url[len("s3://"):].partition("/")
     try:
-        obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)
+        obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)  # NOSONAR: the user's URL, owner unknown (cdflib API)
     except Exception:  # bare on purpose: cdflib retries unsigned on any failure (public buckets)
         from botocore import UNSIGNED
         from botocore.client import Config
-        obj = boto3.client("s3", config=Config(signature_version=UNSIGNED)).get_object(Bucket=bucket, Key=key)
+        obj = boto3.client("s3", config=Config(signature_version=UNSIGNED)).get_object(  # NOSONAR: as above
+            Bucket=bucket, Key=key)
     return s3_fetchall(obj).getvalue()
 
 
-_REMOTE = {"s3://": ("s3", _fetch_s3), "http://": ("url", _fetch_url), "https://": ("url", _fetch_url)}
+# Plain http URLs are part of cdflib's API: the user picks the URL.
+_REMOTE = {"s3://": ("s3", _fetch_s3), "http://": ("url", _fetch_url), "https://": ("url", _fetch_url)}  # NOSONAR
 
 
 def _remote_kind(path) -> Optional[Tuple[str, Any]]:
@@ -89,7 +91,7 @@ def _cdf_version(buffer, path) -> int:
 
 def _md5_matches(buffer) -> bool:
     with memoryview(buffer) as content:
-        return hashlib.md5(content[:-16]).digest() == content[-16:]
+        return hashlib.md5(content[:-16], usedforsecurity=False).digest() == content[-16:]  # the CDF format's checksum
 
 
 def _key(name: bytes) -> bytes:
