@@ -1,6 +1,7 @@
 import os
 import subprocess
 import dataclasses
+import inspect
 import sys
 import types
 import typing
@@ -40,6 +41,8 @@ class CdflibApi(unittest.TestCase):
 
     def test_cdfread_api(self):
         api_parity.assert_same_api(self, *api_parity.module_pair("cdfread"), ignored=CDFREAD_NOT_OURS_YET)
+        ours, theirs = api_parity.module_pair("cdfread")
+        self.assertEqual(inspect.signature(ours.CDF.__del__), inspect.signature(theirs.CDF.__del__))
 
     def test_cdfread_instance_attributes(self):
         import cdflib

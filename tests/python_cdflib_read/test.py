@@ -75,6 +75,18 @@ class SameMixin:
             self.assertSameCall(ours, theirs, lambda c: c.varget(variable), f"{name}:varget({variable})")
 
 
+def latin1_named_cdf(folder):
+    """A CDF whose variable and attributes are named "café" in ISO-8859-1, as old files can be."""
+    cdf = pycdfpp.CDF()
+    cdf.add_variable("cafe", values=np.arange(3, dtype=np.float64))
+    cdf["cafe"].add_attribute("units", "cafe")
+    cdf.add_attribute("cafe_attr", ["cafe"])
+    path = folder / "latin1.cdf"
+    pycdfpp.save(cdf, str(path))
+    path.write_bytes(path.read_bytes().replace(b"cafe", b"caf\xe9"))
+    return path
+
+
 def open_both(name, **kwargs):
     path = RESOURCES / name
     return cdfread.CDF(path, **kwargs), cdflib.CDF(path, **kwargs)
@@ -234,6 +246,29 @@ class Targeted(SameMixin, unittest.TestCase):
             with self.subTest(reader.__module__):
                 with self.assertRaises(FileNotFoundError):
                     reader(RESOURCES / "missing.cdf")
+
+    def test_latin1_names(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = latin1_named_cdf(Path(folder))
+            for encoding in ("latin-1", "ascii"):
+                with self.subTest(encoding):
+                    ours, theirs = cdfread.CDF(path, string_encoding=encoding), cdflib.CDF(path, string_encoding=encoding)
+                    calls = {"info": lambda c: c.cdf_info().zVariables, "varget": lambda c: c.varget("caf\xe9"),
+                             "varattsget": lambda c: c.varattsget(0), "globalattsget": lambda c: c.globalattsget(),
+                             "attget": lambda c: c.attget("caf\xe9_attr", 0)}
+                    for label, call in calls.items():
+                        self.assertSameCall(ours, theirs, call, label)
+                    del ours  # releases the mapped file before the folder goes
+
+    def test_descriptors_from_bytes(self):
+        from pycdfpp.cdflib import _records
+        for name in ("a_cdf.cdf", "a_compressed_cdf.cdf", "ge_k0_cpi_19921231_v02.cdf"):
+            with self.subTest(name):
+                content = (RESOURCES / name).read_bytes()
+                descriptors = _records.Descriptors(content, 3 if content[:4].hex() == "cdf30001" else 2)
+                info = cdflib.CDF(RESOURCES / name).cdf_info()
+                names = [vdr["Name"].split(b"\x00")[0].decode() for vdr in descriptors.rvdrs + descriptors.zvdrs]
+                self.assertEqual(names, info.rVariables + info.zVariables)
 
     def test_with_block_and_getitem(self):
         with cdfread.CDF(RESOURCES / "a_cdf.cdf") as cdf:

@@ -1,19 +1,21 @@
 """cdflib 1.3.16 ``cdfread.CDF`` on pycdfpp.
 
 Values come from ``pycdfpp.load``; the record level details cdflib exposes (variable numbers,
-dimension variances, pad values, attribute entry numbers, ...) come from ``pycdfpp.debug``.
+dimension variances, pad values, attribute entry numbers, ...) from the descriptor records, read here.
 """
 import hashlib
+import mmap
+from functools import cached_property
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 
 import pycdfpp
-from pycdfpp.debug import for_each_record
 from cdflib.dataclasses import AEDR, VDR, ADRInfo, AttData, CDFInfo, CDRInfo, GDRInfo, VDRInfo  # noqa: F401
 
 from . import _types
+from . import _records
 from . import epochs as epoch
 from .epochs import CDFepoch as _CDFepoch
 
@@ -22,7 +24,6 @@ __all__ = ["CDF"]
 _MAGIC_NUMBERS = {"cdf30001": 3, "cdf26002": 2, "0000ffff": 2}
 _BIG_ENDIAN_ENCODINGS = (1, 2, 5, 7, 9, 11, 12, 18)
 _NOT_IEEE_ENCODINGS = (3, 14, 15, 20, 21)
-_SCOPES = {"global": 1, "variable": 2, "global (assumed)": 3, "variable (assumed)": 4}
 _SCOPE_NAMES = {1: "Global", 2: "Variable"}
 _VARIABLE_KIND_NAMES = {8: "zVariable", 3: "rVariable"}
 _SPARSE_NAMES = {0: "No_sparse", 1: "Pad_sparse", 2: "Prev_sparse"}
@@ -40,25 +41,27 @@ def _local_path(path: Union[str, Path]) -> Path:
     return path
 
 
-def _cdf_version(path: Path) -> int:
+def _mapped(path: Path):
+    """The file's bytes, read on demand: opening a CDF reads only its descriptor records."""
     with path.open("rb") as file:
-        magic = file.read(4).hex()
+        return mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) if path.stat().st_size else b""
+
+
+def _cdf_version(buffer, path) -> int:
+    magic = bytes(buffer[:4]).hex()
     if magic not in _MAGIC_NUMBERS:
         raise OSError(f"{path} is not a CDF file or a non-supported CDF!")
     return _MAGIC_NUMBERS[magic]
 
 
-def _md5_matches(path: Path) -> bool:
-    content = path.read_bytes()
-    return hashlib.md5(content[:-16]).digest() == content[-16:]
+def _md5_matches(buffer) -> bool:
+    with memoryview(buffer) as content:
+        return hashlib.md5(content[:-16]).digest() == content[-16:]
 
 
-def _chain(records: Dict[int, dict], head: int, next_field: str, count: int) -> List[dict]:
-    chain = []
-    for _ in range(count):
-        chain.append(records[head])
-        head = records[head][next_field]
-    return chain
+def _key(name: bytes) -> bytes:
+    """A name as pycdfpp's variable map holds it: bytes up to the first NUL."""
+    return name.partition(b"\x00")[0]
 
 
 def _decode_string(raw: bytes, encoding: str) -> str:
@@ -135,30 +138,52 @@ class CDF:
         self.file: Union[str, Path] = _local_path(path)
         self.ftype = "file"
         self.string_encoding = string_encoding
-        self.cdfversion = _cdf_version(self.file)
         self.compressed_file = None
         self.temp_file: Optional[Path] = None
-        self._read_records(for_each_record(str(self.file)))
-        self._check(validate)
-        # Raw string bytes: string_encoding decodes them, as in cdflib.
-        self._cdf = pycdfpp.load(self.file, iso_8859_1_to_utf8=False, lazy_load=True)
+        self._buffer = _mapped(self.file)
+        self.cdfversion = _cdf_version(self._buffer, self.file)
+        self._open(self._buffer, validate)
 
-    def _read_records(self, records: List[tuple]) -> None:
-        self._records = {offset: fields for offset, _, fields in records}
-        by_type = {record_type: fields for _, record_type, fields in records}
-        self._compressed = "CCR" in by_type
-        gdr = by_type["GDR"]
-        self._cdr = self._cdr_info(by_type["CDR"])
-        self._gdr = self._gdr_info(gdr)
-        self._zvdrs = _chain(self._records, gdr["zVDRhead"], "VDRnext", gdr["NzVars"])
-        self._rvdrs = _chain(self._records, gdr["rVDRhead"], "VDRnext", gdr["NrVars"])
-        self._adrs = _chain(self._records, gdr["ADRhead"], "ADRnext", gdr["NumAttr"])
+    def _open(self, buffer, validate: bool) -> None:
+        """Read the descriptor records of a CDF held in buffer (bytes, mmap, ...)."""
+        self._descriptors = _records.Descriptors(buffer, self.cdfversion)
+        self._cdr = self._cdr_info(self._descriptors.cdr)
+        if self._cdr.md5 and validate and not _md5_matches(buffer):
+            raise OSError("This file fails the md5 checksum.")
+        self._check()
         self._byte_order = ">" if self._cdr.encoding in _BIG_ENDIAN_ENCODINGS else "<"
+
+    @cached_property
+    def _cdf(self) -> pycdfpp.CDF:
+        """Loaded on the first values read: opening reads only descriptor records, as cdflib does.
+        Raw string bytes: string_encoding decodes them, as in cdflib."""
+        return pycdfpp.load(self.file, iso_8859_1_to_utf8=False, lazy_load=True)
+
+    @cached_property
+    def _zvdrs(self) -> List[dict]:
+        return [self._named(vdr) for vdr in self._descriptors.zvdrs]
+
+    @cached_property
+    def _rvdrs(self) -> List[dict]:
+        return [self._named(vdr) for vdr in self._descriptors.rvdrs]
+
+    @cached_property
+    def _adrs(self) -> List[dict]:
+        return [self._named(adr) for adr in self._descriptors.adrs]
+
+    def _named(self, record: dict) -> dict:
+        """The record with its name decoded as cdflib decodes it, and its raw name as pycdfpp's key."""
+        name = record["Name"].rstrip(b"\x00")
+        return {**record, "Name": name.decode(self.string_encoding).replace("\x00", ""), "key": name}
+
+    def __del__(self) -> None:
+        if isinstance(getattr(self, "_buffer", None), mmap.mmap):
+            self._buffer.close()
 
     def _cdr_info(self, cdr: dict) -> CDRInfo:
         return CDRInfo(
-            encoding=pycdfpp.Encoding.__members__[cdr["Encoding"]].value,
-            copyright_=cdr["copyright"].replace("\x00", ""),
+            encoding=cdr["Encoding"],
+            copyright_=self._descriptors.copyright.decode(self.string_encoding).replace("\x00", ""),
             version=f"{cdr['Version']}.{cdr['Release']}.{cdr['Increment']}",
             majority=1 if cdr["Flags"] & _ROW_MAJOR else 2,
             format_=bool(cdr["Flags"] & _SINGLE_FILE),
@@ -166,16 +191,7 @@ class CDF:
             post25=self.cdfversion == 3 or (cdr["Version"] == 2 and cdr["Release"] >= 5),
         )
 
-    @staticmethod
-    def _gdr_info(gdr: dict) -> GDRInfo:
-        return GDRInfo(first_zvariable=0, first_rvariable=0, first_adr=0, num_zvariables=gdr["NzVars"],
-                       num_rvariables=gdr["NrVars"], num_attributes=gdr["NumAttr"],
-                       rvariables_num_dims=gdr["rNumDims"], rvariables_dim_sizes=list(gdr["rDimSizes"]), eof=0,
-                       leapsecond_updated=gdr["LeapSecondLastUpdated"])
-
-    def _check(self, validate: bool) -> None:
-        if self._cdr.md5 and validate and not _md5_matches(self.file):
-            raise OSError("This file fails the md5 checksum.")
+    def _check(self) -> None:
         if not self._cdr.format_:
             raise OSError("This package does not support multi-format CDF")
         if self._cdr.encoding in _NOT_IEEE_ENCODINGS:
@@ -198,12 +214,12 @@ class CDF:
             "Row_major" if self._cdr.majority == 1 else "Column_major",
             [vdr["Name"] for vdr in self._rvdrs],
             [vdr["Name"] for vdr in self._zvdrs],
-            [{adr["Name"]: _SCOPE_NAMES[_SCOPES[adr["scope"]]]} for adr in self._adrs],
+            [{adr["Name"]: _SCOPE_NAMES[adr["scope"]]} for adr in self._adrs],
             self._cdr.copyright_,
             self._cdr.md5,
-            self._gdr.rvariables_num_dims,
-            list(self._gdr.rvariables_dim_sizes),
-            self._compressed,
+            self._descriptors.gdr["rNumDims"],
+            list(self._descriptors.gdr["rDimSizes"]),
+            self._descriptors.compressed,
         )
 
     def varinq(self, variable: str) -> VDRInfo:
@@ -225,7 +241,7 @@ class CDF:
 
     def attget(self, attribute: Union[str, int], entry: Optional[Union[str, int]] = None) -> AttData:
         adr = self._adr_for(attribute, entry)
-        if _SCOPES[adr["scope"]] == 1:
+        if adr["scope"] == 1:
             if not isinstance(entry, int):
                 raise ValueError('"entry" must be an integer')
             in_z, entry_num = False, entry
@@ -247,34 +263,26 @@ class CDF:
             raise ValueError("This CDF has both r and z variables. Use variable name instead")
         if (starttime is not None or endtime is not None) and (startrec != 0 or endrec is not None):
             raise ValueError("Can't specify both time and record range")
-        vdr = self.vdr_info(variable)
+        fields, section_type = self._vdr_fields(variable)
+        vdr = self._vdr(fields, section_type)
         if vdr.max_rec < 0:
             return self._no_records(vdr)
         startrec, endrec = _checked_record_range(vdr, startrec, endrec)
         if not vdr.record_vary:
-            return self._values(vdr)[0].copy()
+            return self._record_values(_key(fields["key"]), vdr, 0, 1)[0]
         if starttime is not None or endtime is not None:
             records = self._time_records(vdr.name, starttime, endtime, epoch)
             if records is None or len(records) == 0:
                 return None
             startrec, endrec = records[0], records[-1]
-        return self._values(vdr)[startrec:endrec + 1].copy()
+        return self._record_values(_key(fields["key"]), vdr, startrec, endrec + 1)
 
     def vdr_info(self, variable: Union[str, int]) -> VDR:
-        if isinstance(variable, int) and self._has_both_kinds():
-            raise ValueError("This CDF has both r and z variables. Use variable name instead")
-        if isinstance(variable, str):
-            found = self._vdr_named(variable)
-            if found is None:
-                raise ValueError(f"Variable name '{variable}' not found.")
-            return self._vdr(*found)
-        if isinstance(variable, int):
-            return self._vdr(*self._vdr_by_number(variable))
-        raise ValueError("Please set variable keyword equal to the name or number of an variable")
+        return self._vdr(*self._vdr_fields(variable))
 
     def globalattsget(self) -> Dict[str, List[Union[str, np.ndarray]]]:
         return {adr["Name"]: [_unwrap(self._aedr(fields).entry) for fields in self._gr_entries(adr)]
-                for adr in self._adrs if _SCOPES[adr["scope"]] == 1 and adr["NgrEntries"] != 0}
+                for adr in self._adrs if adr["scope"] == 1 and adr["NgrEntries"] != 0}
 
     def varattsget(self, variable: Union[str, int]) -> Dict[str, Union[None, str, np.ndarray]]:
         if isinstance(variable, int) and self._has_both_kinds():
@@ -289,6 +297,18 @@ class CDF:
             _, section_type = self._vdr_by_number(variable)
             return self._variable_attributes(variable, section_type == 8)
         return None
+
+    def _vdr_fields(self, variable: Union[str, int]) -> Tuple[dict, int]:
+        if isinstance(variable, int) and self._has_both_kinds():
+            raise ValueError("This CDF has both r and z variables. Use variable name instead")
+        if isinstance(variable, str):
+            found = self._vdr_named(variable)
+            if found is None:
+                raise ValueError(f"Variable name '{variable}' not found.")
+            return found
+        if isinstance(variable, int):
+            return self._vdr_by_number(variable)
+        raise ValueError("Please set variable keyword equal to the name or number of an variable")
 
     def _has_both_kinds(self) -> bool:
         return bool(self._zvdrs) and bool(self._rvdrs)
@@ -309,12 +329,12 @@ class CDF:
 
     def _vdr(self, fields: dict, section_type: int) -> VDR:
         dim_sizes, dim_vary = self._dimensions(fields, section_type == 8)
-        cdf_type = _types.by_name[fields["DataType"]]
+        cdf_type = _types.by_number[fields["DataType"]]
         compressed = bool(fields["Flags"] & _COMPRESSED)
         return VDR(data_type=cdf_type.number, section_type=section_type, next_vdr_location=0,
                    variable_number=fields["Num"], head_vxr=0, last_vxr=0, max_rec=fields["MaxRec"],
                    name=fields["Name"], num_dims=len(dim_sizes), dim_sizes=dim_sizes, compression_bool=compressed,
-                   compression_level=self._records[fields["CPRorSPRoffset"]]["cParms"][0] if compressed else 0,
+                   compression_level=self._compression_level(fields) if compressed else 0,
                    blocking_factor=fields["BlockingFactor"], dim_vary=dim_vary,
                    record_vary=bool(fields["Flags"] & _RECORD_VARY), num_elements=fields["NumElems"],
                    sparse=fields["SRecords"], pad=self._pad(fields, cdf_type))
@@ -326,24 +346,28 @@ class CDF:
         if is_z:
             kept = [(size, vary) for size, vary in zip(fields["zDimSizes"], varys) if vary != 0]
             return [size for size, _ in kept], [vary if self.cdfversion == 3 else True for _, vary in kept]
-        sizes = self._gdr.rvariables_dim_sizes
+        sizes = self._descriptors.gdr["rDimSizes"]
         if self.cdfversion == 3:
             return [size for size, vary in zip(sizes, varys) if vary != 0], list(varys)
         return list(sizes), [vary != 0 for vary in varys]
 
+    def _compression_level(self, fields: dict) -> int:
+        return self._descriptors.compression_parameter(fields["CPRorSPRoffset"])
+
     def _pad(self, fields: dict, cdf_type: _types.CdfType):
-        raw = fields["PadValues"]
+        raw = self._descriptors.bytes_between(*fields["pad"])
         if not fields["Flags"] & _PAD or len(raw) < cdf_type.dtype.itemsize * fields["NumElems"]:
             return None
         return _decode(raw, cdf_type, fields["NumElems"], self._byte_order, self.string_encoding)
 
-    def _values(self, vdr: VDR) -> np.ndarray:
-        values = self._cdf[vdr.name].values
+    def _record_values(self, key: bytes, vdr: VDR, start: int, stop: int) -> np.ndarray:
+        """Records start to stop - 1, in a new array."""
+        values = self._cdf[key].values[start:stop]
         cdf_type = _types.by_number[vdr.data_type]
         if _types.is_string(cdf_type):
             values = _decode_strings(values, self.string_encoding)
         else:
-            values = values.view(cdf_type.dtype)
+            values = values.view(cdf_type.dtype).copy()
         return values.reshape((len(values), *_record_shape(vdr)))
 
     @staticmethod
@@ -374,7 +398,7 @@ class CDF:
         """The attribute attget reads: a string entry names a variable, so it skips global attributes."""
         if isinstance(attribute, str):
             adr = next((adr for adr in self._adrs if _matches(adr["Name"], attribute)
-                        and not (isinstance(entry, str) and _SCOPES[adr["scope"]] == 1)), None)
+                        and not (isinstance(entry, str) and adr["scope"] == 1)), None)
             if adr is None:
                 raise KeyError(f"No attribute {attribute} for entry {entry}")
             return adr
@@ -397,18 +421,19 @@ class CDF:
         return bool(self._zvdrs), entry
 
     def _adr_info(self, adr: dict) -> ADRInfo:
-        return ADRInfo(_SCOPES[adr["scope"]], 0, adr["num"], adr["NgrEntries"], adr["MAXgrEntries"], adr["NzEntries"],
+        return ADRInfo(adr["scope"], 0, adr["num"], adr["NgrEntries"], adr["MAXgrEntries"], adr["NzEntries"],
                        adr["MAXzEntries"], 0, 0, adr["Name"])
 
-    def _gr_entries(self, adr: dict) -> List[dict]:
-        return _chain(self._records, adr["AgrEDRhead"], "AEDRnext", adr["NgrEntries"])
+    def _gr_entries(self, adr: dict) -> Iterator[dict]:
+        return self._descriptors.entries(adr["AgrEDRhead"], adr["NgrEntries"])
 
-    def _z_entries(self, adr: dict) -> List[dict]:
-        return _chain(self._records, adr["AzEDRhead"], "AEDRnext", adr["NzEntries"])
+    def _z_entries(self, adr: dict) -> Iterator[dict]:
+        return self._descriptors.entries(adr["AzEDRhead"], adr["NzEntries"])
 
     def _aedr(self, fields: dict) -> AEDR:
-        cdf_type = _types.by_name[fields["DataType"]]
-        entry = _decode(fields["Value"], cdf_type, fields["NumElements"], self._byte_order, self.string_encoding)
+        cdf_type = _types.by_number[fields["DataType"]]
+        value = self._descriptors.bytes_between(fields["tail"], fields["end"])
+        entry = _decode(value, cdf_type, fields["NumElements"], self._byte_order, self.string_encoding)
         num_strings = max(fields["NumStrings"], 1) if self.cdfversion == 3 else None
         return AEDR(entry, cdf_type.number, fields["NumElements"], 0, fields["Num"], num_strings)
 
@@ -425,7 +450,7 @@ class CDF:
     def _variable_attributes(self, variable_number: int, in_z: bool) -> Dict[str, Union[None, str, np.ndarray]]:
         attributes = {}
         for adr in self._adrs:
-            if _SCOPES[adr["scope"]] == 1:
+            if adr["scope"] == 1:
                 continue
             entries = self._z_entries(adr) if in_z else self._gr_entries(adr)
             found = _numbered(entries, variable_number)
