@@ -201,8 +201,6 @@ Writing files (``cdfwrite.CDF``)
   ``write_globalattrs``. An entry of unknown type is skipped with a warning; cdflib also skips the
   attributes after it in ``write_globalattrs``. Numbers written as text with a numeric type are
   parsed in every method.
-- Several strings in one attribute entry read back as one string, joined with ``"\N "``: the file
-  doesn't count them. A future pycdfpp release will fix it.
 - An attribute value without a type gets cdflib's guess, except unsigned integers of 1 or 2 bytes,
   which are ``CDF_UINT1`` and ``CDF_UINT2`` (cdflib: ``CDF_UINT4``). Values with no CDF type
   (``uint64``, Python integers from ``2**63``, ``long double``, ``complex64``, numpy booleans) are
