@@ -9,7 +9,7 @@ import mmap
 import urllib.request
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Tuple
 
 import numpy as np
 
