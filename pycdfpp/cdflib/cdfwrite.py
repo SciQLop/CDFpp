@@ -1,4 +1,5 @@
 """cdflib 1.3.16's cdfwrite.CDF on pycdfpp: the file is built in memory and written by close()."""
+import warnings
 from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional, Union
@@ -30,9 +31,12 @@ _HOST_ENCODING = 8
 _ENCODINGS = {**{f"{e.name.upper()}_ENCODING": e.value for e in pycdfpp.Encoding}, "HOST_ENCODING": _HOST_ENCODING}
 _SPARSE = {"no_sparse": SparseRecords.no_sparse_records, "pad_sparse": SparseRecords.pad_sparse_records,
            "prev_sparse": SparseRecords.prev_sparse_records}
-# cdflib guesses an attribute's type from its (first) value: any integer is CDF_INT8, any float CDF_DOUBLE.
-_GUESSED_TYPES = {"b": "CDF_INT8", "i": "CDF_INT8", "u": "CDF_UINT4", "f": "CDF_DOUBLE", "c": "CDF_EPOCH16",
-                  "U": "CDF_CHAR", "S": "CDF_CHAR", "M": "CDF_TIME_TT2000"}
+# An untyped attribute value's CDF type, by numpy (kind, item size), 0 for any size. As cdflib: any signed
+# integer is CDF_INT8, any float CDF_DOUBLE; uint64, long double and complex64 have none (skipped).
+_GUESSED_TYPES = {("b", 1): "CDF_INT8", **{("i", size): "CDF_INT8" for size in (1, 2, 4, 8)},
+                  ("u", 1): "CDF_UINT1", ("u", 2): "CDF_UINT2", ("u", 4): "CDF_UINT4",
+                  **{("f", size): "CDF_DOUBLE" for size in (2, 4, 8)}, ("c", 16): "CDF_EPOCH16",
+                  ("U", 0): "CDF_CHAR", ("S", 0): "CDF_CHAR", ("M", 8): "CDF_TIME_TT2000"}
 _RAW_TIMES = {DataType.CDF_TIME_TT2000: (np.int64, pycdfpp.tt2000_t), DataType.CDF_EPOCH: (np.float64, pycdfpp.epoch),
               DataType.CDF_EPOCH16: (np.complex128, lambda value: pycdfpp.epoch16(value.real, value.imag))}
 
@@ -195,11 +199,23 @@ def _named_type(value):
     return value, None
 
 
+def _kind_and_size(dtype: np.dtype):
+    return dtype.kind, 0 if dtype.kind in "US" else dtype.itemsize
+
+
+def _dtype_of(value) -> np.dtype:
+    """Python integers out of int64's range are uint64 (or more): numpy would make floats of a list of them."""
+    items = value if _is_sequence(value) else [value]
+    if all(type(item) is int for item in items):
+        return np.dtype(np.int64 if all(-2**63 <= item < 2**63 for item in items) else np.uint64)
+    return np.asarray(value).dtype
+
+
 def _guessed_type(value) -> Optional[_types.CdfType]:
     if value is None or (_is_sequence(value) and len(value) == 0):
         return _types.by_name["CDF_CHAR"]
     sample = value[0] if _is_sequence(value) else value
-    name = _GUESSED_TYPES.get(np.asarray(sample).dtype.kind)
+    name = None if isinstance(sample, np.bool_) else _GUESSED_TYPES.get(_kind_and_size(_dtype_of(value)))
     if name is None:
         logger.warning(f"Invalid data type for data {sample!r}.... Skip")
         return None
@@ -218,9 +234,10 @@ def _attribute_entry(value):
 def _pad_value(pad, variable: _Variable):
     if pad is None:
         return None
+    pad = np.ravel(pad)[0] if _is_sequence(pad) else pad
     if _types.is_string(variable.cdf_type):
         return _text(pad)[:variable.num_elements].ljust(variable.num_elements, "\0")
-    return _entry_value(np.ravel(pad)[0] if _is_sequence(pad) else pad, variable.cdf_type)
+    return _entry_value(pad, variable.cdf_type)
 
 
 def _strings(data, num_elements: int) -> np.ndarray:
@@ -267,6 +284,9 @@ def _with_virtual_records(records, values: np.ndarray):
     virtual = np.ones(count, dtype=bool)
     virtual[records] = False
     if len(values) != len(records):
+        if len(values) < count:
+            raise ValueError(f"Invalid sparse data: less data than the specified records ({len(values)} values "
+                             f"for {len(records)} records up to record {count - 1})")
         return values[:count], virtual
     every_record = np.zeros((count, *values.shape[1:]), dtype=values.dtype)
     every_record[records] = values
@@ -371,6 +391,10 @@ class CDF:
         self.zvars: List[str] = []
         self.rvars: List[str] = []
         self.is_closed = False
+
+    def __del__(self):
+        if not getattr(self, "is_closed", True):
+            warnings.warn(f"{self.path} was never closed: nothing was written", ResourceWarning, stacklevel=2)
 
     def __enter__(self):
         return self
