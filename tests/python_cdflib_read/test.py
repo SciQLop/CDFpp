@@ -274,6 +274,19 @@ class Targeted(SameMixin, unittest.TestCase):
         with cdfread.CDF(RESOURCES / "a_cdf.cdf") as cdf:
             self.assertSame(cdf["var"], cdflib.CDF(RESOURCES / "a_cdf.cdf").varget("var"))
 
+    def test_rvariable_with_a_non_varying_first_dimension(self):
+        """cdflib reads it as (4,), the first value of each record: the values cdflib's own writer was given are lost."""
+        written = np.arange(12, dtype=np.float64).reshape(4, 3)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "r.cdf"
+            writer = cdflib.cdfwrite.CDF(path, cdf_spec={"rDim_sizes": [2, 3]})
+            writer.write_var({"Variable": "r", "Data_Type": 45, "Num_Elements": 1, "Rec_Vary": True,
+                              "Var_Type": "rVariable", "Dim_Vary": [False, True]}, None, written)
+            writer.close()
+            cdf = cdfread.CDF(path)
+            self.assertSame(cdf.varget("r"), written)
+            del cdf  # releases the mapped file before the folder goes
+
     def test_varget_gives_a_new_array_each_time(self):
         cdf = cdfread.CDF(RESOURCES / "a_cdf.cdf")
         cdf.varget("var")[:] = 0
