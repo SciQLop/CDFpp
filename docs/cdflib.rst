@@ -159,6 +159,9 @@ Reading files (``CDF``)
 - ``varget`` with a ``startrec`` past the last record raises ``ValueError``; cdflib raises or reads
   garbage depending on the file. With ``epoch=`` naming a variable that isn't a time variable,
   ``varget`` raises ``ValueError``; cdflib raises ``UnboundLocalError``.
+- An rVariable whose first dimension doesn't vary (``rDim_sizes=[2, 3]``, ``Dim_Vary=[False,
+  True]``) reads with its varying dimensions, ``(records, 3)``. cdflib reads ``(records,)``, the
+  first value of each record, also from the files its own writer makes.
 
 Writing files (``cdfwrite.CDF``)
 --------------------------------
@@ -252,7 +255,8 @@ raise the same exception type (``ISTPError`` or ``Exception``). Messages differ.
   second and writes each one a record late.
 - ``bytes`` values are written as their text. cdflib writes ``"b'a'"``.
 - A string variable's ``Num_Elements`` counts UTF-8 bytes, so non-ASCII strings fit. cdflib
-  counts characters.
+  counts characters. ``cdf_to_xarray`` (ours and cdflib's) reads strings as latin-1, so they come
+  back garbled: ``'é'`` reads back as ``'Ã©'``.
 - A variable without values whose only empty dimension is the record one is written with zero
   records. Any
   other empty dimension raises ``ValueError``: CDF has no dimension of size 0. cdflib writes
