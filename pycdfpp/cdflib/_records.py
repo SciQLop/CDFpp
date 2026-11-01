@@ -6,6 +6,7 @@ come from ``pycdfpp.load``. Record layouts: https://cdf.gsfc.nasa.gov/docs/cdf_i
 """
 import gzip
 import struct
+import zlib
 from functools import cached_property
 from typing import Iterator, List, NamedTuple, Optional, Tuple
 
@@ -67,6 +68,14 @@ def _uncompress_rle(data: bytes) -> bytes:
 _UNCOMPRESS = {_GZIP: gzip.decompress, _RLE: _uncompress_rle}
 
 
+def _unpacked(unpacker: struct.Struct, buffer, offset: int) -> tuple:
+    """A truncated or corrupted file raises ValueError, as in cdflib."""
+    try:
+        return unpacker.unpack_from(buffer, offset)
+    except struct.error as error:
+        raise ValueError(f"Truncated or corrupted CDF: no {unpacker.size} bytes at offset {offset}") from error
+
+
 class _Layout(NamedTuple):
     """A layout compiled to one struct: a record is read with a single unpack."""
     unpacker: struct.Struct
@@ -110,11 +119,15 @@ class Descriptors:
         codec = self._record(ccr["CPRoffset"], "CPR", buffer)["cType"]
         if codec not in _UNCOMPRESS:
             raise OSError("Decompression was unsuccessful.  Only GZIP compression is currently supported.")
-        return bytes(buffer[:4]) + _UNCOMPRESSED_MAGIC + _UNCOMPRESS[codec](bytes(buffer[ccr["tail"]:ccr["end"]]))
+        try:
+            content = _UNCOMPRESS[codec](bytes(buffer[ccr["tail"]:ccr["end"]]))
+        except (EOFError, IndexError, zlib.error) as error:
+            raise ValueError("Truncated or corrupted compressed CDF") from error
+        return bytes(buffer[:4]) + _UNCOMPRESSED_MAGIC + content
 
     def _record(self, offset: int, record_type: str, buffer=None) -> dict:
         layout = self._layouts[record_type]
-        values = layout.unpacker.unpack_from(self._buffer if buffer is None else buffer, offset)
+        values = _unpacked(layout.unpacker, self._buffer if buffer is None else buffer, offset)
         record = dict(zip(layout.names, values))
         record["end"] = offset + record.pop("size")
         if layout.tail is not None:
@@ -122,7 +135,7 @@ class Descriptors:
         return record
 
     def _ints(self, offset: int, count: int) -> List[int]:
-        return list(struct.unpack_from(f">{count}i", self._buffer, offset))
+        return list(_unpacked(struct.Struct(f">{count}i"), self._buffer, offset))
 
     def _chain(self, head: int, next_field: str, count: int, record_type: str) -> Iterator[dict]:
         for _ in range(count):
@@ -157,7 +170,7 @@ class Descriptors:
         return list(self._chain(self.gdr["ADRhead"], "ADRnext", self.gdr["NumAttr"], "ADR"))
 
     def _with_z_dimensions(self, vdr: dict) -> dict:
-        count = struct.unpack_from(">i", self._buffer, vdr["tail"])[0]
+        count = self._ints(vdr["tail"], 1)[0]
         sizes, varys = self._ints(vdr["tail"] + 4, count), self._ints(vdr["tail"] + 4 + 4 * count, count)
         return {**vdr, "zDimSizes": sizes, "DimVarys": varys, "pad": (vdr["tail"] + 4 + 8 * count, vdr["end"])}
 
