@@ -2,8 +2,11 @@
 import dataclasses
 import importlib
 import inspect
+import typing
 
-OWN_PREFIXES = ("cdflib", "pycdfpp.cdflib")
+import numpy.typing
+
+OWN_ROOTS = ("cdflib", "pycdfpp.cdflib")
 
 
 def module_pair(name):
@@ -14,9 +17,19 @@ def _is_public(name):
     return not name.startswith("_")
 
 
-def _defined_by_cdflib(obj):
+def _is_own_module(module_name):
+    return any(module_name == root or module_name.startswith(root + ".") for root in OWN_ROOTS)
+
+
+def _is_typing_export(name, obj):
+    return any(getattr(source, name, None) is obj for source in (typing, numpy.typing))
+
+
+def _defined_by_cdflib(name, obj):
     owner = obj.__name__ if inspect.ismodule(obj) else getattr(obj, "__module__", None)
-    return owner is None or owner.startswith(OWN_PREFIXES)
+    if owner == "typing":
+        return not _is_typing_export(name, obj)
+    return owner is None or _is_own_module(owner)
 
 
 def _parameters(callable_):
@@ -28,7 +41,7 @@ def _parameters(callable_):
 
 
 def _class_members(cls):
-    own_classes = [c for c in cls.__mro__ if c.__module__.startswith(OWN_PREFIXES)]
+    own_classes = [c for c in cls.__mro__ if _is_own_module(c.__module__)]
     return {
         name: value
         for c in reversed(own_classes)
@@ -62,7 +75,7 @@ def public_api(module):
     return {
         name: _describe(value)
         for name, value in vars(module).items()
-        if _is_public(name) and _defined_by_cdflib(value)
+        if _is_public(name) and _defined_by_cdflib(name, value)
     }
 
 

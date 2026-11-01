@@ -1,6 +1,9 @@
 import os
 import subprocess
+import dataclasses
 import sys
+import types
+import typing
 import unittest
 
 import api_parity
@@ -30,6 +33,83 @@ class CdflibApi(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("ImportError", result.stderr)
         self.assertIn("pip install pycdfpp[cdflib]", result.stderr)
+
+
+def own(obj):
+    obj.__module__ = "cdflib.fake"
+    return obj
+
+
+def fake_module(**names):
+    module = types.ModuleType("cdflib.fake")
+    vars(module).update(names)
+    return module
+
+
+@own
+def func(a, b=1):
+    pass
+
+
+@own
+def func_other_default(a, b=2):
+    pass
+
+
+@own
+def func_other_name(a, c=1):
+    pass
+
+
+@own
+class WithMethod:
+    def method(self, x):
+        pass
+
+
+@own
+class WithoutMethod:
+    pass
+
+
+@own
+@dataclasses.dataclass
+class Fields:
+    a: int
+
+
+@own
+@dataclasses.dataclass
+class OtherFields:
+    b: int
+
+
+Alias = typing.Union[int, str]
+VARIANTS = {
+    "missing function": ({}, {"f": func}),
+    "differing default": ({"f": func_other_default}, {"f": func}),
+    "differing parameter name": ({"f": func_other_name}, {"f": func}),
+    "missing class method": ({"C": WithoutMethod}, {"C": WithMethod}),
+    "differing dataclass field": ({"C": OtherFields}, {"C": Fields}),
+    "missing type alias": ({}, {"Alias": Alias}),
+    "missing constant": ({}, {"CONSTANT": 3}),
+    "differing constant": ({"CONSTANT": 4}, {"CONSTANT": 3}),
+}
+
+
+class ParityCanFail(unittest.TestCase):
+    def test_identical_modules_pass(self):
+        api_parity.assert_same_api(self, fake_module(f=func, Alias=Alias, CONSTANT=3),
+                                   fake_module(f=func, Alias=Alias, CONSTANT=3))
+
+    def test_every_variant_is_detected(self):
+        for label, (ours, theirs) in VARIANTS.items():
+            with self.subTest(label):
+                with self.assertRaises(AssertionError):
+                    api_parity.assert_same_api(self, fake_module(**ours), fake_module(**theirs))
+
+    def test_reimported_typing_names_are_ignored(self):
+        api_parity.assert_same_api(self, fake_module(Union=typing.Union, List=typing.List), fake_module())
 
 
 if __name__ == "__main__":
