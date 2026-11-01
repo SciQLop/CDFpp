@@ -30,7 +30,7 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install Python dependencies
-        run: python3.14 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt requests cyclopts rich coverage
+        run: python3.14 -m pip install meson ninja numpy meson-python>=0.14.0 build wheel ddt cdflib==1.3.16 xarray astropy requests cyclopts rich coverage
       # Python tests run in their own processes: this .pth starts coverage in each of them
       # when COVERAGE_PROCESS_START is set (see .coveragerc).
       - name: Collect Python coverage in every test process

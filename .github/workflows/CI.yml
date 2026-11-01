@@ -129,7 +129,7 @@ jobs:
           restore-keys: cdf-corpus-v1-
       - name: run tests
         run: |
-          pip install ddt requests
+          pip install ddt cdflib==1.3.16 xarray astropy requests
           python -v tests/full_corpus/test.py
       # Free-threaded Python runs pycdfpp with no GIL at all: run the whole Python suite there,
       # from tests/ so that `python -m pycdfpp...` doesn't import the source folder.

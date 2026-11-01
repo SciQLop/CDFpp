@@ -23,3 +23,5 @@ _pycdfpp = python3.extension_module('_pycdfpp', 'pycdfpp.cpp',
                         )
 
 python3.install_sources(pycdfpp_python_sources, pure: false, subdir: 'pycdfpp')
+
+subdir('cdflib')
