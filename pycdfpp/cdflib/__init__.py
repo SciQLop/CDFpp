@@ -5,3 +5,5 @@ except ImportError as error:
     raise ImportError("pycdfpp.cdflib needs cdflib: pip install pycdfpp[cdflib]") from error
 
 __version__ = "1.3.16"
+
+from .epochs import CDFepoch as cdfepoch  # noqa: E402
