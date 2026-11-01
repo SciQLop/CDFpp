@@ -64,13 +64,14 @@ def _fetch_s3(url: str) -> bytes:
     except ImportError:
         raise ImportError("boto3/botocore package not installed")
     bucket, _, key = url[len("s3://"):].partition("/")
+    # The bucket comes from the user's URL: its owner is unknown, and cdflib's API has no way to give it.
     try:
-        obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)  # NOSONAR: the user's URL, owner unknown (cdflib API)
+        obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)  # NOSONAR(S7608)
     except Exception:  # bare on purpose: cdflib retries unsigned on any failure (public buckets)
         from botocore import UNSIGNED
         from botocore.client import Config
-        obj = boto3.client("s3", config=Config(signature_version=UNSIGNED)).get_object(  # NOSONAR: as above
-            Bucket=bucket, Key=key)
+        unsigned = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+        obj = unsigned.get_object(Bucket=bucket, Key=key)  # NOSONAR(S7608)
     return s3_fetchall(obj).getvalue()
 
 
