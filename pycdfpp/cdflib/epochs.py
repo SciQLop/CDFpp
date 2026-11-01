@@ -27,6 +27,7 @@ _PAD = (0, 1, 1, 0, 0, 0, 0, 0, 0, 0)
 _LAST_DATETIME64_NS_DAY = np.datetime64("2262-04-11", "D")
 _MS_FROM_YEAR_0_TO_1970 = 62167219200000
 _S_FROM_YEAR_0_TO_1970 = 62167219200
+_UNIX_TT2000_FILL = 253402300799.999  # 9999-12-31T23:59:59.999, the fill date
 # pycdfpp's numpy record types for raw CDF time values
 _RECORDS = {
     np.dtype(np.int64): np.dtype([("nseconds", "<i8")]),
@@ -243,6 +244,11 @@ def _parse_one(text):
     raise ValueError("Invalid cdf epoch type...")
 
 
+def _timestamps(unixtime_data) -> np.ndarray:
+    """Unix times as an array; cdflib drops the imaginary part of complex ones."""
+    return np.atleast_1d(np.real(unixtime_data))
+
+
 class CDFepoch:
     """
     Convert between CDF-based epochs, np.datetime64, and Unix time.
@@ -320,12 +326,12 @@ class CDFepoch:
 
     @staticmethod
     def timestamp_to_cdfepoch(unixtime_data: npt.ArrayLike) -> np.ndarray:
-        times = np.atleast_1d(unixtime_data)
+        times = _timestamps(unixtime_data)
         return np.where(np.isnan(times), np.nan, np.trunc(times * 1000.0) + float(_MS_FROM_YEAR_0_TO_1970))
 
     @staticmethod
     def timestamp_to_cdfepoch16(unixtime_data: npt.ArrayLike) -> np.ndarray:
-        times = np.atleast_1d(unixtime_data)
+        times = _timestamps(unixtime_data)
         missing = np.isnan(times)
         microseconds = np.trunc(np.where(missing, 0, times) * 1000000.0).astype(np.int64)
         epoch16 = _complex(microseconds // 10**6 + _S_FROM_YEAR_0_TO_1970, microseconds % 10**6 * 10**6)
@@ -333,10 +339,12 @@ class CDFepoch:
 
     @staticmethod
     def timestamp_to_tt2000(unixtime_data: npt.ArrayLike) -> np.ndarray:
-        times = np.atleast_1d(unixtime_data)
-        missing = np.isnan(times)
-        microseconds = np.trunc(np.where(missing, 0, times) * 1000000.0).astype(np.int64)
+        """Times from the fill date (unixtime of the TT2000 fill) on give the fill value, as NASA's computeTT2000."""
+        times = _timestamps(unixtime_data)
+        missing, fill = np.isnan(times), times >= _UNIX_TT2000_FILL
+        microseconds = np.trunc(np.where(missing | fill, 0, times) * 1000000.0).astype(np.int64)
         tt2000 = pycdfpp.to_tt2000(microseconds.astype("datetime64[us]").astype("datetime64[ns]"))["nseconds"]
+        tt2000 = np.where(fill, CDFepoch.FILLED_TT2000_VALUE, tt2000)
         return np.where(missing, np.nan, tt2000) if missing.any() else tt2000
 
     @staticmethod

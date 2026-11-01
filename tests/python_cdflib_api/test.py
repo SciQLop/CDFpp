@@ -18,8 +18,6 @@ LOADER_LEFTOVERS = ("lsfile", "lsreader", "csv_row", "row", "r")
 CDFEPOCH_LOADER_LEFTOVERS = tuple("CDFepoch." + name for name in LOADER_LEFTOVERS)
 # gzip_inflate is imported from cdflib's private _gzip_wrapper: not API.
 CDFREAD_NOT_OURS = ("gzip_inflate",)
-# xarray_to_cdf comes with the writer half of the xarray converters.
-XARRAY_NOT_YET = ("xarray_to_cdf",)
 RESOURCES = Path(__file__).resolve().parent.parent / "resources"
 
 
@@ -75,9 +73,11 @@ class CdflibApi(unittest.TestCase):
             theirs.close()
 
     def test_xarray_api(self):
-        api_parity.assert_same_api(self, *api_parity.module_pair("xarray"), ignored=XARRAY_NOT_YET)
-        api_parity.assert_same_api(self, *api_parity.module_pair("xarray.cdf_to_xarray"),
-                                   ignored=tuple("cdfepoch." + name for name in LOADER_LEFTOVERS))
+        api_parity.assert_same_api(self, *api_parity.module_pair("xarray"))
+        for module in ("xarray.cdf_to_xarray", "xarray.xarray_to_cdf"):
+            with self.subTest(module):
+                api_parity.assert_same_api(self, *api_parity.module_pair(module),
+                                           ignored=tuple("cdfepoch." + name for name in LOADER_LEFTOVERS))
 
     def test_package_exports_reader(self):
         import pycdfpp.cdflib as ours

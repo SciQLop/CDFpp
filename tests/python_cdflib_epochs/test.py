@@ -199,7 +199,9 @@ class Unixtime(SameAs):
 
 
 TIMESTAMPS = [("scalar", 1483228799.5), ("list", [0.0, -0.25, 1e9 + 0.123456]),
-              ("array", np.concatenate([RNG.uniform(-2e9, 4e9, 998), [np.nan, 1483228800.0]]))]
+              ("array", np.concatenate([RNG.uniform(-2e9, 4e9, 998), [np.nan, 1483228800.0]])),
+              # NaN filled with a CDF_EPOCH16 fill value makes complex timestamps: cdflib takes the real part
+              ("complex", np.array([0j, 15552000.5 + 0j, 1e9 - 1e31j]))]
 
 
 @ddt
@@ -287,6 +289,16 @@ class Compute(SameAs):
         np.testing.assert_array_equal(
             CDFepoch.compute_epoch([[2020, 1, 1, 25, 0, 0, 0], [2020, 1, 1, 0, 0, 0, 0]]),
             [REF.compute_epoch([2020, 1, 2, 1, 0, 0, 0]), 63745056000000.0])
+
+
+class TimestampDifferences(unittest.TestCase):
+    def test_unixtime_of_the_tt2000_fill_gives_the_fill(self):
+        """unixtime of the TT2000 fill value is 253402300800.0: cdflib raises AttributeError converting it back."""
+        unix_fill = REF.unixtime(TT2000_FILL)
+        with self.assertRaises(AttributeError):
+            REF.timestamp_to_tt2000(unix_fill)
+        np.testing.assert_array_equal(CDFepoch.timestamp_to_tt2000([0.0, unix_fill]),
+                                      [REF.timestamp_to_tt2000(0.0)[0], TT2000_FILL])
 
 
 class EncodeDifferences(unittest.TestCase):

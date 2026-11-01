@@ -353,6 +353,10 @@ class Writer(unittest.TestCase):
                                           "NONE": ""}, "v")
         same(self, read.varattsget("w"), {"UNITS": "K", "OTHER": np.int16(7)}, "w")
 
+    def test_none_variable_attribute_warns(self):
+        with cdfwrite.CDF(self.path) as out, self.assertLogs("cdflib.logging", "WARNING"):
+            out.write_var(spec("v", 44), {"NONE": None}, np.arange(3.))
+
     def test_variable_attributes_errors(self):
         with cdfwrite.CDF(self.path) as out:
             out.write_var(spec("v", 44), None, np.arange(3.))
