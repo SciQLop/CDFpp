@@ -130,6 +130,11 @@ class Descriptors:
             yield record
             head = record[next_field]
 
+    @property
+    def content(self):
+        """The whole file, uncompressed."""
+        return self._buffer
+
     def bytes_between(self, start: int, end: int) -> bytes:
         return bytes(self._buffer[start:end])
 

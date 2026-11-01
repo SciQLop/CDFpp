@@ -3,6 +3,7 @@ import dataclasses
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import numpy as np
@@ -286,6 +287,20 @@ class Targeted(SameMixin, unittest.TestCase):
             cdf = cdfread.CDF(path)
             self.assertSame(cdf.varget("r"), written)
             del cdf  # releases the mapped file before the folder goes
+
+    def test_compressed_file_is_decompressed_once(self):
+        """Reading the descriptors decompressed the file: pycdfpp loads those bytes, not the compressed file."""
+        loaded, real_load = [], pycdfpp.load
+
+        def load(source, *args, **kwargs):
+            loaded.append(bytes(source[:8]) if isinstance(source, (bytes, bytearray, memoryview)) else source)
+            return real_load(source, *args, **kwargs)
+
+        with mock.patch.object(cdfread.pycdfpp, "load", load):
+            cdf = cdfread.CDF(RESOURCES / "a_compressed_cdf.cdf", validate=True)
+            values = cdf.varget("var")
+        self.assertEqual(loaded, [bytes.fromhex("cdf300010000ffff")])
+        self.assertSame(values, cdflib.CDF(RESOURCES / "a_compressed_cdf.cdf").varget("var"))
 
     def test_varget_gives_a_new_array_each_time(self):
         cdf = cdfread.CDF(RESOURCES / "a_cdf.cdf")
