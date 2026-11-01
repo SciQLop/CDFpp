@@ -79,7 +79,8 @@ class Outcome:
             try:
                 module.xarray_to_cdf(dataset, str(path), **options)
             except Exception as error:  # the type is what both libraries must agree on
-                self.error = error
+                # Its traceback keeps cdflib's writer alive, with the file open: Windows can't delete it then.
+                self.error = error.with_traceback(None)
         ours = module.__name__.startswith("pycdfpp")
         kinds = [escalation(record, ours) for record in records]
         self.warned = bool(kinds)
@@ -147,7 +148,7 @@ def read_back_or_error(path):
     try:
         return read_back(path)
     except Exception as error:  # cdflib can't read every file it writes
-        return error
+        return error.with_traceback(None)  # the traceback keeps the reader alive, with the file open
 
 
 def nat_where_cdflib_wrote_zero(theirs, ours):
@@ -603,6 +604,7 @@ class IstpChecks(unittest.TestCase):
                 written = pycdfpp.load(str(self.root / "ours.cdf"))["t"]
                 for key in ("FILLVAL", "VALIDMIN", "VALIDMAX"):
                     self.assertEqual(written.attributes[key].type().name, cdf_type, key)
+                del written  # its values are unread: pycdfpp still maps the file, Windows can't delete it
                 (self.root / "ours.cdf").unlink()
 
     def test_big_endian_numbers_keep_their_type(self):
