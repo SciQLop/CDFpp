@@ -11,9 +11,11 @@ from pathlib import Path
 import numpy as np
 
 from pycdfpp.cdflib import cdfread
+from pycdfpp.cdflib.s3 import S3object
 
 RESOURCES = Path(__file__).resolve().parent.parent / "resources"
 NAME = "a_cdf.cdf"
+COMPRESSED = "a_compressed_cdf.cdf"
 VARIABLE = "var"
 
 
@@ -32,6 +34,15 @@ def fake_boto3(content: bytes, calls: list) -> types.ModuleType:
     module = types.ModuleType("boto3")
     module.client = lambda service, **kwargs: Client()
     return module
+
+
+class FakeS3Handle:
+    def __init__(self, content: bytes):
+        self.content, self.content_length = content, len(content)
+
+    def get(self, Range=None):
+        first, last = (int(n) for n in Range[len("bytes="):].split("-")) if Range else (0, self.content_length - 1)
+        return {"Body": io.BytesIO(self.content[first:last + 1])}
 
 
 def first_variable(cdf):
@@ -78,10 +89,30 @@ class RemoteReads(unittest.TestCase):
         with self.assertRaises(ImportError):
             cdfread.CDF("s3://a-bucket/key.cdf")
 
-    def test_s3_object_and_fetchall(self):
-        body = io.BytesIO(b"abc")
-        self.assertEqual(cdfread.s3_fetchall({"Body": body}).read(), b"abc")
-        self.assertTrue(hasattr(cdfread, "S3object"))
+    def test_s3_compressed_file(self):
+        content = (RESOURCES / COMPRESSED).read_bytes()
+        sys.modules["boto3"] = fake_boto3(content, [])
+        self.addCleanup(sys.modules.pop, "boto3", None)
+        remote = cdfread.CDF("s3://a-bucket/compressed.cdf")
+        local = cdfread.CDF(RESOURCES / COMPRESSED)
+        variable = first_variable(local)
+        np.testing.assert_array_equal(remote.varget(variable), local.varget(variable))
+
+    def test_s3_fetchall(self):
+        self.assertEqual(cdfread.s3_fetchall({"Body": io.BytesIO(b"abc")}).read(), b"abc")
+
+    def test_s3_object_reads_ranges(self):
+        obj = S3object(FakeS3Handle(b"0123456789"))
+        self.assertEqual(obj.read(4), b"0123")
+        self.assertEqual(obj.tell(), 4)
+        obj.seek(-2, 2)
+        self.assertEqual(obj.read(2), b"89")
+        obj.seek(1)
+        obj.seek(2, 1)
+        self.assertEqual(obj.tell(), 3)
+        obj.seek(0)
+        self.assertEqual(obj.read(-1), b"0123456789")
+        self.assertEqual(obj.fetchS3entire().read(), b"0123456789")
 
 
 if __name__ == "__main__":
