@@ -34,10 +34,12 @@ Time conversions (``cdfepoch``)
 Reading files (``CDF``)
 -----------------------
 
-- Records a sparse variable doesn't store read as NASA's library reads them: ``FILLVAL`` when the
-  variable has one, else the pad value, for every value of the record. cdflib gives the pad value
-  even when there is a ``FILLVAL``, and zeros between pad values when a record holds several
-  values.
+- Records a sparse variable doesn't store read as NASA's library reads them. For pad sparse
+  records, a missing record holds ``FILLVAL`` when the variable has one, else the pad value, in
+  every value of the record. For previous sparse records, a missing record repeats the last stored
+  record before it; only the records before the first stored one get ``FILLVAL``, else the pad
+  value. cdflib uses the pad value even when there is a ``FILLVAL``, and puts zeros between pad
+  values when a record holds several values.
 - File offsets have no meaning here: ``next_vdr_location``, ``head_vxr``, ``last_vxr`` (``VDR``),
   ``next_adr_loc``, ``first_gr_entry`` and ``first_z_entry`` (``ADRInfo``) are ``0``.
 - ``cdf_info().CDF`` and ``file`` give the file you opened, compressed or not. For a compressed
@@ -46,9 +48,6 @@ Reading files (``CDF``)
   and raises ``KeyError`` beyond. cdflib checks the number against the count of zVariables:
   it refuses valid numbers in files with fewer zVariables than attributes, and reads garbage past
   the last attribute.
-- Variable and attribute names, and the copyright, are read as UTF-8 whatever ``string_encoding``
-  says. cdflib decodes them with ``string_encoding`` and fails on a non-ASCII name with the default.
-  String values follow ``string_encoding`` as in cdflib.
 - Attribute entries and pad values of ``ARM_BIG`` encoded files are read big-endian. cdflib reads
   them little-endian. Files in the non IEEE 754 encodings (VAX, Alpha and IA64 VMS D and G floats)
   raise ``OSError``, as cdflib does for the first three.
