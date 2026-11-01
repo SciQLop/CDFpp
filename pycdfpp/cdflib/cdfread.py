@@ -21,6 +21,7 @@ from . import _records
 from . import epochs as epoch
 from .s3 import S3object  # noqa: F401
 from .epochs import CDFepoch as _CDFepoch
+from .epochs import _squeeze_or_scalar
 
 __all__ = ["CDF"]
 
@@ -30,7 +31,6 @@ _NOT_IEEE_ENCODINGS = (3, 14, 15, 20, 21)
 _SCOPE_NAMES = {1: "Global", 2: "Variable"}
 _VARIABLE_KIND_NAMES = {8: "zVariable", 3: "rVariable"}
 _SPARSE_NAMES = {0: "No_sparse", 1: "Pad_sparse", 2: "Prev_sparse"}
-_TIME_TYPES = (31, 32, 33)
 _RECORD_VARY, _PAD, _COMPRESSED = 1, 2, 4
 _ROW_MAJOR, _SINGLE_FILE, _CHECKSUM, _MD5 = 1, 2, 4, 8
 
@@ -111,11 +111,6 @@ def _decode(raw: bytes, cdf_type: _types.CdfType, num_elements: int, byte_order:
 def _decode_strings(values: np.ndarray, encoding: str) -> np.ndarray:
     strings = [value.decode(encoding, errors="ignore").replace("\x00", "") for value in values.ravel().tolist()]
     return np.array(strings).reshape(values.shape)
-
-
-def _squeeze_or_scalar(values: np.ndarray):
-    values = np.squeeze(values)
-    return values[()] if values.ndim == 0 else values
 
 
 def _unwrap(entry):
@@ -414,7 +409,7 @@ class CDF:
         return np.empty((0, *_record_shape(vdr)), np.float64 if _types.is_string(cdf_type) else cdf_type.dtype)
 
     def _time_variable(self, name: str, epoch: Optional[str]) -> str:
-        if epoch is not None or self.varinq(name).Data_Type in _TIME_TYPES:
+        if epoch is not None or self.varinq(name).Data_Type in _types.TIME_NUMBERS:
             return epoch or name
         depend = self.attget("DEPEND_0", name).Data
         if not isinstance(depend, str):
@@ -423,7 +418,7 @@ class CDF:
 
     def _time_records(self, name: str, starttime, endtime, epoch: Optional[str]):
         time_variable = self._time_variable(name, epoch)
-        if self.varinq(time_variable).Data_Type not in _TIME_TYPES:
+        if self.varinq(time_variable).Data_Type not in _types.TIME_NUMBERS:
             raise ValueError(f"{time_variable}, the time variable of {name}, is not a CDF epoch type")
         return _CDFepoch.findepochrange(self.varget(time_variable), starttime, endtime)
 
