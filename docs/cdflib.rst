@@ -11,6 +11,12 @@ Differences from cdflib
 Where cdflib and NASA's CDF library disagree, ``pycdfpp.cdflib`` follows NASA. Where cdflib
 fails, ``pycdfpp.cdflib`` returns the right value.
 
+Remote files (``http(s)://``, ``s3://``)
+----------------------------------------
+
+- Every ``s3_read_method`` fetches the whole object into memory. ``file`` stays the URL and ``ftype``
+  stays ``"url"`` or ``"s3"``, also for compressed files: ``temp_file`` and ``compressed_file`` stay ``None``.
+
 Time conversions (``cdfepoch``)
 -------------------------------
 

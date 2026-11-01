@@ -66,7 +66,7 @@ def _fetch_s3(url: str) -> bytes:
     bucket, _, key = url[len("s3://"):].partition("/")
     try:
         obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)
-    except Exception:  # public buckets refuse signed requests, as in cdflib
+    except Exception:  # bare on purpose: cdflib retries unsigned on any failure (public buckets)
         from botocore import UNSIGNED
         from botocore.client import Config
         obj = boto3.client("s3", config=Config(signature_version=UNSIGNED)).get_object(Bucket=bucket, Key=key)
@@ -168,6 +168,7 @@ class CDF:
 
     def __init__(self, path: Union[str, Path], validate: bool = False, string_encoding: str = "ascii",
                  s3_read_method: int = 1):
+        # s3_read_method is accepted for compatibility: pycdfpp needs the whole file, so every value fetches it all.
         remote = _remote_kind(path)
         self.ftype, fetch = remote or ("file", None)
         self.file: Union[str, Path] = str(path) if remote else _local_path(path)
@@ -191,7 +192,8 @@ class CDF:
     def _cdf(self) -> pycdfpp.CDF:
         """Loaded on the first values read: opening reads only descriptor records, as cdflib does.
         Raw string bytes: string_encoding decodes them, as in cdflib."""
-        return pycdfpp.load(self._buffer if self.ftype != "file" else self.file, iso_8859_1_to_utf8=False, lazy_load=True)
+        source = self._buffer if self.ftype != "file" else self.file
+        return pycdfpp.load(source, iso_8859_1_to_utf8=False, lazy_load=True)
 
     @cached_property
     def _zvdrs(self) -> List[dict]:
