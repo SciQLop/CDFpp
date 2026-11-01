@@ -191,9 +191,11 @@ class CDF:
     @cached_property
     def _cdf(self) -> pycdfpp.CDF:
         """Loaded on the first values read: opening reads only descriptor records, as cdflib does.
-        Raw string bytes: string_encoding decodes them, as in cdflib."""
-        source = self._buffer if self.ftype != "file" else self.file
-        return pycdfpp.load(source, iso_8859_1_to_utf8=False, lazy_load=True)
+        Raw string bytes: string_encoding decodes them, as in cdflib. A compressed file was decompressed to read its
+        descriptors: those bytes are loaded."""
+        on_disk = self.ftype == "file" and not self._descriptors.compressed
+        return pycdfpp.load(self.file if on_disk else self._descriptors.content, iso_8859_1_to_utf8=False,
+                            lazy_load=True)
 
     @cached_property
     def _zvdrs(self) -> List[dict]:
