@@ -1,4 +1,5 @@
 """pycdfpp.cdflib.xarray.xarray_to_cdf against the real cdflib.xarray.xarray_to_cdf: same checks, same files."""
+import collections
 import contextlib
 import logging
 import os
@@ -32,6 +33,7 @@ OPTIONS = {
 }
 # cdflib writes NaT as TT2000 0 (this instant): we write the fill value, read back as NaT.
 TT2000_ZERO = np.datetime64("2000-01-01T11:58:55.816", "ns")
+RAW_FILLS = {"CDF_EPOCH": (-1e31,), "CDF_EPOCH16": (-1e31, -1e31), "CDF_TIME_TT2000": (np.iinfo(np.int64).min,)}
 MAX_SIZE = 40  # values kept per dimension: cdflib converts times one by one
 
 
@@ -46,8 +48,30 @@ def ours_module():
     return ours
 
 
+# cdflib warnings that never raise, even with terminate_on_warning (auto fixes, data types, its writer).
+CDFLIB_WARNING_ONLY = ("ISTP Compliance Error, need to add", "Auto correcting", "CONVERSION ERROR", "NOT SUPPORTED",
+                       "Attribute:")
+
+
+# Ours logs this one, cdflib prints it (docs/cdflib.rst): both raise Exception with terminate_on_warning.
+PRINTED_BY_CDFLIB = "could not be checked"
+
+
+def escalation(record, ours):
+    """What a warning becomes with terminate_on_warning. Ours tags its records; cdflib's message decides it."""
+    if ours and PRINTED_BY_CDFLIB in record.getMessage():
+        return "warning only"
+    if ours:
+        return getattr(record, "cdflib_error", "warning only")
+    message = record.getMessage()
+    if message.startswith(CDFLIB_WARNING_ONLY):
+        return "warning only"
+    return "ISTPError" if "ISTP" in message else "Exception"
+
+
 class Outcome:
-    """What a call did: the exception it raised, whether it logged a warning, whether it wrote the file."""
+    """What a call did: the exception it raised, the warnings it logged (what each would raise with
+    terminate_on_warning), whether it wrote the file."""
 
     def __init__(self, module, dataset, path, **options):
         self.error = None
@@ -56,12 +80,15 @@ class Outcome:
                 module.xarray_to_cdf(dataset, str(path), **options)
             except Exception as error:  # the type is what both libraries must agree on
                 self.error = error
-        self.warned = bool(records)
+        ours = module.__name__.startswith("pycdfpp")
+        kinds = [escalation(record, ours) for record in records]
+        self.warned = bool(kinds)
+        self.escalating = sorted(collections.Counter(k for k in kinds if k != "warning only").items())
         self.written = Path(path).is_file()
 
     def summary(self):
         kind = type(self.error).__name__ if self.error is not None else None
-        return kind, self.warned, self.written if self.error is None else None
+        return kind, self.warned, self.escalating, self.written if self.error is None else None
 
 
 class _Collect(logging.Handler):
@@ -87,31 +114,23 @@ def captured_warnings():
         logger.propagate, logger.level = propagate, level
 
 
-def zero_tt2000_as_nat(values):
-    values = np.asarray(values)
-    if values.dtype.kind != "M":
-        return values
-    return np.where(values == TT2000_ZERO, np.datetime64("NaT"), values)
-
-
 def comparable_attribute(value):
     """Our writer keeps unsigned attributes of 1 and 2 bytes, cdflib makes them CDF_UINT4 (docs/cdflib.rst)."""
     if isinstance(value, list):
         return [comparable_attribute(v) for v in value]
     if isinstance(value, (np.ndarray, np.generic)) and value.dtype.kind == "u":
         return value.astype(np.uint32)
-    if isinstance(value, (np.ndarray, np.generic)) and value.dtype.kind == "M":
-        return zero_tt2000_as_nat(value)
     return value
 
 
 def comparable_variable(variable):
-    """cdflib writes NaT as TT2000 0, and datetimes as CDF_EPOCH16 to the second, one record late: left out."""
+    """cdflib writes datetimes as CDF_EPOCH16 to the second, one record late: CDF_EPOCH16 values are left out here
+    and checked against the source Dataset instead."""
     attrs = {k: comparable_attribute(a) for k, a in variable.attrs.items()}
     if attrs.get("CDF_DATA_TYPE") == "CDF_EPOCH16":
         attrs = {k: a for k, a in attrs.items() if np.asarray(a).dtype.kind != "M"}
         return xr.Variable(variable.dims, np.zeros(variable.shape), attrs)
-    return xr.Variable(variable.dims, zero_tt2000_as_nat(variable.values), attrs)
+    return xr.Variable(variable.dims, variable.values, attrs)
 
 
 def comparable(dataset):
@@ -131,6 +150,24 @@ def read_back_or_error(path):
         return error
 
 
+def nat_where_cdflib_wrote_zero(theirs, ours):
+    """cdflib writes NaT as TT2000 0: only where ours holds NaT, so a real 0 instant is still compared."""
+    t, o = np.asarray(theirs), np.asarray(ours)
+    if t.dtype.kind != "M" or o.dtype.kind != "M" or t.shape != o.shape:
+        return theirs
+    return np.where(np.isnat(o) & (t == TT2000_ZERO), o, t)
+
+
+def without_cdflib_zeros(theirs, ours):
+    def variable(name, v):
+        if name not in ours.variables:
+            return v
+        mine = ours[name]
+        attrs = {k: nat_where_cdflib_wrote_zero(a, mine.attrs[k]) if k in mine.attrs else a for k, a in v.attrs.items()}
+        return xr.Variable(v.dims, nat_where_cdflib_wrote_zero(v.values, mine.values), attrs)
+    return theirs.assign({name: variable(name, v) for name, v in theirs.variables.items()})
+
+
 def assert_same_read_back(testcase, our_path, their_path):
     """Where cdflib can't read its own file back, it reads ours or fails the same way."""
     ours, theirs = read_back_or_error(our_path), read_back_or_error(their_path)
@@ -138,7 +175,15 @@ def assert_same_read_back(testcase, our_path, their_path):
         testcase.assertTrue(isinstance(ours, xr.Dataset) or type(ours) is type(theirs), f"{ours!r} {theirs!r}")
     else:
         testcase.assertIsInstance(ours, xr.Dataset, repr(ours))
-        xr.testing.assert_identical(ours, theirs)
+        xr.testing.assert_identical(ours, without_cdflib_zeros(theirs, ours))
+
+
+def assert_epoch16_kept(testcase, our_path, source):
+    """Our CDF_EPOCH16 values read back as the source Dataset holds them."""
+    written = cdflib.xarray.cdf_to_xarray(str(our_path))
+    for name, variable in source.variables.items():
+        if variable.attrs.get("CDF_DATA_TYPE") == "CDF_EPOCH16" and variable.dtype.kind == "M" and name in written:
+            np.testing.assert_array_equal(written[name].values.ravel(), variable.values.ravel(), err_msg=name)
 
 
 def compressions(path):
@@ -176,19 +221,19 @@ class CorpusRoundTrip(unittest.TestCase):
         except ValueError as error:  # cdflib reads year 0 dates as unix times: see python_cdflib_xarray
             self.skipTest(f"cdflib can't read {name} with {read_options}: {error}")
         path = self.root / f"{label}-{module.__name__.split('.')[0]}-{name}"
-        return Outcome(module, dataset, path, **write_options(options, dataset)), path
+        return Outcome(module, dataset, path, **write_options(options, dataset)), path, dataset
 
     @data(*CORPUS)
     def test_same_file_content_as_cdflib(self, name):
         for label in OPTIONS:
             with self.subTest(label):
-                ours, our_path = self.written(label, name, ours_module())
-                theirs, their_path = self.written(label, name, cdflib.xarray)
+                ours, our_path, source = self.written(label, name, ours_module())
+                theirs, their_path, _ = self.written(label, name, cdflib.xarray)
+                if ours.written:
+                    assert_epoch16_kept(self, our_path, source)
                 if theirs.error is not None:
                     self.assertTrue(ours.written or type(ours.error) is type(theirs.error),
                                     f"{ours.error!r} {theirs.error!r}")
-                    if ours.written:
-                        read_back(our_path)
                     continue
                 self.assertIsNone(ours.error, repr(ours.error))
                 assert_same_read_back(self, our_path, their_path)
@@ -201,7 +246,7 @@ class CorpusRoundTrip(unittest.TestCase):
         for name in CORPUS:
             for label in ("default", "compression", "unix_time_to_cdf_time"):
                 with self.subTest(name=name, option=label):
-                    ours, path = self.written(label, name, ours_module())
+                    ours, path, _ = self.written(label, name, ours_module())
                     self.assertTrue(ours.written, repr(ours.error))
                     result = subprocess.run([cdfvalidate, str(path)], capture_output=True, text=True)
                     self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -304,6 +349,8 @@ ISTP_CASES = {
     "DEPEND_1 of another size": both(with_variable("other", ("other",), np.arange(5), SUPPORT),
                                       with_attrs("B", DEPEND_1="other")),
     "DEPEND_1 to a scalar": both(with_variable("scalar", (), 1.0, SUPPORT), with_attrs("B", DEPEND_1="scalar")),
+    "scalar with a DEPEND_1": with_variable("scalar", (), 1.0, dict(SUPPORT, DEPEND_1="comp")),
+    "1D variable with a DEPEND_2": with_attrs("comp", DEPEND_2="b_label"),
     "DEPEND_1 with 3 dimensions": both(with_variable("cube", ("x", "y", "z"), np.zeros((2, 2, 3)), SUPPORT),
                                         with_attrs("B", DEPEND_1="cube")),
     "2D DEPEND_1 with other records": both(with_variable("table", ("t", "comp"), np.zeros((2, 3)), SUPPORT),
@@ -341,6 +388,8 @@ ISTP_CASES = {
     "missing DISPLAY_TYPE": without("B", "DISPLAY_TYPE"),
     "image without LABLAXIS": with_attrs("B", DISPLAY_TYPE="image"),
     "image with LABLAXIS": with_attrs("B", DISPLAY_TYPE="image", LABLAXIS="b"),
+    "data without LABLAXIS nor LABL_PTR_1": with_variable(
+        "n1", ("Epoch",), np.arange(4.), {k: v for k, v in DATA.items() if k != "LABLAXIS"}),
     "time_series without LABL_PTR_1": without("B", "LABL_PTR_1"),
     "LABL_PTR_1 and LABLAXIS": with_attrs("B", LABLAXIS="b"),
     "spectrogram without LABL_PTR_1": both(without("B", "LABL_PTR_1"),
@@ -377,7 +426,7 @@ ISTP_CASES = {
 
 
 # Cases where cdflib writes wrong values (docs/cdflib.rst), checked by their own tests below.
-CONTENT_DIFFERS = {"bytes"}
+CONTENT_DIFFERS = {"bytes", "uint64 data"}
 
 
 def build(case):
@@ -415,7 +464,7 @@ class IstpChecks(unittest.TestCase):
 
     def test_compliant_dataset_is_silent(self):
         ours, theirs, _ = self.outcomes(build("compliant"), terminate_on_warning=True)
-        self.assertEqual((ours.summary(), theirs.summary()), (((None, False, True),) * 2))
+        self.assertEqual((ours.summary(), theirs.summary()), (((None, False, [], True),) * 2))
 
     def test_existing_file(self):
         for options in ({}, {"terminate_on_warning": True}):
@@ -462,6 +511,58 @@ class IstpChecks(unittest.TestCase):
         written = pycdfpp.load(str(self.root / "ours.cdf"))["t"]
         self.assertEqual(written.type, pycdfpp.DataType.CDF_EPOCH16)
         np.testing.assert_array_equal(pycdfpp.to_datetime64(written).ravel(), times)
+
+    def written_variable(self, name, values, attrs=None, **options):
+        dataset = xr.Dataset({name: xr.Variable(("x",), values, attrs or {})})
+        Outcome(ours_module(), dataset, self.root / "ours.cdf", istp=False, record_dimensions=[name], **options)
+        return pycdfpp.load(str(self.root / "ours.cdf"))[name]
+
+    def test_uint64_below_2_63_is_int8(self):
+        """cdflib wraps uint64 into CDF_UINT4."""
+        for top in (2**32 - 1, 2**62):
+            with self.subTest(top=top):
+                values = np.array([0, 7, top], dtype=np.uint64)
+                written = self.written_variable("u", values)
+                self.assertEqual(written.type, pycdfpp.DataType.CDF_INT8)
+                np.testing.assert_array_equal(written.values, values.astype(np.int64))
+                (self.root / "ours.cdf").unlink()
+
+    def test_uint64_from_2_63_raises(self):
+        dataset = xr.Dataset({"u": xr.Variable(("x",), np.array([1, 2**63], dtype=np.uint64))})
+        outcome = Outcome(ours_module(), dataset, self.root / "ours.cdf", istp=False)
+        self.assertIsInstance(outcome.error, ValueError)
+        self.assertFalse(outcome.written)
+
+    def test_big_endian_numbers_keep_their_type(self):
+        """cdflib writes them as text when no NaN filling made them native first."""
+        for values, data_type in (((np.arange(3) + 0.5).astype(">f8"), pycdfpp.DataType.CDF_DOUBLE),
+                                  ((np.arange(3) - 1).astype(">i4"), pycdfpp.DataType.CDF_INT4)):
+            for nan_to_fillval in (True, False):
+                with self.subTest(values.dtype.name, nan_to_fillval=nan_to_fillval):
+                    written = self.written_variable("v", values, nan_to_fillval=nan_to_fillval)
+                    self.assertEqual(written.type, data_type)
+                    np.testing.assert_array_equal(written.values, values)
+                    (self.root / "ours.cdf").unlink()
+
+    def test_missing_unix_times_are_fill_values(self):
+        """cdflib raises OverflowError, or writes NaN or -1e31 taken as a unix time."""
+        expected = np.array(["1970-01-01", "NaT", "2001-09-09T01:46:40"], dtype="datetime64[ns]")
+        for cdf_type in ("CDF_EPOCH", "CDF_EPOCH16", "CDF_TIME_TT2000"):
+            for nan_to_fillval in (True, False):
+                with self.subTest(cdf_type=cdf_type, nan_to_fillval=nan_to_fillval):
+                    written = self.written_variable("t", np.array([0.0, np.nan, 1e9]), {"CDF_DATA_TYPE": cdf_type},
+                                                    unix_time_to_cdf_time=True, nan_to_fillval=nan_to_fillval)
+                    self.assertEqual(written.type.name, cdf_type)
+                    np.testing.assert_array_equal(pycdfpp.to_datetime64(written), expected)
+                    self.assertEqual(written.values_encoded.tolist()[1], RAW_FILLS[cdf_type])
+                    (self.root / "ours.cdf").unlink()
+
+    def test_empty_dimension_besides_records_raises(self):
+        """cdflib writes a dimension of size 0, a file it can't read back."""
+        dataset = xr.Dataset({"e": xr.Variable(("x", "y"), np.zeros((3, 0)))})
+        outcome = Outcome(ours_module(), dataset, self.root / "ours.cdf", istp=False, record_dimensions=["e"])
+        self.assertIsInstance(outcome.error, ValueError)
+        self.assertFalse(outcome.written)
 
     def test_compression_skips_epochs_and_listed_variables(self):
         Outcome(ours_module(), build("compliant"), self.root / "ours.cdf", compression=6,

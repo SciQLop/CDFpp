@@ -102,7 +102,8 @@ Writing files (``cdfwrite.CDF``)
 - Sparse data with fewer values than its records raises ``ValueError``. cdflib warns and writes no
   data for the variable.
 - A writer dropped without ``close()`` warns with a ``ResourceWarning``.
-- A number typed ``CDF_CHAR`` is written as its text. cdflib raises ``ValueError``.
+- An attribute value typed ``CDF_CHAR`` is written as its text, numbers too. cdflib raises
+  ``ValueError`` for a number.
 - Writing a variable attribute twice for one variable replaces its value. cdflib adds a second
   entry to the file.
 - No file exists before ``close()``: ``cdr_head``, ``gdr_head`` and ``offset`` are ``0``, the
@@ -132,15 +133,25 @@ raise the same exception type (``ISTPError`` or ``Exception``). Messages differ.
 
 - Nothing is written when the conversion fails. cdflib leaves a partial file, for instance when
   a ``DEPEND_n`` value is not a name and ``terminate_on_warning=True``.
-- ``NaT`` values and attributes of a ``CDF_TIME_TT2000`` variable are written as the fill value,
-  like the ``FILLVAL`` the ISTP check adds. cdflib writes ``0`` (2000-01-01T11:58:55.816).
+- ``NaT`` values and attributes of a time variable (``CDF_EPOCH``, ``CDF_EPOCH16``,
+  ``CDF_TIME_TT2000``) are written as the type's fill value, like the ``FILLVAL`` the ISTP check
+  adds. cdflib writes ``0``: 0000-01-01 for ``CDF_EPOCH`` and ``CDF_EPOCH16``,
+  2000-01-01T11:58:55.816 for ``CDF_TIME_TT2000``.
+- With ``unix_time_to_cdf_time=True``, missing (``NaN``) unix times are written as the time
+  type's fill value, whatever ``nan_to_fillval``. cdflib raises ``OverflowError``, or writes
+  ``NaN``, or turns them into ``-1e31`` and converts that as a unix time.
 - ``datetime64`` values of a ``CDF_EPOCH16`` variable keep their instants. cdflib cuts them to the
   second and writes each one a record late.
 - ``bytes`` values are written as their text. cdflib writes ``"b'a'"``.
 - A string variable's ``Num_Elements`` counts UTF-8 bytes, so non-ASCII strings fit. cdflib
   counts characters.
-- A variable without values is written with zero records. cdflib writes a dimension of size 0, a
-  file it can't read back.
+- A variable without values whose only dimension is empty is written with zero records. Any
+  other empty dimension raises ``ValueError``: CDF has no dimension of size 0. cdflib writes
+  dimensions of size 0, files it can't read back.
+- ``uint64`` values are ``CDF_INT8`` when every value is below ``2**63``; larger values raise
+  ``ValueError``. cdflib warns and writes them as ``CDF_UINT4``, wrapping values from ``2**32``.
+- Big-endian numbers keep their numeric type. Without ``NaN`` filling to make them native first,
+  cdflib warns and writes them as text.
 - With ``unix_time_to_cdf_time=True``, ``VALIDMIN``, ``VALIDMAX`` and ``FILLVAL`` still get the
   variable's type and ``BIN_LOCATION`` is ``CDF_REAL4``, as ISTP requires. cdflib leaves them to
   the writer's guess.
