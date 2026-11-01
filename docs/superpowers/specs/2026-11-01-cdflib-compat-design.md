@@ -12,9 +12,13 @@ any missing call breaks whoever relies on it.
 ## Goals
 
 - `import pycdfpp.cdflib as cdflib` runs existing cdflib code unchanged, readers and writers.
-- Every public module, class, function, argument and returned dataclass of cdflib 1.3.16 exists
-  with the same name and signature.
-- Results equal cdflib's, checked by tests that run real cdflib side by side as the oracle.
+- **Exact same user API** (user's call): every public module, class, function, argument and
+  returned dataclass of cdflib 1.3.16 exists with the same name and signature, and returns the
+  same Python types and array shapes.
+- **Right output, not identical output** (user's call): values read are correct, and files
+  written are valid CDF (and valid ISTP for `xarray_to_cdf`) holding the intended data. They do
+  not have to be byte-identical to cdflib's files, nor built the same way. Tests use real cdflib
+  as a reference for the API and for reading, not as a byte-for-byte target.
 - Faster than cdflib on the same calls (file parsing, decompression, time conversion).
 
 ## Non-goals
@@ -35,22 +39,22 @@ any missing call breaks whoever relies on it.
 | `cdfread.CDF` | `__init__(path, validate, string_encoding, s3_read_method)`, `cdf_info`, `varinq`, `varget`, `varattsget`, `globalattsget`, `attinq`, `attget`, `vdr_info`, `__getitem__`, context manager | **rewrite** on `pycdfpp.load` |
 | `cdfwrite.CDF` | `__init__(path, cdf_spec, delete)`, `write_globalattrs`, `write_variableattrs`, `write_var`, `close`, context manager | **rewrite** on `pycdfpp.CDF` + `pycdfpp.save` |
 | `epochs.CDFepoch` | `compute*`, `encode*`, `breakdown*`, `parse`, `to_datetime`, `unixtime`, `timestamp_to_*`, `findepochrange`, `epochrange_*` | **rewrite**, vectorised on pycdfpp chrono |
-| `epochs_astropy.CDFAstropy` | astropy flavour of the above | **reuse** cdflib's (it never calls the reader/writer) |
-| `dataclasses` | `CDFInfo`, `VDRInfo`, `ADRInfo`, `AttData`, `VDR`, `AEDR`, `CDRInfo`, `GDRInfo` | **reuse** cdflib's classes (so `isinstance` checks keep working) |
-| `xarray` | `cdf_to_xarray`, `xarray_to_cdf` (ISTP checks) | **reuse** cdflib's, with its `CDF` and `cdfepoch` names rebound to ours |
-| `s3`, `utils`, `logging` | S3/URL reading helpers | **reuse** cdflib's where they don't parse the file |
+| `epochs_astropy.CDFAstropy` | astropy flavour of the above | **reexport** cdflib's public module (it never touches the reader, writer or epochs) |
+| `dataclasses` | `CDFInfo`, `VDRInfo`, `ADRInfo`, `AttData`, `VDR`, `AEDR`, `CDRInfo`, `GDRInfo` | **reexport** cdflib's public module (so `isinstance` checks keep working) |
+| `xarray` | `cdf_to_xarray`, `xarray_to_cdf` (ISTP checks) | **rewrite** on pycdfpp: same arguments and options, ISTP-correct result |
+| `s3`, `utils`, `logging` | S3/URL reading helpers | **rewrite** what the reader needs; reexport the rest if public and self-contained |
 
-**cdflib is an optional dependency** (`pip install pycdfpp[cdflib]`, user's call). The layer
-only replaces the parts that parse, write or convert data; everything else is cdflib's own code.
-Importing `pycdfpp.cdflib` without cdflib installed raises an ImportError saying which extra to
-install. cdflib is pure Python on numpy, so requiring it costs little.
+**cdflib is an optional dependency** (`pip install pycdfpp[cdflib]`, user's call). Importing
+`pycdfpp.cdflib` without it raises an ImportError naming the extra. cdflib is pure Python on
+numpy, so requiring it costs little.
 
-Reused modules bind our classes at import time (`from cdflib import CDF`, `from cdflib.epochs
-import CDFepoch as cdfepoch`). The layer rebinds those few module globals to our classes. That
-couples us to cdflib internals, so: the extra pins a tested range (`cdflib>=1.3.16,<1.4`), and a
-test fails if a reused module grows a new reference to the reader, writer or epochs that we
-don't rebind. Optional dependencies stay optional as in cdflib: xarray, astropy, boto3 are
-imported only by the modules that need them.
+**No dependency on cdflib internals** (user's call). We only import cdflib's public modules
+as they are (`cdflib.dataclasses`, `cdflib.epochs_astropy`), and we never patch or rebind
+anything inside cdflib. Everything that reads, writes or converts data is ours, including the
+xarray converters. So a cdflib update can only break us through its public API, which the
+signature test catches. The extra still pins a tested range (`cdflib>=1.3.16,<2`). Optional
+dependencies stay optional as in cdflib: xarray, astropy, boto3 are imported only by the
+modules that need them.
 
 ## Decided
 
@@ -58,9 +62,14 @@ imported only by the modules that need them.
   epochs_astropy,dataclasses,s3,utils,logging}.py` and `pycdfpp/cdflib/xarray/`. So
   `from pycdfpp.cdflib.epochs import CDFepoch` works like `from cdflib.epochs import CDFepoch`.
 - **Pure Python**, no C++ changes unless a behaviour cannot be expressed otherwise.
-- **Oracle tests**: real cdflib (plus xarray, astropy) is a test-only dependency. Tests run the
-  same calls through both and compare, on `tests/resources/*.cdf` and on generated files.
-  Write tests write the same spec with both writers, then read each output with both readers.
+- **Reference tests**: real cdflib (plus xarray, astropy) is a test dependency.
+  - API: every public callable's parameters match real cdflib (`inspect.signature`).
+  - Reading: the same calls through both on `tests/resources/*.cdf` and generated files must
+    give equal values, types and shapes, except listed differences.
+  - Writing: a file we write must read back right through real cdflib and through pycdfpp's
+    native API, and pass NASA's `cdfvalidate` where available. Bytes are not compared.
+  - xarray: `xarray_to_cdf` output, read back by real cdflib's `cdf_to_xarray`, gives the
+    dataset we wrote; our `cdf_to_xarray` gives the same dataset as cdflib's on the test files.
 - **Better behaviour where cdflib is wrong** is fine, listed in a "Differences from cdflib" doc
   page. Known so far:
   - CDF_EPOCH keeps fractional milliseconds (cdflib truncates).
@@ -80,13 +89,13 @@ imported only by the modules that need them.
   `head_vxr`, `next_adr_loc`, `first_zvariable`, `eof`, …) have no pycdfpp equivalent. They are
   set to 0. They only mean something to code walking the file by hand. Listed as a difference.
 - **`validate=True`** checks the MD5 of the file bytes in Python (hashlib), as cdflib does.
-- **`import cdflib` for third-party code**: `pycdfpp.cdflib.install()` rebinds the reader,
-  writer and epochs names inside the real, already-installed cdflib modules, so libraries that
-  import cdflib themselves (pyspedas) switch too, without editing them. It must run before those
-  libraries do `from cdflib import CDF`; names they already copied keep cdflib's classes (stated
-  in its docstring). Opt-in only, never done at import.
-- **Error types and messages** match cdflib where a test can observe them (e.g. `KeyError` vs
-  `ValueError` on an unknown variable), checked by the oracle tests.
+- **`import cdflib` for third-party code**: `pycdfpp.cdflib.install()` registers our modules
+  in `sys.modules` under the `cdflib` names (`cdflib`, `cdflib.cdfread`, `cdflib.cdfwrite`,
+  `cdflib.epochs`, `cdflib.xarray`, …), so libraries that import cdflib themselves (pyspedas)
+  get ours, without editing them and without touching cdflib's code. It must run before those
+  libraries import cdflib (stated in its docstring). Opt-in only, never done at import.
+- **Exception types** match cdflib (they are part of the API: user code catches them).
+  Messages may differ.
 
 - **What counts as "wrong"**: the user set the policy (behaving better is fine); the builder
   applies it per case without sign-off. Judge = the CDF spec and NASA's reference library. If we
@@ -113,5 +122,5 @@ imported only by the modules that need them.
 
 - Internal structure of the three rewrites (keep functions small, data-driven type tables).
 - Mapping tables between cdflib type names/numbers (`CDF_REAL4`, 21, …) and `pycdfpp.DataType`.
-- Order of work. Suggested: dataclasses → epochs → cdfread → cdfwrite → vendored xarray/astropy
-  → `install()` → docs page. Each step lands with its oracle tests.
+- Order of work. Suggested: dataclasses → epochs → cdfread → cdfwrite → xarray
+  → `install()` → docs page. Each step lands with its reference tests.
