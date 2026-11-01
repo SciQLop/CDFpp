@@ -136,7 +136,7 @@ jobs:
       - name: import the cdflib compatibility layer
         working-directory: tests
         run: |
-          pip install cdflib==1.3.16
+          pip install --only-binary :all: cdflib==1.3.16
           python -c "import pycdfpp.cdflib"
       # Free-threaded Python runs pycdfpp with no GIL at all: run the whole Python suite there,
       # from tests/ so that `python -m pycdfpp...` doesn't import the source folder.
