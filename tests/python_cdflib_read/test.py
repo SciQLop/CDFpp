@@ -302,6 +302,18 @@ class Targeted(SameMixin, unittest.TestCase):
         self.assertEqual(loaded, [bytes.fromhex("cdf300010000ffff")])
         self.assertSame(values, cdflib.CDF(RESOURCES / "a_compressed_cdf.cdf").varget("var"))
 
+    def test_truncated_file_raises_ValueError(self):
+        """As cdflib, except a compressed file cut to its magic numbers: cdflib raises OverflowError."""
+        with tempfile.TemporaryDirectory() as folder:
+            for name in ("a_cdf.cdf", "a_compressed_cdf.cdf"):
+                for size in (8, 40, 100, 400, 1000, 3000):
+                    with self.subTest(name, size=size):
+                        path = Path(folder) / f"{size}_{name}"
+                        path.write_bytes((RESOURCES / name).read_bytes()[:size])
+                        with self.assertRaises(ValueError):
+                            cdf = cdfread.CDF(path)
+                            cdf.cdf_info(), cdf.varinq(0), cdf.varattsget(0)
+
     def test_varget_gives_a_new_array_each_time(self):
         cdf = cdfread.CDF(RESOURCES / "a_cdf.cdf")
         cdf.varget("var")[:] = 0
