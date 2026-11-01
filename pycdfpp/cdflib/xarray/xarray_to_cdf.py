@@ -9,7 +9,7 @@ import xarray as xr
 
 import pycdfpp
 
-from .. import _types
+from .. import _types, _values
 from ..cdfwrite import CDF
 from ..epochs import CDFepoch as cdfepoch
 from ..logging import logger
@@ -206,8 +206,16 @@ def _typed_attribute(key, value, attrs: dict, cdf_type: _types.CdfType, options:
     if options.istp and key.upper() == "BIN_LOCATION":
         return [np.float32(value), "CDF_REAL4"]
     if options.istp and key in ("VALIDMIN", "VALIDMAX", "FILLVAL") and _is_raw_value(value, cdf_type):
-        return [value, cdf_type.name]
+        return _istp_typed(key, value, cdf_type)
     return value
+
+
+def _istp_typed(key, value, cdf_type: _types.CdfType):
+    """value as the variable's type, when it fits. A FILLVAL that doesn't (a float -1e31 of an integer variable) is
+    the type's own fill value; VALIDMIN and VALIDMAX keep their type. cdflib wraps them."""
+    if _values.fits(value, cdf_type):
+        return [value, cdf_type.name]
+    return [DATATYPE_FILLVALS[cdf_type.number], cdf_type.name] if key == "FILLVAL" else value
 
 
 def _is_raw_value(value, cdf_type: _types.CdfType) -> bool:

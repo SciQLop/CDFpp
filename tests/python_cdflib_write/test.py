@@ -1,5 +1,6 @@
 """pycdfpp.cdflib.cdfwrite.CDF: files it writes read back right through the real cdflib and pycdfpp."""
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -367,6 +368,31 @@ class Writer(unittest.TestCase):
                         with cdfwrite.CDF(self.path) as out:
                             out.write_var(spec("v", type_name), attrs, np.asarray(data))
                     self.assertFalse(self.path.exists())
+
+    def test_floats_out_of_the_type_range_raise(self):
+        """cdflib wraps them silently: 300.5 as CDF_INT1 is 44, NaN and 1e10 are 0, -1.0 as CDF_UINT2 is 65535."""
+        cases = (("CDF_INT1", [1.0, 300.5]), ("CDF_INT1", [1.0, np.nan]), ("CDF_INT1", [1.0, 1e10]),
+                 ("CDF_INT1", [1.0, -np.inf]), ("CDF_UINT2", [1.0, -1.0]), ("CDF_UINT2", [1.0, 70000.0]),
+                 ("CDF_INT8", [1.0, 2.0**63]), ("CDF_TIME_TT2000", [1.0, np.inf]))
+        for type_name, values in cases:
+            for where in ("data", "attribute"):
+                with self.subTest(type_name=type_name, where=where, values=values):
+                    self.path.unlink(missing_ok=True)
+                    data, attrs = (values, None) if where == "data" else ([1, 2], {"A": [values[1], type_name]})
+                    with self.assertRaisesRegex(ValueError, f"v.*{type_name}.*{re.escape(str(values[-1]))}"):
+                        with cdfwrite.CDF(self.path) as out:
+                            out.write_var(spec("v", type_name), attrs, np.asarray(data))
+                    self.assertFalse(self.path.exists())
+
+    def test_floats_in_the_type_range_are_truncated(self):
+        """As C casts them, and cdflib."""
+        with cdfwrite.CDF(self.path) as out:
+            out.write_var(spec("v", "CDF_INT1"), {"A": [-128.9, "CDF_INT1"]}, np.array([127.9, -2.7, -0.5]))
+            out.write_var(spec("u", "CDF_UINT1"), None, np.array([-0.9, 255.5]))
+        read = cdflib.CDF(self.path)
+        same(self, read.varget("v"), np.array([127, -2, 0], dtype=np.int8), "v")
+        same(self, read.varget("u"), np.array([0, 255], dtype=np.uint8), "u")
+        same(self, read.varattsget("v")["A"], np.int8(-128), "A")
 
     def test_global_integer_out_of_the_type_range_raises(self):
         with self.assertRaisesRegex(ValueError, "G.*CDF_INT2.*40000"):
