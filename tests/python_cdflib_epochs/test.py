@@ -274,10 +274,10 @@ class Compute(SameAs):
                  ("compute_epoch16", [-1, 1, 1, 0, 0, 0, 0, 0, 0, 0], ValueError))
         for method, value, error in cases:
             with self.subTest(method=method, value=value):
-                with self.assertRaises(error):
-                    getattr(REF, method)(value)
-                with self.assertRaises(error):
-                    getattr(CDFepoch, method)(value)
+                for reference in (REF, CDFepoch):
+                    function = getattr(reference, method)
+                    with self.assertRaises(error):
+                        function(value)
 
     def test_epoch_fill_components_give_fill(self):
         self.assertEqual(CDFepoch.compute_epoch([9999, 12, 31, 23, 59, 59, 999]), -1e31)
@@ -365,10 +365,10 @@ class EpochRange(SameAs):
                  ("findepochrange", (["a"], None, None), TypeError))
         for method, args, error in cases:
             with self.subTest(method=method, args=args):
-                with self.assertRaises(error):
-                    getattr(REF, method)(*args)
-                with self.assertRaises(error):
-                    getattr(CDFepoch, method)(*args)
+                for reference in (REF, CDFepoch):
+                    function = getattr(reference, method)
+                    with self.assertRaises(error):
+                        function(*args)
 
 
 class LeapSeconds(unittest.TestCase):

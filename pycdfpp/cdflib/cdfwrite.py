@@ -182,7 +182,7 @@ class CDF:
 
     level = 0
 
-    def __init__(self, path: Union[str, Path], cdf_spec: Optional[Dict[str, Any]] = None, delete: bool = False):
+    def __init__(self, path: str | Path, cdf_spec: Dict[str, Any] | None = None, delete: bool = False):
         spec = cdf_spec or {}
         self._cdf = pycdfpp.CDF()
         self.majority = _majority(spec.get("Majority", 1))
@@ -196,7 +196,7 @@ class CDF:
         if self.compression:
             self._cdf.compression = CompressionType.gzip_compression
             self._cdf.compression_level = int(self.compression)
-        self.rdim_sizes: Optional[List[int]] = spec.get("rDim_sizes", None)
+        self.rdim_sizes: List[int] | None = spec.get("rDim_sizes", None)
         self.num_rdim = len(self.rdim_sizes) if self.rdim_sizes is not None else 0
         self.path = _new_file_path(path, delete)
         # No file exists before close(): no temporary file, no record offsets.

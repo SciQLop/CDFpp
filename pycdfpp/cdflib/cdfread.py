@@ -35,7 +35,10 @@ _RECORD_VARY, _PAD, _COMPRESSED = 1, 2, 4
 _ROW_MAJOR, _SINGLE_FILE, _CHECKSUM, _MD5 = 1, 2, 4, 8
 
 
-def _local_path(path: Union[str, Path]) -> Path:
+_BOTH_KINDS_MESSAGE = "This CDF has both r and z variables. Use variable name instead"
+
+
+def _local_path(path: str | Path) -> Path:
     path = Path(path).resolve().expanduser()
     if not path.is_file() and not path.suffix:
         path = path.with_suffix(".cdf")
@@ -79,7 +82,7 @@ def _fetch_s3(url: str) -> bytes:
 _REMOTE = {"s3://": ("s3", _fetch_s3), "http://": ("url", _fetch_url), "https://": ("url", _fetch_url)}  # NOSONAR
 
 
-def _remote_kind(path) -> Optional[Tuple[str, Any]]:
+def _remote_kind(path) -> Tuple[str, Any] | None:
     return next((kind for prefix, kind in _REMOTE.items() if str(path).startswith(prefix)), None)
 
 
@@ -127,7 +130,7 @@ def _matches(name: str, wanted: str) -> bool:
     return name.strip().lower() == wanted.strip().lower()
 
 
-def _first_named(records: List[dict], name: str) -> Optional[dict]:
+def _first_named(records: List[dict], name: str) -> dict | None:
     return next((record for record in records if _matches(record["Name"], name)), None)
 
 
@@ -135,7 +138,7 @@ def _index_named(records: List[dict], name: str) -> int:
     return next((index for index, record in enumerate(records) if _matches(record["Name"], name)), -1)
 
 
-def _numbered(entries: List[dict], number: int) -> Optional[dict]:
+def _numbered(entries: List[dict], number: int) -> dict | None:
     return next((fields for fields in entries if fields["Num"] == number), None)
 
 
@@ -146,7 +149,7 @@ def _record_shape(vdr: VDR) -> tuple:
     return tuple(size for size, vary in zip(vdr.dim_sizes, vdr.dim_vary) if vary)
 
 
-def _checked_record_range(vdr: VDR, startrec: int, endrec: Optional[int]):
+def _checked_record_range(vdr: VDR, startrec: int, endrec: int | None):
     if startrec:
         if startrec < 0:
             raise ValueError("Invalid start record")
@@ -164,15 +167,15 @@ def _checked_record_range(vdr: VDR, startrec: int, endrec: Optional[int]):
 class CDF:
     """Read a CDF file, like cdflib.cdfread.CDF."""
 
-    def __init__(self, path: Union[str, Path], validate: bool = False, string_encoding: str = "ascii",
+    def __init__(self, path: str | Path, validate: bool = False, string_encoding: str = "ascii",
                  s3_read_method: int = 1):
         # s3_read_method is accepted for compatibility: pycdfpp needs the whole file, so every value fetches it all.
         remote = _remote_kind(path)
         self.ftype, fetch = remote or ("file", None)
-        self.file: Union[str, Path] = str(path) if remote else _local_path(path)
+        self.file: str | Path = str(path) if remote else _local_path(path)
         self.string_encoding = string_encoding
         self.compressed_file = None
-        self.temp_file: Optional[Path] = None
+        self.temp_file: Path | None = None
         self._buffer = fetch(self.file) if fetch else _mapped(self.file)
         self.cdfversion = _cdf_version(self._buffer, self.file)
         self._open(self._buffer, validate)
@@ -233,7 +236,7 @@ class CDF:
         if self._cdr.encoding in _NOT_IEEE_ENCODINGS:
             raise OSError(f"This package does not support CDFs with encoding {self._cdr.encoding}")
 
-    def __getitem__(self, variable: str) -> Union[str, np.ndarray]:
+    def __getitem__(self, variable: str) -> str | np.ndarray:
         return self.varget(variable)
 
     def __enter__(self) -> "CDF":
@@ -265,7 +268,7 @@ class CDF:
                        _SPARSE_NAMES[vdr.sparse], vdr.max_rec, vdr.record_vary, vdr.dim_vary, vdr.compression_level,
                        vdr.pad, vdr.blocking_factor)
 
-    def attinq(self, attribute: Union[str, int]) -> ADRInfo:
+    def attinq(self, attribute: str | int) -> ADRInfo:
         if isinstance(attribute, str):
             adr = _first_named(self._adrs, attribute)
             if adr is None:
@@ -275,7 +278,7 @@ class CDF:
             return self._adr_info(self._adr_by_number(attribute))
         raise ValueError("attribute keyword must be a string or integer")
 
-    def attget(self, attribute: Union[str, int], entry: Optional[Union[str, int]] = None) -> AttData:
+    def attget(self, attribute: str | int, entry: str | int | None = None) -> AttData:
         adr = self._adr_for(attribute, entry)
         if adr["scope"] == 1:
             if not isinstance(entry, int):
@@ -292,11 +295,11 @@ class CDF:
             raise KeyError("The entry does not exist")
         return self._att_data(self._aedr(found))
 
-    def varget(self, variable: Optional[str] = None, epoch: Optional[str] = None,
-               starttime: Optional[epoch.epoch_types] = None, endtime: Optional[epoch.epoch_types] = None,
-               startrec: int = 0, endrec: Optional[int] = None) -> Union[str, np.ndarray]:
+    def varget(self, variable: str | None = None, epoch: str | None = None,
+               starttime: epoch.epoch_types | None = None, endtime: epoch.epoch_types | None = None,
+               startrec: int = 0, endrec: int | None = None) -> str | np.ndarray:
         if isinstance(variable, int) and self._has_both_kinds():
-            raise ValueError("This CDF has both r and z variables. Use variable name instead")
+            raise ValueError(_BOTH_KINDS_MESSAGE)
         if (starttime is not None or endtime is not None) and (startrec != 0 or endrec is not None):
             raise ValueError("Can't specify both time and record range")
         fields, section_type = self._vdr_fields(variable)
@@ -313,14 +316,14 @@ class CDF:
             startrec, endrec = records[0], records[-1]
         return self._record_values(_key(fields["key"]), vdr, startrec, endrec + 1)
 
-    def vdr_info(self, variable: Union[str, int]) -> VDR:
+    def vdr_info(self, variable: str | int) -> VDR:
         return self._vdr(*self._vdr_fields(variable))
 
-    def globalattsget(self) -> Dict[str, List[Union[str, np.ndarray]]]:
+    def globalattsget(self) -> Dict[str, List[str | np.ndarray]]:
         return {adr["Name"]: [_unwrap(self._aedr(fields).entry) for fields in self._gr_entries(adr)]
                 for adr in self._adrs if adr["scope"] == 1 and adr["NgrEntries"] != 0}
 
-    def varattsget(self, variable: Union[str, int]) -> Dict[str, Union[None, str, np.ndarray]]:
+    def varattsget(self, variable: str | int) -> Dict[str, str | np.ndarray | None]:
         if isinstance(variable, int) and self._has_both_kinds():
             raise ValueError("This CDF has both r and z variables. Use variable name")
         if isinstance(variable, str):
@@ -334,9 +337,9 @@ class CDF:
             return self._variable_attributes(variable, section_type == 8)
         return None
 
-    def _vdr_fields(self, variable: Union[str, int]) -> Tuple[dict, int]:
+    def _vdr_fields(self, variable: str | int) -> Tuple[dict, int]:
         if isinstance(variable, int) and self._has_both_kinds():
-            raise ValueError("This CDF has both r and z variables. Use variable name instead")
+            raise ValueError(_BOTH_KINDS_MESSAGE)
         if isinstance(variable, str):
             found = self._vdr_named(variable)
             if found is None:
@@ -349,7 +352,7 @@ class CDF:
     def _has_both_kinds(self) -> bool:
         return bool(self._zvdrs) and bool(self._rvdrs)
 
-    def _vdr_named(self, name: str) -> Optional[Tuple[dict, int]]:
+    def _vdr_named(self, name: str) -> Tuple[dict, int] | None:
         """A variable's VDR fields and section type: zVariables first, as cdflib looks them up."""
         for vdrs, section_type in ((self._zvdrs, 8), (self._rvdrs, 3)):
             fields = _first_named(vdrs, name)
@@ -411,7 +414,7 @@ class CDF:
         cdf_type = _types.by_number[vdr.data_type]
         return np.empty((0, *_record_shape(vdr)), np.float64 if _types.is_string(cdf_type) else cdf_type.dtype)
 
-    def _time_variable(self, name: str, epoch: Optional[str]) -> str:
+    def _time_variable(self, name: str, epoch: str | None) -> str:
         if epoch is not None or self.varinq(name).Data_Type in _types.TIME_NUMBERS:
             return epoch or name
         depend = self.attget("DEPEND_0", name).Data
@@ -419,7 +422,7 @@ class CDF:
             raise ValueError(f"DEPEND_0 of {name} is not a variable name")
         return depend
 
-    def _time_records(self, name: str, starttime, endtime, epoch: Optional[str]):
+    def _time_records(self, name: str, starttime, endtime, epoch: str | None):
         time_variable = self._time_variable(name, epoch)
         if self.varinq(time_variable).Data_Type not in _types.TIME_NUMBERS:
             raise ValueError(f"{time_variable}, the time variable of {name}, is not a CDF epoch type")
@@ -430,7 +433,7 @@ class CDF:
             raise KeyError(f"No attribute {number}")
         return self._adrs[number]
 
-    def _adr_for(self, attribute: Union[str, int], entry) -> dict:
+    def _adr_for(self, attribute: str | int, entry) -> dict:
         """The attribute attget reads: a string entry names a variable, so it skips global attributes."""
         if isinstance(attribute, str):
             adr = next((adr for adr in self._adrs if _matches(adr["Name"], attribute)
@@ -453,7 +456,7 @@ class CDF:
                 raise ValueError(f"No variable by this name: {entry}")
             return (True, z_index) if z_index != -1 else (False, r_index)
         if self._has_both_kinds():
-            raise ValueError("This CDF has both r and z variables. Use variable name instead")
+            raise ValueError(_BOTH_KINDS_MESSAGE)
         return bool(self._zvdrs), entry
 
     def _adr_info(self, adr: dict) -> ADRInfo:
@@ -483,7 +486,7 @@ class CDF:
         data = np.array(aedr.entry.split("\\N ")) if aedr.num_strings > 1 else aedr.entry
         return AttData(aedr.num_elements, cdf_type.name, aedr.num_strings, data)
 
-    def _variable_attributes(self, variable_number: int, in_z: bool) -> Dict[str, Union[None, str, np.ndarray]]:
+    def _variable_attributes(self, variable_number: int, in_z: bool) -> Dict[str, str | np.ndarray | None]:
         attributes = {}
         for adr in self._adrs:
             if adr["scope"] == 1:
