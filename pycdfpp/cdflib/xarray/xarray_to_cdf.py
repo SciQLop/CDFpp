@@ -39,7 +39,6 @@ DATATYPES_TO_STRINGS = {t.number: t.name for t in _types.CDF_TYPES}
 STRINGS_TO_DATATYPES = {t.name: t.number for t in _types.CDF_TYPES}
 DATATYPE_FILLVALS = {t.number: _fill_value(t) for t in _types.CDF_TYPES}
 
-_TIME_TYPES = ("CDF_EPOCH", "CDF_EPOCH16", "CDF_TIME_TT2000")
 _NUMPY_TO_CDF = {np.dtype(code): name for code, name in (
     ("i1", "CDF_INT1"), ("i2", "CDF_INT2"), ("i4", "CDF_INT4"), ("i8", "CDF_INT8"), ("u1", "CDF_UINT1"),
     ("u2", "CDF_UINT2"), ("u4", "CDF_UINT4"), ("f2", "CDF_FLOAT"), ("f4", "CDF_FLOAT"), ("f8", "CDF_DOUBLE"),
@@ -76,7 +75,7 @@ def _text_size(values) -> int:
 
 
 def _is_time(cdf_type: _types.CdfType) -> bool:
-    return cdf_type.name in _TIME_TYPES
+    return cdf_type.name in _types.TIME_NAMES
 
 
 def _choice(variable: xr.DataArray) -> _Choice:

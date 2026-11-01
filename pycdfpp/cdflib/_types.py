@@ -28,6 +28,9 @@ CDF_TYPES = tuple(
 by_number = {t.number: t for t in CDF_TYPES}
 by_name = {t.name: t for t in CDF_TYPES}
 by_data_type = {t.data_type: t for t in CDF_TYPES}
+TIME_TYPES = tuple(by_data_type[t] for t in (DataType.CDF_EPOCH, DataType.CDF_EPOCH16, DataType.CDF_TIME_TT2000))
+TIME_NUMBERS = tuple(t.number for t in TIME_TYPES)
+TIME_NAMES = tuple(t.name for t in TIME_TYPES)
 
 
 def is_string(cdf_type: CdfType) -> bool:

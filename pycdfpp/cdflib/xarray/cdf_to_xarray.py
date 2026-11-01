@@ -7,6 +7,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 import numpy as np
 import xarray as xr
 
+from .. import _types
 from ..cdfread import CDF
 from ..dataclasses import AttData, VDRInfo
 from ..epochs import CDFepoch as cdfepoch
@@ -14,8 +15,7 @@ from ..logging import logger
 
 ISTP_TO_XARRAY_ATTRS = {"FIELDNAM": "standard_name", "LABLAXIS": "long_name", "UNITS": "units"}
 
-_TIME_TYPES = ("CDF_EPOCH", "CDF_EPOCH16", "CDF_TIME_TT2000")
-_FILLABLE_TYPES = ("CDF_FLOAT", "CDF_REAL4", "CDF_DOUBLE", "CDF_REAL8") + _TIME_TYPES
+_FILLABLE_TYPES = ("CDF_FLOAT", "CDF_REAL4", "CDF_DOUBLE", "CDF_REAL8") + _types.TIME_NAMES
 _TIME_CONVERSIONS = {"datetime": (cdfepoch.to_datetime, "Datetime (UTC)"), "unixtime": (cdfepoch.unixtime, "seconds")}
 _DEPEND_KEY = re.compile("depend_[0-9]+$")
 _UNCERTAINTY_KEYS = ("DELTA_PLUS_VAR", "DELTA_MINUS_VAR")
@@ -51,7 +51,7 @@ def _epoch16_as_epoch(values: np.ndarray):
 
 
 def _needs_conversion(type_name: str, mode: Optional[str]) -> bool:
-    return type_name in _TIME_TYPES and (mode is not None or type_name == "CDF_EPOCH16")
+    return type_name in _types.TIME_NAMES and (mode is not None or type_name == "CDF_EPOCH16")
 
 
 def _converted_time(values: np.ndarray, mode: Optional[str]):
@@ -60,7 +60,7 @@ def _converted_time(values: np.ndarray, mode: Optional[str]):
 
 def _converted_values(raw, type_name: str, mode: Optional[str]) -> np.ndarray:
     values = np.atleast_1d(raw)
-    if len(values) == 0 or type_name not in _TIME_TYPES:
+    if len(values) == 0 or type_name not in _types.TIME_NAMES:
         return values
     values = np.atleast_1d(np.squeeze(values))
     return np.atleast_1d(_converted_time(values, mode)) if _needs_conversion(type_name, mode) else values
@@ -85,12 +85,12 @@ def _cdf_data_type(type_name: str, mode: Optional[str]) -> Optional[str]:
 
 def _variable_attrs(attributes: Dict[str, AttData], type_name: str, has_values: bool, mode: Optional[str]):
     attrs = {name: _converted_attribute(attribute, mode) for name, attribute in attributes.items()}
-    if mode and has_values and type_name in _TIME_TYPES and "UNITS" in attrs:
+    if mode and has_values and type_name in _types.TIME_NAMES and "UNITS" in attrs:
         attrs["UNITS"] = _TIME_CONVERSIONS[mode][1]
     data_type = _cdf_data_type(type_name, mode)
     if data_type:
         attrs["CDF_DATA_TYPE"] = data_type
-    converted = [name for name, attribute in attributes.items() if mode and attribute.Data_Type in _TIME_TYPES]
+    converted = [name for name, attribute in attributes.items() if mode and attribute.Data_Type in _types.TIME_NAMES]
     if converted:
         attrs["TIME_ATTRS"] = converted
     return attrs
