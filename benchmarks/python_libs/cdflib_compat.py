@@ -3,6 +3,9 @@
 Both run the same code through their own namespace. Runs alternate between the two, and the
 best of REPEATS is kept: on a shared machine the minimum is the least disturbed run.
 
+pycdfpp uses several threads for compressed variables (decompression on read, compression on
+write), cdflib one: part of the gap on those workloads is multithreading.
+
     pip install pycdfpp cdflib xarray requests
     python benchmarks/python_libs/cdflib_compat.py
 """
@@ -150,7 +153,7 @@ def main():
                    for title, data, task in tasks]
         check_same_file(out_dir, time_values, field)
     RESULTS.write_text(json.dumps({"load_1min_before": load, "repeats": REPEATS,
-                                   "results": results}, indent=2))
+                                   "results": results}, indent=2) + "\n")
     print(markdown_table(results))
     print(f"\nBest of {REPEATS} interleaved runs, files in the page cache, "
           f"1 min load average {load:.2f} when starting.")
