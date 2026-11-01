@@ -8,6 +8,7 @@ import pycdfpp
 from pycdfpp import CompressionType, SparseRecords
 
 from . import _types, _values
+from . import epochs as cdfepoch  # noqa: F401 (public, as in cdflib)
 from .logging import logger
 
 __all__ = ["CDF"]
