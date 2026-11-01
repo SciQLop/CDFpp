@@ -13,7 +13,7 @@ Install ``pycdfpp`` with pip:
 
 That's all. Ready-made packages (wheels) exist for:
 
-- Python 3.9 to 3.15, including free-threaded builds.
+- Python 3.10 to 3.15, including free-threaded builds.
 - Linux (x86_64 and ARM64), Windows (x86_64 and ARM64) and macOS (Intel and Apple Silicon).
   Windows on ARM starts at Python 3.11, the first CPython with native ARM64 Windows builds.
 

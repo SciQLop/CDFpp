@@ -88,7 +88,7 @@ Before you submit a pull request, check that it meets these guidelines:
    your new functionality into a function with a docstring, and document it
    in the relevant page under ``docs/``. Run ``python docs/check_examples.py``
    to check that every Python example in the docs still runs.
-3. The pull request should work for Python 3.9 and above. Check
+3. The pull request should work for Python 3.10 and above. Check
    https://github.com/SciQLop/cdfpp/actions
    and make sure that the tests pass for all supported Python versions.
 

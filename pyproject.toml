@@ -7,7 +7,7 @@ name = "pycdfpp"
 description="A modern C++ header only cdf library"
 authors = [{name="Alexis Jeandet", email="alexis.jeandet@member.fsf.org"}]
 summary = "A simple to use CDF files reader"
-requires-python=">=3.9"
+requires-python=">=3.10"
 license = {file="COPYING"}
 readme = "README.md"
 classifiers = [
@@ -16,7 +16,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",

@@ -106,7 +106,7 @@ class CdfirsdumpCliTest(unittest.TestCase):
         # can't silently reappear on either script.
         #
         # Parsed with a regex rather than tomllib/tomli: tomllib is stdlib only
-        # from Python 3.11 (this project's requires-python is >=3.9), and adding
+        # from Python 3.11 (this project's requires-python is >=3.10), and adding
         # the tomli backport as a dependency just for this one line isn't worth it.
         pyproject_path = os.path.join(_here, '..', '..', 'pyproject.toml')
         with open(pyproject_path) as f:
