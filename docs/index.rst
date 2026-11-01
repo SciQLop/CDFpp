@@ -114,6 +114,7 @@ Why CDFpp?
    :caption: Tools
 
    cli
+   cdflib
    explorer
    wasm
    cpp

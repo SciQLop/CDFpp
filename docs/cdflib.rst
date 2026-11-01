@@ -3,19 +3,114 @@ cdflib compatibility
 ====================
 
 ``pycdfpp.cdflib`` offers the API of `cdflib <https://github.com/MAVENSDC/cdflib>`_ 1.3.16
-on top of ``pycdfpp``.
+on top of ``pycdfpp``. Code written for cdflib runs on it unchanged, and reads and writes
+faster. It is pure Python: pycdfpp does the work.
+
+Install
+=======
+
+cdflib itself is needed: ``pycdfpp.cdflib`` reuses its leap second table and its data classes.
+
+.. code-block:: console
+
+    $ pip install pycdfpp[cdflib]
+
+The extra pulls ``cdflib>=1.3.16,<2``. For ``cdf_to_xarray`` and ``xarray_to_cdf``, install
+``xarray`` too.
+
+Switch your code
+================
+
+Change the import, nothing else:
+
+.. code-block:: python
+
+    # import cdflib
+    import pycdfpp.cdflib as cdflib
+
+    cdf = cdflib.CDF("file.cdf")
+    values = cdf.varget("Epoch")
+    times = cdflib.cdfepoch.to_datetime(values)
+
+The submodules work the same way: ``pycdfpp.cdflib.cdfwrite``, ``pycdfpp.cdflib.epochs``,
+``pycdfpp.cdflib.xarray``, ``pycdfpp.cdflib.s3``, ``pycdfpp.cdflib.utils`` and
+``pycdfpp.cdflib.logging``. ``pycdfpp.cdflib.dataclasses`` and
+``pycdfpp.cdflib.epochs_astropy`` are cdflib's own modules, so the objects you get are
+cdflib's.
+
+Another library that imports cdflib (SunPy, for instance) keeps using the real one. To switch it
+too, call ``install()`` before that library is imported:
+
+.. code-block:: python
+
+    import pycdfpp.cdflib
+    pycdfpp.cdflib.install()
+
+    import cdflib   # now pycdfpp.cdflib
+    import sunpy.io._cdf
+
+``install()`` puts ``pycdfpp.cdflib`` and its submodules in ``sys.modules`` under the ``cdflib``
+names. ``cdflib.dataclasses`` and ``cdflib.epochs_astropy`` stay cdflib's. Calling it twice does
+nothing. A module that imported cdflib before ``install()`` keeps the real one.
+
+Speed
+=====
+
+Time for cdflib and for ``pycdfpp.cdflib`` to do the same work, through the same code. Best of 5
+interleaved runs, files in the page cache.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Task
+     - Data
+     - cdflib 1.3.16
+     - pycdfpp.cdflib
+     - Speedup
+   * - Open, read one variable
+     - MMS FGM survey, 1.2 M points, gzip
+     - 67.8 ms
+     - 8.6 ms
+     - 7.9×
+   * - Open, read every variable
+     - MMS FPI electron distribution, 178 MB, gzip
+     - 858 ms
+     - 161 ms
+     - 5.3×
+   * - ``CDFepoch.to_datetime``
+     - 1,000,000 ``CDF_TIME_TT2000`` values
+     - 234 ms
+     - 2.4 ms
+     - 98×
+   * - ``CDFepoch.to_datetime``
+     - 1,000,000 ``CDF_EPOCH`` values
+     - 14.2 s
+     - 2.7 ms
+     - 5173×
+   * - ``cdfwrite``: write a file
+     - time and B, 1,191,296 records, gzip
+     - 511 ms
+     - 45.7 ms
+     - 11.2×
+   * - ``cdf_to_xarray``
+     - MMS FGM survey, 1.2 M points, gzip
+     - 759 ms
+     - 80.2 ms
+     - 9.5×
+
+AMD Ryzen 7 5800X (8 cores, x86-64 with AVX2, no AVX-512), Python 3.14, 2026-11-01. The machine
+was shared with other builds: the 1 minute load average was 5.9 when the run started and 5.7
+when it ended. Each run uses one core, and the minimum of the runs is kept. cdflib was never
+faster. The speedup on ``CDF_EPOCH`` is so large because cdflib converts each value in a Python
+loop.
+
+Run it yourself with ``python benchmarks/python_libs/cdflib_compat.py``.
 
 Differences from cdflib
 =======================
 
 Where cdflib and NASA's CDF library disagree, ``pycdfpp.cdflib`` follows NASA. Where cdflib
 fails, ``pycdfpp.cdflib`` returns the right value.
-
-Remote files (``http(s)://``, ``s3://``)
-----------------------------------------
-
-- Every ``s3_read_method`` fetches the whole object into memory. ``file`` stays the URL and ``ftype``
-  stays ``"url"`` or ``"s3"``, also for compressed files: ``temp_file`` and ``compressed_file`` stay ``None``.
 
 Time conversions (``cdfepoch``)
 -------------------------------
@@ -168,3 +263,9 @@ raise the same exception type (``ISTPError`` or ``Exception``). Messages differ.
 - An object array of ``datetime`` objects is a time variable whatever its length. cdflib only
   sees a single ``datetime`` as a time.
 - A ``DEPEND_n`` whose shape can't be checked is logged as a warning. cdflib prints it.
+
+Remote files (``http(s)://``, ``s3://``)
+----------------------------------------
+
+- Every ``s3_read_method`` fetches the whole object into memory. ``file`` stays the URL and ``ftype``
+  stays ``"url"`` or ``"s3"``, also for compressed files: ``temp_file`` and ``compressed_file`` stay ``None``.
