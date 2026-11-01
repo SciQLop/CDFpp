@@ -129,8 +129,15 @@ jobs:
           restore-keys: cdf-corpus-v1-
       - name: run tests
         run: |
-          pip install ddt cdflib==1.3.16 xarray astropy requests
+          pip install ddt requests
           python -v tests/full_corpus/test.py
+      # cdflib is pure Python (xarray and astropy are left out: no wheels for every Python here).
+      # From tests/ so that the import doesn't pick the source folder.
+      - name: import the cdflib compatibility layer
+        working-directory: tests
+        run: |
+          pip install cdflib==1.3.16
+          python -c "import pycdfpp.cdflib"
       # Free-threaded Python runs pycdfpp with no GIL at all: run the whole Python suite there,
       # from tests/ so that `python -m pycdfpp...` doesn't import the source folder.
       - name: run unit tests (free-threaded Python)
