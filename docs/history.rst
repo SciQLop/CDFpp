@@ -5,6 +5,12 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
+Unreleased
+----------
+
+* Python 3.9 is no longer supported: it reached its end of life in October 2025. Wheels are
+  built for Python 3.10 to 3.15.
+
 0.19.0 (2026-10-21)
 -------------------
 

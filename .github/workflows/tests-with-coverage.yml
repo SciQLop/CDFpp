@@ -53,8 +53,8 @@ jobs:
       - name: Generate Coverage report
         run: |
           lcov --capture --ignore-errors=inconsistent,mismatch --directory . --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' --ignore-errors=unused --output-file coverage.info
-          lcov --remove coverage.info '*/catch*' --ignore-errors=unused --output-file coverage.info
+          lcov --remove coverage.info '/usr/*' --ignore-errors=unused,inconsistent,mismatch --output-file coverage.info
+          lcov --remove coverage.info '*/catch*' --ignore-errors=unused,inconsistent,mismatch --output-file coverage.info
           lcov --list coverage.info
           python3.14 -m coverage combine
           python3.14 -m coverage xml -o python-coverage.xml

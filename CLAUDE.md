@@ -73,4 +73,4 @@ Key meson options: `-Duse_libdeflate=true` (default, faster gzip), `-Dwith_exper
 
 ## Dependencies (as meson subprojects)
 
-pybind11, fmt, Catch2, xsimd, libdeflate, hedley. Python ≥3.9, numpy, pyyaml at runtime.
+pybind11, fmt, Catch2, xsimd, libdeflate, hedley. Python ≥3.10, numpy, pyyaml at runtime.
