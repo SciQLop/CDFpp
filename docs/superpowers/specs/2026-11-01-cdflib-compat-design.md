@@ -100,7 +100,9 @@ modules that need them.
 - **What counts as "wrong"**: the user set the policy (behaving better is fine); the builder
   applies it per case without sign-off. Judge = the CDF spec and NASA's reference library. If we
   agree with NASA and cdflib doesn't, keep ours and list it. Otherwise match cdflib exactly.
-  Example: names with non-ASCII bytes decode as ISO-8859-1 (NASA) instead of failing.
+  Example: a value cdflib wraps into a narrower integer type raises `ValueError` instead.
+  Counter-example (user's ruling): names decode with `string_encoding`, as in cdflib; with the
+  default `"ascii"`, a name with non-ASCII bytes fails as it does in cdflib.
 - **Scope of "public"**: every name without a leading underscore — modules, classes, functions,
   methods, module constants, type aliases, class constants (`CDFepoch.J2000LeapSeconds`, …) and
   public instance attributes (reader `file`, `string_encoding`, `cdfversion`, …; writer `path`,
