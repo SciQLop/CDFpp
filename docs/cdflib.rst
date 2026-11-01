@@ -36,6 +36,8 @@ Time conversions (``cdfepoch``)
   cdflib adds extra elements.
 - ``encode_tt2000`` of a list holding a fill or pad value encodes every value. cdflib returns
   only the fill or pad string for the whole list.
+- ``timestamp_to_tt2000`` of a time from the fill date on (``unixtime`` of the TT2000 fill value is
+  ``253402300800.0``) gives the TT2000 fill value. cdflib raises ``AttributeError``.
 
 Reading files (``CDF``)
 -----------------------
@@ -100,6 +102,7 @@ Writing files (``cdfwrite.CDF``)
 - Sparse data with fewer values than its records raises ``ValueError``. cdflib warns and writes no
   data for the variable.
 - A writer dropped without ``close()`` warns with a ``ResourceWarning``.
+- A number typed ``CDF_CHAR`` is written as its text. cdflib raises ``ValueError``.
 - Writing a variable attribute twice for one variable replaces its value. cdflib adds a second
   entry to the file.
 - No file exists before ``close()``: ``cdr_head``, ``gdr_head`` and ``offset`` are ``0``, the
@@ -119,3 +122,28 @@ xarray (``cdf_to_xarray``)
 - A ``LABL_PTR_n`` whose ``DEPEND_n`` names no variable is ignored. cdflib raises ``KeyError``.
   ``DEPEND_n``, ``LABL_PTR_n`` and ``DELTA_PLUS_VAR``/``DELTA_MINUS_VAR`` values that are not
   names are ignored too; cdflib raises ``TypeError`` for arrays.
+
+xarray (``xarray_to_cdf``)
+--------------------------
+
+The ISTP checks are cdflib's: the same Datasets warn, and with ``terminate_on_warning=True``
+raise the same exception type (``ISTPError`` or ``Exception``). Messages differ. ``ISTPError`` is
+``pycdfpp.cdflib.xarray.xarray_to_cdf.ISTPError``, not cdflib's class.
+
+- Nothing is written when the conversion fails. cdflib leaves a partial file, for instance when
+  a ``DEPEND_n`` value is not a name and ``terminate_on_warning=True``.
+- ``NaT`` values and attributes of a ``CDF_TIME_TT2000`` variable are written as the fill value,
+  like the ``FILLVAL`` the ISTP check adds. cdflib writes ``0`` (2000-01-01T11:58:55.816).
+- ``datetime64`` values of a ``CDF_EPOCH16`` variable keep their instants. cdflib cuts them to the
+  second and writes each one a record late.
+- ``bytes`` values are written as their text. cdflib writes ``"b'a'"``.
+- A string variable's ``Num_Elements`` counts UTF-8 bytes, so non-ASCII strings fit. cdflib
+  counts characters.
+- A variable without values is written with zero records. cdflib writes a dimension of size 0, a
+  file it can't read back.
+- With ``unix_time_to_cdf_time=True``, ``VALIDMIN``, ``VALIDMAX`` and ``FILLVAL`` still get the
+  variable's type and ``BIN_LOCATION`` is ``CDF_REAL4``, as ISTP requires. cdflib leaves them to
+  the writer's guess.
+- An object array of ``datetime`` objects is a time variable whatever its length. cdflib only
+  sees a single ``datetime`` as a time.
+- A ``DEPEND_n`` whose shape can't be checked is logged as a warning. cdflib prints it.

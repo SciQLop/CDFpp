@@ -496,6 +496,8 @@ class CDF:
             if name in self.gattrs:
                 logger.warning(f"Attribute: {name} already defined as a global attribute... Skipping attribute.")
                 continue
+            if value is None:
+                logger.warning(f"Attribute {name} of {variable} is None: written as an empty string")
             self._declare_attribute(name, is_global=False)
             self._set_variable_attribute(variable, name, value)
 
