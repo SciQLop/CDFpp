@@ -1,5 +1,6 @@
 """cdflib 1.3.16's cdfwrite.CDF on pycdfpp: the file is built in memory and written by close()."""
 import warnings
+from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Optional, Union
@@ -161,12 +162,36 @@ def _text(value) -> str:
     return value.decode("utf-8") if isinstance(value, bytes) else str(value)
 
 
-def _numbers(values, dtype: np.dtype) -> np.ndarray:
-    """values cast to dtype as cdflib does (C casts); numbers written as text are parsed first."""
+class _OutOfRange(ValueError):
+    pass
+
+
+def _fitting(values: np.ndarray, dtype: np.dtype, type_name: str) -> np.ndarray:
+    """Integers cast to an integer type they fit. cdflib wraps the others silently (300 as CDF_INT1 is 44)."""
+    dtype = np.dtype(dtype)
+    if values.dtype.kind in "iu" and dtype.kind in "iu" and values.size:
+        low, high, limits = int(values.min()), int(values.max()), np.iinfo(dtype)
+        if low < limits.min or high > limits.max:
+            raise _OutOfRange(f"{type_name} holds {limits.min} to {limits.max}, not integers from {low} to {high}")
+    return values.astype(dtype)
+
+
+@contextmanager
+def _about(what: str):
+    """Names what an out of range integer belongs to."""
+    try:
+        yield
+    except _OutOfRange as error:
+        raise ValueError(f"{what}: {error}") from None
+
+
+def _numbers(values, cdf_type: _types.CdfType) -> np.ndarray:
+    """values cast to the type as cdflib does (C casts), integers that fit only; numbers written as text are
+    parsed first."""
     values = np.asarray(values)
     if values.dtype.kind in "US":
         values = values.astype(np.float64)
-    return values.astype(dtype)
+    return _fitting(values, cdf_type.dtype, cdf_type.name)
 
 
 def _parsed_times(value):
@@ -181,7 +206,7 @@ def _time_entry(value, data_type: DataType):
     if values.dtype.kind == "M":
         return values
     raw_dtype, wrap = _RAW_TIMES[data_type]
-    return [wrap(raw) for raw in values.astype(raw_dtype)]
+    return [wrap(raw) for raw in _fitting(values, raw_dtype, data_type.name)]
 
 
 def _entry_value(value, cdf_type: _types.CdfType):
@@ -189,7 +214,7 @@ def _entry_value(value, cdf_type: _types.CdfType):
         return _text(value)
     if cdf_type.data_type in _RAW_TIMES:
         return _time_entry(value, cdf_type.data_type)
-    return np.atleast_1d(_numbers(value, cdf_type.dtype))
+    return np.atleast_1d(_numbers(value, cdf_type))
 
 
 def _named_type(value):
@@ -256,10 +281,10 @@ def _numeric_values(data, cdf_type: _types.CdfType) -> np.ndarray:
         return np.frombuffer(data, cdf_type.dtype)
     values = np.asarray(data)
     if cdf_type.data_type not in _RAW_TIMES:
-        return _numbers(values, cdf_type.dtype)
+        return _numbers(values, cdf_type)
     if values.dtype.kind == "M":
         return values
-    return np.ascontiguousarray(_numbers(values, cdf_type.dtype)).view(_ENCODED_DTYPES[cdf_type.data_type])
+    return np.ascontiguousarray(_numbers(values, cdf_type)).view(_ENCODED_DTYPES[cdf_type.data_type])
 
 
 def _records(data, variable: _Variable) -> np.ndarray:
@@ -427,7 +452,8 @@ class CDF:
                 logger.warning(f"Attribute: {name} already defined as a variable attribute.")
                 continue
             self._declare_attribute(name, is_global=True)
-            converted = [_attribute_entry(value) for _, value in sorted((entries or {}).items())]
+            with _about(f"global attribute {name}"):
+                converted = [_attribute_entry(value) for _, value in sorted((entries or {}).items())]
             kept = [entry for entry in converted if entry is not None]
             self._cdf.add_attribute(name, [value for value, _ in kept], [data_type for _, data_type in kept])
 
@@ -464,14 +490,16 @@ class CDF:
         pad = var_spec.get("Pad", None)
         if variable.name in self.zvars or variable.name in self.rvars:
             raise ValueError(f"{variable.name} already exists")
-        if sparse == SparseRecords.no_sparse_records or var_data is None:
-            values, virtual = _records(var_data, variable), None
-        else:
-            values, virtual = _sparse_values(var_data, variable)
+        with _about(f"variable {variable.name}"):
+            if sparse == SparseRecords.no_sparse_records or var_data is None:
+                values, virtual = _records(var_data, variable), None
+            else:
+                values, virtual = _sparse_values(var_data, variable)
+            pad = _pad_value(pad, variable)
         self._cdf.add_variable(variable.name, values, variable.cdf_type.data_type, is_nrv=not variable.rec_vary,
                                compression=CompressionType.gzip_compression if level else CompressionType.no_compression,
                                compression_level=int(level) or 6, sparse_records=sparse,
-                               pad_value=_pad_value(pad, variable), virtual_records=virtual)
+                               pad_value=pad, virtual_records=virtual)
         self._register_variable(variable)
         if var_attrs is not None:
             self._write_var_attrs(variable.name, var_attrs)
@@ -515,7 +543,8 @@ class CDF:
         return names[int(variable)]
 
     def _set_variable_attribute(self, variable: str, name: str, value):
-        entry = _attribute_entry(value)
+        with _about(f"attribute {name} of {variable}"):
+            entry = _attribute_entry(value)
         if entry is None:
             return
         attributes = self._cdf[variable].attributes

@@ -353,6 +353,33 @@ class Writer(unittest.TestCase):
                                           "NONE": ""}, "v")
         same(self, read.varattsget("w"), {"UNITS": "K", "OTHER": np.int16(7)}, "w")
 
+    def test_integers_out_of_the_type_range_raise(self):
+        """cdflib wraps them silently: 300 as CDF_INT1 is 44, 2**40 as CDF_INT4 is 0, 2**63 as CDF_INT8 the fill."""
+        cases = (("CDF_INT1", [1, 300]), ("CDF_UINT1", [1, 256]), ("CDF_INT4", [1, 2**40]), ("CDF_UINT4", [1, 2**40]),
+                 ("CDF_UINT4", [1, -1]), ("CDF_INT8", np.array([1, 2**63], dtype=np.uint64)),
+                 ("CDF_TIME_TT2000", np.array([1, 2**63], dtype=np.uint64)))
+        for type_name, values in cases:
+            for where in ("data", "attribute"):
+                with self.subTest(type_name=type_name, where=where, values=values):
+                    self.path.unlink(missing_ok=True)
+                    data, attrs = (values, None) if where == "data" else ([1, 2], {"A": [values[1], type_name]})
+                    with self.assertRaisesRegex(ValueError, f"v.*{type_name}.*{values[-1]}"):
+                        with cdfwrite.CDF(self.path) as out:
+                            out.write_var(spec("v", type_name), attrs, np.asarray(data))
+                    self.assertFalse(self.path.exists())
+
+    def test_global_integer_out_of_the_type_range_raises(self):
+        with self.assertRaisesRegex(ValueError, "G.*CDF_INT2.*40000"):
+            with cdfwrite.CDF(self.path) as out:
+                out.write_globalattrs({"G": {0: [40000, "CDF_INT2"]}})
+
+    def test_integers_in_the_type_range_are_kept(self):
+        with cdfwrite.CDF(self.path) as out:
+            out.write_var(spec("v", "CDF_INT1"), {"A": [-128, "CDF_INT1"]}, np.array([-128, 127], dtype=np.int64))
+        read = cdflib.CDF(self.path)
+        same(self, read.varget("v"), np.array([-128, 127], dtype=np.int8), "v")
+        same(self, read.varattsget("v")["A"], np.int8(-128), "A")
+
     def test_none_variable_attribute_warns(self):
         with cdfwrite.CDF(self.path) as out, self.assertLogs("cdflib.logging", "WARNING"):
             out.write_var(spec("v", 44), {"NONE": None}, np.arange(3.))
