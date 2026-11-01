@@ -522,6 +522,17 @@ class IstpChecks(unittest.TestCase):
         self.assertEqual(written.type, pycdfpp.DataType.CDF_EPOCH16)
         np.testing.assert_array_equal(pycdfpp.to_datetime64(written).ravel(), times)
 
+    def test_raw_epoch16_read_back_keeps_its_instants_when_written_again(self):
+        """Read without to_datetime, EPOCH16 values are CDF_EPOCH milliseconds: written back as CDF_EPOCH."""
+        times = np.array(["2020-01-01T00:00:00.123", "2021-06-01T12:00:00.456"], dtype="datetime64[ns]")
+        dataset = xr.Dataset({"t": xr.Variable(("x",), times, {"CDF_DATA_TYPE": "CDF_EPOCH16"})})
+        ours = ours_module()
+        Outcome(ours, dataset, self.root / "first.cdf", istp=False, record_dimensions=["t"])
+        raw = ours.cdf_to_xarray(str(self.root / "first.cdf"), to_datetime=False)
+        Outcome(ours, raw, self.root / "second.cdf", istp=False, record_dimensions=["t"])
+        written = pycdfpp.load(str(self.root / "second.cdf"))["t"]
+        np.testing.assert_array_equal(pycdfpp.to_datetime64(written).ravel(), times)
+
     def written_variable(self, name, values, attrs=None, **options):
         dataset = xr.Dataset({name: xr.Variable(("x",), values, attrs or {})})
         Outcome(ours_module(), dataset, self.root / "ours.cdf", istp=False, record_dimensions=[name], **options)

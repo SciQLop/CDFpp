@@ -222,7 +222,10 @@ xarray (``cdf_to_xarray``)
 - Without time conversion (``to_datetime=False``, ``to_unixtime=False``), every value of a
   ``CDF_EPOCH16`` variable or attribute becomes a ``CDF_EPOCH`` value, as cdflib intends. cdflib
   converts only single values: an array keeps its ``CDF_EPOCH16`` values and only its first 7
-  records, in a dimension of its own, or raises ``ValueError`` on unusual dates.
+  records, in a dimension of its own, or raises ``ValueError`` on unusual dates. Their
+  ``CDF_DATA_TYPE`` attribute says ``CDF_EPOCH``, so ``xarray_to_cdf`` writes them back as the
+  same instants. cdflib keeps a ``CDF_DATA_TYPE`` attribute of the file, which says
+  ``CDF_EPOCH16``.
 - A ``LABL_PTR_n`` whose ``DEPEND_n`` names no variable is ignored. cdflib raises ``KeyError``.
   ``DEPEND_n``, ``LABL_PTR_n`` and ``DELTA_PLUS_VAR``/``DELTA_MINUS_VAR`` values that are not
   names are ignored too; cdflib raises ``TypeError`` for arrays.
