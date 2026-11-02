@@ -26,6 +26,7 @@
 #pragma once
 
 #include "../desc-records.hpp"
+#include "../endianness.hpp"
 #include "./buffers.hpp"
 #include "cdfpp/cdf-helpers.hpp"
 #include <cpp_utils/serde/serde.hpp>
@@ -82,9 +83,49 @@ struct parsing_context_t
 // every field binding by one position (the first decomposed field gets bound to the
 // context slot instead of being read at all). Confirmed by a standalone repro
 // against the real cpp_utils headers before writing this comment.
+template <typename version_t, typename buffer_t>
+std::size_t record_size_at(const buffer_t& buffer, std::size_t offset)
+{
+    return static_cast<std::size_t>(endianness::decode<endianness::big_endian_t,
+        cdf_offset_field_t<version_t>>(buffer.data() + offset));
+}
+
+template <typename version_t>
+inline constexpr std::size_t record_header_size
+    = sizeof(cdf_offset_field_t<version_t>) + sizeof(cdf_record_type);
+
+// Fetches a record's bytes before it is parsed in place, when the buffer is remote: first its
+// header, which gives its size, then the whole record. A no-op for local buffers.
+template <typename version_t, typename buffer_t>
+void ensure_versioned_record(const buffer_t& buffer, std::size_t offset, bool header_only)
+{
+    buffer.ensure(offset, record_header_size<version_t>);
+    if (header_only)
+        return;
+    const auto size = record_size_at<version_t>(buffer, offset);
+    if (size < record_header_size<version_t>)
+        throw std::runtime_error { "corrupt CDF: record at offset " + std::to_string(offset)
+            + " is smaller than its own header (" + std::to_string(size) + " bytes)" };
+    buffer.ensure(offset, size);
+}
+
+template <typename record_t, typename buffer_t>
+void ensure_record(const buffer_t& buffer, std::size_t offset)
+{
+    using plain_record_t = std::remove_cvref_t<record_t>;
+    if constexpr (!requires { buffer.ensure(offset, offset); })
+        return;
+    else if constexpr (requires { typename plain_record_t::cdf_version_t; })
+        ensure_versioned_record<typename plain_record_t::cdf_version_t>(
+            buffer, offset, is_cdf_DR_header_v<record_t>);
+    else
+        buffer.ensure(offset, std::min(sizeof(plain_record_t), buffer.size() - std::min(offset, buffer.size())));
+}
+
 template <typename record_t, typename buffer_t>
 inline std::size_t load_record(record_t& r, buffer_t&& buffer, std::size_t offset)
 {
+    ensure_record<record_t>(buffer, offset);
     return cpp_utils::serde::deserialize(
         r, std::forward<buffer_t>(buffer), offset, cpp_utils::serde::no_context {});
 }
@@ -95,6 +136,7 @@ template <typename record_t, typename buffer_t, typename version_t>
 inline std::size_t load_record(
     record_t& r, parsing_context_t<buffer_t, version_t>& parsing_context, std::size_t offset)
 {
+    ensure_record<record_t>(parsing_context.buffer, offset);
     return cpp_utils::serde::deserialize(
         r, parsing_context.buffer, offset, cpp_utils::serde::no_context {});
 }
@@ -105,6 +147,7 @@ template <typename version_t, typename buffer_t>
 inline std::size_t load_record(cdf_rVDR_t<version_t>& r,
     parsing_context_t<buffer_t, version_t>& parsing_context, std::size_t offset)
 {
+    ensure_record<cdf_rVDR_t<version_t>>(parsing_context.buffer, offset);
     return cpp_utils::serde::deserialize(r, parsing_context.buffer, offset,
         vdr_context_t<version_t> { parsing_context.gdr.rNumDims });
 }

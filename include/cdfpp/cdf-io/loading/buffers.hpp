@@ -30,11 +30,34 @@ using cpp_utils::containers::no_init_vector;
 #include <cpp_utils/io/buffer_view.hpp>
 #include <cpp_utils/io/memory_mapped_file.hpp>
 #include <cpp_utils/io/owned_buffer.hpp>
+#include <cpp_utils/io/range_reader.hpp>
+#ifndef __EMSCRIPTEN__
+#include <cpp_utils/io/remote_buffer.hpp>
+#endif
 #include <memory>
 #include <span>
 #include <string>
 #include <utility>
 #include <vector>
+
+namespace cdf::io
+{
+// Set on threads that decode prefetched data: there, a missing byte is a bug to report, not
+// something to fetch (a Python reader can't run on threads Python doesn't know).
+inline thread_local bool no_fetch_thread = false;
+
+// Tests only: drop the last block from the data prefetch, to prove decoding never fetches.
+inline thread_local bool testing_skip_last_block_prefetch = false;
+
+struct no_fetch_scope
+{
+    bool previous = std::exchange(no_fetch_thread, true);
+    no_fetch_scope() = default;
+    no_fetch_scope(const no_fetch_scope&) = delete;
+    no_fetch_scope& operator=(const no_fetch_scope&) = delete;
+    ~no_fetch_scope() { no_fetch_thread = previous; }
+};
+}
 
 namespace cdf::io::buffers
 {
@@ -68,12 +91,43 @@ struct shared_buffer_t
 
     void read(char* dest, std::size_t offset, std::size_t size) const
     {
+        if constexpr (requires(const buffer_t& b) { b.check_present(offset, size); })
+            if (no_fetch_thread)
+                p_buffer->check_present(offset, size);
         p_buffer->read(dest, offset, size);
     }
 
     auto view(std::size_t offset) const { return p_buffer->view(offset); }
 
     bool is_valid() const { return p_buffer->is_valid(); }
+
+    // Remote buffers only: fetch bytes before they are read in place, or check they were.
+    template <typename B = buffer_t>
+        requires requires(const B& b, std::size_t n) { b.ensure(n, n); }
+    void ensure(std::size_t offset, std::size_t size) const
+    {
+        if (no_fetch_thread)
+            p_buffer->check_present(offset, size);
+        else
+            p_buffer->ensure(offset, size);
+    }
+
+    template <typename range_t, typename B = buffer_t>
+        requires requires(const B& b, std::span<const range_t> ranges) { b.ensure(ranges); }
+    void ensure(std::span<const range_t> ranges) const
+    {
+        if (!no_fetch_thread)
+            return p_buffer->ensure(ranges);
+        for (const auto& range : ranges)
+            p_buffer->check_present(range.offset, range.size);
+    }
+
+    template <typename B = buffer_t>
+        requires requires(const B& b, std::size_t n) { b.check_present(n, n); }
+    void check_present(std::size_t offset, std::size_t size) const
+    {
+        p_buffer->check_present(offset, size);
+    }
 
 private:
     std::shared_ptr<buffer_t> p_buffer;
@@ -112,5 +166,23 @@ inline auto make_shared_file_adapter(const std::string& path)
 {
     return shared_buffer_t<memory_mapped_file> { std::make_shared<memory_mapped_file>(path) };
 }
+
+#ifndef __EMSCRIPTEN__
+template <cpp_utils::io::range_reader reader_t>
+auto make_shared_remote_adapter(
+    reader_t reader, std::size_t size, cpp_utils::io::remote_buffer_options options)
+{
+    using remote_t = cpp_utils::io::remote_buffer<reader_t>;
+    return shared_buffer_t<remote_t> { std::make_shared<remote_t>(
+        std::move(reader), size, std::move(options)) };
+}
+
+template <cpp_utils::io::range_reader reader_t>
+auto make_shared_remote_adapter(reader_t reader, cpp_utils::io::remote_buffer_options options)
+{
+    const auto size = reader.size();
+    return make_shared_remote_adapter(std::move(reader), size, std::move(options));
+}
+#endif
 
 }

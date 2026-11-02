@@ -251,6 +251,7 @@ void for_each_record(buffer_t& buffer, version_t, std::size_t start_offset, std:
             {
                 cdf_rVDR_t<version_t> r {};
                 vdr_context_t<version_t> ctx { gdr_ctx ? gdr_ctx->rNumDims : 0 };
+                ensure_record<decltype(r)>(buffer, offset);
                 cpp_utils::serde::deserialize(r, buffer, offset, ctx);
                 on_record(offset, r);
                 break;

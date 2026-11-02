@@ -112,12 +112,42 @@ namespace
             data, offset + sizeof(vvr.header.record_size) + sizeof(vvr.header.record_type), size);
     }
 
-    // A VVR or CVVR: the records it holds, and where it is in the file.
+    // A VVR or CVVR: the records it holds, where it is in the file, and its size on disk.
     struct values_block
     {
         record_range records;
         std::size_t file_offset;
+        std::size_t block_record_size;
     };
+
+    // A remote buffer fetches all the headers of a VXR's children in one batch.
+    template <typename cdf_version_tag_t, typename stream_t>
+    void prefetch_child_headers(const stream_t& stream, const cdf_VXR_t<cdf_version_tag_t>& vxr)
+    {
+        if constexpr (requires { stream.ensure(std::span<const cpp_utils::io::byte_range> {}); })
+        {
+            std::vector<cpp_utils::io::byte_range> headers;
+            for (int32_t i = 0; i < vxr.NusedEntries; i++)
+                headers.push_back({ static_cast<std::size_t>(vxr.Offset[i]),
+                    record_header_size<cdf_version_tag_t> });
+            stream.ensure(std::span<const cpp_utils::io::byte_range> { headers });
+        }
+    }
+
+    // A remote buffer fetches every block before decoding starts, on the calling thread.
+    template <typename stream_t>
+    void prefetch_blocks(const stream_t& stream, const std::vector<values_block>& blocks)
+    {
+        if constexpr (requires { stream.ensure(std::span<const cpp_utils::io::byte_range> {}); })
+        {
+            std::vector<cpp_utils::io::byte_range> extents;
+            for (const auto& block : blocks)
+                extents.push_back({ block.file_offset, block.block_record_size });
+            if (testing_skip_last_block_prefetch && !extents.empty())
+                extents.pop_back();
+            stream.ensure(std::span<const cpp_utils::io::byte_range> { extents });
+        }
+    }
 
     // Lists the blocks under a VXR, reading only their headers: loading a VVR/CVVR would
     // copy its data.
@@ -125,6 +155,7 @@ namespace
     void list_blocks(stream_t& stream, const cdf_VXR_t<cdf_version_tag_t>& vxr,
         std::vector<values_block>& blocks)
     {
+        prefetch_child_headers(stream, vxr);
         for (int32_t i = 0; i < vxr.NusedEntries; i++)
         {
             const auto file_offset = static_cast<std::size_t>(vxr.Offset[i]);
@@ -137,7 +168,7 @@ namespace
                 case cdf_record_type::CVVR:
                     blocks.push_back({ { static_cast<std::size_t>(vxr.First[i]),
                                            static_cast<std::size_t>(vxr.Last[i]) },
-                        file_offset });
+                        file_offset, static_cast<std::size_t>(rec.header.record_size) });
                     break;
                 case cdf_record_type::VXR:
                     if (cdf_VXR_t<cdf_version_tag_t> sub; load_record(sub, stream, file_offset))
@@ -222,10 +253,12 @@ namespace
         // Blocks write to disjoint parts of data, so they can be decompressed in any order.
         const bool worth_threads = compression_type != cdf_compression_type::no_compression
             && data_len >= parallel::min_bytes_worth_threads;
+        prefetch_blocks(stream, blocks);
         if (worth_threads)
             parallel::fault_in(data, data_len);
         parallel::for_each_index(std::size(blocks), worth_threads ? parallel::hardware_threads() : 1,
             [&](std::size_t i) {
+                const no_fetch_scope no_fetch;
                 load_block<cdf_version_tag_t>(
                     stream, blocks[i], data, data_len, record_size, compression_type);
             });
