@@ -41,6 +41,150 @@ is handy for files you download: no need to write them to disk.
 
 It works the same with ``requests``, S3 clients, zip archives, and so on.
 
+From a remote store (S3...)
+---------------------------
+
+:func:`pycdfpp.load` can read a file where it lives, on S3 or any HTTP server, without
+downloading it. Only the bytes it needs are fetched, each at most once. This matters on
+S3, where you pay for every request and every byte.
+
+Give it a URL. pycdfpp reads it through `fsspec <https://filesystem-spec.readthedocs.io>`_,
+so any fsspec URL works: ``s3://``, ``gs://``, ``az://``, ``https://``... Install fsspec and
+the package for your store: ``pip install pycdfpp[s3]`` for S3.
+
+For ``s3://`` URLs, pycdfpp uses the AWS credentials found on the machine (environment
+variables, ``~/.aws``, or the instance role), as any AWS tool does. When there are none, it
+reads anonymously, so public buckets need no setup. ``storage_options`` goes to fsspec as
+is, and replaces this default: ``storage_options={"profile": "work"}`` picks an AWS
+profile, for example.
+
+.. code-block:: python
+
+    url = ("s3://gov-nasa-hdrl-data1/spdf/cdaweb/data/ace/mag/level_2_cdaweb/"
+           "mfi_h0/2020/ac_h0_mfi_20200101_v07.cdf")
+    cdf = pycdfpp.load(url)
+    cdf["BGSEc"].values   # fetches only this variable
+
+Other sources
+~~~~~~~~~~~~~
+
+For a source fsspec doesn't know, give :func:`pycdfpp.load` a *reader*: any object with
+two methods.
+
+- ``size()`` returns the size of the file in bytes.
+- ``read_ranges(ranges)`` gets a list of ``(offset, size)`` pairs and returns one
+  ``bytes`` object per pair, each exactly ``size`` long. Fetch them in parallel if you
+  can: each step of a load asks for everything that step needs in one call. A load still
+  makes several calls, one per step (opening, each index record, the data), and the
+  ``read_ahead`` setting below lets one call cover several steps.
+
+As a template, here is a reader for public HTTP(S) objects, written with the standard
+library only. It reads the same ACE file:
+
+.. code-block:: python
+
+    from concurrent.futures import ThreadPoolExecutor
+
+
+    class HttpReader:
+        """Reads byte ranges of a public HTTP(S) object, such as a file in a public S3 bucket."""
+
+        def __init__(self, url):
+            self.url = url
+
+        def size(self):
+            request = urllib.request.Request(self.url, method="HEAD")
+            with urllib.request.urlopen(request) as response:
+                return int(response.headers["Content-Length"])
+
+        def _get(self, byte_range):
+            offset, size = byte_range
+            headers = {"Range": f"bytes={offset}-{offset + size - 1}"}
+            request = urllib.request.Request(self.url, headers=headers)
+            with urllib.request.urlopen(request) as response:
+                return response.read()
+
+        def read_ranges(self, ranges):
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                return list(pool.map(self._get, ranges))
+
+
+    s3_url = ("https://gov-nasa-hdrl-data1.s3.amazonaws.com/spdf/cdaweb/data/"
+              "ace/mag/level_2_cdaweb/mfi_h0/2020/ac_h0_mfi_20200101_v07.cdf")
+    cdf = pycdfpp.load(HttpReader(s3_url))
+    cdf["BGSEc"].values
+
+With obstore, ``read_ranges`` is a call to ``obstore.get_ranges``.
+
+The returned CDF keeps the reader alive, and uses it again each time you load a variable.
+If the reader raises, the error reaches you from :func:`pycdfpp.load` or from ``.values``,
+and nothing is half-loaded: the same call works again once the reader recovers.
+
+How much is fetched is tunable. Every setting has a keyword and an environment variable;
+the keyword wins over the variable, which wins over the default. Environment variables
+let a platform such as a JupyterHub preset what suits its storage.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Keyword
+     - Environment variable
+     - Default
+     - Meaning
+   * - ``read_ahead``
+     - ``CDFPP_REMOTE_READ_AHEAD``
+     - 1 MiB
+     - Each fetch is widened to the aligned windows of this size it touches, so a small
+       read costs one window, or two if it straddles a boundary. Bigger means fewer
+       requests but more bytes.
+   * - ``tail_prefetch``
+     - ``CDFPP_REMOTE_TAIL_PREFETCH``
+     - 256 KiB
+     - The first fetch also gets the end of the file, where CDF writers often put
+       metadata.
+   * - ``backing``
+     - ``CDFPP_REMOTE_BACKING``
+     - ``memory``
+     - Where fetched bytes are kept: ``memory``, or ``file``, a deleted temporary file
+       the system can move out of RAM.
+   * - ``temp_dir``
+     - ``CDFPP_REMOTE_TEMP_DIR``
+     - your cache directory
+     - Where the ``file`` backing puts its temporary file. Use a real disk: on a RAM
+       filesystem such as ``/tmp`` on many systems, a file is just more RAM.
+   * - ``download_whole_below``
+     - ``CDFPP_REMOTE_DOWNLOAD_WHOLE_BELOW``
+     - 0 (off)
+     - Files smaller than this many bytes are fetched whole in one request.
+
+Why 1 MiB for ``read_ahead``: a CDF file indexes each variable's data with a chain of small
+records, and following the chain costs one round trip per link. A wide window brings in
+several links at once. On NASA's HelioCloud, for a 53.6 MB MMS magnetometer file:
+
+.. list-table::
+   :header-rows: 1
+
+   * - ``read_ahead``
+     - Open
+     - One variable
+     - All variables
+   * - 256 KiB
+     - 1.2 s, 0.95 MB
+     - 1.0 s, 7.2 MB
+     - 17 to 20 s, 142 round trips
+   * - 1 MiB
+     - 0.7 s, 2.3 MB
+     - 1.2 s, 8.6 MB
+     - 10.5 s, 30 round trips
+
+Downloading the whole file took 4.2 s. So reading a file where it lives pays off when you
+need a few variables, not all of them. Lower ``read_ahead`` if you pay mostly for bytes and
+read little from each file; raise it if you pay mostly for requests.
+
+``download_whole_below`` is off by default on purpose. When you scan many small files
+and read only a little from each, fetching them whole costs far more than reading
+just the parts you need.
+
 Loading is lazy
 ---------------
 

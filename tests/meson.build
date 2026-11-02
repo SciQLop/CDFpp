@@ -38,13 +38,19 @@ foreach py_test:['python_loading', 'python_saving', 'python_skeletons',
             'python_api_contract', 'python_cdflib_api', 'python_cdflib_epochs',
             'python_cdflib_read', 'python_cdflib_remote', 'python_cdflib_write',
             'python_cdflib_xarray', 'python_cdflib_xarray_write',
-            'python_cdflib_install']
+            'python_cdflib_install', 'python_remote_loading']
     test(py_test, python3,
         args:[files(py_test+'/test.py')],
         env:['PYTHONPATH='+meson.project_build_root()],
         timeout: 300,
         workdir:meson.current_build_dir())
 endforeach
+
+test('python_loading_via_reader', python3,
+    args:[files('python_remote_loading/loading_via_reader.py')],
+    env:['PYTHONPATH='+meson.project_build_root()],
+    timeout: 300,
+    workdir:meson.current_build_dir())
 
 
 nm = find_program('nm', required: false)

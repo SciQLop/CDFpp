@@ -33,6 +33,9 @@ using cpp_utils::containers::no_init_vector;
 #include <cdfpp_config.h>
 
 #include "attribute.hpp"
+#ifndef __EMSCRIPTEN__
+#include "remote.hpp"
+#endif
 #include "repr.hpp"
 #include "variable.hpp"
 
@@ -303,6 +306,28 @@ void def_cdf_loading_functions(T& mod)
         },
         py::arg("buffer"), py::arg("iso_8859_1_to_utf8") = false, py::return_value_policy::move,
         py::keep_alive<0, 1>());
+
+#ifndef __EMSCRIPTEN__
+    mod.def(
+        "load_reader",
+        [](py::object reader, bool iso_8859_1_to_utf8, bool lazy_load,
+            std::optional<std::size_t> read_ahead, std::optional<std::size_t> tail_prefetch,
+            std::optional<std::string> backing, std::optional<std::string> temp_dir,
+            std::optional<std::size_t> download_whole_below)
+        {
+            auto options = _details::remote_options(
+                { read_ahead, tail_prefetch, backing, temp_dir, download_whole_below });
+            python_range_reader range_reader { std::move(reader) };
+            py::gil_scoped_release release;
+            return io::load(std::move(range_reader), iso_8859_1_to_utf8, lazy_load,
+                std::move(options));
+        },
+        py::arg("reader"), py::arg("iso_8859_1_to_utf8") = true, py::arg("lazy_load") = true,
+        py::arg("read_ahead") = py::none(), py::arg("tail_prefetch") = py::none(),
+        py::arg("backing") = py::none(), py::arg("temp_dir") = py::none(),
+        py::arg("download_whole_below") = py::none(), py::return_value_policy::move,
+        py::keep_alive<0, 1>());
+#endif
 
     mod.def(
         "load",

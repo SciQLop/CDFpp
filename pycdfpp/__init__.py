@@ -13,7 +13,7 @@ Indices and tables
 * :ref:`search`
 """
 
-from typing import Mapping, List, Any, Union, overload, Callable
+from typing import Mapping, List, Any, Optional, Union, overload, Callable
 import sys
 import os
 import copy
@@ -981,15 +981,33 @@ def save(cdf: CDF, fname: Union[str, os.PathLike, None] = None):
     return True
 
 
-def load(file_or_buffer: Union[str, os.PathLike, ByteString], iso_8859_1_to_utf8: bool = True,
-         lazy_load: bool = True):
+def _is_range_reader(obj) -> bool:
+    return callable(getattr(obj, 'size', None)) and callable(getattr(obj, 'read_ranges', None))
+
+
+def _is_url(obj) -> bool:
+    return isinstance(obj, str) and re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]+://', obj) is not None
+
+
+def load(file_or_buffer: Union[str, os.PathLike, ByteString, Any], iso_8859_1_to_utf8: bool = True,
+         lazy_load: bool = True, *, read_ahead: Optional[int] = None,
+         tail_prefetch: Optional[int] = None, backing: Optional[str] = None,
+         temp_dir: Optional[Union[str, os.PathLike]] = None,
+         download_whole_below: Optional[int] = None,
+         storage_options: Optional[dict] = None):
     """
     Load and parse a CDF file.
 
     Parameters
     ----------
-    file_or_buffer : str or os.PathLike or ByteString
-        Either a file path or an in-memory file implementing the Python buffer protocol.
+    file_or_buffer : str or os.PathLike or ByteString or byte-range reader
+        A file path, a URL such as ``s3://bucket/file.cdf``, an in-memory file implementing
+        the Python buffer protocol, or a byte-range reader. URLs are read lazily through
+        fsspec (``pip install fsspec s3fs``): only the bytes parsing needs are fetched.
+        A byte-range reader is any other remote source: any object with ``size()`` and
+        ``read_ranges(ranges) -> list of bytes``, where ``ranges`` is a list of
+        ``(offset, size)``. Only the bytes parsing needs are fetched, in batches, each at
+        most once. Paths and buffers take precedence over the reader protocol.
     iso_8859_1_to_utf8 : bool, optional
         Automatically convert Latin-1 characters to their equivalent UTF counterparts when True.
         For CDF files prior to version 3.8, UTF-8 wasn't supported and some CDF files might contain "illegal" Latin-1 characters.
@@ -999,6 +1017,19 @@ def load(file_or_buffer: Union[str, os.PathLike, ByteString], iso_8859_1_to_utf8
         Controls whether variable values are loaded immediately or only when accessed by the user.
         If True, variables' values are loaded on demand. If False, all variable values are loaded during parsing.
         (Default is True)
+    read_ahead, tail_prefetch, backing, temp_dir, download_whole_below : optional
+        Byte-range readers only. Each fetch is widened to the ``read_ahead``-sized windows
+        it touches (default 1 MiB); the first one also fetches the last ``tail_prefetch`` bytes (default
+        256 KiB). Fetched bytes live in memory, or in a deleted temporary file in
+        ``temp_dir`` with ``backing='file'``. Files smaller than ``download_whole_below``
+        bytes are fetched whole (default 0: never). Unset values come from the
+        ``CDFPP_REMOTE_READ_AHEAD``, ``CDFPP_REMOTE_TAIL_PREFETCH``, ``CDFPP_REMOTE_BACKING``,
+        ``CDFPP_REMOTE_TEMP_DIR`` and ``CDFPP_REMOTE_DOWNLOAD_WHOLE_BELOW`` environment
+        variables, then from the defaults.
+    storage_options : dict, optional
+        URLs only. Passed to fsspec, for credentials and the like. When unset, ``s3://``
+        URLs use the AWS credentials found on the machine, or read anonymously when
+        there are none, so public buckets need no setup.
 
     Returns
     -------
@@ -1011,6 +1042,25 @@ def load(file_or_buffer: Union[str, os.PathLike, ByteString], iso_8859_1_to_utf8
     ValueError
         When the file or buffer is not a valid CDF file.
     """
+    knobs = dict(read_ahead=read_ahead, tail_prefetch=tail_prefetch, backing=backing,
+                 temp_dir=None if temp_dir is None else os.fspath(temp_dir),
+                 download_whole_below=download_whole_below)
+    if _is_url(file_or_buffer):
+        from ._remote import FsspecReader
+        file_or_buffer = FsspecReader(file_or_buffer, storage_options)
+    elif storage_options is not None:
+        raise TypeError("storage_options only applies to URLs")
+    if not isinstance(file_or_buffer, (str, os.PathLike, bytes, bytearray, memoryview)) \
+            and _is_range_reader(file_or_buffer):
+        if not hasattr(_pycdfpp, 'load_reader'):
+            raise NotImplementedError("remote reads are not available in this build (WASM)")
+        cdf = _pycdfpp.load_reader(file_or_buffer, iso_8859_1_to_utf8, lazy_load, **knobs)
+        if cdf is None:
+            raise ValueError("the reader does not hold a valid CDF file")
+        return cdf
+    if any(value is not None for value in knobs.values()):
+        raise TypeError("read_ahead, tail_prefetch, backing, temp_dir and download_whole_below "
+                        "only apply to URLs and byte-range readers")
     if isinstance(file_or_buffer, (str, os.PathLike)):
         path = os.fspath(file_or_buffer)
         if not os.path.exists(path):
