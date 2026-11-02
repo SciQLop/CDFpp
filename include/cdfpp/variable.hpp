@@ -79,12 +79,28 @@ template <typename T>
     return 0UL;
 }
 
+// How a thread waits for a variable that another thread is loading. Bindings whose callers
+// hold an interpreter lock (Python's GIL) replace it to release that lock while waiting: the
+// loading thread may need it, to fetch remote bytes through a Python reader. Each shared
+// library linking CDFpp has its own copy: install it in the one that holds the lock.
+inline std::atomic<void (*)(std::unique_lock<std::mutex>&)> wait_for_variable_lock
+    = +[](std::unique_lock<std::mutex>& lock) { lock.lock(); };
+
 // Loading values is a const read that replaces the variable's data: readers of a variable
 // that isn't loaded yet take the mutex; once loaded they only read the flag. Data never goes
 // back to lazy, so a copied flag stays true only for loaded data.
 struct lazy_load_guard
 {
     std::mutex mutex;
+
+    [[nodiscard]] std::unique_lock<std::mutex> lock()
+    {
+        std::unique_lock lock { mutex, std::try_to_lock };
+        if (!lock.owns_lock())
+            wait_for_variable_lock.load(std::memory_order_relaxed)(lock);
+        return lock;
+    }
+
     std::atomic<bool> loaded = false;
     lazy_load_guard() = default;
     lazy_load_guard(const lazy_load_guard& other) : loaded { other.loaded.load() } { }
@@ -318,7 +334,7 @@ struct Variable
     // probe set) are reported contiguous.
     [[nodiscard]] bool is_contiguous() const
     {
-        std::lock_guard lock { p_load_guard.mutex };
+        auto lock = p_load_guard.lock();
         return _is_contiguous();
     }
     void set_block_counter(std::function<std::size_t()> counter)
@@ -346,12 +362,12 @@ struct Variable
     // sparse_records(). Variables not loaded from a file store every record.
     [[nodiscard]] std::vector<record_range> stored_records() const
     {
-        std::lock_guard lock { p_load_guard.mutex };
+        auto lock = p_load_guard.lock();
         return _stored_records();
     }
     [[nodiscard]] bool has_virtual_records() const
     {
-        std::lock_guard lock { p_load_guard.mutex };
+        auto lock = p_load_guard.lock();
         (void)_stored_records();
         return p_stored_records.has_value();
     }
@@ -382,7 +398,7 @@ struct Variable
     {
         if (p_load_guard.loaded.load(std::memory_order_acquire))
             return;
-        std::lock_guard lock { p_load_guard.mutex };
+        auto lock = p_load_guard.lock();
         if (holds_values())
         {
             p_load_guard.loaded.store(owns_values(), std::memory_order_release);
@@ -470,7 +486,7 @@ private:
         if (p_load_guard.loaded.load(std::memory_order_acquire))
             return;
         std::optional<borrowed_data> released;
-        std::lock_guard lock { p_load_guard.mutex };
+        auto lock = p_load_guard.lock();
         if (auto* borrowed = std::get_if<borrowed_data>(&p_data))
         {
             released = std::move(*borrowed);
@@ -483,7 +499,7 @@ private:
     {
         if (p_load_guard.loaded.load(std::memory_order_acquire))
             return {};
-        return std::unique_lock { p_load_guard.mutex };
+        return p_load_guard.lock();
     }
 
     [[nodiscard]] bool _is_contiguous() const

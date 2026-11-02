@@ -215,6 +215,34 @@ namespace
     return std::nullopt;
 }
 
+#ifndef __EMSCRIPTEN__
+// CDFpp's remote defaults, then the CDFPP_REMOTE_* variables. Reading ahead 1 MiB rather than
+// cpp_utils' 256 KiB: CDF index records (VXRs) form linked lists, one round trip per link, and
+// a wider window covers several links. On HelioCloud, loading every variable of a 53.6 MB MMS
+// file took 30 round trips (10.5 s) instead of 142 (17-20 s), for about 1-2 MB more on small
+// reads (docs/superpowers/specs/2026-11-02-remote-reads-design.md).
+[[nodiscard]] inline cpp_utils::io::remote_buffer_options default_remote_options()
+{
+    return cpp_utils::io::remote_buffer_options::from_env(
+        "CDFPP_REMOTE_", { .read_ahead = 1024 * 1024 });
+}
+
+// Loads from a range_reader (a remote object, S3...): only the bytes parsing needs are fetched,
+// in batches, each at most once. Options left unset come from CDFPP_REMOTE_* variables.
+template <cpp_utils::io::range_reader reader_t>
+[[nodiscard]] inline std::optional<CDF> load(reader_t reader, bool iso_8859_1_to_utf8 = true,
+    bool lazy_load = true,
+    cpp_utils::io::remote_buffer_options options = default_remote_options())
+{
+    const auto size = reader.size();
+    if (size < sizeof(common::magic_numbers_t))
+        return std::nullopt;
+    return impl_load(
+        buffers::make_shared_remote_adapter(std::move(reader), size, std::move(options)),
+        iso_8859_1_to_utf8, lazy_load);
+}
+#endif
+
 // A string literal is a path. Without this overload, load("file.cdf", true, false) would bind
 // to load(const char* data, std::size_t size, ...) with size == 1.
 template <std::size_t N>
