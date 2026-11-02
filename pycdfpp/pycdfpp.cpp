@@ -102,6 +102,10 @@ PYBIND11_MODULE(_pycdfpp, m, py::mod_gil_not_used())
     )pbdoc";
 
     m.attr("__version__") = CDFPP_VERSION;
+#ifndef __EMSCRIPTEN__
+    cdf::wait_for_variable_lock = &_details::wait_for_variable_lock_without_gil;
+    _details::stop_using_python_at_exit();
+#endif
 
     def_enums_wrappers(m);
     def_time_types_wrapper(m);
