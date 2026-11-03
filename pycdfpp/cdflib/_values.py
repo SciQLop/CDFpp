@@ -1,5 +1,6 @@
 """Values given to cdfwrite.CDF, as pycdfpp takes them: cast to their CDF type as cdflib casts them, numbers that
 don't fit their integer type refused."""
+import functools
 from contextlib import contextmanager
 from typing import List, NamedTuple, Optional
 
@@ -28,7 +29,9 @@ def _encoded_dtype(data_type: DataType) -> np.dtype:
     return cdf.add_variable("probe", np.zeros(1, "datetime64[ns]"), data_type).values_encoded.dtype
 
 
-_ENCODED_DTYPES = {data_type: _encoded_dtype(data_type) for data_type in _RAW_TIMES}
+@functools.cache
+def _encoded_dtypes() -> dict:
+    return {data_type: _encoded_dtype(data_type) for data_type in _RAW_TIMES}
 
 
 class Variable(NamedTuple):
@@ -203,7 +206,7 @@ def _numeric_values(data, cdf_type: _types.CdfType) -> np.ndarray:
         return _numbers(values, cdf_type)
     if values.dtype.kind == "M":
         return values
-    return np.ascontiguousarray(_numbers(values, cdf_type)).view(_ENCODED_DTYPES[cdf_type.data_type])
+    return np.ascontiguousarray(_numbers(values, cdf_type)).view(_encoded_dtypes()[cdf_type.data_type])
 
 
 def records(data, variable: Variable) -> np.ndarray:

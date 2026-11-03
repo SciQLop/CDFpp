@@ -377,6 +377,13 @@ class LeapSeconds(unittest.TestCase):
         values = [REF.compute_tt2000([y, m, d, 0, 0, 0, 0, 0, 0]) - SECOND // 2 for y, m, d, *_ in days]
         np.testing.assert_array_equal(CDFepoch.breakdown_tt2000(values)[:, 5], 60)
 
+    def test_leap_second_table_is_built_on_first_use(self):
+        from pycdfpp.cdflib import epochs
+        epochs._leap_second_starts.cache_clear()
+        self.assertEqual(epochs._leap_second_starts.cache_info().currsize, 0)
+        CDFepoch.breakdown_tt2000(CDFepoch.compute_tt2000([2016, 12, 31, 23, 59, 60, 0, 0, 0]))
+        self.assertEqual(epochs._leap_second_starts.cache_info().currsize, 1)
+
     def test_leapsec_file_is_cdflib_public_constant(self):
         import cdflib.epochs
         from pycdfpp.cdflib import epochs

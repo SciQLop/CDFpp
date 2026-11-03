@@ -1,4 +1,5 @@
 """cdflib.epochs (1.3.16) on pycdfpp's vectorised time conversions."""
+import functools
 import re
 from typing import List, Optional, Tuple, Union
 
@@ -90,6 +91,7 @@ def _utc_fields(values, dtype):
     return np.stack([digits[:, a:b] @ 10 ** np.arange(b - a - 1, -1, -1) for a, b in _TEXT_COLUMNS], axis=-1)
 
 
+@functools.cache
 def _leap_second_starts():
     """From pycdfpp's own table, so detection and conversion never disagree: a leap day is 86401 s long."""
     midnights = np.arange(np.datetime64("1972-01-01"), _LAST_DATETIME64_NS_DAY).astype(_NS)
@@ -98,7 +100,7 @@ def _leap_second_starts():
 
 
 def _in_leap_second(tt2000):
-    starts = _LEAP_SECOND_STARTS
+    starts = _leap_second_starts()
     previous = np.clip(np.searchsorted(starts, tt2000, side="right") - 1, 0, None)
     return (tt2000 >= starts[0]) & (tt2000 - starts[previous] < _SECOND)
 
@@ -481,7 +483,6 @@ class CDFepoch:
         return np.squeeze([_parse_one(text) for text in value])
 
 
-_LEAP_SECOND_STARTS = _leap_second_starts()
 _COMPUTE_BY_SIZE = {7: CDFepoch.compute_epoch, 9: CDFepoch.compute_tt2000, 10: CDFepoch.compute_epoch16}
 _SUB_SECONDS = {
     "epoch": (r"(?P<ms>\d{3})", r"(?P<ms>\d{3})"),
