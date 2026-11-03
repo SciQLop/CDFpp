@@ -21,6 +21,11 @@ A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nas
 - **Python bindings (`pycdfpp`)** via pybind11 — zero-copy NumPy integration, GIL-free I/O
 - **SIMD-accelerated time conversions** — AVX512/AVX2/SSE2 runtime dispatch for TT2000, EPOCH, EPOCH16
 - **Lazy loading** — variable data is read on first access, not at file open
+- **Read files where they live** — `pycdfpp.load("s3://…")` reads only the byte ranges it
+  needs, through fsspec or your own byte-range reader, instead of downloading the file
+- **Drop-in `cdflib` replacement** — `pycdfpp.cdflib` gives cdflib 1.3.16's API (`CDF`,
+  `cdfwrite.CDF`, `cdfepoch`, `cdf_to_xarray`, `xarray_to_cdf`) on pycdfpp, and `install()`
+  makes `import cdflib` give it
 - **Fast** — 5.6× to several hundred times faster than spacepy and cdflib at reading, 3.7× to 14× at writing compressed files ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 8 billion epochs/s (TT2000, AVX-512)
 - **Runs everywhere** — Linux, Windows, macOS (x86_64 + ARM64), and WebAssembly (Pyodide / emscripten-forge)
 - **In-browser app** — [**CDFpp Explorer**](https://sciqlop.github.io/CDFpp/) inspects, plots, and ISTP-validates CDF files entirely client-side, no install
@@ -60,6 +65,12 @@ The WebAssembly wrapper lives in [`wacdfpp/`](wacdfpp/) and ships TypeScript dec
 
 ```bash
 pip install pycdfpp
+
+# optional: read files on S3, or on any store fsspec knows, without downloading them
+pip install pycdfpp[s3]
+
+# optional: the cdflib-compatible API
+pip install pycdfpp[cdflib]
 ```
 
 ### C++ library
@@ -107,6 +118,25 @@ import pycdfpp
 with open("my_data.cdf", "rb") as f:
     cdf = pycdfpp.load(f.read())
 ```
+
+### Reading a file on S3
+
+Only the byte ranges a read needs are fetched, each at most once: a file on S3 opens in a few
+round trips, and reading one variable costs a few more. Nothing is downloaded whole.
+
+```python
+import pycdfpp
+
+url = ("s3://gov-nasa-hdrl-data1/spdf/cdaweb/data/ace/mag/level_2_cdaweb/"
+       "mfi_h0/2020/ac_h0_mfi_20200101_v07.cdf")
+cdf = pycdfpp.load(url)
+cdf["BGSEc"].values   # fetches only this variable
+```
+
+Any fsspec URL works (`s3://`, `gs://`, `https://`…), and so does any object with `size()` and
+`read_ranges()`. Public buckets are read anonymously; AWS credentials found on the machine are
+used when there are some, and `storage_options` goes to fsspec as is. See
+[Reading files](https://pycdfpp.readthedocs.io/en/latest/reading.html#from-a-remote-store-s3).
 
 ### Time conversions
 

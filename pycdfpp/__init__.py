@@ -1003,11 +1003,12 @@ def load(file_or_buffer: Union[str, os.PathLike, ByteString, Any], iso_8859_1_to
     file_or_buffer : str or os.PathLike or ByteString or byte-range reader
         A file path, a URL such as ``s3://bucket/file.cdf``, an in-memory file implementing
         the Python buffer protocol, or a byte-range reader. URLs are read lazily through
-        fsspec (``pip install fsspec s3fs``): only the bytes parsing needs are fetched.
+        fsspec (``pip install pycdfpp[s3]``): only the bytes parsing needs are fetched.
         A byte-range reader is any other remote source: any object with ``size()`` and
         ``read_ranges(ranges) -> list of bytes``, where ``ranges`` is a list of
         ``(offset, size)``. Only the bytes parsing needs are fetched, in batches, each at
-        most once. Paths and buffers take precedence over the reader protocol.
+        most once. Paths and buffers take precedence over the reader protocol. The WASM
+        build reads neither URLs nor readers: it raises ``NotImplementedError``.
     iso_8859_1_to_utf8 : bool, optional
         Automatically convert Latin-1 characters to their equivalent UTF counterparts when True.
         For CDF files prior to version 3.8, UTF-8 wasn't supported and some CDF files might contain "illegal" Latin-1 characters.
@@ -1041,6 +1042,8 @@ def load(file_or_buffer: Union[str, os.PathLike, ByteString, Any], iso_8859_1_to
         When the file doesn't exist.
     ValueError
         When the file or buffer is not a valid CDF file.
+    NotImplementedError
+        When a URL or a reader is passed to the WASM build.
     """
     knobs = dict(read_ahead=read_ahead, tail_prefetch=tail_prefetch, backing=backing,
                  temp_dir=None if temp_dir is None else os.fspath(temp_dir),

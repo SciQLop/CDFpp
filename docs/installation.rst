@@ -36,6 +36,22 @@ The :doc:`cli` need two extra packages. Install them with the ``cli`` extra:
 
     $ python -m pip install "pycdfpp[cli]"
 
+Two more extras add optional features:
+
+* ``s3`` reads files on S3, and on any store `fsspec
+  <https://filesystem-spec.readthedocs.io>`_ knows, without downloading them, see
+  :doc:`reading`:
+
+  .. code-block:: console
+
+      $ python -m pip install "pycdfpp[s3]"
+
+* ``cdflib`` installs the :doc:`cdflib` compatibility layer:
+
+  .. code-block:: console
+
+      $ python -m pip install "pycdfpp[cdflib]"
+
 In the browser (Pyodide, JupyterLite)
 -------------------------------------
 
