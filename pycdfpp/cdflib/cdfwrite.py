@@ -54,10 +54,14 @@ def _compression_level(value) -> int:
     return 6 if value else 0
 
 
-def _new_file_path(path, delete: bool) -> Path:
+def _cdf_path(path) -> Path:
+    """The file cdflib writes for a given path: a suffix other than .cdf is replaced."""
     path = Path(path).expanduser()
-    if path.suffix != ".cdf":
-        path = path.with_suffix(".cdf")
+    return path if path.suffix == ".cdf" else path.with_suffix(".cdf")
+
+
+def _new_file_path(path, delete: bool) -> Path:
+    path = _cdf_path(path)
     if len(str(path)) > CDF.CDF_PATHNAME_LEN:
         raise OSError(f"CDF: {path} longer than allowed length.")
     if path.is_file() and not delete:

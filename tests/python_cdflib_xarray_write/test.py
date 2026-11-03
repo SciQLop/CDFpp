@@ -486,6 +486,16 @@ class IstpChecks(unittest.TestCase):
                 self.assertEqual(ours.summary(), theirs.summary())
                 self.assertEqual((self.root / "ours.cdf").read_bytes(), b"")
 
+    def test_existing_file_written_without_cdf_suffix(self):
+        ours = ours_module()
+        ours.xarray_to_cdf(build("compliant"), self.root / "ours.dat")
+        first = (self.root / "ours.cdf").read_bytes()
+        self.assertFalse((self.root / "ours.dat").exists())
+        with captured_warnings() as records:
+            ours.xarray_to_cdf(build("compliant"), self.root / "ours.dat")
+        self.assertEqual([r.getMessage() for r in records], [f"{self.root / 'ours.dat'} exists: nothing written"])
+        self.assertEqual((self.root / "ours.cdf").read_bytes(), first)
+
     def test_ISTPError_is_an_Exception(self):
         from pycdfpp.cdflib.xarray.xarray_to_cdf import ISTPError
         self.assertTrue(issubclass(ISTPError, Exception))

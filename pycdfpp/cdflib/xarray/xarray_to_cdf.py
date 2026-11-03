@@ -1,6 +1,5 @@
 """xarray.Dataset to CDF file: cdflib 1.3.16's xarray_to_cdf, its ISTP checks and type choices, on our cdfwrite.CDF."""
 import functools
-import os
 from datetime import datetime
 from typing import Any, Dict, List, NamedTuple, Optional
 
@@ -10,7 +9,7 @@ import xarray as xr
 import pycdfpp
 
 from .. import _types, _values
-from ..cdfwrite import CDF
+from ..cdfwrite import CDF, _cdf_path
 from ..epochs import CDFepoch as cdfepoch
 from ..logging import logger
 # Public, as in cdflib.
@@ -291,7 +290,8 @@ def xarray_to_cdf(
     xarray_dataset : xarray.Dataset
         The Dataset to write. It is not modified.
     file_name : str
-        Path of the new CDF file. An existing file is left alone: nothing is written.
+        Path of the new CDF file: a suffix other than .cdf is replaced by .cdf. An existing file is left
+        alone: nothing is written.
     unix_time_to_cdf_time : bool, optional
         Values of time variables (named epoch or epoch_N, or with a CDF time type) are unix timestamps.
     istp : bool, optional
@@ -315,7 +315,7 @@ def xarray_to_cdf(
     are CDF_TIME_TT2000 and strings CDF_CHAR.
     """
     report = _reporter(terminate_on_warning)
-    if os.path.isfile(file_name):
+    if _cdf_path(file_name).is_file():
         report(f"{file_name} exists: nothing written", Exception)
         return
     dataset = xarray_dataset.copy()
