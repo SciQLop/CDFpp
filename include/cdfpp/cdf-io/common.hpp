@@ -124,7 +124,10 @@ struct cdf_repr
     std::tuple<int32_t, int32_t, int32_t> distribution_version;
     cdf_map<std::string, Variable> variables;
     cdf_map<std::string, Attribute> attributes;
-    std::vector<cdf_map<std::string, VariableAttribute>> var_attributes;
+    // rVariables and zVariables are numbered independently: an entry number names a different
+    // variable in each.
+    std::vector<cdf_map<std::string, VariableAttribute>> r_var_attributes;
+    std::vector<cdf_map<std::string, VariableAttribute>> z_var_attributes;
     cdf_majority majority;
     cdf_compression_type compression_type;
     int32_t compression_level = default_gzip_level;
@@ -132,11 +135,18 @@ struct cdf_repr
     cdf_checksum checksum;
     std::vector<std::string> declared_variable_attributes;
     bool lazy;
-    cdf_repr(std::size_t var_count) : var_attributes(var_count) { }
+    cdf_repr(std::size_t r_var_count, std::size_t z_var_count)
+            : r_var_attributes(r_var_count), z_var_attributes(z_var_count)
+    {
+    }
     cdf_repr(cdf_repr&&) = default;
     cdf_repr(const cdf_repr&) = delete;
     cdf_repr& operator=(const cdf_repr&) = delete;
     cdf_repr& operator=(cdf_repr&&) = default;
+    [[nodiscard]] auto& var_attributes(cdf_r_z type) noexcept
+    {
+        return type == cdf_r_z::z ? z_var_attributes : r_var_attributes;
+    }
 };
 
 inline void add_global_attribute(cdf_repr& repr, const std::string& name, Attribute::attr_data_t&& data)
@@ -144,8 +154,9 @@ inline void add_global_attribute(cdf_repr& repr, const std::string& name, Attrib
     repr.attributes[name] = Attribute { name, std::move(data) };
 }
 
-inline void add_var_attribute(cdf_repr& repr, const std::vector<uint32_t>& variable_indexes,
-    const std::string& name, std::vector<VariableAttribute::attr_data_t>&& data)
+inline void add_var_attribute(cdf_repr& repr, cdf_r_z type,
+    const std::vector<uint32_t>& variable_indexes, const std::string& name,
+    std::vector<VariableAttribute::attr_data_t>&& data)
 {
     assert(std::size(data) == std::size(variable_indexes));
     cdf_map<uint32_t, cdf_map<std::string, VariableAttribute::attr_data_t>> storage;
@@ -153,24 +164,17 @@ inline void add_var_attribute(cdf_repr& repr, const std::vector<uint32_t>& varia
     {
         storage[variable_indexes[index]][name] = data[index];
     }
+    auto& var_attributes = repr.var_attributes(type);
     for (auto& [v_index, attr] : storage)
     {
+        // The format does not tie an entry to an existing variable.
+        if (v_index >= std::size(var_attributes))
+            continue;
         for (auto& [attr_name, attr_data] : attr)
         {
-            repr.var_attributes[v_index][attr_name]
+            var_attributes[v_index][attr_name]
                 = VariableAttribute { attr_name, std::move(attr_data) };
         }
-    }
-}
-
-inline void add_attribute(cdf_repr& repr, cdf_attr_scope scope, const std::string& name,
-    Attribute::attr_data_t&& data, const std::vector<uint32_t>& variable_indexes)
-{
-    if (scope == cdf_attr_scope::global || scope == cdf_attr_scope::global_assumed)
-        add_global_attribute(repr, name, std::move(data));
-    else if (scope == cdf_attr_scope::variable || scope == cdf_attr_scope::variable_assumed)
-    {
-        add_var_attribute(repr, variable_indexes, name, std::move(data));
     }
 }
 
@@ -183,7 +187,8 @@ inline Variable& add_variable(cdf_repr& repr, const std::string& name, std::size
     repr.variables[name] = Variable { name, number, std::forward<data_t>(data), std::move(shape),
         repr.majority, is_nrv, cdf_compression_type::no_compression, is_zvariable };
     auto& variable = repr.variables[name];
-    variable.attributes = std::move(repr.var_attributes[number]);
+    variable.attributes
+        = std::move(repr.var_attributes(is_zvariable ? cdf_r_z::z : cdf_r_z::r)[number]);
     return variable;
 }
 

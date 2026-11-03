@@ -34,6 +34,17 @@ class StructuralIntrospection(unittest.TestCase):
             cdf = load('fragmented.cdf', lazy)
             self.assertFalse(cdf['split_zvar'].is_contiguous())
 
+    def test_rvariable_and_zvariable_of_same_number_keep_their_own_attributes(self):
+        for lazy in (True, False):
+            cdf = load('ac_k0_mfi_00000000_v01.cdf', lazy)
+            self.assertFalse(cdf['Epoch'].is_zvariable)
+            self.assertTrue(cdf['label_BGSE'].is_zvariable)
+            self.assertEqual(cdf['Epoch'].attributes['FIELDNAM'].value, 'Time')
+            self.assertEqual(cdf['label_BGSE'].attributes['FIELDNAM'].value,
+                             'Label for B in Cartesian GSE')
+            # No zVariable has this number, yet the attribute also has a zEntry.
+            self.assertEqual(cdf['Time_PB5'].attributes['FIELDNAM'].value, 'Time PB5')
+
 
 if __name__ == '__main__':
     unittest.main()

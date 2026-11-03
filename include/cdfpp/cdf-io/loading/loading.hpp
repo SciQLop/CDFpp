@@ -98,8 +98,8 @@ namespace
     [[nodiscard]] std::optional<CDF> impl_parse_cdf(
         parsing_context_t& parsing_context, bool lazy_load = false)
     {
-        common::cdf_repr repr { static_cast<std::size_t>(
-            parsing_context.gdr.NzVars + parsing_context.gdr.NrVars) };
+        common::cdf_repr repr { static_cast<std::size_t>(parsing_context.gdr.NrVars),
+            static_cast<std::size_t>(parsing_context.gdr.NzVars) };
         repr.majority = parsing_context.majority;
         repr.distribution_version = parsing_context.distribution_version();
         repr.compression_type = parsing_context.compression_type;

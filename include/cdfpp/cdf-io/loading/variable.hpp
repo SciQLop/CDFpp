@@ -580,7 +580,7 @@ namespace
                               vxr_head = static_cast<std::size_t>(vdr.VXRhead)]() -> std::size_t
                     { return count_var_blocks<cdf_version_tag_t>(buffer, vxr_head); };
                     auto missing = missing_records_for(
-                        vdr, cdf.var_attributes[vdr.Num], context.encoding());
+                        vdr, cdf.var_attributes(type)[vdr.Num], context.encoding());
                     auto& variable = [&]() -> Variable&
                     {
                         if (lazy_load)

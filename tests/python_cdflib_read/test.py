@@ -138,8 +138,10 @@ class Corpus(SameMixin, unittest.TestCase):
                 for number in range(-1, count + 1):
                     for method in ("varinq", "varattsget"):
                         self.assertSameCall(ours, theirs, lambda c: getattr(c, method)(number), f"{name}:{method}({number})")
-                for number in range(count):
-                    self.assertSame(ours.varget(number), ours.varget(theirs.varinq(number).Variable), f"{name}:{number}")
+                # cdflib refuses variable numbers in a file with both kinds of variables.
+                if not (info.rVariables and info.zVariables):
+                    for number in range(count):
+                        self.assertSame(ours.varget(number), ours.varget(theirs.varinq(number).Variable), f"{name}:{number}")
                 self.compare_attributes_by_number(ours, theirs, info, name)
 
     def compare_attributes_by_number(self, ours, theirs, info, name):

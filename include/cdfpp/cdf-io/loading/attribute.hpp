@@ -54,6 +54,15 @@ Attribute::attr_data_t load_data(
     return values;
 }
 
+template <cdf_r_z type, typename cdf_version_tag_t, bool iso_8859_1_to_utf8, typename ADR_t,
+    typename context_t>
+void load_variable_entries(context_t& context, const ADR_t& ADR, common::cdf_repr& repr)
+{
+    std::vector<uint32_t> var_nums;
+    auto data = load_data<type, cdf_version_tag_t, iso_8859_1_to_utf8>(context, ADR, var_nums);
+    common::add_var_attribute(repr, type, var_nums, ADR.Name.value, std::move(data));
+}
+
 template <typename cdf_version_tag_t, bool iso_8859_1_to_utf8, typename context_t>
 bool load_all(context_t& context, common::cdf_repr& repr)
 {
@@ -63,19 +72,22 @@ bool load_all(context_t& context, common::cdf_repr& repr)
         {
             auto& [offset, ADR] = blk;
             if (ADR.scope == cdf_attr_scope::variable || ADR.scope == cdf_attr_scope::variable_assumed)
-                numbered_variable_attributes.emplace_back(ADR.num, ADR.Name.value);
-            std::vector<uint32_t> var_nums;
-            Attribute::attr_data_t data = [&, &ADR = ADR]() -> Attribute::attr_data_t
             {
-                if (ADR.AzEDRhead != 0)
-                    return load_data<cdf_r_z::z, cdf_version_tag_t, iso_8859_1_to_utf8>(
-                        context, ADR, var_nums);
-                else if (ADR.AgrEDRhead != 0)
-                    return load_data<cdf_r_z::r, cdf_version_tag_t, iso_8859_1_to_utf8>(
-                        context, ADR, var_nums);
-                return {};
-            }();
-            common::add_attribute(repr, ADR.scope, ADR.Name.value, std::move(data), var_nums);
+                numbered_variable_attributes.emplace_back(ADR.num, ADR.Name.value);
+                load_variable_entries<cdf_r_z::r, cdf_version_tag_t, iso_8859_1_to_utf8>(
+                    context, ADR, repr);
+                load_variable_entries<cdf_r_z::z, cdf_version_tag_t, iso_8859_1_to_utf8>(
+                    context, ADR, repr);
+            }
+            else if (ADR.scope == cdf_attr_scope::global
+                || ADR.scope == cdf_attr_scope::global_assumed)
+            {
+                // gEntries share the AgrEDR list with rEntries; a global attribute has no zEntries.
+                std::vector<uint32_t> entry_nums;
+                common::add_global_attribute(repr, ADR.Name.value,
+                    load_data<cdf_r_z::r, cdf_version_tag_t, iso_8859_1_to_utf8>(
+                        context, ADR, entry_nums));
+            }
         });
     std::ranges::sort(numbered_variable_attributes);
     std::ranges::transform(numbered_variable_attributes,
