@@ -5,11 +5,27 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
-Unreleased
-----------
+0.20.0 (2026-11-03)
+-------------------
 
+* Files are read where they live: :func:`pycdfpp.load` takes an ``https://``, ``s3://``,
+  ``gs://`` or other fsspec URL, or any object with ``size()`` and ``read_ranges()``, and
+  fetches only the bytes it needs, each at most once. Values are fetched when they are
+  read, so a file on S3 opens in a few round trips and one variable costs a few more;
+  nothing is downloaded whole. Install the fsspec support for your store with
+  ``pip install pycdfpp[s3]``.
+* C++ programs read the same way, through a byte-range buffer that Python readers plug
+  into. Five settings tune the requests: ``read_ahead``, ``tail_prefetch``, ``backing``,
+  ``temp_dir`` and ``download_whole_below``, each with a ``CDFPP_REMOTE_*`` environment
+  variable. See :doc:`reading`.
+* Attribute entries of rVariables and zVariables are kept apart. An attribute entry is
+  numbered after its own kind of variable, and the loader read both kinds into one list:
+  a file holding both gave rVariable N the entries of zVariable N, and most variables no
+  attributes at all.
+* A file numbering a variable past the number of variables in its header loads that
+  variable without attributes, instead of reading out of bounds.
 * Python 3.9 is no longer supported: it reached its end of life in October 2025. Wheels are
-  built for Python 3.10 to 3.15.
+  built for Python 3.10 to 3.15 with cibuildwheel 4.3.5.
 * Saved files carry the right number of strings in each text attribute entry (the
   ``NumStrings`` field), as NASA's library writes it: a variable entry holding
   ``"first\\N second"`` counts 2 strings, a global entry 0. pycdfpp counted newlines
@@ -20,6 +36,9 @@ Unreleased
   ``cdfepoch``, ``cdf_to_xarray``, ``xarray_to_cdf``), faster and built on pycdfpp. Install it
   with ``pip install pycdfpp[cdflib]``. ``pycdfpp.cdflib.install()`` makes ``import cdflib``
   give it. See :doc:`cdflib`.
+* ``pycdfpp.cdflib.xarray_to_cdf`` writing twice to a name without the ``.cdf`` suffix
+  reports that nothing was written, instead of raising on the ``.cdf`` file it had
+  already written.
 
 0.19.0 (2026-10-21)
 -------------------
