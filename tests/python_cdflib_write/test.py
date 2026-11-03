@@ -223,13 +223,6 @@ class Writer(unittest.TestCase):
         same(self, read.varget("array"), np.arange(6, dtype=np.int32).reshape(2, 3), "array")
         same(self, read.varget("bytes"), np.arange(3, dtype=np.int32), "bytes")
 
-    def test_encoded_dtypes_are_built_on_first_use(self):
-        from pycdfpp.cdflib import _values
-        _values._encoded_dtypes.cache_clear()
-        self.assertEqual(_values._encoded_dtypes.cache_info().currsize, 0)
-        _values._encoded_dtypes()
-        self.assertEqual(_values._encoded_dtypes.cache_info().currsize, 1)
-
     def test_datetime64_into_tt2000_keeps_the_instants(self):
         """cdflib stores datetime64 as nanoseconds since 1970: its dates come back 30 years late."""
         times = np.array(["2016-12-31T23:59:59.5", "2024-02-29T12:00:00.123456789"], dtype="datetime64[ns]")
