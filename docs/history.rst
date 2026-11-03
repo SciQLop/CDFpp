@@ -5,7 +5,7 @@ Changelog
 The full notes of each release are on
 `GitHub <https://github.com/SciQLop/CDFpp/releases>`_.
 
-0.20.0 (2026-11-03)
+0.20.0 (2026-11-04)
 -------------------
 
 * Files are read where they live: :func:`pycdfpp.load` takes an ``https://``, ``s3://``,
