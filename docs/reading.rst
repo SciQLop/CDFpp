@@ -190,14 +190,14 @@ These numbers come from ``benchmarks/remote/heliocloud.py``, which you can run y
 HelioCloud or on any machine, against any URL.
 
 The knobs are keywords of :func:`pycdfpp.load`. Here is the reader above on a small file: a
-quarter of a megabyte is under the threshold, so this fetches it whole in one request, and
-keeps the bytes in a temporary file on disk instead of in memory.
+quarter of a megabyte is under the threshold, so this fetches it whole, and keeps the bytes
+in a temporary file on disk instead of in memory.
 
 .. code-block:: python
 
     tuned = pycdfpp.load(HttpReader(s3_url), read_ahead=4 << 20, backing="file",
                          download_whole_below=8 << 20)
-    tuned["BGSEc"].values.shape   # (5401, 3), after one request
+    tuned["BGSEc"].values.shape   # (5401, 3): two requests, size() then the file
 
 Loading is lazy
 ---------------

@@ -109,7 +109,7 @@ xarray round trip
 
 ``xarray_to_cdf`` runs cdflib's ISTP checks on the way, so a Dataset that cdflib refuses
 raises here too. Reading a file into xarray keeps every variable, attributes included;
-writing it back makes a file that pycdfpp, cdflib and NASA's library read.
+writing it back makes a file that pycdfpp and cdflib read.
 
 Speed
 =====
@@ -300,6 +300,10 @@ raise the same exception type (``ISTPError`` or ``Exception``). Messages differ.
 
 - Nothing is written when the conversion fails. cdflib leaves a partial file, for instance when
   a ``DEPEND_n`` value is not a name and ``terminate_on_warning=True``.
+- A name that doesn't end in ``.cdf`` is written as the same name with its suffix replaced by
+  ``.cdf``, and an existing target file is reported, never overwritten: writing twice reports
+  that nothing was written the second time. cdflib checks the name it was given instead, and
+  raises ``OSError`` on the second write.
 - ``NaT`` values and attributes of a time variable (``CDF_EPOCH``, ``CDF_EPOCH16``,
   ``CDF_TIME_TT2000``) are written as the type's fill value, like the ``FILLVAL`` the ISTP check
   adds. cdflib writes ``0``: 0000-01-01 for ``CDF_EPOCH`` and ``CDF_EPOCH16``,

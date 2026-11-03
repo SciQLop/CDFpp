@@ -11,13 +11,13 @@ The full notes of each release are on
 * Files are read where they live: :func:`pycdfpp.load` takes an ``https://``, ``s3://``,
   ``gs://`` or other fsspec URL, or any object with ``size()`` and ``read_ranges()``, and
   fetches only the bytes it needs, each at most once. Values are fetched when they are
-  read, so a file on S3 opens in a few round trips and one variable costs a few more;
-  nothing is downloaded whole. Install the fsspec support for your store with
-  ``pip install pycdfpp[s3]``.
-* C++ programs read the same way, through a byte-range buffer that Python readers plug
-  into. Five settings tune the requests: ``read_ahead``, ``tail_prefetch``, ``backing``,
-  ``temp_dir`` and ``download_whole_below``, each with a ``CDFPP_REMOTE_*`` environment
-  variable. See :doc:`reading`.
+  read: on NASA's HelioCloud, opening a 53.6 MB file fetched 2.3 MB, and one variable
+  8.6 MB. Nothing is downloaded whole by default. Install the fsspec support for your
+  store with ``pip install pycdfpp[s3]``.
+* Five settings tune the requests: ``read_ahead``, ``tail_prefetch``, ``backing``,
+  ``temp_dir`` and ``download_whole_below``, keywords of :func:`pycdfpp.load`, each with a
+  ``CDFPP_REMOTE_*`` environment variable. C++ code reads the same way, through the same
+  loader. See :doc:`reading`.
 * Attribute entries of rVariables and zVariables are kept apart. An attribute entry is
   numbered after its own kind of variable, and the loader read both kinds into one list:
   a file holding both gave rVariable N the entries of zVariable N, and most variables no

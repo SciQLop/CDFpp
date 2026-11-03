@@ -121,8 +121,9 @@ with open("my_data.cdf", "rb") as f:
 
 ### Reading a file on S3
 
-Only the byte ranges a read needs are fetched, each at most once: a file on S3 opens in a few
-round trips, and reading one variable costs a few more. Nothing is downloaded whole.
+Only the byte ranges a read needs are fetched, each at most once. On NASA's HelioCloud, opening
+a 53.6 MB file fetched 2.3 MB, and reading one variable 8.6 MB. Nothing is downloaded whole by
+default.
 
 ```python
 import pycdfpp
