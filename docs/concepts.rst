@@ -219,11 +219,13 @@ the value of an attribute of the variable's type, so a ``CDF_REAL4`` variable ta
 
 .. code-block:: python
 
-    cdf = pycdfpp.CDF()
-    cdf.add_variable("EDC_SRF", np.empty((0, 3), dtype=np.float32),
-                     pad_value=np.float32(-1e-30),
-                     sparse_records=pycdfpp.SparseRecords.pad_sparse_records)
-    cdf["EDC_SRF"].pad_value    # [-1.0000000031710769e-30], the float32 nearest to -1e-30
+    import numpy as np
+
+    sparse = pycdfpp.CDF()
+    sparse.add_variable("EDC_SRF", np.empty((0, 3), dtype=np.float32),
+                        pad_value=np.float32(-1e-30),
+                        sparse_records=pycdfpp.SparseRecords.pad_sparse_records)
+    sparse["EDC_SRF"].pad_value    # [-1.0000000031710769e-30], the float32 nearest to -1e-30
 
 ``var.virtual_records`` tells which records the file leaves out: one boolean per record, ``True``
 for these **virtual records**. Their values are the filled ones, so they still line up with the
@@ -232,7 +234,13 @@ choose them.
 
 .. code-block:: python
 
-    var.values[~var.virtual_records]   # only the records the file stores
+    virtual = np.zeros(4, dtype=bool)
+    virtual[1] = True
+    sparse.add_variable("B", np.arange(4.), pad_value=-1.,
+                        sparse_records=pycdfpp.SparseRecords.pad_sparse_records,
+                        virtual_records=virtual)
+    var = sparse["B"]
+    var.values[~var.virtual_records]   # [0., 2., 3.], the records the file stores
 
 The ``FILLVAL`` attribute tells you which value that is. ``VALIDMIN`` and ``VALIDMAX``
 give the range of physically meaningful values. Always mask values outside it before

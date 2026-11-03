@@ -87,7 +87,10 @@ Before you submit a pull request, check that it meets these guidelines:
 2. If the pull request adds functionality, the docs should be updated. Put
    your new functionality into a function with a docstring, and document it
    in the relevant page under ``docs/``. Run ``python docs/check_examples.py``
-   to check that every Python example in the docs still runs.
+   to check that every Python example in the docs still runs. It gives each page a
+   temporary directory and needs network access. A block that needs a service, a package
+   or a machine this script does not provide is marked ``:class: no-check`` and skipped:
+   mark one only when there is no way to make the example run here.
 3. The pull request should work for Python 3.10 and above. Check
    https://github.com/SciQLop/cdfpp/actions
    and make sure that the tests pass for all supported Python versions.

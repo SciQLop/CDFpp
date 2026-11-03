@@ -59,6 +59,7 @@ is, and replaces this default: ``storage_options={"profile": "work"}`` picks an 
 profile, for example.
 
 .. code-block:: python
+    :class: no-check
 
     url = ("s3://gov-nasa-hdrl-data1/spdf/cdaweb/data/ace/mag/level_2_cdaweb/"
            "mfi_h0/2020/ac_h0_mfi_20200101_v07.cdf")
@@ -184,6 +185,19 @@ read little from each file; raise it if you pay mostly for requests.
 ``download_whole_below`` is off by default on purpose. When you scan many small files
 and read only a little from each, fetching them whole costs far more than reading
 just the parts you need.
+
+These numbers come from ``benchmarks/remote/heliocloud.py``, which you can run yourself on
+HelioCloud or on any machine, against any URL.
+
+The knobs are keywords of :func:`pycdfpp.load`. Here is the reader above on a small file: a
+quarter of a megabyte is under the threshold, so this fetches it whole in one request, and
+keeps the bytes in a temporary file on disk instead of in memory.
+
+.. code-block:: python
+
+    tuned = pycdfpp.load(HttpReader(s3_url), read_ahead=4 << 20, backing="file",
+                         download_whole_below=8 << 20)
+    tuned["BGSEc"].values.shape   # (5401, 3), after one request
 
 Loading is lazy
 ---------------

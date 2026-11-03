@@ -21,16 +21,27 @@ The extra pulls ``cdflib>=1.3.16,<2``. For ``cdf_to_xarray`` and ``xarray_to_cdf
 Switch your code
 ================
 
-Change the import, nothing else:
+The real ``cdflib`` stays installed, as above: ``pycdfpp.cdflib`` borrows its data classes and
+its leap second table.
+
+Change the import, nothing else. This reads the day of ACE magnetometer data that
+:doc:`quickstart` downloads:
 
 .. code-block:: python
+
+    import urllib.request
 
     # import cdflib
     import pycdfpp.cdflib as cdflib
 
-    cdf = cdflib.CDF("file.cdf")
+    url = ("https://spdf.gsfc.nasa.gov/pub/data/ace/mag/level_2_cdaweb/"
+           "mfi_h0/2020/ac_h0_mfi_20200101_v07.cdf")
+    urllib.request.urlretrieve(url, "ac_h0_mfi_20200101_v07.cdf")
+
+    cdf = cdflib.CDF("ac_h0_mfi_20200101_v07.cdf")
     values = cdf.varget("Epoch")
     times = cdflib.cdfepoch.to_datetime(values)
+    times[:2]   # 2020-01-01T00:00:00, then 15 seconds later
 
 The submodules work the same way: ``pycdfpp.cdflib.cdfwrite``, ``pycdfpp.cdflib.epochs``,
 ``pycdfpp.cdflib.xarray``, ``pycdfpp.cdflib.s3``, ``pycdfpp.cdflib.utils`` and
@@ -42,6 +53,7 @@ Another library that imports cdflib (SunPy, for instance) keeps using the real o
 too, call ``install()`` before that library is imported:
 
 .. code-block:: python
+    :class: no-check
 
     import pycdfpp.cdflib
     pycdfpp.cdflib.install()
@@ -52,6 +64,52 @@ too, call ``install()`` before that library is imported:
 ``install()`` puts ``pycdfpp.cdflib`` and its submodules in ``sys.modules`` under the ``cdflib``
 names. ``cdflib.dataclasses`` and ``cdflib.epochs_astropy`` stay cdflib's. Calling it twice does
 nothing. A module that imported cdflib before ``install()`` keeps the real one.
+
+Time helpers
+------------
+
+``cdfepoch`` turns dates into CDF times and back. It takes one date or a list of them:
+
+.. code-block:: python
+
+    cdflib.cdfepoch.compute_tt2000([[2020, 1, 1, 0, 0, 0, 0, 0, 0]])
+    # array(631108869184000000)
+
+    cdflib.cdfepoch.to_datetime([631108869184000000])
+    # array(['2020-01-01T00:00:00.000000000'], dtype='datetime64[ns]')
+
+    cdflib.cdfepoch.breakdown([631108869184000000])
+    # array([2020, 1, 1, 0, 0, 0, 0, 0, 0])
+
+    cdflib.cdfepoch.unixtime([631108869184000000])
+    # np.float64(1577836800.0)
+
+The components are year, month, day, hour, minute, second, millisecond, microsecond and
+nanosecond, in that order, whatever the time type. :doc:`time` shows pycdfpp's own, shorter,
+way to do the same. Where cdflib disagrees with NASA on these conversions, see the list
+below.
+
+xarray round trip
+-----------------
+
+``cdf_to_xarray`` turns a file into a Dataset and ``xarray_to_cdf`` writes it back:
+
+.. code-block:: python
+
+    from pycdfpp.cdflib.xarray import cdf_to_xarray, xarray_to_cdf
+
+    dataset = cdf_to_xarray("ac_h0_mfi_20200101_v07.cdf", to_datetime=True)
+    dataset["BGSEc"].shape      # (5401, 3)
+    dataset["BGSEc"].attrs["UNITS"]   # 'nT'
+
+    xarray_to_cdf(dataset, "round_trip.cdf")
+
+    back = cdflib.CDF("round_trip.cdf")
+    back.varget("BGSEc").shape  # (5401, 3)
+
+``xarray_to_cdf`` runs cdflib's ISTP checks on the way, so a Dataset that cdflib refuses
+raises here too. Reading a file into xarray keeps every variable, attributes included;
+writing it back makes a file that pycdfpp, cdflib and NASA's library read.
 
 Speed
 =====
@@ -281,3 +339,5 @@ Remote files (``http(s)://``, ``s3://``)
 
 - Every ``s3_read_method`` fetches the whole object into memory. ``file`` stays the URL and ``ftype``
   stays ``"url"`` or ``"s3"``, also for compressed files: ``temp_file`` and ``compressed_file`` stay ``None``.
+  This is what cdflib does; :func:`pycdfpp.load` reads the same URL lazily, fetching only the
+  bytes it needs: see :doc:`reading`.

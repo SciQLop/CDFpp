@@ -2,7 +2,8 @@
 
 Blocks of a page run in order, in one shared namespace, like notebook cells, inside a
 fresh temporary directory. Some examples download public files, so this needs network
-access.
+access. A block that needs a service, a package or hardware this script does not have is
+marked ``:class: no-check`` and skipped.
 
     python docs/check_examples.py [page.rst ...]
 """
@@ -33,13 +34,18 @@ def python_blocks(text: str):
             if body_line.strip() and len(body_line) - len(body_line.lstrip()) <= directive_indent:
                 break
             body.append(body_line)
-        yield number + 1, textwrap.dedent("\n".join(_skip_options(body)))
+        options, code = _split_options(body)
+        if "no-check" in options:
+            continue
+        yield number + 1, textwrap.dedent("\n".join(code))
 
 
-def _skip_options(body: list[str]) -> list[str]:
-    """Drop the directive's ``:option:`` lines, which come before the first blank line."""
+def _split_options(body: list[str]) -> tuple[str, list[str]]:
+    """Split the directive's ``:option:`` lines, which come before the first blank line, from the code."""
     first_blank = next((i for i, l in enumerate(body) if not l.strip()), len(body))
-    return [l for i, l in enumerate(body) if i >= first_blank or not l.strip().startswith(":")]
+    options = "".join(body[:first_blank])
+    code = [l for i, l in enumerate(body) if i >= first_blank or not l.strip().startswith(":")]
+    return options, code
 
 
 def run_page(page: Path) -> list[str]:

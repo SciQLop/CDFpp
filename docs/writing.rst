@@ -240,6 +240,35 @@ Read and change them through ``attributes``:
 
     cdf["Temperature"].attributes["UNITS"].set_value("K")
 
+Entries holding several strings
+-------------------------------
+
+An entry can hold several strings. CDF stores them as one string, the pieces separated by
+``\N `` (backslash, N, space), and records how many there are in the entry's
+``NumStrings`` field. Write the separator yourself, and ``pycdfpp`` counts the pieces:
+
+.. code-block:: python
+
+    cdf["B"].add_attribute("FIELDNAM", "First string\\N Second string")
+    pycdfpp.save(cdf, "my_mission.cdf")
+
+``pycdfpp`` gives the entry back the way it is stored, as one string:
+
+.. code-block:: python
+
+    back = pycdfpp.load("my_mission.cdf")
+    back["B"].attributes["FIELDNAM"][0]     # 'First string\\N Second string'
+
+The :doc:`cdflib` interface splits it, which is what ``cdflib`` users expect:
+
+.. code-block:: python
+    :class: no-playground
+
+    import pycdfpp.cdflib as cdflib
+
+    list(cdflib.CDF("my_mission.cdf").attget("FIELDNAM", "B").Data)
+    # ['First string', 'Second string']
+
 Getting the types right
 -----------------------
 
@@ -282,12 +311,12 @@ variable's **pad value**. Set it when you create the variable, or later with the
 
 .. code-block:: python
 
-    cdf.add_variable("B", np.zeros((10, 3), dtype=np.float32),
+    cdf.add_variable("B_padded", np.zeros((10, 3), dtype=np.float32),
                      pad_value=np.float32(-1e31),
                      sparse_records=pycdfpp.SparseRecords.pad_sparse_records)
 
-    cdf["B"].pad_value = np.float32(0.0)   # change it
-    cdf["B"].pad_value = None              # the file declares no pad value
+    cdf["B_padded"].pad_value = np.float32(0.0)   # change it
+    cdf["B_padded"].pad_value = None              # the file declares no pad value
 
 :func:`pycdfpp.default_pad_value` returns the value readers use when the file declares
 none. :doc:`concepts` explains how readers fill missing records.
@@ -303,12 +332,12 @@ previous record with ``prev_sparse_records``:
 
     virtual = np.zeros(10, dtype=bool)
     virtual[[2, 3, 7]] = True
-    cdf.add_variable("B", np.arange(10.), pad_value=-1.,
+    cdf.add_variable("B_virtual", np.arange(10.), pad_value=-1.,
                      sparse_records=pycdfpp.SparseRecords.pad_sparse_records,
                      virtual_records=virtual)
-    pycdfpp.load(pycdfpp.save(cdf))["B"].values   # [0, 1, -1, -1, 4, 5, 6, -1, 8, 9]
+    pycdfpp.load(pycdfpp.save(cdf))["B_virtual"].values   # [0, 1, -1, -1, 4, 5, 6, -1, 8, 9]
 
-    cdf["B"].virtual_records = None   # store every record
+    cdf["B_virtual"].virtual_records = None   # store every record
 
 The last record must be stored: NASA's library can't read the records after the last one a
 file stores, so saving refuses it.
@@ -378,9 +407,10 @@ There is no rename: remove the attribute, then add it back under its new name.
 
 .. code-block:: python
 
+    cdf["B"].add_attribute("Frame", "GSE")
     frame = cdf["B"].attributes["Frame"]
     new = cdf.filter(variable_attributes=lambda v, a: not (v.name == "B" and a.name == "Frame"))
-    new["B"].add_attribute("FRAME", frame.value, frame.type())
+    new["B"].add_attribute("FRAME", frame[0], frame.type())
 
 Without ``inplace=True``, ``frame`` still points into ``cdf``, which keeps its ``Frame``.
 
