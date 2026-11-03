@@ -147,6 +147,13 @@ struct cdf_repr
     {
         return type == cdf_r_z::z ? z_var_attributes : r_var_attributes;
     }
+    // A broken file can number a variable past the count its header declares.
+    [[nodiscard]] cdf_map<std::string, VariableAttribute>* var_attributes_of(
+        cdf_r_z type, std::size_t number) noexcept
+    {
+        auto& all = var_attributes(type);
+        return number < std::size(all) ? &all[number] : nullptr;
+    }
 };
 
 inline void add_global_attribute(cdf_repr& repr, const std::string& name, Attribute::attr_data_t&& data)
@@ -187,8 +194,8 @@ inline Variable& add_variable(cdf_repr& repr, const std::string& name, std::size
     repr.variables[name] = Variable { name, number, std::forward<data_t>(data), std::move(shape),
         repr.majority, is_nrv, cdf_compression_type::no_compression, is_zvariable };
     auto& variable = repr.variables[name];
-    variable.attributes
-        = std::move(repr.var_attributes(is_zvariable ? cdf_r_z::z : cdf_r_z::r)[number]);
+    if (auto* attributes = repr.var_attributes_of(is_zvariable ? cdf_r_z::z : cdf_r_z::r, number))
+        variable.attributes = std::move(*attributes);
     return variable;
 }
 

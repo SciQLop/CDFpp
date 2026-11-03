@@ -45,6 +45,28 @@ class StructuralIntrospection(unittest.TestCase):
             # No zVariable has this number, yet the attribute also has a zEntry.
             self.assertEqual(cdf['Time_PB5'].attributes['FIELDNAM'].value, 'Time PB5')
 
+    def test_variable_numbered_past_the_variable_count_loads_without_attributes(self):
+        with open(f'{RESOURCES}/ac_k0_mfi_00000000_v01.cdf', 'rb') as f:
+            data = bytearray(f.read())
+        set_vdr_number(data, b'label_BGSE', 1_000_000)
+        for lazy in (True, False):
+            cdf = pycdfpp.load(bytes(data), lazy)
+            self.assertEqual(len(cdf['label_BGSE'].attributes), 0)
+            self.assertEqual(cdf['Epoch'].attributes['FIELDNAM'].value, 'Time')
+
+
+def set_vdr_number(data, name, number):
+    """Overwrite the Num field of the v3 VDR named `name` (spec: VDR layout, Num at 68, Name at 84)."""
+    name_field = name + b'\0'
+    position = data.find(name_field)
+    while position != -1:
+        record = position - 84
+        if int.from_bytes(data[record + 8:record + 12], 'big') in (3, 8):
+            data[record + 68:record + 72] = number.to_bytes(4, 'big')
+            return
+        position = data.find(name_field, position + 1)
+    raise ValueError(f'no VDR named {name!r}')
+
 
 if __name__ == '__main__':
     unittest.main()

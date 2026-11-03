@@ -579,8 +579,10 @@ namespace
                         = [buffer = context.buffer,
                               vxr_head = static_cast<std::size_t>(vdr.VXRhead)]() -> std::size_t
                     { return count_var_blocks<cdf_version_tag_t>(buffer, vxr_head); };
+                    static const cdf_map<std::string, VariableAttribute> no_attributes;
+                    const auto* attributes = cdf.var_attributes_of(type, vdr.Num);
                     auto missing = missing_records_for(
-                        vdr, cdf.var_attributes(type)[vdr.Num], context.encoding());
+                        vdr, attributes ? *attributes : no_attributes, context.encoding());
                     auto& variable = [&]() -> Variable&
                     {
                         if (lazy_load)
