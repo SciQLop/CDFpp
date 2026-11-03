@@ -23,9 +23,10 @@ A modern, from-scratch C++20 implementation of NASA's [CDF](https://cdf.gsfc.nas
 - **Lazy loading** — variable data is read on first access, not at file open
 - **Read files where they live** — `pycdfpp.load("s3://…")` reads only the byte ranges it
   needs, through fsspec or your own byte-range reader, instead of downloading the file
-- **Drop-in `cdflib` replacement** — `pycdfpp.cdflib` gives cdflib 1.3.16's API (`CDF`,
-  `cdfwrite.CDF`, `cdfepoch`, `cdf_to_xarray`, `xarray_to_cdf`) on pycdfpp, and `install()`
-  makes `import cdflib` give it
+- **Drop-in `cdflib` replacement** — replace `import cdflib` with
+  `import pycdfpp.cdflib as cdflib` and your cdflib code runs on pycdfpp, unchanged. For a
+  library you can't edit, such as SunPy, call `pycdfpp.cdflib.install()` before importing it:
+  its own `import cdflib` then gets pycdfpp's version too
 - **Fast** — 5.6× to several hundred times faster than spacepy and cdflib at reading, 3.7× to 14× at writing compressed files ([see below](#compared-with-spacepy-and-cdflib)); SIMD time conversions at up to 8 billion epochs/s (TT2000, AVX-512)
 - **Runs everywhere** — Linux, Windows, macOS (x86_64 + ARM64), and WebAssembly (Pyodide / emscripten-forge)
 - **In-browser app** — [**CDFpp Explorer**](https://sciqlop.github.io/CDFpp/) inspects, plots, and ISTP-validates CDF files entirely client-side, no install

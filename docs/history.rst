@@ -34,8 +34,9 @@ The full notes of each release are on
 * ``pycdfpp.cdflib``: a drop-in replacement for the Python package
   `cdflib <https://github.com/MAVENSDC/cdflib>`_ 1.3.16 (``CDF``, ``cdfwrite.CDF``,
   ``cdfepoch``, ``cdf_to_xarray``, ``xarray_to_cdf``), faster and built on pycdfpp. Install it
-  with ``pip install pycdfpp[cdflib]``. ``pycdfpp.cdflib.install()`` makes ``import cdflib``
-  give it. See :doc:`cdflib`.
+  with ``pip install pycdfpp[cdflib]``. For a library you can't edit, such as SunPy, call
+  ``pycdfpp.cdflib.install()`` before importing it: its own ``import cdflib`` then gets
+  pycdfpp's version. See :doc:`cdflib`.
 * ``pycdfpp.cdflib.xarray_to_cdf`` writing twice to a name without the ``.cdf`` suffix
   reports that nothing was written, instead of raising on the ``.cdf`` file it had
   already written.
