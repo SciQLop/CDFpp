@@ -33,6 +33,7 @@
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
 #include <cpp_utils/containers/no_init_vector.hpp>
+#include <cpp_utils/cpp_utils_python/datetime.hpp>
 using cpp_utils::containers::no_init_vector;
 
 using namespace cdf;
@@ -48,101 +49,20 @@ using namespace cdf;
 
 namespace py = pybind11;
 
-// A datetime.datetime argument, converted with _details::to_tp.
-struct py_datetime
-{
-    const PyObject* obj;
-};
-
-namespace pybind11::detail
-{
-template <>
-struct type_caster<py_datetime>
-{
-    PYBIND11_TYPE_CASTER(py_datetime, const_name("datetime.datetime"));
-
-    bool load(handle src, bool)
-    {
-        if (!PyDateTime_Check(src.ptr()))
-            return false;
-        value.obj = src.ptr();
-        return true;
-    }
-
-    static handle cast(const py_datetime& dt, return_value_policy, handle)
-    {
-        return py::handle(const_cast<PyObject*>(dt.obj)).inc_ref();
-    }
-};
-}
+// A datetime.datetime argument, converted with cpp_utils::python::to_time_point.
+using cpp_utils::python::py_datetime;
 
 namespace _details
 {
-
-
-template <typename T>
-concept time_point_type = requires(T a) { a.time_since_epoch(); };
-
-
-[[nodiscard]] inline PyObject* to_datetime(const time_point_type auto& timepoint)
-{
-    auto dp = floor<days>(timepoint);
-    year_month_day ymd { dp };
-    hh_mm_ss time { floor<microseconds>(timepoint - dp) };
-    return PyDateTime_FromDateAndTime(static_cast<int>(ymd.year()),
-        static_cast<unsigned>(ymd.month()), static_cast<unsigned>(ymd.day()),
-        static_cast<unsigned>(time.hours().count()), static_cast<unsigned>(time.minutes().count()),
-        static_cast<unsigned>(time.seconds().count()),
-        static_cast<unsigned>(time.subseconds().count())); // microseconds
-}
-
-
-[[nodiscard]] inline auto to_tp(int64_t ns)
-{
-    return std::chrono::system_clock::time_point {} + std::chrono::nanoseconds(ns);
-}
-
-[[nodiscard]] inline std::chrono::microseconds utc_offset(const PyDateTime_DateTime* dt)
-{
-    auto offset = py::reinterpret_steal<py::object>(
-        PyObject_CallMethod(reinterpret_cast<PyObject*>(const_cast<PyDateTime_DateTime*>(dt)),
-            "utcoffset", nullptr));
-    if (!offset)
-        throw py::error_already_set();
-    if (offset.is_none())
-        return {};
-    return std::chrono::days { PyDateTime_DELTA_GET_DAYS(offset.ptr()) }
-    + std::chrono::seconds { PyDateTime_DELTA_GET_SECONDS(offset.ptr()) }
-    + std::chrono::microseconds { PyDateTime_DELTA_GET_MICROSECONDS(offset.ptr()) };
-}
-
-// Naive datetimes are UTC, whatever the machine's timezone; aware ones are shifted to UTC.
-// pybind11's own chrono caster is not used: it reads naive datetimes as local time.
-[[nodiscard]] inline auto to_tp(const PyDateTime_DateTime* dt)
-{
-    using namespace std::chrono;
-    const sys_days date = year_month_day { year { PyDateTime_GET_YEAR(dt) },
-        month { static_cast<unsigned>(PyDateTime_GET_MONTH(dt)) },
-        day { static_cast<unsigned>(PyDateTime_GET_DAY(dt)) } };
-    const auto wall_clock = date + hours { PyDateTime_DATE_GET_HOUR(dt) }
-        + minutes { PyDateTime_DATE_GET_MINUTE(dt) } + seconds { PyDateTime_DATE_GET_SECOND(dt) }
-        + microseconds { PyDateTime_DATE_GET_MICROSECOND(dt) };
-    const auto utc = dt->hastzinfo ? wall_clock - utc_offset(dt) : wall_clock;
-    return system_clock::time_point { duration_cast<system_clock::duration>(
-        utc.time_since_epoch()) };
-}
-
-[[nodiscard]] inline auto to_tp(const PyObject* dt)
-{
-    return to_tp(reinterpret_cast<const PyDateTime_DateTime*>(dt));
-}
+using cpp_utils::python::to_datetime;
+using cpp_utils::python::to_time_point;
 
 // A naive datetime is already UTC: copying its fields is much faster than a round trip.
 [[nodiscard]] inline PyObject* to_utc_datetime(const PyObject* item)
 {
     const auto* dt = reinterpret_cast<const PyDateTime_DateTime*>(item);
     if (dt->hastzinfo)
-        return to_datetime(to_tp(dt));
+        return to_datetime(to_time_point(item));
     return PyDateTime_FromDateAndTime(PyDateTime_GET_YEAR(dt), PyDateTime_GET_MONTH(dt),
         PyDateTime_GET_DAY(dt), PyDateTime_DATE_GET_HOUR(dt), PyDateTime_DATE_GET_MINUTE(dt),
         PyDateTime_DATE_GET_SECOND(dt), PyDateTime_DATE_GET_MICROSECOND(dt));
@@ -151,12 +71,7 @@ concept time_point_type = requires(T a) { a.time_since_epoch(); };
 template <cdf_time_t time_t>
 [[nodiscard]] inline time_t from_datetime(const PyObject* dt)
 {
-    return cdf::to_cdf_time<time_t>(to_tp(dt));
-}
-
-[[nodiscard]] inline PyObject* to_datetime(int64_t ns)
-{
-    return to_datetime(to_tp(ns));
+    return cdf::to_cdf_time<time_t>(to_time_point(dt));
 }
 
 // NASA's convention (SciQLop/CDFpp#19): fill and illegal values are 9999-12-31, pad values year
@@ -262,7 +177,7 @@ template <typename time_t>
 [[nodiscard]] inline int64_t to_datetime64(const PyObject* dt)
 {
     using namespace std::chrono;
-    return duration_cast<nanoseconds>(_details::to_tp(dt).time_since_epoch()).count();
+    return duration_cast<nanoseconds>(_details::to_time_point(dt).time_since_epoch()).count();
 }
 
 [[nodiscard]] inline py::object to_datetime64(const py_list_or_py_tuple auto& input)
@@ -424,8 +339,7 @@ template <typename time_t>
 template <typename time_t>
 [[nodiscard]] inline time_t to_cdf_time_t(const PyObject* dt)
 {
-    return cdf::to_cdf_time<time_t>(
-        _details::to_tp(reinterpret_cast<const PyDateTime_DateTime*>(dt)));
+    return cdf::to_cdf_time<time_t>(_details::to_time_point(dt));
 }
 
 

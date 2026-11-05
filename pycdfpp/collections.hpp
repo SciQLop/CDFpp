@@ -37,6 +37,7 @@ typedef SSIZE_T ssize_t;
 #include <cdfpp/cdf.hpp>
 #include <cdfpp/chrono/cdf-chrono.hpp>
 #include <cpp_utils/containers/no_init_vector.hpp>
+#include <cpp_utils/cpp_utils_python/numpy.hpp>
 using cpp_utils::containers::default_init_allocator;
 using cpp_utils::containers::no_init_vector;
 using namespace cdf;
@@ -132,25 +133,7 @@ template <typename T>
 template <typename T, typename Shape, typename Owner = std::nullptr_t>
 [[nodiscard]] inline auto fast_allocate_array(const Shape& shape, Owner&& owner = std::nullptr_t {})
 {
-    using value_t = std::remove_const_t<T>;
-    using alloc_t = default_init_allocator<value_t>;
-
-    if (flat_size(shape) == 0)
-    {
-        return py::array_t<value_t>(shape);
-    }
-
-    auto ptr = alloc_t().allocate(flat_size(shape));
-
-    if constexpr (std::is_same_v<std::nullptr_t, std::remove_cvref_t<Owner>>)
-    {
-        return py::array_t<value_t>(shape, ptr,
-            py::capsule(ptr, [](void* p) { alloc_t().deallocate(static_cast<value_t*>(p), 0); }));
-    }
-    else
-    {
-        return py::array_t<value_t>(shape, ptr, std::forward<Owner>(owner));
-    }
+    return cpp_utils::python::fast_allocate_array<T>(shape, std::forward<Owner>(owner));
 }
 
 template <typename T>
